@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom"
 import api from "../services/api"
 
 function Login() {
-
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -11,7 +10,6 @@ function Login() {
   const navigate = useNavigate()
 
   const handleLogin = async () => {
-
     if (!email || !password) {
       alert("Enter email + password")
       return
@@ -25,21 +23,17 @@ function Login() {
         password
       })
 
-      console.log("✅ LOGIN RESPONSE:", res.data)
-
-      // ✅ FIX: only check token
       if (!res.data.token) {
         alert("Invalid backend response")
         return
       }
 
-      // ✅ Save token
+      // 🔥 Save token + user
       localStorage.setItem("token", res.data.token)
+      localStorage.setItem("user", JSON.stringify({
+        role: res.data.role
+      }))
 
-      // ✅ Save role directly (since no user object)
-      localStorage.setItem("role", res.data.role)
-
-      // ✅ Redirect based on role
       if (res.data.role === "admin") {
         navigate("/admin/production")
       } else {
@@ -47,7 +41,6 @@ function Login() {
       }
 
     } catch (err) {
-      console.error("❌ LOGIN ERROR:", err.response?.data || err.message)
       alert(err.response?.data?.error || "Login failed")
     } finally {
       setLoading(false)
