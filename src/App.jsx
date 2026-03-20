@@ -16,16 +16,21 @@ import Store from "./pages/Store"
 import ProductionBoard from "./pages/ProductionBoard"
 import CustomQuote from "./pages/CustomQuote"
 import Login from "./pages/Login"
+import QuoteResponse from "./pages/QuoteResponse"
+import Success from "./pages/Success"
 
 /* ================= LAYOUT ================= */
 function LayoutWrapper({ children }) {
   const location = useLocation()
+
   const isAdminPage = location.pathname.startsWith("/admin")
+  const isQuotePage = location.pathname.startsWith("/quote")
+  const isSuccessPage = location.pathname.startsWith("/success")
 
   return (
     <div
       className={
-        isAdminPage
+        isAdminPage || isQuotePage || isSuccessPage
           ? "w-full min-h-screen p-0 m-0"
           : "max-w-6xl mx-auto p-6"
       }
@@ -35,46 +40,56 @@ function LayoutWrapper({ children }) {
   )
 }
 
-/* ================= MAIN CONTENT ================= */
+/* ================= MAIN ================= */
 function AppContent() {
   const location = useLocation()
+
   const isAdminPage = location.pathname.startsWith("/admin")
+  const isQuotePage = location.pathname.startsWith("/quote")
+  const isSuccessPage = location.pathname.startsWith("/success")
 
-  /* 🔥 AUTO LOGIN CHECK */
   useEffect(() => {
-  const checkAuth = async () => {
-    const token = localStorage.getItem("token")
+    const checkAuth = async () => {
+      const token = localStorage.getItem("token")
+      if (!token) return
 
-    if (!token) return
+      try {
+        const res = await api.get("/auth/profile")
+        localStorage.setItem("user", JSON.stringify(res.data.user))
+      } catch {
+        localStorage.removeItem("token")
+        localStorage.removeItem("user")
+      }
+    }
 
-    try {
-      const res = await api.get("/auth/profile")
+    checkAuth()
+  }, [])
 
-      localStorage.setItem("user", JSON.stringify(res.data.user))
-
-    } catch {
-  console.log("Auth expired")
-
-  localStorage.removeItem("token")
-  localStorage.removeItem("user")
-}
-  }
-
-  checkAuth()
-}, [])
   return (
     <>
-      {/* Hide navbar on admin + login */}
-      {!isAdminPage && location.pathname !== "/login" && <Navbar />}
+      {/* NAVBAR CONTROL */}
+      {!isAdminPage &&
+        location.pathname !== "/login" &&
+        !isQuotePage &&
+        !isSuccessPage && <Navbar />}
 
       <LayoutWrapper>
         <Routes>
+
+          {/* CORE */}
           <Route path="/" element={<Home />} />
           <Route path="/store" element={<Store />} />
           <Route path="/login" element={<Login />} />
           <Route path="/submit" element={<CustomQuote />} />
 
-          {/* 🔒 ADMIN */}
+          {/* QUOTE FLOW */}
+          <Route path="/quote/:id" element={<QuoteResponse />} />
+
+          {/* ✅ SUCCESS (FIXED) */}
+          <Route path="/success" element={<Success />} />
+          <Route path="/success/:id" element={<Success />} />
+
+          {/* ADMIN */}
           <Route
             path="/admin/production"
             element={
@@ -84,7 +99,9 @@ function AppContent() {
             }
           />
 
+          {/* FALLBACK */}
           <Route path="*" element={<h2>Page not found</h2>} />
+
         </Routes>
       </LayoutWrapper>
     </>

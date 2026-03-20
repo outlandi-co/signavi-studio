@@ -1,16 +1,27 @@
 import { useEffect, useState } from "react"
 import api from "../services/api"
+import CartDrawer from "../components/CartDrawer"
 
 function Store() {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
 
+  // 💾 LOAD CART FROM STORAGE
+  const [cart, setCart] = useState(() => {
+    const saved = localStorage.getItem("cart")
+    return saved ? JSON.parse(saved) : []
+  })
+
+  const [isCartOpen, setIsCartOpen] = useState(false)
+
+  // 🔔 ADD TO CART NOTIFICATION
+  const [flash, setFlash] = useState(false)
+
+  /* ================= LOAD PRODUCTS ================= */
   useEffect(() => {
     const loadProducts = async () => {
       try {
         const res = await api.get("/products")
-
-        console.log("PRODUCTS:", res.data) // 🔥 DEBUG
 
         const activeProducts = res.data.filter(
           (p) => p.active !== false
@@ -27,9 +38,101 @@ function Store() {
     loadProducts()
   }, [])
 
+  /* ================= SAVE CART ================= */
+  useEffect(() => {
+    localStorage.setItem("cart", JSON.stringify(cart))
+  }, [cart])
+
+  /* ================= ADD TO CART ================= */
+  const addToCart = (product) => {
+    setCart(prev => {
+      const existing = prev.find(p => p._id === product._id)
+
+      if (existing) {
+        return prev.map(p =>
+          p._id === product._id
+            ? { ...p, quantity: p.quantity + 1 }
+            : p
+        )
+      }
+
+      return [
+        ...prev,
+        {
+          _id: product._id,
+          name: product.name,
+          price: product.listPrice || product.price || 0,
+          image: product.image,
+          quantity: 1
+        }
+      ]
+    })
+
+    // 🔥 OPEN CART
+    setIsCartOpen(true)
+
+    // 🔔 FLASH MESSAGE
+    setFlash(true)
+    setTimeout(() => setFlash(false), 800)
+  }
+
+  /* ================= REMOVE ================= */
+  const removeFromCart = (id) => {
+    setCart(prev => prev.filter(p => p._id !== id))
+  }
+
+  /* ================= CHECKOUT ================= */
+  const handleCheckout = async () => {
+    try {
+      const res = await api.post(
+        "/stripe/create-checkout-session",
+        { items: cart }
+      )
+
+      window.location.href = res.data.url
+
+    } catch (error) {
+      console.error("Checkout error:", error)
+    }
+  }
+
   return (
     <div style={{ padding: "30px" }}>
       <h1>Store</h1>
+
+      {/* 🔔 TOAST */}
+      {flash && (
+        <div
+          style={{
+            position: "fixed",
+            top: "20px",
+            right: "20px",
+            background: "black",
+            color: "white",
+            padding: "10px 15px",
+            borderRadius: "5px",
+            zIndex: 2000
+          }}
+        >
+          Added to cart 🛒
+        </div>
+      )}
+
+      {/* 🔥 CART BUTTON */}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "20px" }}>
+        <button
+          onClick={() => setIsCartOpen(true)}
+          style={{
+            padding: "10px 15px",
+            background: "black",
+            color: "white",
+            border: "none",
+            cursor: "pointer"
+          }}
+        >
+          Cart ({cart.length})
+        </button>
+      </div>
 
       {loading && <p>Loading products...</p>}
 
@@ -37,6 +140,7 @@ function Store() {
         <p>No products available</p>
       )}
 
+      {/* ================= PRODUCTS ================= */}
       <div
         style={{
           display: "grid",
@@ -56,7 +160,7 @@ function Store() {
           >
             <img
               src={
-                product.image && product.image !== ""
+                product.image
                   ? product.image
                   : "https://via.placeholder.com/200"
               }
@@ -68,19 +172,20 @@ function Store() {
               }}
             />
 
-            <h3>{product.name || "No Name"}</h3>
+            <h3>{product.name}</h3>
 
             <p style={{ fontWeight: "bold" }}>
-              ${product.price || 0}
+              ${product.listPrice || product.price || 0}
             </p>
 
             <button
+              onClick={() => addToCart(product)}
               style={{
                 marginTop: "10px",
                 width: "100%",
-                padding: "8px",
-                background: "#000",
-                color: "#fff",
+                padding: "10px",
+                background: "black",
+                color: "white",
                 border: "none",
                 cursor: "pointer"
               }}
@@ -90,6 +195,15 @@ function Store() {
           </div>
         ))}
       </div>
+
+      {/* ================= CART DRAWER ================= */}
+      <CartDrawer
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        cart={cart}
+        removeFromCart={removeFromCart}
+        onCheckout={handleCheckout}
+      />
     </div>
   )
 }

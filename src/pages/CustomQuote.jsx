@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import api from "../services/api"
 
 function CustomQuote() {
@@ -15,28 +15,31 @@ function CustomQuote() {
   const [preview, setPreview] = useState(null)
   const [loading, setLoading] = useState(false)
 
-  /* HANDLE INPUT */
+  /* ================= INPUT ================= */
   const handleChange = (e) => {
-    setForm(prev => ({
-      ...prev,
-      [e.target.name]: e.target.value
-    }))
+    const { name, value } = e.target
+    setForm(prev => ({ ...prev, [name]: value }))
   }
 
-  /* HANDLE FILE */
+  /* ================= FILE ================= */
   const handleFile = (e) => {
     const selected = e.target.files[0]
     if (!selected) return
 
     setFile(selected)
 
-    // cleanup old preview
     if (preview) URL.revokeObjectURL(preview)
-
     setPreview(URL.createObjectURL(selected))
   }
 
-  /* SUBMIT */
+  /* ================= CLEANUP ================= */
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview)
+    }
+  }, [preview])
+
+  /* ================= SUBMIT ================= */
   const handleSubmit = async (e) => {
     e.preventDefault()
 
@@ -50,23 +53,29 @@ function CustomQuote() {
     try {
       const data = new FormData()
 
-      // 🔥 EXPLICIT APPEND (prevents undefined bugs)
       data.append("name", form.name)
       data.append("email", form.email)
-      data.append("quantity", String(form.quantity))
+      data.append("quantity", form.quantity)
       data.append("printType", form.printType)
-      data.append("notes", form.notes || "")
+      data.append("notes", form.notes)
 
-      if (file) {
-        data.append("artwork", file)
+      if (file) data.append("artwork", file)
+
+      console.log("🚀 Sending FormData:")
+      for (let pair of data.entries()) {
+        console.log(pair[0], pair[1])
       }
 
-      // 🔥 DO NOT manually set Content-Type
-      await api.post("/quotes", data)
+      const res = await api.post("/quotes", data, {
+        headers: {
+          "Content-Type": "multipart/form-data"
+        }
+      })
+
+      console.log("✅ RESPONSE:", res.data)
 
       alert("🔥 Quote submitted successfully!")
 
-      // RESET
       setForm({
         name: "",
         email: "",
@@ -82,123 +91,109 @@ function CustomQuote() {
 
     } catch (err) {
       console.error("❌ Submit error:", err.response?.data || err.message)
-
-      alert(
-        err.response?.data?.error ||
-        "Server error — check backend console"
-      )
-
+      alert("Server error — check backend console")
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "#0f172a",
-      color: "#fff",
-      padding: "40px"
-    }}>
-
-      <h1 style={{ fontSize: "32px", marginBottom: "20px" }}>
-        Request a Custom Quote
-      </h1>
-
-      <form
-        onSubmit={handleSubmit}
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#0f172a",
+        color: "#fff",
+        padding: "40px",
+        display: "flex",
+        justifyContent: "center"
+      }}
+    >
+      {/* 🔥 CONTAINER */}
+      <div
         style={{
+          width: "100%",
           maxWidth: "500px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "12px"
+          background: "#111827",
+          padding: "30px",
+          borderRadius: "16px",
+          boxShadow: "0 20px 50px rgba(0,0,0,0.4)"
         }}
       >
 
-        <input
-          name="name"
-          placeholder="Name"
-          value={form.name}
-          onChange={handleChange}
-          required
-        />
+        <h1 style={{ marginBottom: "20px" }}>
+          Request a Custom Quote
+        </h1>
 
-        <input
-          name="email"
-          placeholder="Email"
-          value={form.email}
-          onChange={handleChange}
-          required
-        />
-
-        <input
-          name="quantity"
-          type="number"
-          value={form.quantity}
-          onChange={handleChange}
-          min="1"
-        />
-
-        <select
-          name="printType"
-          value={form.printType}
-          onChange={handleChange}
-        >
-          <option value="screenprint">Screen Print</option>
-          <option value="dtf">DTF Transfer</option>
-          <option value="embroidery">Embroidery</option>
-        </select>
-
-        <textarea
-          name="notes"
-          placeholder="Describe your project..."
-          value={form.notes}
-          onChange={handleChange}
-        />
-
-        {/* FILE */}
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleFile}
-        />
-
-        {/* PREVIEW */}
-        {preview && (
-          <img
-            src={preview}
-            alt="preview"
-            style={{
-              width: "100%",
-              borderRadius: "10px",
-              marginTop: "10px"
-            }}
-          />
-        )}
-
-        {/* BUTTON */}
-        <button
-          type="submit"
-          disabled={loading}
+        <form
+          onSubmit={handleSubmit}
           style={{
-            marginTop: "10px",
-            padding: "12px",
-            background: loading ? "#555" : "#22c55e",
-            border: "none",
-            color: "#fff",
-            cursor: "pointer",
-            borderRadius: "6px"
+            display: "flex",
+            flexDirection: "column",
+            gap: "12px"
           }}
         >
-          {loading ? "Submitting..." : "Submit Quote"}
-        </button>
+          
+          <input name="name" value={form.name} onChange={handleChange} placeholder="Name" required />
+          
+          <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="Email" required />
+          
+          <input name="quantity" type="number" value={form.quantity} onChange={handleChange} min="1" />
 
-        <p style={{ fontSize: "12px", opacity: 0.7 }}>
-          Upload your design or describe your idea — we’ll handle the rest.
-        </p>
+          <select name="printType" value={form.printType} onChange={handleChange}>
+            <option value="screenprint">Screen Print</option>
+            <option value="dtf">DTF Transfer</option>
+            <option value="embroidery">Embroidery</option>
+          </select>
 
-      </form>
+          <textarea
+            name="notes"
+            value={form.notes}
+            onChange={handleChange}
+            placeholder="Describe your project..."
+          />
 
+          <input type="file" accept="image/*,.ai,.psd,.svg" onChange={handleFile} />
+
+          {preview && (
+            <img
+              src={preview}
+              alt="preview"
+              style={{
+                width: "200px",
+                borderRadius: "8px",
+                marginTop: "10px"
+              }}
+            />
+          )}
+
+          {/* 🔥 BUTTON */}
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              marginTop: "10px",
+              padding: "14px 24px",
+              background: loading
+                ? "#555"
+                : "linear-gradient(90deg, #06b6d4, #2563eb)",
+              border: "none",
+              color: "#fff",
+              cursor: loading ? "not-allowed" : "pointer",
+              borderRadius: "12px",
+              fontWeight: "600",
+              letterSpacing: "0.5px",
+              boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
+              transition: "all 0.2s ease",
+              alignSelf: "flex-start"
+            }}
+            onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.97)")}
+            onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+          >
+            {loading ? "Submitting..." : "🚀 Submit Quote"}
+          </button>
+
+        </form>
+      </div>
     </div>
   )
 }
