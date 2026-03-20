@@ -1,0 +1,72 @@
+import { useState } from "react"
+
+function JobCard({ job, updateStatus }) {
+
+  if (!job) return null
+
+  return (
+    <div className="bg-white shadow p-3 rounded mb-3">
+
+      {/* IMAGE */}
+      {job.artwork && (
+        <img
+          src={`http://localhost:5050/uploads/${job.artwork}`}
+          alt="artwork"
+          className="w-full h-32 object-cover rounded mb-2"
+        />
+      )}
+
+      {/* INFO */}
+      <h3 className="font-bold">
+        {job.printType || "Custom Job"}
+      </h3>
+
+      <p className="text-sm text-gray-600">
+        {job.customerName || "Walk-in"}
+      </p>
+
+      <p className="text-sm">
+        Qty: {job.quantity || job.items?.length || 0}
+      </p>
+
+      <span className="text-xs bg-gray-200 px-2 py-1 rounded">
+        {job.status}
+      </span>
+
+      {/* ACTIONS */}
+      <div className="flex gap-2 mt-2">
+
+        {job.status === "pending" && (
+          <button
+            onClick={() => updateStatus(job, "printing")}
+            className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
+          >
+            Start
+          </button>
+        )}
+
+        {job.status === "printing" && (
+          <button
+            onClick={() => updateStatus(job, "ready")}
+            className="bg-yellow-500 text-white px-2 py-1 rounded text-xs"
+          >
+            Ready
+          </button>
+        )}
+
+        {job.status === "ready" && (
+          <button
+            onClick={() => updateStatus(job, "delivered")}
+            className="bg-green-500 text-white px-2 py-1 rounded text-xs"
+          >
+            Ship
+          </button>
+        )}
+
+      </div>
+
+    </div>
+  )
+}
+
+export default JobCard
