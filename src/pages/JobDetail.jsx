@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react"
-import axios from "axios"
 import { useParams } from "react-router-dom"
+import api from "../services/api"
+import { io } from "socket.io-client"
 
-const API_URL = "http://localhost:5050/api"
-const FILE_URL = "http://localhost:5050"
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050/api"
+const SOCKET_URL = API_URL.replace("/api", "").replace(/\/$/, "")
+const FILE_URL = SOCKET_URL + "/uploads/"
 
 function JobDetail() {
 
@@ -12,81 +14,39 @@ function JobDetail() {
 
   useEffect(() => {
 
-    const fetchJob = async () => {
-
+    const loadJob = async () => {
       try {
-
-        const res = await axios.get(`${API_URL}/jobs`)
-        const found = res.data.find(j => j._id === id)
-
-        setJob(found)
-
+        const res = await api.get(`/jobs/${id}`)
+        setJob(res.data)
       } catch (error) {
-
-        console.error("Failed to load job", error)
-
+        console.error("❌ Failed to load job:", error)
       }
-
     }
 
-    fetchJob()
+    loadJob()
+
+    const socket = io(SOCKET_URL, {
+      transports: ["websocket", "polling"]
+    })
+
+    socket.on("jobUpdated", loadJob)
+
+    return () => socket.disconnect()
 
   }, [id])
 
-  if (!job) {
-    return <p style={{ padding: "20px" }}>Loading job...</p>
-  }
+  if (!job) return <p>Loading...</p>
 
   return (
-
-    <div style={{ padding: "30px", maxWidth: "700px" }}>
-
+    <div style={{ padding: "30px" }}>
       <h1>{job.product}</h1>
-
-      <p><strong>Customer:</strong> {job.customerName}</p>
-
-      <p><strong>Email:</strong> {job.email}</p>
-
-      <p><strong>Quantity:</strong> {job.quantity}</p>
-
-      <p><strong>Production Type:</strong> {job.productionType}</p>
-
-      <p><strong>Status:</strong> {job.status}</p>
-
-      <p><strong>Notes:</strong> {job.notes}</p>
+      <p>{job.customerName}</p>
 
       {job.artwork && (
-
-        <div style={{ marginTop: "20px" }}>
-
-          <h3>Artwork</h3>
-
-          <a
-            href={`${FILE_URL}${job.artwork}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-
-            <img
-              src={`${FILE_URL}${job.artwork}`}
-              alt="artwork"
-              style={{
-                width: "300px",
-                border: "1px solid #ddd",
-                borderRadius: "6px"
-              }}
-            />
-
-          </a>
-
-        </div>
-
+        <img src={`${FILE_URL}${job.artwork}`} style={{ width: "300px" }} />
       )}
-
     </div>
-
   )
-
 }
 
 export default JobDetail

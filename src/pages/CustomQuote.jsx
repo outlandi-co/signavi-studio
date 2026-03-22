@@ -168,29 +168,87 @@ function CustomQuote() {
 
           {/* 🔥 BUTTON */}
           <button
-            type="submit"
-            disabled={loading}
-            style={{
-              marginTop: "10px",
-              padding: "14px 24px",
-              background: loading
-                ? "#555"
-                : "linear-gradient(90deg, #06b6d4, #2563eb)",
-              border: "none",
-              color: "#fff",
-              cursor: loading ? "not-allowed" : "pointer",
-              borderRadius: "12px",
-              fontWeight: "600",
-              letterSpacing: "0.5px",
-              boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
-              transition: "all 0.2s ease",
-              alignSelf: "flex-start"
-            }}
-            onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.97)")}
-            onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
-          >
-            {loading ? "Submitting..." : "🚀 Submit Quote"}
-          </button>
+  type="submit"
+  disabled={loading}
+  style={{
+    marginTop: "10px",
+    padding: "14px 26px",
+    background: loading
+      ? "#374151"
+      : "linear-gradient(90deg, #06b6d4, #2563eb)",
+    border: "none",
+    color: "#fff",
+    cursor: loading ? "not-allowed" : "pointer",
+    borderRadius: "12px",
+    fontWeight: "600",
+    letterSpacing: "0.5px",
+
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+
+    boxShadow: loading
+      ? "none"
+      : "0 10px 25px rgba(0,0,0,0.3)",
+
+    transition: "all 0.2s ease",
+    alignSelf: "flex-start",
+  }}
+
+  /* 🔥 HOVER */
+  onMouseEnter={(e) => {
+    if (loading) return
+    e.currentTarget.style.transform = "translateY(-2px)"
+    e.currentTarget.style.boxShadow = "0 15px 35px rgba(0,0,0,0.45)"
+  }}
+
+  onMouseLeave={(e) => {
+    e.currentTarget.style.transform = "translateY(0)"
+    e.currentTarget.style.boxShadow = loading
+      ? "none"
+      : "0 10px 25px rgba(0,0,0,0.3)"
+  }}
+
+  /* 🔥 CLICK */
+  onMouseDown={(e) => {
+    if (loading) return
+    e.currentTarget.style.transform = "translateY(0) scale(0.96)"
+  }}
+
+  onMouseUp={(e) => {
+    if (loading) return
+    e.currentTarget.style.transform = "translateY(-2px) scale(1)"
+  }}
+>
+  {loading ? (
+    <>
+      {/* 🔥 SPINNER */}
+      <span
+        style={{
+          width: "16px",
+          height: "16px",
+          border: "2px solid white",
+          borderTop: "2px solid transparent",
+          borderRadius: "50%",
+          animation: "spin 0.8s linear infinite"
+        }}
+      />
+      Submitting...
+    </>
+  ) : (
+    "Submit Quote"
+  )}
+
+  {/* 🔥 SPINNER KEYFRAME */}
+  <style>
+    {`
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+    `}
+  </style>
+</button>
 
         </form>
       </div>

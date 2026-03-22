@@ -1,35 +1,40 @@
 import { useEffect, useState } from "react"
+import { useSearchParams } from "react-router-dom"
 import api from "../services/api"
 import CartDrawer from "../components/CartDrawer"
+import SafeImage from "../components/SafeImage"
 
 function Store() {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
 
-  // 💾 LOAD CART FROM STORAGE
-  const [cart, setCart] = useState(() => {
-    const saved = localStorage.getItem("cart")
-    return saved ? JSON.parse(saved) : []
-  })
-
+  const [cart, setCart] = useState([])
   const [isCartOpen, setIsCartOpen] = useState(false)
-
-  // 🔔 ADD TO CART NOTIFICATION
   const [flash, setFlash] = useState(false)
+
+  const [quantities, setQuantities] = useState({})
+
+  /* 🔥 NEW */
+  const [searchParams] = useSearchParams()
+  const [discount, setDiscount] = useState(null)
 
   /* ================= LOAD PRODUCTS ================= */
   useEffect(() => {
     const loadProducts = async () => {
       try {
         const res = await api.get("/products")
-
-        const activeProducts = res.data.filter(
-          (p) => p.active !== false
-        )
+        const activeProducts = res.data.filter(p => p.active !== false)
 
         setProducts(activeProducts)
-      } catch (error) {
-        console.error("Failed to load products:", error)
+
+        const initialQty = {}
+        activeProducts.forEach(p => {
+          initialQty[p._id] = 1
+        })
+        setQuantities(initialQty)
+
+      } catch (err) {
+        console.error(err)
       } finally {
         setLoading(false)
       }
@@ -38,20 +43,89 @@ function Store() {
     loadProducts()
   }, [])
 
+  /* ================= LOAD CART ================= */
+  useEffect(() => {
+    const loadCart = async () => {
+      try {
+        const email = localStorage.getItem("email")
+        if (!email) return
+
+        const res = await api.get(`/cart/${email}`)
+
+        if (res.data?.items) {
+          setCart(res.data.items)
+        }
+
+      } catch (err) {
+        console.error("Cart load error:", err)
+      }
+    }
+
+    loadCart()
+  }, [])
+
   /* ================= SAVE CART ================= */
   useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(cart))
+    const saveCart = async () => {
+      try {
+        const email = localStorage.getItem("email")
+        if (!email) return
+
+        await api.post("/cart/save", {
+          email,
+          items: cart
+        })
+
+      } catch (err) {
+        console.error("Cart save error:", err)
+      }
+    }
+
+    if (cart.length > 0) {
+      saveCart()
+    }
+
   }, [cart])
+
+  /* ================= 🔥 READ DISCOUNT FROM EMAIL ================= */
+const code = searchParams.get("code")
+const percent = searchParams.get("discount")
+
+useEffect(() => {
+  if (code && percent) {
+    setDiscount({
+      code,
+      percent: Number(percent)
+    })
+  }
+}, [code, percent])
+
+  /* ================= QTY ================= */
+  const increaseQty = (id) => {
+    setQuantities(prev => ({
+      ...prev,
+      [id]: (prev[id] || 1) + 1
+    }))
+  }
+
+  const decreaseQty = (id) => {
+    setQuantities(prev => ({
+      ...prev,
+      [id]: Math.max(1, (prev[id] || 1) - 1)
+    }))
+  }
 
   /* ================= ADD TO CART ================= */
   const addToCart = (product) => {
+    const qty = quantities[product._id] || 1
+
     setCart(prev => {
       const existing = prev.find(p => p._id === product._id)
 
       if (existing) {
         return prev.map(p =>
           p._id === product._id
-            ? { ...p, quantity: p.quantity + 1 }
+            ? { ...p, quantity: p.quantity + qty }
             : p
         )
       }
@@ -60,39 +134,36 @@ function Store() {
         ...prev,
         {
           _id: product._id,
+          productId: product._id,
           name: product.name,
           price: product.listPrice || product.price || 0,
           image: product.image,
-          quantity: 1
+          quantity: qty
         }
       ]
     })
 
-    // 🔥 OPEN CART
     setIsCartOpen(true)
-
-    // 🔔 FLASH MESSAGE
     setFlash(true)
     setTimeout(() => setFlash(false), 800)
   }
 
-  /* ================= REMOVE ================= */
   const removeFromCart = (id) => {
     setCart(prev => prev.filter(p => p._id !== id))
   }
 
-  /* ================= CHECKOUT ================= */
+  /* ================= 🔥 CHECKOUT WITH DISCOUNT ================= */
   const handleCheckout = async () => {
     try {
-      const res = await api.post(
-        "/stripe/create-checkout-session",
-        { items: cart }
-      )
+      const res = await api.post("/stripe/create-checkout-session", {
+        items: cart,
+        discountPercent: discount?.percent
+      })
 
       window.location.href = res.data.url
 
-    } catch (error) {
-      console.error("Checkout error:", error)
+    } catch (err) {
+      console.error(err)
     }
   }
 
@@ -100,112 +171,108 @@ function Store() {
     <div style={{ padding: "30px" }}>
       <h1>Store</h1>
 
-      {/* 🔔 TOAST */}
-      {flash && (
-        <div
-          style={{
-            position: "fixed",
-            top: "20px",
-            right: "20px",
-            background: "black",
-            color: "white",
-            padding: "10px 15px",
-            borderRadius: "5px",
-            zIndex: 2000
-          }}
-        >
-          Added to cart 🛒
+      {/* 🔥 DISCOUNT BANNER */}
+      {discount && (
+        <div style={{
+          background: "#22c55e",
+          padding: "10px",
+          borderRadius: "8px",
+          marginBottom: "15px",
+          color: "white"
+        }}>
+          🎯 {discount.percent}% OFF applied!
         </div>
       )}
 
-      {/* 🔥 CART BUTTON */}
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "20px" }}>
-        <button
-          onClick={() => setIsCartOpen(true)}
-          style={{
-            padding: "10px 15px",
-            background: "black",
-            color: "white",
-            border: "none",
-            cursor: "pointer"
-          }}
-        >
+      {flash && <div style={toast}>Added to cart 🛒</div>}
+
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button onClick={() => setIsCartOpen(true)} style={cartBtn}>
           Cart ({cart.length})
         </button>
       </div>
 
-      {loading && <p>Loading products...</p>}
+      {loading && <p>Loading...</p>}
 
-      {!loading && products.length === 0 && (
-        <p>No products available</p>
-      )}
+      <div style={grid}>
+        {products.map(product => (
+          <div key={product._id} style={card}>
 
-      {/* ================= PRODUCTS ================= */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-          gap: "20px"
-        }}
-      >
-        {products.map((product) => (
-          <div
-            key={product._id}
-            style={{
-              border: "1px solid #ddd",
-              padding: "15px",
-              borderRadius: "8px",
-              background: "#fff"
-            }}
-          >
-            <img
-              src={
-                product.image
-                  ? product.image
-                  : "https://via.placeholder.com/200"
-              }
-              alt={product.name}
-              style={{
-                width: "100%",
-                height: "200px",
-                objectFit: "cover"
-              }}
-            />
+            <SafeImage src={product.image} style={image} />
 
-            <h3>{product.name}</h3>
+            <h3 style={{ color: "white" }}>{product.name}</h3>
 
-            <p style={{ fontWeight: "bold" }}>
+            <p style={{ color: "#06b6d4" }}>
               ${product.listPrice || product.price || 0}
             </p>
 
-            <button
-              onClick={() => addToCart(product)}
-              style={{
-                marginTop: "10px",
-                width: "100%",
-                padding: "10px",
-                background: "black",
-                color: "white",
-                border: "none",
-                cursor: "pointer"
-              }}
-            >
+            <div style={qtyRow}>
+              <button onClick={() => decreaseQty(product._id)}>-</button>
+              <span>{quantities[product._id] || 1}</span>
+              <button onClick={() => increaseQty(product._id)}>+</button>
+            </div>
+
+            <button onClick={() => addToCart(product)}>
               Add to Cart
             </button>
+
           </div>
         ))}
       </div>
 
-      {/* ================= CART DRAWER ================= */}
       <CartDrawer
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         cart={cart}
+        setCart={setCart}
         removeFromCart={removeFromCart}
         onCheckout={handleCheckout}
       />
     </div>
   )
+}
+
+/* ================= STYLES ================= */
+
+const grid = {
+  display: "grid",
+  gap: "20px",
+  gridTemplateColumns: "repeat(auto-fill, minmax(220px,1fr))"
+}
+
+const card = {
+  background: "#0f172a",
+  padding: "15px",
+  borderRadius: "12px"
+}
+
+const image = {
+  width: "100%",
+  height: "200px",
+  objectFit: "cover"
+}
+
+const cartBtn = {
+  background: "#06b6d4",
+  color: "white",
+  padding: "10px",
+  borderRadius: "6px"
+}
+
+const toast = {
+  position: "fixed",
+  top: 20,
+  right: 20,
+  background: "#020617",
+  color: "white",
+  padding: "10px"
+}
+
+const qtyRow = {
+  display: "flex",
+  gap: "10px",
+  justifyContent: "center",
+  marginTop: "10px"
 }
 
 export default Store

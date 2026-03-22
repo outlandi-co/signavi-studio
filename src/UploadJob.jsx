@@ -1,5 +1,6 @@
 import axios from "axios"
 import { useState } from "react"
+import Button from "../components/UI/Button"
 
 function UploadJob() {
 
@@ -30,9 +31,9 @@ function UploadJob() {
         onChange={(e) => setFile(e.target.files[0])}
       />
 
-      <button onClick={handleUpload}>
-        Upload
-      </button>
+     <Button onClick={handleUpload}>
+  📤 Upload
+</Button>
 
     </div>
 

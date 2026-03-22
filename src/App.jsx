@@ -18,19 +18,21 @@ import CustomQuote from "./pages/CustomQuote"
 import Login from "./pages/Login"
 import QuoteResponse from "./pages/QuoteResponse"
 import Success from "./pages/Success"
+import AdminQuotes from "./pages/AdminQuotes"
+import TrackOrder from "./pages/TrackOrder"
+import ClientOrder from "./pages/ClientOrder" // 🔥 NEW
 
-/* ================= LAYOUT ================= */
 function LayoutWrapper({ children }) {
   const location = useLocation()
+  const path = location.pathname
 
-  const isAdminPage = location.pathname.startsWith("/admin")
-  const isQuotePage = location.pathname.startsWith("/quote")
-  const isSuccessPage = location.pathname.startsWith("/success")
+  const isAdminPage = path.startsWith("/admin")
+  const isProductionPage = path === "/production"
 
   return (
     <div
       className={
-        isAdminPage || isQuotePage || isSuccessPage
+        isAdminPage && !isProductionPage
           ? "w-full min-h-screen p-0 m-0"
           : "max-w-6xl mx-auto p-6"
       }
@@ -40,13 +42,14 @@ function LayoutWrapper({ children }) {
   )
 }
 
-/* ================= MAIN ================= */
 function AppContent() {
   const location = useLocation()
+  const path = location.pathname
 
-  const isAdminPage = location.pathname.startsWith("/admin")
-  const isQuotePage = location.pathname.startsWith("/quote")
-  const isSuccessPage = location.pathname.startsWith("/success")
+  const isAdminPage = path.startsWith("/admin")
+  const isQuotePage = path.startsWith("/quote")
+  const isSuccessPage = path.startsWith("/success")
+  const isProductionPage = path === "/production"
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -67,29 +70,27 @@ function AppContent() {
 
   return (
     <>
-      {/* NAVBAR CONTROL */}
-      {!isAdminPage &&
-        location.pathname !== "/login" &&
+      {(!isAdminPage || isProductionPage) &&
+        path !== "/login" &&
         !isQuotePage &&
         !isSuccessPage && <Navbar />}
 
       <LayoutWrapper>
         <Routes>
 
-          {/* CORE */}
           <Route path="/" element={<Home />} />
           <Route path="/store" element={<Store />} />
           <Route path="/login" element={<Login />} />
           <Route path="/submit" element={<CustomQuote />} />
 
-          {/* QUOTE FLOW */}
+          <Route path="/track" element={<TrackOrder />} />
+          <Route path="/client-order/:id" element={<ClientOrder />} /> {/* 🔥 */}
+
           <Route path="/quote/:id" element={<QuoteResponse />} />
 
-          {/* ✅ SUCCESS (FIXED) */}
           <Route path="/success" element={<Success />} />
           <Route path="/success/:id" element={<Success />} />
 
-          {/* ADMIN */}
           <Route
             path="/admin/production"
             element={
@@ -99,7 +100,17 @@ function AppContent() {
             }
           />
 
-          {/* FALLBACK */}
+          <Route
+            path="/admin/quotes"
+            element={
+              <ProtectedRoute roleRequired="admin">
+                <AdminQuotes />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route path="/production" element={<ProductionBoard />} />
+
           <Route path="*" element={<h2>Page not found</h2>} />
 
         </Routes>
@@ -108,7 +119,6 @@ function AppContent() {
   )
 }
 
-/* ================= ROOT ================= */
 function App() {
   return (
     <BrowserRouter>

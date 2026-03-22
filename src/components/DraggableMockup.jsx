@@ -1,11 +1,17 @@
 import { useDraggable } from "@dnd-kit/core"
 import api from "../services/api"
 
-function DraggableCard({ job, onOpen }) {
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050"
 
+function DraggableMockup({ job, onOpen = null }) {
+
+  /* ✅ ALWAYS CALL HOOK */
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: job?._id || "fallback-id"
   })
+
+  /* ✅ NOW SAFE TO CHECK */
+  if (!job) return null
 
   const style = {
     transform: transform
@@ -13,25 +19,53 @@ function DraggableCard({ job, onOpen }) {
       : undefined
   }
 
-  if (!job) return null
-
-  const imageUrl = job.artwork
-    ? `http://localhost:5050/uploads/${job.artwork}`
+  const artworkUrl = job.artwork
+    ? `${API_URL}/uploads/${job.artwork}`
     : null
 
-  const saveTracking = async (tracking) => {
+  /* ================= ACTIONS ================= */
+
+  const approve = async (e) => {
+    e.stopPropagation()
+
+    const price = prompt("Price?")
+    const shipping = prompt("Shipping?")
+
+    if (!price || !shipping) return
+
+    await api.patch(`/orders/${job._id}/approve`, { price, shipping })
+    window.location.reload()
+  }
+
+  const deny = async (e) => {
+    e.stopPropagation()
+    await api.patch(`/orders/${job._id}/deny`)
+    window.location.reload()
+  }
+
+  const addTracking = async (e) => {
+    e.stopPropagation()
+
+    const tracking = prompt("Tracking number")
+    const link = prompt("Tracking link")
+
     if (!tracking) return
 
-    const endpoint =
-      job.type === "quote"
-        ? `/quotes/${job._id}/tracking`
-        : `/orders/${job._id}/tracking`
+    await api.patch(`/orders/${job._id}/tracking`, {
+      trackingNumber: tracking,
+      trackingLink: link
+    })
 
-    try {
-      await api.patch(endpoint, { trackingNumber: tracking })
-    } catch (err) {
-      console.error("Tracking error:", err)
-    }
+    window.location.reload()
+  }
+
+  const statusColor = {
+    pending: "#facc15",
+    approved: "#22c55e",
+    printing: "#3b82f6",
+    shipping: "#f97316",
+    shipped: "#10b981",
+    denied: "#ef4444"
   }
 
   return (
@@ -39,63 +73,78 @@ function DraggableCard({ job, onOpen }) {
       ref={setNodeRef}
       style={{
         ...style,
-        background: "#fff",
-        borderRadius: "12px",
+        background: "#020617",
         padding: "12px",
-        cursor: "pointer",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.25)"
+        borderRadius: "12px",
+        border: `1px solid ${statusColor[job.status] || "#334155"}`
       }}
       onClick={(e) => {
         e.stopPropagation()
         if (onOpen) onOpen(job)
       }}
-      {...listeners}
-      {...attributes}
     >
 
-      {/* IMAGE */}
-      {imageUrl && (
-        <img
-          src={imageUrl}
-          alt="Artwork preview"
+      {/* DRAG HANDLE */}
+      <div
+        {...listeners}
+        {...attributes}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          cursor: "grab",
+          fontSize: "10px",
+          opacity: 0.5,
+          marginBottom: "6px"
+        }}
+      >
+        ⠿ drag
+      </div>
+
+      <p style={{ color: "white", fontWeight: "600" }}>
+        {job.customerName}
+      </p>
+
+      <p style={{ color: statusColor[job.status], fontSize: "12px" }}>
+        {job.status}
+      </p>
+
+      {/* DOWNLOAD */}
+      {artworkUrl && (
+        <a
+          href={artworkUrl}
+          download
+          onClick={(e) => e.stopPropagation()}
           style={{
-            width: "100%",
-            height: "120px",
-            objectFit: "cover",
-            borderRadius: "8px",
-            marginBottom: "8px"
+            display: "block",
+            marginTop: "6px",
+            background: "#000",
+            color: "white",
+            padding: "6px",
+            borderRadius: "6px",
+            textAlign: "center"
           }}
-        />
+        >
+          ⬇ Download Artwork
+        </a>
       )}
 
-      <p style={{ fontSize: "12px", color: "#06b6d4" }}>
-        {job.type === "quote" ? "Custom Request" : "Store Order"}
-      </p>
-
-      <p style={{ fontWeight: "600" }}>
-        {job.customerName || "No Name"}
-      </p>
-
-      <p style={{ fontSize: "12px", color: "#6b7280" }}>
-        {job.printType || "—"}
-      </p>
-
-      <p style={{ fontSize: "11px", color: "#9ca3af" }}>
-        {job.status || "pending"}
-      </p>
+      {/* APPROVAL */}
+      {job.approvalStatus === "pending" && (
+        <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
+          <button onClick={approve}>Approve</button>
+          <button onClick={deny}>Deny</button>
+        </div>
+      )}
 
       {/* TRACKING */}
       {job.status === "shipping" && (
-        <input
-          placeholder="Tracking..."
-          onClick={(e) => e.stopPropagation()}
-          onBlur={(e) => saveTracking(e.target.value)}
-          style={{ marginTop: "6px", width: "100%" }}
-        />
+        <button onClick={addTracking} style={{ marginTop: "6px" }}>
+          Add Tracking
+        </button>
       )}
 
+      {/* TRACKING DISPLAY */}
       {job.trackingNumber && (
-        <p style={{ fontSize: "11px", color: "green" }}>
+        <p style={{ color: "#22c55e", fontSize: "11px", marginTop: "6px" }}>
           📦 {job.trackingNumber}
         </p>
       )}
@@ -104,4 +153,4 @@ function DraggableCard({ job, onOpen }) {
   )
 }
 
-export default DraggableCard
+export default DraggableMockup

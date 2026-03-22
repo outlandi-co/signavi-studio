@@ -1,7 +1,6 @@
 import { useState } from "react"
-import axios from "axios"
-
-const API_URL = "http://localhost:5050/api"
+import api from "../services/api"
+import Button from "../components/UI/Button"
 
 function JobForm({ refreshJobs }) {
 
@@ -14,23 +13,30 @@ function JobForm({ refreshJobs }) {
     notes: ""
   })
 
-  const handleChange = (e) => {
+  const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState("")
+  const [error, setError] = useState("")
 
+  const handleChange = (e) => {
     setForm({
       ...form,
       [e.target.name]: e.target.value
     })
-
   }
 
   const handleSubmit = async (e) => {
-
     e.preventDefault()
 
-    try {
+    if (loading) return
 
-      await axios.post(`${API_URL}/jobs`, {
+    setLoading(true)
+    setSuccess("")
+    setError("")
+
+    try {
+      await api.post("/jobs", {
         ...form,
+        quantity: Number(form.quantity),
         status: "pending"
       })
 
@@ -43,94 +49,130 @@ function JobForm({ refreshJobs }) {
         notes: ""
       })
 
-      refreshJobs()
+      setSuccess("✅ Job created successfully!")
 
-    } catch (error) {
+      refreshJobs && refreshJobs()
 
-      console.error("Job creation failed:", error)
-
+    } catch (err) {
+      console.error("❌ Job creation failed:", err)
+      setError("❌ Failed to create job")
+    } finally {
+      setLoading(false)
     }
-
   }
 
   return (
-
     <form
       onSubmit={handleSubmit}
       style={{
-        background: "#f4f4f4",
-        padding: "20px",
-        borderRadius: "8px",
-        marginBottom: "20px"
+        background: "#1e293b",
+        padding: "24px",
+        borderRadius: "12px",
+        marginBottom: "20px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "12px",
+        color: "#fff",
+        maxWidth: "500px"
       }}
     >
 
-      <h2>Create Job</h2>
+      <h2 style={{ marginBottom: "10px" }}>Create Job</h2>
 
-      <input
-        name="customerName"
-        placeholder="Customer Name"
-        value={form.customerName}
-        onChange={handleChange}
-        required
-      />
+      {/* STATUS FEEDBACK */}
+      {success && <p style={{ color: "#22c55e" }}>{success}</p>}
+      {error && <p style={{ color: "#ef4444" }}>{error}</p>}
 
-      <input
-        name="email"
-        placeholder="Email"
-        value={form.email}
-        onChange={handleChange}
-      />
+      {/* INPUTS */}
+      <label>
+        Customer Name
+        <input
+          name="customerName"
+          value={form.customerName}
+          onChange={handleChange}
+          required
+          style={inputStyle}
+        />
+      </label>
 
-      <input
-        name="product"
-        placeholder="Product"
-        value={form.product}
-        onChange={handleChange}
-        required
-      />
+      <label>
+        Email
+        <input
+          name="email"
+          value={form.email}
+          onChange={handleChange}
+          style={inputStyle}
+        />
+      </label>
 
-      <input
-        name="quantity"
-        type="number"
-        placeholder="Quantity"
-        value={form.quantity}
-        onChange={handleChange}
-        required
-      />
+      <label>
+        Product
+        <input
+          name="product"
+          value={form.product}
+          onChange={handleChange}
+          required
+          style={inputStyle}
+        />
+      </label>
 
-      <select
-        name="productionType"
-        value={form.productionType}
-        onChange={handleChange}
-        required
-      >
+      <label>
+        Quantity
+        <input
+          name="quantity"
+          type="number"
+          value={form.quantity}
+          onChange={handleChange}
+          required
+          style={inputStyle}
+        />
+      </label>
 
-        <option value="">Select Production Type</option>
-        <option value="screenprint">Screen Print</option>
-        <option value="dtf">DTF</option>
-        <option value="laser">Laser Engraving</option>
-        <option value="vinyl">Vinyl</option>
+      <label>
+        Production Type
+        <select
+          name="productionType"
+          value={form.productionType}
+          onChange={handleChange}
+          required
+          style={inputStyle}
+        >
+          <option value="">Select Production Type</option>
+          <option value="screenprint">Screen Print</option>
+          <option value="dtf">DTF</option>
+          <option value="laser">Laser Engraving</option>
+          <option value="vinyl">Vinyl</option>
+        </select>
+      </label>
 
-      </select>
+      <label>
+        Notes
+        <textarea
+          name="notes"
+          value={form.notes}
+          onChange={handleChange}
+          style={inputStyle}
+        />
+      </label>
 
-      <textarea
-        name="notes"
-        placeholder="Notes"
-        value={form.notes}
-        onChange={handleChange}
-      />
-
-      <br />
-
-      <button type="submit">
-        Create Job
-      </button>
+      {/* 🔥 BUTTON */}
+      <Button type="submit" loading={loading}>
+        ➕ Create Job
+      </Button>
 
     </form>
-
   )
+}
 
+/* 🔥 INPUT STYLE */
+const inputStyle = {
+  width: "100%",
+  marginTop: "4px",
+  padding: "10px",
+  borderRadius: "8px",
+  border: "1px solid #334155",
+  background: "#020617",
+  color: "#fff"
 }
 
 export default JobForm

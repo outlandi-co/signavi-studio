@@ -1,132 +1,120 @@
 import { useEffect, useState } from "react"
-import axios from "axios"
+import { io } from "socket.io-client"
+import api from "../services/api"
 
-const API_URL = "http://localhost:5050/api"
-const FILE_URL = "http://localhost:"
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050/api"
+const SOCKET_URL = API_URL.replace("/api", "").replace(/\/$/, "")
+const FILE_URL = SOCKET_URL + "/uploads/"
 
-const STATUS_COLUMNS = [
-  "pending",
-  "approved",
-  "printing",
-  "completed"
-]
+const STATUS_COLUMNS = ["pending", "approved", "printing", "completed"]
+
+const STATUS_COLORS = {
+  pending: "#facc15",
+  approved: "#38bdf8",
+  printing: "#fb923c",
+  completed: "#22c55e"
+}
 
 function ShopFloor() {
-
   const [jobs, setJobs] = useState([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
 
     const loadJobs = async () => {
-
       try {
-
-        const res = await axios.get(`${API_URL}/jobs`)
+        const res = await api.get("/jobs")
         setJobs(res.data)
-
       } catch (error) {
-
-        console.error("Failed to fetch jobs:", error)
-
+        console.error("❌ Failed to fetch jobs:", error)
+      } finally {
+        setLoading(false)
       }
-
     }
 
     loadJobs()
 
-    const interval = setInterval(loadJobs, 4000)
+    /* 🔥 FIXED SOCKET */
+    const socket = io(SOCKET_URL, {
+      transports: ["websocket", "polling"],
+      reconnection: true
+    })
 
-    return () => clearInterval(interval)
+    socket.on("connect", () => {
+      console.log("🟢 ShopFloor connected:", socket.id)
+    })
+
+    socket.on("connect_error", (err) => {
+      console.error("❌ SOCKET ERROR:", err.message)
+    })
+
+    socket.on("jobUpdated", loadJobs)
+
+    return () => {
+      socket.disconnect()
+    }
 
   }, [])
 
+  if (loading) {
+    return (
+      <div style={{ padding: "40px", color: "white", background: "#111", height: "100vh" }}>
+        Loading jobs...
+      </div>
+    )
+  }
+
   return (
-
-    <div
-      style={{
-        display: "flex",
-        gap: "20px",
-        padding: "20px",
-        height: "100vh",
-        background: "#111",
-        color: "white"
-      }}
-    >
-
+    <div style={{
+      display: "flex",
+      gap: "20px",
+      padding: "20px",
+      height: "100vh",
+      background: "#111",
+      color: "white"
+    }}>
       {STATUS_COLUMNS.map(status => {
-
         const columnJobs = jobs.filter(j => j.status === status)
 
         return (
-
-          <div
-            key={status}
-            style={{
-              flex: 1,
-              background: "#222",
-              padding: "15px",
-              borderRadius: "10px"
-            }}
-          >
-
-            <h2
-              style={{
-                textTransform: "uppercase",
-                textAlign: "center",
-                marginBottom: "15px"
-              }}
-            >
-              {status}
+          <div key={status} style={{
+            flex: 1,
+            background: "#1e293b",
+            padding: "15px",
+            borderRadius: "12px"
+          }}>
+            <h2 style={{
+              textTransform: "uppercase",
+              textAlign: "center",
+              color: STATUS_COLORS[status]
+            }}>
+              {status} ({columnJobs.length})
             </h2>
 
             {columnJobs.map(job => (
-
-              <div
-                key={job._id}
-                style={{
-                  background: "#333",
-                  padding: "12px",
-                  marginBottom: "12px",
-                  borderRadius: "6px"
-                }}
-              >
-
-                <strong style={{ fontSize: "18px" }}>
-                  {job.product}
-                </strong>
-
-                <p>Customer: {job.customerName}</p>
-
+              <div key={job._id} style={{
+                background: "#020617",
+                padding: "12px",
+                marginBottom: "12px",
+                borderRadius: "8px"
+              }}>
+                <strong>{job.product || "Custom Job"}</strong>
+                <p>{job.customerName}</p>
                 <p>Qty: {job.quantity}</p>
-
-                <p>{job.productionType}</p>
 
                 {job.artwork && (
                   <img
                     src={`${FILE_URL}${job.artwork}`}
-                    alt="artwork"
-                    style={{
-                      width: "100%",
-                      marginTop: "6px",
-                      borderRadius: "4px"
-                    }}
+                    style={{ width: "100%", marginTop: "8px" }}
                   />
                 )}
-
               </div>
-
             ))}
-
           </div>
-
         )
-
       })}
-
     </div>
-
   )
-
 }
 
 export default ShopFloor
