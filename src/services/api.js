@@ -2,13 +2,10 @@ import axios from "axios"
 
 /* ================= BASE URL ================= */
 const BASE_URL =
-  import.meta.env.VITE_API_URL
-    ? import.meta.env.VITE_API_URL
-    : "http://localhost:5050/api"
+  import.meta.env.VITE_API_URL || "http://localhost:5050/api"
 
-/* 🔥 FORCE /api IF MISSING */
-const normalizedBase =
-  BASE_URL.endsWith("/api") ? BASE_URL : `${BASE_URL}/api`
+/* 🔥 FORCE CLEAN BASE (REMOVE TRAILING SLASH ONLY) */
+const normalizedBase = BASE_URL.replace(/\/$/, "")
 
 const api = axios.create({
   baseURL: normalizedBase
@@ -25,14 +22,23 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`
   }
 
+  console.log("🔥 REQUEST:", config.baseURL + config.url)
+
   return config
 })
 
 /* ================= ERROR DEBUG ================= */
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    console.log("✅ RESPONSE:", res.config.url, res.data)
+    return res
+  },
   (err) => {
-    console.error("❌ API ERROR:", err?.response?.status, err?.config?.url)
+    console.error(
+      "❌ API ERROR:",
+      err?.response?.status,
+      err?.config?.baseURL + err?.config?.url
+    )
     return Promise.reject(err)
   }
 )

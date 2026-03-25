@@ -33,13 +33,13 @@ function DraggableMockup({ job, onOpen = null }) {
 
     if (!price || !shipping) return
 
-    await api.patch(`/orders/${job._id}/approve`, { price, shipping })
+    await api.patch(`/production/orders/${job._id}/approve`, { price, shipping })
     window.location.reload()
   }
 
   const deny = async (e) => {
     e.stopPropagation()
-    await api.patch(`/orders/${job._id}/deny`)
+    await api.patch(`/production/orders/${job._id}/deny`)
     window.location.reload()
   }
 
@@ -51,7 +51,7 @@ function DraggableMockup({ job, onOpen = null }) {
 
     if (!tracking) return
 
-    await api.patch(`/orders/${job._id}/tracking`, {
+    await api.patch(`/production/orders/${job._id}/tracking`, {
       trackingNumber: tracking,
       trackingLink: link
     })

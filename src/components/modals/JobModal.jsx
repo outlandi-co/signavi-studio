@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react"
 import api from "../../services/api"
+import jsPDF from "jspdf"
+import InvoiceEditor from "../InvoiceEditor"
 
 function JobModal({ job, onClose, refresh }) {
 
@@ -11,7 +13,14 @@ function JobModal({ job, onClose, refresh }) {
   const [loading, setLoading] = useState(false)
   const [aiSuggestion, setAiSuggestion] = useState(null)
 
-  /* ================= AI ================= */
+  /* 🔥 LOCK BACKGROUND SCROLL */
+  useEffect(() => {
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = "auto"
+    }
+  }, [])
+
   useEffect(() => {
     if (!job) return
 
@@ -22,119 +31,108 @@ function JobModal({ job, onClose, refresh }) {
 
   if (!job) return null
 
-  /* ================= STATUS ================= */
-  const updateStatus = async () => {
-    setLoading(true)
-    try {
-      await api.patch(`/orders/${job._id}/status`, { status })
-      refresh()
-      onClose()
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
+  const safeRefresh = (data) => {
+    if (refresh) refresh(data || null)
   }
 
-  /* ================= APPROVE ================= */
-  const handleApprove = async () => {
-    if (!job.artwork) {
-      return alert("❌ Cannot approve: No artwork uploaded")
-    }
+  const costTotal = (job?.items || []).reduce((sum, item) => {
+    const cost = Number(item.cost || 0)
+    return sum + (cost * Number(item.quantity || 0))
+  }, 0)
 
+  const sellTotal = Number(job?.total || job?.finalPrice || 0)
+  const profit = sellTotal - costTotal
+  const margin = sellTotal ? (profit / sellTotal) * 100 : 0
+
+  const handleApprove = async () => {
     if (!price) return alert("Enter price")
 
     setLoading(true)
-
     try {
-      await api.patch(`/orders/${job._id}/approve`, {
+      const res = await api.patch(`/orders/${job._id}/approve`, {
         price: Number(price),
         shipping: Number(shipping || 0)
       })
 
-      refresh()
+      safeRefresh(res.data)
       onClose()
     } catch (err) {
-      console.error(err)
+      console.error("❌ APPROVE ERROR:", err)
+      alert("Approve failed")
     } finally {
       setLoading(false)
     }
   }
 
-  /* ================= DENY ================= */
+  const sendForApproval = async () => {
+    setLoading(true)
+    try {
+      const res = await api.patch(`/orders/${job._id}/status`, {
+        status: "artwork_sent"
+      })
+
+      safeRefresh(res.data)
+      alert("📧 Sent to customer for approval!")
+    } catch (err) {
+      console.error("❌ SEND ERROR:", err)
+      alert("Failed")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const updateStatus = async () => {
+    setLoading(true)
+    try {
+      const res = await api.patch(`/orders/${job._id}/status`, { status })
+      safeRefresh(res.data)
+    } catch (err) {
+      console.error("STATUS ERROR:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleDeny = async () => {
-    if (!confirm("Deny this order?")) return
-
     setLoading(true)
-
     try {
-      await api.patch(`/orders/${job._id}/deny`)
-      refresh()
+      const res = await api.patch(`/orders/${job._id}/status`, {
+        status: "denied"
+      })
+
+      safeRefresh(res.data)
       onClose()
     } catch (err) {
-      console.error(err)
+      console.error("DENY ERROR:", err)
     } finally {
       setLoading(false)
     }
   }
 
-  /* ================= TRACKING ================= */
   const handleTracking = async () => {
-    if (!tracking) return alert("Enter tracking number")
-
     setLoading(true)
-
     try {
-      await api.patch(`/orders/${job._id}/tracking`, {
+      const res = await api.patch(`/orders/${job._id}/status`, {
+        status,
         trackingNumber: tracking,
         trackingLink
       })
 
-      alert("📦 Tracking added!")
-      refresh()
+      safeRefresh(res.data)
     } catch (err) {
-      console.error(err)
+      console.error("TRACKING ERROR:", err)
     } finally {
       setLoading(false)
     }
   }
 
-  /* ================= SEND EMAIL (NEW 🔥) ================= */
-const sendArtworkEmail = async () => {
-  try {
-    console.log("🧠 FRONTEND ORDER ID:", job._id)
-    console.log("📦 FULL JOB:", job)
-
-    setLoading(true)
-
-    const res = await api.post(`/orders/send-artwork/${job._id}`)
-
-    console.log("📧 EMAIL RESPONSE:", res.data)
-
-    alert("📧 Artwork sent to your email!")
-
-  } catch (err) {
-    console.error("❌ EMAIL ERROR:", err.response?.data || err)
-    alert("❌ Failed to send email")
-  } finally {
-    setLoading(false)
-  }
-}
-  /* ================= DELETE ================= */
-  const handleDelete = async () => {
-    if (!confirm("Delete this job?")) return
-
-    setLoading(true)
-
-    try {
-      await api.delete(`/orders/${job._id}`)
-      refresh()
-      onClose()
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
+  const generatePDF = () => {
+    const doc = new jsPDF()
+    doc.text("Production Work Order", 20, 20)
+    doc.text(`Customer: ${job.customerName}`, 20, 40)
+    doc.text(`Order ID: ${job._id}`, 20, 50)
+    doc.text(`Status: ${job.status}`, 20, 60)
+    doc.save(`order-${job._id}.pdf`)
   }
 
   return (
@@ -145,153 +143,93 @@ const sendArtworkEmail = async () => {
 
         <h2>Production Control</h2>
 
-        {/* AI */}
+        {/* 🔥 LOADING FIX */}
+        {loading && (
+          <p style={{ color: "#22c55e", marginBottom: "10px" }}>
+            ⏳ Processing...
+          </p>
+        )}
+
+        <InvoiceEditor order={job} />
+
+        <div style={profitBox}>
+          <p>💸 Cost: ${costTotal.toFixed(2)}</p>
+          <p>💰 Sell: ${sellTotal.toFixed(2)}</p>
+          <p>📈 Profit: ${profit.toFixed(2)}</p>
+          <p>📊 Margin: {margin.toFixed(1)}%</p>
+        </div>
+
         {aiSuggestion && <p style={aiBox}>🤖 {aiSuggestion}</p>}
 
-        {/* ================= CUSTOMER ================= */}
-        <h3>👤 Customer</h3>
-        <p><b>Name:</b> {job.customerName}</p>
-        <p><b>Email:</b> {job.email || "N/A"}</p>
-        <p>
-          <b>Address:</b>{" "}
-          {job.shippingAddress?.street
-            ? `${job.shippingAddress.street}, ${job.shippingAddress.city}`
-            : "N/A"}
-        </p>
+        <p><b>{job.customerName}</b></p>
+        <p>{job.email}</p>
 
-        {/* ================= ORDER ================= */}
-        <h3>🛍 Order Details</h3>
+        {/* ================= ITEMS TABLE ================= */}
+{job.items && job.items.length > 0 && (
+  <div style={{ marginTop: "15px" }}>
+    <h3>Items</h3>
 
-        {job.items?.length > 0 ? (
-          job.items.map((item, i) => (
-            <div key={i} style={itemBox}>
-              <p><b>{item.name}</b></p>
-              <p>Qty: {item.quantity}</p>
-              <p>Price: ${item.price}</p>
-            </div>
-          ))
-        ) : (
-          <p>No item details</p>
-        )}
+    <div style={{
+      borderTop: "1px solid #1e293b",
+      marginTop: "8px",
+      paddingTop: "10px"
+    }}>
+      {job.items.map((item, i) => (
+        <div
+          key={i}
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginBottom: "6px"
+          }}
+        >
+          <span>{item.name}</span>
+          <span>
+            x{item.quantity} • ${item.price}
+          </span>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
 
-        {/* ================= ARTWORK ================= */}
-        <h3>🎨 Artwork</h3>
+        <input value={price} onChange={(e)=>setPrice(e.target.value)} placeholder="Price" style={input}/>
+        <input value={shipping} onChange={(e)=>setShipping(e.target.value)} placeholder="Shipping" style={input}/>
 
-        {job.artwork ? (
-          <>
-            <a
-              href={`http://localhost:5050/uploads/${job.artwork}`}
-              target="_blank"
-              rel="noreferrer"
-              style={{ color: "#38bdf8" }}
-            >
-              View Artwork
-            </a>
+        <button disabled={loading} onClick={handleApprove} style={{...btn, background:"#22c55e"}}>Approve</button>
+        <button disabled={loading} onClick={sendForApproval} style={{...btn, background:"#06b6d4"}}>Send Approval</button>
+        <button disabled={loading} onClick={handleDeny} style={{...btn, background:"#ef4444"}}>Deny</button>
 
-            <br />
+        <select value={status} onChange={(e)=>setStatus(e.target.value)} style={input}>
+          <option value="approved">Approved</option>
+          <option value="printing">Printing</option>
+          <option value="shipping">Shipping</option>
+          <option value="shipped">Shipped</option>
+        </select>
 
-            <a
-              href={`http://localhost:5050/uploads/${job.artwork}`}
-              download
-              style={{ color: "#22c55e" }}
-            >
-              ⬇ Download Artwork
-            </a>
+        <button disabled={loading} onClick={updateStatus} style={btn}>Update Status</button>
 
-            {/* 🔥 EMAIL BUTTON */}
-            <button
-              onClick={sendArtworkEmail}
-              style={{
-                marginTop: "10px",
-                background: "#06b6d4",
-                padding: "10px",
-                borderRadius: "6px",
-                color: "white",
-                width: "100%"
-              }}
-            >
-              📧 Send Artwork to Email
-            </button>
-          </>
-        ) : (
-          <p style={{ color: "#ef4444" }}>❌ No artwork uploaded</p>
-        )}
+        <input value={tracking} onChange={(e)=>setTracking(e.target.value)} placeholder="Tracking #" style={input}/>
+        <input value={trackingLink} onChange={(e)=>setTrackingLink(e.target.value)} placeholder="Tracking Link" style={input}/>
 
-        {/* ================= APPROVAL ================= */}
-        {job.approvalStatus === "pending" && (
-          <>
-            <h3>💰 Approve</h3>
+        <button disabled={loading} onClick={handleTracking} style={{...btn, background:"#2563eb"}}>Add Tracking</button>
 
-            <input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Price" style={input} />
-            <input value={shipping} onChange={(e) => setShipping(e.target.value)} placeholder="Shipping" style={input} />
-
-            <button onClick={handleApprove} style={{ ...btn, background: "#22c55e" }}>
-              {loading ? "Processing..." : "Approve"}
-            </button>
-
-            <button onClick={handleDeny} style={{ ...btn, background: "#ef4444" }}>
-              Deny
-            </button>
-          </>
-        )}
-
-        {/* ================= STATUS + TRACKING ================= */}
-        {job.approvalStatus !== "pending" && job.status !== "denied" && (
-          <>
-            <h3>⚙️ Status</h3>
-
-            <select value={status} onChange={(e) => setStatus(e.target.value)} style={input}>
-              <option value="approved">Approved</option>
-              <option value="printing">Printing</option>
-              <option value="shipping">Shipping</option>
-              <option value="shipped">Shipped</option>
-            </select>
-
-            <button onClick={updateStatus} style={btn}>
-              {loading ? "Updating..." : "Update"}
-            </button>
-
-            <h3>📦 Tracking</h3>
-
-            <input value={tracking} onChange={(e) => setTracking(e.target.value)} placeholder="Tracking Number" style={input} />
-            <input value={trackingLink} onChange={(e) => setTrackingLink(e.target.value)} placeholder="Tracking Link" style={input} />
-
-            <button onClick={handleTracking} style={{ ...btn, background: "#2563eb" }}>
-              Add Tracking
-            </button>
-          </>
-        )}
-
-        {/* ================= TIMELINE ================= */}
-        <h3>🕒 Timeline</h3>
-
-        {job.timeline?.length > 0 ? (
-          job.timeline.map((t, i) => (
-            <p key={i}>{t.status} - {new Date(t.date).toLocaleString()}</p>
-          ))
-        ) : (
-          <p>No timeline yet</p>
-        )}
-
-        {/* DELETE */}
-        <button onClick={handleDelete} style={{ ...btn, background: "#dc2626" }}>
-          Delete
-        </button>
+        <button onClick={generatePDF} style={{...btn, background:"#2563eb"}}>Export PDF</button>
 
       </div>
     </div>
   )
 }
 
-/* ================= STYLES ================= */
-
+/* 🔥 FINAL CORRECT STYLES */
 const overlay = {
   position: "fixed",
   inset: 0,
-  background: "rgba(0,0,0,0.8)",
+  background: "rgba(0,0,0,0.5)",
   display: "flex",
   justifyContent: "center",
-  alignItems: "center"
+  alignItems: "center",
+  zIndex: 999
 }
 
 const modal = {
@@ -299,44 +237,20 @@ const modal = {
   padding: "20px",
   borderRadius: "12px",
   width: "450px",
-  color: "#fff"
-}
-
-const btn = {
-  padding: "10px",
-  borderRadius: "6px",
-  border: "none",
-  marginTop: "8px",
+  maxWidth: "90%",
   color: "#fff",
-  cursor: "pointer"
+
+  /* 🔥 REAL FIX */
+  maxHeight: "85vh",
+  overflowY: "auto",
+
+  boxShadow: "0 0 30px rgba(0,0,0,0.6)"
 }
 
-const input = {
-  width: "100%",
-  marginTop: "8px",
-  padding: "8px"
-}
-
-const closeBtn = {
-  float: "right",
-  background: "none",
-  border: "none",
-  color: "#fff",
-  cursor: "pointer"
-}
-
-const aiBox = {
-  background: "#020617",
-  padding: "6px",
-  borderRadius: "6px",
-  color: "#06b6d4"
-}
-
-const itemBox = {
-  background: "#0f172a",
-  padding: "8px",
-  borderRadius: "6px",
-  marginBottom: "6px"
-}
+const btn = { padding:"10px", borderRadius:"6px", border:"none", marginTop:"8px", color:"#fff", cursor:"pointer" }
+const input = { width:"100%", marginTop:"8px", padding:"8px" }
+const closeBtn = { float:"right", background:"none", border:"none", color:"#fff", cursor:"pointer" }
+const aiBox = { background:"#020617", padding:"6px", borderRadius:"6px", color:"#06b6d4" }
+const profitBox = { marginTop:15, padding:10, border:"1px solid #1e293b", borderRadius:8 }
 
 export default JobModal

@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom"
+import logo from "../assets/SignaVi_Logo.jpg"
 
 function Navbar() {
   const navigate = useNavigate()
@@ -12,33 +13,58 @@ function Navbar() {
   }
 
   return (
-    <div style={{ padding: "10px", borderBottom: "1px solid #333" }}>
+    <div
+      style={{
+        padding: "10px 20px",
+        borderBottom: "1px solid #333",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        background: "#020617",
+        color: "white"
+      }}
+    >
+      {/* 🔥 LEFT SIDE (LOGO + NAV) */}
+      <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
 
-      <Link to="/" style={{ marginRight: "10px" }}>Home</Link>
-      <Link to="/store" style={{ marginRight: "10px" }}>Store</Link>
-
-      {user?.role === "admin" && (
-        <Link to="/admin/production" style={{ marginRight: "10px" }}>
-          Production
+        {/* LOGO ONLY */}
+        <Link to="/" style={{ display: "flex", alignItems: "center" }}>
+          <img
+            src={logo}
+            alt="Logo"
+            style={{ height: "40px", objectFit: "contain" }}
+          />
         </Link>
-      )}
 
-      {user?.role === "customer" && (
-        <Link to="/account" style={{ marginRight: "10px" }}>
-          Account
-        </Link>
-      )}
+        {/* NAV LINKS */}
+        <Link to="/">Home</Link>
+        <Link to="/store">Store</Link>
 
-      {user ? (
-        <button onClick={handleLogout} style={{ float: "right" }}>
-          Logout
-        </button>
-      ) : (
-        <Link to="/login" style={{ float: "right" }}>
-          Login
-        </Link>
-      )}
+        {user?.role === "admin" && (
+          <Link to="/admin/production">
+            Production
+          </Link>
+        )}
 
+        {user?.role === "customer" && (
+          <Link to="/account">
+            Account
+          </Link>
+        )}
+      </div>
+
+      {/* 🔥 RIGHT SIDE (AUTH) */}
+      <div>
+        {user ? (
+          <button onClick={handleLogout}>
+            Logout
+          </button>
+        ) : (
+          <Link to="/login">
+            Login
+          </Link>
+        )}
+      </div>
     </div>
   )
 }

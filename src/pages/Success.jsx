@@ -10,8 +10,9 @@ function Success() {
 
   const [loading, setLoading] = useState(true)
   const [order, setOrder] = useState(null)
+  const [status, setStatus] = useState("processing")
 
-  /* ================= FETCH ORDER (RELIABLE RETRY) ================= */
+  /* ================= FETCH ORDER ================= */
   useEffect(() => {
     if (!sessionId) {
       setLoading(false)
@@ -29,20 +30,29 @@ function Success() {
 
         if (res.data) {
           setOrder(res.data)
-          setLoading(false)
-          return
+
+          if (res.data.status === "paid") {
+            setStatus("paid")
+            setLoading(false)
+            return
+          } else {
+            setStatus("syncing")
+          }
         }
 
       } catch {
-        // silent fail (webhook delay)
+        console.log("⚠️ Waiting for webhook...")
       }
 
-      // 🔁 retry up to 10 times (~15 sec total)
-      if (attempts < 10) {
+      /* 🔁 RETRY */
+      if (attempts < 15) {
         attempts++
         setTimeout(fetchOrder, 1500)
       } else {
-        if (isMounted) setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+          setStatus("timeout")
+        }
       }
     }
 
@@ -75,19 +85,29 @@ function Success() {
         </p>
       )}
 
-      {!loading && !order && (
+      {!loading && status === "syncing" && (
         <div style={{ marginTop: "20px" }}>
           <p>✅ Payment confirmed</p>
-          <p>Your order is still syncing…</p>
+          <p>🔄 Finalizing your order...</p>
           <p style={{ fontSize: "12px", color: "#777" }}>
-            (This can take a few seconds)
+            (Webhook syncing in progress)
           </p>
         </div>
       )}
 
-      {order && (
+      {!loading && status === "timeout" && (
+        <div style={{ marginTop: "20px" }}>
+          <p>⚠️ Payment received</p>
+          <p>Your order is still syncing.</p>
+          <p style={{ fontSize: "12px", color: "#777" }}>
+            Please refresh or check back shortly.
+          </p>
+        </div>
+      )}
+
+      {order && status === "paid" && (
         <div style={{ marginTop: "30px", textAlign: "left" }}>
-          <h3>Order ID: {order.orderId}</h3>
+          <h3>Order ID: {order._id}</h3>
 
           <div style={{ marginTop: "20px" }}>
             {order.items?.map((item, i) => (
@@ -115,8 +135,12 @@ function Success() {
           </div>
 
           <h2 style={{ marginTop: "20px" }}>
-            Total: ${order.total?.toFixed(2)}
+            Total: ${Number(order.total || order.finalPrice || 0).toFixed(2)}
           </h2>
+
+          <p style={{ marginTop: "10px", color: "green" }}>
+            ✅ Payment Confirmed
+          </p>
         </div>
       )}
 
