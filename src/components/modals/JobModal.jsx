@@ -13,7 +13,9 @@ function JobModal({ job, onClose, refresh }) {
   const [loading, setLoading] = useState(false)
   const [aiSuggestion, setAiSuggestion] = useState(null)
 
-  /* 🔥 LOCK BACKGROUND SCROLL */
+  /* 🔥 NEW FILE STATE */
+  const [file, setFile] = useState(null)
+
   useEffect(() => {
     document.body.style.overflow = "hidden"
     return () => {
@@ -35,35 +37,67 @@ function JobModal({ job, onClose, refresh }) {
     if (refresh) refresh(data || null)
   }
 
-  const costTotal = (job?.items || []).reduce((sum, item) => {
-    const cost = Number(item.cost || 0)
-    return sum + (cost * Number(item.quantity || 0))
-  }, 0)
+  /* ================= UPLOAD ARTWORK ================= */
+const uploadArtwork = async () => {
+  if (!file) return alert("Select a file first")
 
-  const sellTotal = Number(job?.total || job?.finalPrice || 0)
-  const profit = sellTotal - costTotal
-  const margin = sellTotal ? (profit / sellTotal) * 100 : 0
+  setLoading(true)
 
-  const handleApprove = async () => {
-    if (!price) return alert("Enter price")
+  try {
+    const formData = new FormData()
+    formData.append("artwork", file)
 
-    setLoading(true)
-    try {
-      const res = await api.patch(`/orders/${job._id}/approve`, {
-        price: Number(price),
-        shipping: Number(shipping || 0)
-      })
+    /* 🔥 FIX: ROUTE BASED ON TYPE */
+    const endpoint =
+      job?.type === "quote"
+        ? `/quotes/${job._id}/artwork`
+        : `/orders/${job._id}/artwork`
 
-      safeRefresh(res.data)
-      onClose()
-    } catch (err) {
-      console.error("❌ APPROVE ERROR:", err)
-      alert("Approve failed")
-    } finally {
-      setLoading(false)
-    }
+    console.log("🚀 Uploading to:", endpoint)
+
+    const res = await api.patch(endpoint, formData)
+
+    alert("✅ Artwork updated!")
+    safeRefresh(res.data)
+
+  } catch (err) {
+    console.error("❌ UPLOAD ERROR:", err)
+    alert("Upload failed")
+  } finally {
+    setLoading(false)
   }
+}
+const handleApprove = async () => {
+  if (!price) return alert("Enter price")
 
+  setLoading(true)
+
+  try {
+    const endpoint =
+      job?.type === "quote"
+        ? `/quotes/${job._id}/status`
+        : `/orders/${job._id}/status`
+
+    const res = await api.patch(endpoint, {
+      status: "approved",
+
+      /* 🔥 THIS FIXES STRIPE */
+      price: Number(price),
+      finalPrice: Number(price)
+    })
+
+    console.log("💰 PRICE SAVED:", res.data)
+
+    safeRefresh(res.data)
+    alert("✅ Approved with price!")
+
+  } catch (err) {
+    console.error("❌ APPROVE ERROR:", err)
+    alert("Approve failed")
+  } finally {
+    setLoading(false)
+  }
+}
   const sendForApproval = async () => {
     setLoading(true)
     try {
@@ -75,7 +109,6 @@ function JobModal({ job, onClose, refresh }) {
       alert("📧 Sent to customer for approval!")
     } catch (err) {
       console.error("❌ SEND ERROR:", err)
-      alert("Failed")
     } finally {
       setLoading(false)
     }
@@ -143,62 +176,69 @@ function JobModal({ job, onClose, refresh }) {
 
         <h2>Production Control</h2>
 
-        {/* 🔥 LOADING FIX */}
-        {loading && (
-          <p style={{ color: "#22c55e", marginBottom: "10px" }}>
-            ⏳ Processing...
-          </p>
-        )}
+        {loading && <p style={{ color: "#22c55e" }}>⏳ Processing...</p>}
 
         <InvoiceEditor order={job} />
 
+        {/* ================= PROFIT ================= */}
         <div style={profitBox}>
-          <p>💸 Cost: ${costTotal.toFixed(2)}</p>
-          <p>💰 Sell: ${sellTotal.toFixed(2)}</p>
-          <p>📈 Profit: ${profit.toFixed(2)}</p>
-          <p>📊 Margin: {margin.toFixed(1)}%</p>
+          <p>💰 Price: ${price || 0}</p>
+          <p>📦 Shipping: ${shipping || 0}</p>
         </div>
 
-        {aiSuggestion && <p style={aiBox}>🤖 {aiSuggestion}</p>}
+        {/* ================= AI ================= */}
+        {aiSuggestion && (
+          <p style={aiBox}>
+            🤖 {aiSuggestion}
+          </p>
+        )}
 
         <p><b>{job.customerName}</b></p>
         <p>{job.email}</p>
 
-        {/* ================= ITEMS TABLE ================= */}
-{job.items && job.items.length > 0 && (
-  <div style={{ marginTop: "15px" }}>
-    <h3>Items</h3>
+        {/* ================= FILE UPLOAD ================= */}
+        <div style={{ marginTop: 15 }}>
+          <input
+            type="file"
+            onChange={(e) => setFile(e.target.files[0])}
+          />
 
-    <div style={{
-      borderTop: "1px solid #1e293b",
-      marginTop: "8px",
-      paddingTop: "10px"
-    }}>
-      {job.items.map((item, i) => (
-        <div
-          key={i}
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            marginBottom: "6px"
-          }}
-        >
-          <span>{item.name}</span>
-          <span>
-            x{item.quantity} • ${item.price}
-          </span>
+          <button
+            onClick={uploadArtwork}
+            style={{ ...btn, background: "#8b5cf6" }}
+          >
+            Upload Artwork
+          </button>
         </div>
-      ))}
-    </div>
-  </div>
-)}
 
-        <input value={price} onChange={(e)=>setPrice(e.target.value)} placeholder="Price" style={input}/>
-        <input value={shipping} onChange={(e)=>setShipping(e.target.value)} placeholder="Shipping" style={input}/>
+        {/* ================= PREVIEW ================= */}
+        {job.artwork && (
+          <img
+            src={`http://localhost:5050/uploads/${job.artwork}`}
+            alt="artwork"
+            style={{ width: "100%", marginTop: 10 }}
+          />
+        )}
 
-        <button disabled={loading} onClick={handleApprove} style={{...btn, background:"#22c55e"}}>Approve</button>
-        <button disabled={loading} onClick={sendForApproval} style={{...btn, background:"#06b6d4"}}>Send Approval</button>
-        <button disabled={loading} onClick={handleDeny} style={{...btn, background:"#ef4444"}}>Deny</button>
+        {/* ================= PRICE INPUTS ================= */}
+        <input
+          value={price}
+          onChange={(e)=>setPrice(e.target.value)}
+          placeholder="Price"
+          style={input}
+        />
+
+        <input
+          value={shipping}
+          onChange={(e)=>setShipping(e.target.value)}
+          placeholder="Shipping"
+          style={input}
+        />
+
+        {/* ================= ACTIONS ================= */}
+        <button onClick={handleApprove} style={{...btn, background:"#22c55e"}}>Approve</button>
+        <button onClick={sendForApproval} style={{...btn, background:"#06b6d4"}}>Send Approval</button>
+        <button onClick={handleDeny} style={{...btn, background:"#ef4444"}}>Deny</button>
 
         <select value={status} onChange={(e)=>setStatus(e.target.value)} style={input}>
           <option value="approved">Approved</option>
@@ -207,12 +247,12 @@ function JobModal({ job, onClose, refresh }) {
           <option value="shipped">Shipped</option>
         </select>
 
-        <button disabled={loading} onClick={updateStatus} style={btn}>Update Status</button>
+        <button onClick={updateStatus} style={btn}>Update Status</button>
 
         <input value={tracking} onChange={(e)=>setTracking(e.target.value)} placeholder="Tracking #" style={input}/>
         <input value={trackingLink} onChange={(e)=>setTrackingLink(e.target.value)} placeholder="Tracking Link" style={input}/>
 
-        <button disabled={loading} onClick={handleTracking} style={{...btn, background:"#2563eb"}}>Add Tracking</button>
+        <button onClick={handleTracking} style={{...btn, background:"#2563eb"}}>Add Tracking</button>
 
         <button onClick={generatePDF} style={{...btn, background:"#2563eb"}}>Export PDF</button>
 
@@ -221,7 +261,7 @@ function JobModal({ job, onClose, refresh }) {
   )
 }
 
-/* 🔥 FINAL CORRECT STYLES */
+/* ================= STYLES ================= */
 const overlay = {
   position: "fixed",
   inset: 0,
@@ -239,11 +279,8 @@ const modal = {
   width: "450px",
   maxWidth: "90%",
   color: "#fff",
-
-  /* 🔥 REAL FIX */
   maxHeight: "85vh",
   overflowY: "auto",
-
   boxShadow: "0 0 30px rgba(0,0,0,0.6)"
 }
 

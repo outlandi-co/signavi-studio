@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom"
 import { useState } from "react"
-import api from "../services/api" // ✅ make sure this path is correct
+import api from "../services/api"
 
 export default function Checkout() {
   const { id } = useParams()
@@ -9,13 +9,23 @@ export default function Checkout() {
   const [error, setError] = useState("")
 
   const handleCheckout = async () => {
+    /* 🔥 PREVENT DOUBLE CLICK */
+    if (loading) return
+
     try {
+      console.log("🚀 Checkout clicked:", id)
+
       setLoading(true)
       setError("")
 
-      const res = await api.post(`/stripe/create-checkout-session/${id}`)
+      const res = await api.post(
+        `/stripe/create-checkout-session/${id}`
+      )
+
+      console.log("✅ Stripe response:", res.data)
 
       if (res?.data?.url) {
+        console.log("🌐 Redirecting to Stripe...")
         window.location.href = res.data.url
       } else {
         throw new Error("No checkout URL returned")
@@ -23,7 +33,10 @@ export default function Checkout() {
 
     } catch (err) {
       console.error("❌ Checkout Error:", err)
-      setError("Something went wrong. Please try again.")
+      setError(
+        err?.response?.data?.message ||
+        "Something went wrong. Please try again."
+      )
     } finally {
       setLoading(false)
     }
@@ -32,21 +45,30 @@ export default function Checkout() {
   return (
     <div style={{ padding: 40, textAlign: "center" }}>
       <h1>Checkout</h1>
-      <p>Order: {id}</p>
+
+      <p style={{ opacity: 0.7 }}>Order ID:</p>
+      <p style={{ fontWeight: "bold", marginBottom: 20 }}>
+        {id}
+      </p>
 
       {error && (
-        <p style={{ color: "red", marginBottom: 10 }}>
+        <p style={{ color: "red", marginBottom: 15 }}>
           {error}
         </p>
       )}
 
       <button
-        onClick={handleCheckout} // ✅ FIXED (you were missing this)
+        onClick={handleCheckout}
         disabled={loading}
         style={{
-          padding: "12px 24px",
+          padding: "14px 28px",
           fontSize: "16px",
-          cursor: loading ? "not-allowed" : "pointer"
+          borderRadius: "6px",
+          border: "none",
+          background: loading ? "#999" : "#000",
+          color: "white",
+          cursor: loading ? "not-allowed" : "pointer",
+          transition: "0.2s"
         }}
       >
         {loading ? "Processing..." : "💳 Pay Now"}
