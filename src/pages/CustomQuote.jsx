@@ -40,62 +40,64 @@ function CustomQuote() {
   }, [preview])
 
   /* ================= SUBMIT ================= */
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+const handleSubmit = async (e) => {
+  e.preventDefault()
 
-    if (!form.name || !form.email) {
-      alert("Please fill out name and email")
-      return
-    }
-
-    setLoading(true)
-
-    try {
-      const data = new FormData()
-
-      data.append("name", form.name)
-      data.append("email", form.email)
-      data.append("quantity", form.quantity)
-      data.append("printType", form.printType)
-      data.append("notes", form.notes)
-
-      if (file) data.append("artwork", file)
-
-      console.log("🚀 Sending FormData:")
-      for (let pair of data.entries()) {
-        console.log(pair[0], pair[1])
-      }
-
-      const res = await api.post("/quotes", data, {
-        headers: {
-          "Content-Type": "multipart/form-data"
-        }
-      })
-
-      console.log("✅ RESPONSE:", res.data)
-
-      alert("🔥 Quote submitted successfully!")
-
-      setForm({
-        name: "",
-        email: "",
-        quantity: 1,
-        printType: "screenprint",
-        notes: ""
-      })
-
-      setFile(null)
-
-      if (preview) URL.revokeObjectURL(preview)
-      setPreview(null)
-
-    } catch (err) {
-      console.error("❌ Submit error:", err.response?.data || err.message)
-      alert("Server error — check backend console")
-    } finally {
-      setLoading(false)
-    }
+  if (!form.name || !form.email) {
+    alert("Please fill out name and email")
+    return
   }
+
+  setLoading(true)
+
+  try {
+    const data = new FormData()
+
+    /* 🔥 FIX: SEND CORRECT FIELD */
+    data.append("customerName", form.name)
+
+    data.append("email", form.email)
+    data.append("quantity", form.quantity)
+    data.append("printType", form.printType)
+    data.append("notes", form.notes)
+
+    if (file) data.append("artwork", file)
+
+    console.log("🚀 Sending FormData:")
+    for (let pair of data.entries()) {
+      console.log(pair[0], pair[1])
+    }
+
+    const res = await api.post("/quotes", data, {
+      headers: {
+        "Content-Type": "multipart/form-data"
+      }
+    })
+
+    console.log("✅ RESPONSE:", res.data)
+
+    alert("🔥 Quote submitted successfully!")
+
+    setForm({
+      name: "",
+      email: "",
+      quantity: 1,
+      printType: "screenprint",
+      notes: ""
+    })
+
+    setFile(null)
+
+    if (preview) URL.revokeObjectURL(preview)
+    setPreview(null)
+
+  } catch (err) {
+    console.error("❌ Submit error:", err.response?.data || err.message)
+    alert("Server error — check backend console")
+  } finally {
+    setLoading(false)
+  }
+}
 
   return (
     <div

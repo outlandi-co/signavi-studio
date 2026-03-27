@@ -1,12 +1,16 @@
 import { useState } from "react"
 
-export default function InvoiceEditor({ order, onSave }) {
+export default function InvoiceEditor({ order = {}, onSave }) {
   const [items, setItems] = useState(order.items || [])
 
   const updateItem = (index, field, value) => {
     const updated = [...items]
+
     updated[index][field] =
-      field === "name" ? value : Number(value)
+      field === "name"
+        ? value
+        : Number(value) || 0
+
     setItems(updated)
   }
 
@@ -23,8 +27,23 @@ export default function InvoiceEditor({ order, onSave }) {
   }
 
   const total = items.reduce((sum, item) => {
-    return sum + (item.price * item.quantity)
+    return sum + ((item.price || 0) * (item.quantity || 0))
   }, 0)
+
+  const handleSave = () => {
+    console.log("🧾 SAVE CLICKED")
+    console.log("🧾 ITEMS:", items)
+    console.log("🧾 TOTAL:", total)
+    console.log("🧾 onSave:", onSave)
+
+    if (typeof onSave !== "function") {
+      console.error("❌ onSave is not a function")
+      alert("Save function not connected")
+      return
+    }
+
+    onSave(items, total)
+  }
 
   return (
     <div style={{ marginTop: 20 }}>
@@ -40,7 +59,8 @@ export default function InvoiceEditor({ order, onSave }) {
           }}
         >
           <input
-            value={item.name}
+            value={item.name || ""}
+            placeholder="Item name"
             onChange={(e) =>
               updateItem(i, "name", e.target.value)
             }
@@ -48,7 +68,7 @@ export default function InvoiceEditor({ order, onSave }) {
 
           <input
             type="number"
-            value={item.quantity}
+            value={item.quantity || 0}
             onChange={(e) =>
               updateItem(i, "quantity", e.target.value)
             }
@@ -56,7 +76,7 @@ export default function InvoiceEditor({ order, onSave }) {
 
           <input
             type="number"
-            value={item.price}
+            value={item.price || 0}
             onChange={(e) =>
               updateItem(i, "price", e.target.value)
             }
@@ -75,12 +95,13 @@ export default function InvoiceEditor({ order, onSave }) {
       </h3>
 
       <button
-        onClick={() => onSave(items, total)}
+        onClick={handleSave}
         style={{
           marginTop: 20,
           padding: "10px 20px",
           background: "black",
-          color: "white"
+          color: "white",
+          cursor: "pointer"
         }}
       >
         Save Changes
@@ -88,3 +109,4 @@ export default function InvoiceEditor({ order, onSave }) {
     </div>
   )
 }
+
