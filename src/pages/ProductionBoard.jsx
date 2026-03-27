@@ -10,6 +10,7 @@ import {
 import JobModal from "../components/modals/JobModal"
 import ApprovalModal from "../components/modals/ApprovalModal"
 import toast from "react-hot-toast"
+import SalesDashboard from "../components/SalesDashboard"
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050/api"
 const SOCKET_URL = API_URL.replace("/api", "").replace(/\/$/, "")
@@ -85,46 +86,21 @@ function Card({ job, onClick }) {
 
         <p style={{ color }}>{job.status}</p>
 
-{/* ================= ITEMS PREVIEW ================= */}
-{job.items && job.items.length > 0 && (
-  <div
-    style={{
-      marginTop: "6px",
-      fontSize: "11px",
-      opacity: 0.85,
-      lineHeight: "1.4"
-    }}
-  >
-    {job.items.slice(0, 2).map((item, i) => (
-      <div key={i}>
-        • {item.name || "Item"} x{item.quantity || 0}
-      </div>
-    ))}
+        {job.items && job.items.length > 0 && (
+          <div style={{ marginTop: "6px", fontSize: "11px", opacity: 0.8 }}>
+            {job.items.slice(0, 2).map((item, i) => (
+              <div key={i}>
+                • {item.name} x{item.quantity}
+              </div>
+            ))}
 
-    {job.items.length > 2 && (
-      <div style={{ opacity: 0.5 }}>
-        +{job.items.length - 2} more
-      </div>
-    )}
-  </div>
-)}
-
-{/* ================= ITEMS PREVIEW ================= */}
-{job.items && job.items.length > 0 && (
-  <div style={{ marginTop: "6px", fontSize: "11px", opacity: 0.8 }}>
-    {job.items.slice(0, 2).map((item, i) => (
-      <div key={i}>
-        • {item.name} x{item.quantity}
-      </div>
-    ))}
-
-    {job.items.length > 2 && (
-      <div style={{ opacity: 0.5 }}>
-        +{job.items.length - 2} more
-      </div>
-    )}
-  </div>
-)}
+            {job.items.length > 2 && (
+              <div style={{ opacity: 0.5 }}>
+                +{job.items.length - 2} more
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -163,7 +139,16 @@ function ProductionBoard() {
 
   const socketRef = useRef(null)
 
-  /* ================= UPDATE STATE ================= */
+  /* 🔥 FAST LOOKUP (BIG FIX) */
+  const findJobStatus = (jobId) => {
+    for (const [status, list] of Object.entries(jobs)) {
+      if (list.find(j => j._id === jobId)) {
+        return status
+      }
+    }
+    return null
+  }
+
   const updateJobInState = (updatedJob) => {
     setJobs(prev => {
       const newState = { ...prev }
@@ -186,7 +171,6 @@ function ProductionBoard() {
     })
   }
 
-  /* ================= FETCH ================= */
   const fetchJobs = async () => {
     try {
       const res = await api.get("/production")
@@ -197,25 +181,16 @@ function ProductionBoard() {
     }
   }
 
-  /* ================= DRAG ================= */
   const handleDragEnd = async (event) => {
     const { active, over } = event
-
     if (!over) return
 
     const jobId = active.id
     const newStatus = over.id
 
-    let currentStatus = null
-
-    Object.entries(jobs).forEach(([status, list]) => {
-      if (list.find(j => j._id === jobId)) {
-        currentStatus = status
-      }
-    })
+    const currentStatus = findJobStatus(jobId)
 
     if (!allowedMoves[currentStatus]?.includes(newStatus)) {
-      console.warn(`❌ Invalid move: ${currentStatus} → ${newStatus}`)
       toast.error("Invalid move")
       return
     }
@@ -233,7 +208,6 @@ function ProductionBoard() {
     }
   }
 
-  /* ================= INIT ================= */
   useEffect(() => {
     let mounted = true
 
@@ -249,14 +223,13 @@ function ProductionBoard() {
 
     init()
 
+    /* 🔥 SOCKET FIX (NO DUPLICATES) */
     if (!socketRef.current) {
       const socket = io(SOCKET_URL, { transports: ["websocket"] })
       socketRef.current = socket
 
-      socket.on("jobUpdated", () => {
-        fetchJobs()
-        toast.success("Updated")
-      })
+      socket.off("jobUpdated")
+      socket.on("jobUpdated", fetchJobs)
     }
 
     return () => {
@@ -266,7 +239,6 @@ function ProductionBoard() {
     }
   }, [])
 
-  /* ================= CLICK ================= */
   const handleClick = (job) => {
     if (job.source === "quote" && job.approvalStatus === "pending") {
       setApprovalJob(job)
@@ -278,12 +250,12 @@ function ProductionBoard() {
 
   return (
     <div style={{ padding: "20px", background: "#020617", minHeight: "100vh" }}>
+
+      <SalesDashboard />
+
       <h2 style={{ color: "white" }}>Production Dashboard</h2>
 
-      <DndContext
-        collisionDetection={rectIntersection}
-        onDragEnd={handleDragEnd}
-      >
+      <DndContext collisionDetection={rectIntersection} onDragEnd={handleDragEnd}>
         <div style={{ display: "flex", gap: "20px" }}>
           {Object.entries(jobs).map(([key, value]) => (
             <Column key={key} id={key} jobs={value} onClick={handleClick} />
