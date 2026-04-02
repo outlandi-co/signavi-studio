@@ -1,16 +1,38 @@
-export default function Column({ title, orders }) {
+import { useDroppable } from "@dnd-kit/core"
+
+/* ================= COLUMN ================= */
+export default function Column({ id, jobs, onClick }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id
+  })
 
   return (
-    <div className="bg-white rounded-xl shadow-md p-4 min-h-[400px]">
+    <div
+      ref={setNodeRef}
+      style={{
+        flex: 1,
+        minHeight: "600px", // 🔥 IMPORTANT FOR DROP DETECTION
+        padding: "10px",
+        borderRadius: "10px",
+        border: isOver ? "2px solid #3b82f6" : "1px dashed #1e293b",
+        background: "#020617",
+        transition: "0.2s"
+      }}
+    >
+      <h3 style={{ color: "white", marginBottom: 10 }}>
+        {id.toUpperCase()}
+      </h3>
 
-      <h2 className="font-semibold capitalize mb-4">{title}</h2>
-
-      <div className="space-y-4">
-        {orders.map(order => (
-          <Card key={order._id} order={order} />
-        ))}
-      </div>
-
+      {(jobs || []).map(job => (
+        <div
+          key={job._id}
+          style={{ marginBottom: "10px" }}
+          onClick={() => onClick(job)}
+        >
+          {/* your Card component still wraps this */}
+          {job.customerName}
+        </div>
+      ))}
     </div>
   )
 }

@@ -5,18 +5,18 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050"
 
 function DraggableMockup({ job, onOpen = null }) {
 
-  /* ✅ ALWAYS CALL HOOK */
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: job?._id || "fallback-id"
   })
 
-  /* ✅ NOW SAFE TO CHECK */
   if (!job) return null
 
   const style = {
     transform: transform
-      ? `translate(${transform.x}px, ${transform.y}px)`
-      : undefined
+      ? `translate(${transform.x}px, ${transform.y}px) scale(1.05)`
+      : "scale(1)",
+    transition: "transform 0.2s ease",
+    zIndex: transform ? 999 : 1
   }
 
   const artworkUrl = job.artwork
@@ -27,46 +27,68 @@ function DraggableMockup({ job, onOpen = null }) {
 
   const approve = async (e) => {
     e.stopPropagation()
-
-    const price = prompt("Price?")
-    const shipping = prompt("Shipping?")
-
-    if (!price || !shipping) return
-
-    await api.patch(`/production/orders/${job._id}/approve`, { price, shipping })
-    window.location.reload()
+    try {
+      await api.patch(`/orders/${job._id}/approve`)
+      window.location.reload()
+    } catch (err) {
+      console.error("❌ APPROVE ERROR:", err)
+    }
   }
 
   const deny = async (e) => {
     e.stopPropagation()
-    await api.patch(`/production/orders/${job._id}/deny`)
-    window.location.reload()
+    try {
+      await api.patch(`/orders/${job._id}/deny`)
+      window.location.reload()
+    } catch (err) {
+      console.error("❌ DENY ERROR:", err)
+    }
+  }
+
+  const restore = async (e) => {
+    e.stopPropagation()
+    try {
+      await api.patch(`/orders/${job._id}/restore`)
+      window.location.reload()
+    } catch (err) {
+      console.error("❌ RESTORE ERROR:", err)
+    }
   }
 
   const addTracking = async (e) => {
     e.stopPropagation()
 
-    const tracking = prompt("Tracking number")
-    const link = prompt("Tracking link")
+    try {
+      const tracking = prompt("Tracking number")
+      const link = prompt("Tracking link")
 
-    if (!tracking) return
+      if (!tracking) return
 
-    await api.patch(`/production/orders/${job._id}/tracking`, {
-      trackingNumber: tracking,
-      trackingLink: link
-    })
+      await api.patch(`/orders/${job._id}/status`, {
+        status: "shipping",
+        trackingNumber: tracking,
+        trackingLink: link
+      })
 
-    window.location.reload()
+      window.location.reload()
+
+    } catch (err) {
+      console.error("❌ TRACKING ERROR:", err)
+    }
   }
 
+  /* ================= COLORS ================= */
   const statusColor = {
-    pending: "#facc15",
-    approved: "#22c55e",
-    printing: "#3b82f6",
+    artwork_sent: "#facc15",
+    payment_required: "#22c55e",
+    production: "#3b82f6",
     shipping: "#f97316",
     shipped: "#10b981",
-    denied: "#ef4444"
+    denied: "#ef4444",
+    archive: "#64748b"
   }
+
+  const color = statusColor[job.status] || "#334155"
 
   return (
     <div
@@ -76,7 +98,12 @@ function DraggableMockup({ job, onOpen = null }) {
         background: "#020617",
         padding: "12px",
         borderRadius: "12px",
-        border: `1px solid ${statusColor[job.status] || "#334155"}`
+        border: `1px solid ${color}`,
+        boxShadow: transform
+          ? `0 10px 25px ${color}`
+          : `0 0 10px ${color}`,
+        marginBottom: "10px",
+        cursor: "pointer"
       }}
       onClick={(e) => {
         e.stopPropagation()
@@ -84,18 +111,7 @@ function DraggableMockup({ job, onOpen = null }) {
       }}
     >
 
-      {/* DRAG HANDLE */}
-      <div
-        {...listeners}
-        {...attributes}
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          cursor: "grab",
-          fontSize: "10px",
-          opacity: 0.5,
-          marginBottom: "6px"
-        }}
-      >
+      <div {...listeners} {...attributes} style={{ cursor: "grab", fontSize: "10px", opacity: 0.5 }}>
         ⠿ drag
       </div>
 
@@ -103,51 +119,39 @@ function DraggableMockup({ job, onOpen = null }) {
         {job.customerName}
       </p>
 
-      <p style={{ color: statusColor[job.status], fontSize: "12px" }}>
-        {job.status}
-      </p>
+      <p style={{ color }}>{job.status}</p>
 
-      {/* DOWNLOAD */}
+      {job?.finalPrice > 0 && (
+        <p style={{ color: "#22c55e", fontWeight: "bold" }}>
+          💰 ${job.finalPrice}
+        </p>
+      )}
+
       {artworkUrl && (
-        <a
-          href={artworkUrl}
-          download
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            display: "block",
-            marginTop: "6px",
-            background: "#000",
-            color: "white",
-            padding: "6px",
-            borderRadius: "6px",
-            textAlign: "center"
-          }}
-        >
+        <a href={artworkUrl} download onClick={(e) => e.stopPropagation()}>
           ⬇ Download Artwork
         </a>
       )}
 
-      {/* APPROVAL */}
-      {job.approvalStatus === "pending" && (
-        <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
-          <button onClick={approve}>Approve</button>
-          <button onClick={deny}>Deny</button>
+      {/* 🔥 APPROVAL */}
+      {job.status === "artwork_sent" && (
+        <div style={{ marginTop: "6px" }}>
+          <button onClick={approve}>✅ Approve</button>
+          <button onClick={deny}>❌ Deny</button>
         </div>
       )}
 
       {/* TRACKING */}
       {job.status === "shipping" && (
-        <button onClick={addTracking} style={{ marginTop: "6px" }}>
-          Add Tracking
-        </button>
+        <button onClick={addTracking}>Add Tracking</button>
       )}
 
-      {/* TRACKING DISPLAY */}
-      {job.trackingNumber && (
-        <p style={{ color: "#22c55e", fontSize: "11px", marginTop: "6px" }}>
-          📦 {job.trackingNumber}
-        </p>
+      {/* RESTORE */}
+      {job.status === "archive" && (
+        <button onClick={restore}>🔄 Restore</button>
       )}
+
+      {job.trackingNumber && <p>📦 {job.trackingNumber}</p>}
 
     </div>
   )

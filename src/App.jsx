@@ -113,7 +113,10 @@ function AppContent() {
           <Route path="/store" element={<Store />} />
           <Route path="/login" element={<Login />} />
           <Route path="/submit" element={<CustomQuote />} />
-          <Route path="/track" element={<TrackOrder />} />
+
+          {/* 🔥 FIXED TRACK ROUTE */}
+          <Route path="/track/:id" element={<TrackOrder />} />
+
           <Route path="/client-order/:id" element={<ClientOrder />} />
           <Route path="/quote/:id" element={<QuoteResponse />} />
           <Route path="/success" element={<Success />} />

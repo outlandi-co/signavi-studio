@@ -1,3 +1,12 @@
+/* 🔥 GLOBAL DARK BACKGROUND */
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  background-color: #020617; /* deep black */
+  color: white;
+  min-height: 100%;
+}
+
 .counter {
   font-size: 16px;
   padding: 5px 10px;

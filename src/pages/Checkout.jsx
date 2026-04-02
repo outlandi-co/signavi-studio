@@ -8,35 +8,53 @@ export default function Checkout() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
+  console.log("🧠 PARAM ID:", id)
+
   const handleCheckout = async () => {
-    /* 🔥 PREVENT DOUBLE CLICK */
+    console.log("🔥 BUTTON CLICKED")
+
+    if (!id) {
+      console.log("❌ NO ID FOUND")
+      setError("Invalid order ID")
+      return
+    }
+
     if (loading) return
 
     try {
-      console.log("🚀 Checkout clicked:", id)
-
       setLoading(true)
       setError("")
+
+      const fullUrl = `${api.defaults.baseURL}/stripe/create-checkout-session/${id}`
+      console.log("🌐 FULL URL:", fullUrl)
 
       const res = await api.post(
         `/stripe/create-checkout-session/${id}`
       )
 
-      console.log("✅ Stripe response:", res.data)
+      console.log("✅ STRIPE RESPONSE:", res.data)
 
-      if (res?.data?.url) {
-        console.log("🌐 Redirecting to Stripe...")
-        window.location.href = res.data.url
-      } else {
+      if (!res?.data?.url) {
         throw new Error("No checkout URL returned")
       }
 
+      console.log("🚀 REDIRECTING TO STRIPE...")
+      window.location.href = res.data.url
+
     } catch (err) {
-      console.error("❌ Checkout Error:", err)
-      setError(
+      console.error("❌ CHECKOUT ERROR:", err)
+
+      if (err.response) {
+        console.error("❌ SERVER RESPONSE:", err.response.data)
+      }
+
+      const message =
         err?.response?.data?.message ||
-        "Something went wrong. Please try again."
-      )
+        err?.message ||
+        "Checkout failed"
+
+      setError(message)
+
     } finally {
       setLoading(false)
     }
@@ -48,7 +66,7 @@ export default function Checkout() {
 
       <p style={{ opacity: 0.7 }}>Order ID:</p>
       <p style={{ fontWeight: "bold", marginBottom: 20 }}>
-        {id}
+        {id || "❌ NO ID"}
       </p>
 
       {error && (
@@ -58,7 +76,10 @@ export default function Checkout() {
       )}
 
       <button
-        onClick={handleCheckout}
+        onClick={() => {
+          console.log("👆 BUTTON PRESS DETECTED")
+          handleCheckout()
+        }}
         disabled={loading}
         style={{
           padding: "14px 28px",
