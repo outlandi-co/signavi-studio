@@ -11,6 +11,7 @@ import {
   BarChart,
   Bar
 } from "recharts"
+import ExpenseManager from "../components/ExpenseManager"
 
 function AnalyticsPanel() {
   const [data, setData] = useState(null)
@@ -18,7 +19,7 @@ function AnalyticsPanel() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await api.get("/analytics")
+        const res = await api.get("/orders/analytics")
         setData(res.data)
       } catch (err) {
         console.error("Analytics error:", err)
@@ -28,7 +29,9 @@ function AnalyticsPanel() {
     load()
   }, [])
 
-  if (!data) return <p style={{ color: "white" }}>Loading analytics...</p>
+  if (!data) {
+    return <p style={{ color: "white" }}>Loading analytics...</p>
+  }
 
   return (
     <div style={container}>

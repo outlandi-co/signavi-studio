@@ -1,3 +1,10 @@
+/* ================= TAILWIND (REQUIRED) ================= */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ================= ROOT ================= */
+
 :root {
   /* 🎯 CORE COLORS */
   --text: #94a3b8;
@@ -46,16 +53,12 @@ body {
   background: radial-gradient(circle at top, #0f172a, #020617);
 }
 
-/* ================= ROOT ================= */
+/* ================= ROOT FIX ================= */
+/* 🔥 IMPORTANT: let Tailwind control layout */
 
 #root {
   width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
+  min-height: 100vh;
 }
 
 /* ================= HEADINGS ================= */
@@ -152,15 +155,12 @@ code {
 @keyframes pulse {
   0% {
     opacity: 1;
-    text-shadow: 0 0 0px rgba(255,255,255,0.3);
   }
   50% {
     opacity: 0.6;
-    text-shadow: 0 0 10px rgba(255,255,255,0.6);
   }
   100% {
     opacity: 1;
-    text-shadow: 0 0 0px rgba(255,255,255,0.3);
   }
 }
 

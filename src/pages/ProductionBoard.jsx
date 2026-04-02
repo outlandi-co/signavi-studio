@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import api from "../services/api"
 import { io } from "socket.io-client"
 import {
@@ -11,8 +11,40 @@ import {
   PointerSensor
 } from "@dnd-kit/core"
 import JobModal from "../components/modals/JobModal"
-import ApprovalModal from "../components/modals/ApprovalModal"
+import Scanner from "../components/Scanner"
 import toast from "react-hot-toast"
+
+/* ================= CONFIG ================= */
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050/api"
+const SOCKET_URL = API_URL.replace("/api", "").replace(/\/$/, "")
+
+/* ================= AUTO PRINT ================= */
+const autoPrintLabel = (url) => {
+  try {
+    const iframe = document.createElement("iframe")
+
+    iframe.style.position = "fixed"
+    iframe.style.right = "0"
+    iframe.style.bottom = "0"
+    iframe.style.width = "0"
+    iframe.style.height = "0"
+    iframe.style.border = "0"
+
+    iframe.src = url
+
+    document.body.appendChild(iframe)
+
+    iframe.onload = () => {
+      setTimeout(() => {
+        iframe.contentWindow?.focus()
+        iframe.contentWindow?.print()
+      }, 500)
+    }
+
+  } catch (err) {
+    console.error("Print error:", err)
+  }
+}
 
 /* ================= STATUS COLORS ================= */
 const statusColors = {
@@ -43,16 +75,12 @@ function Card({ job, onClick }) {
   return (
     <div
       ref={setNodeRef}
+      className="job-card"
       style={{
         transform: transform
           ? `translate(${transform.x}px, ${transform.y}px)`
           : "none",
-        background: "#020617",
-        padding: "12px",
-        borderRadius: "12px",
-        color: "white",
-        border: `1px solid ${statusColors[job.status]}`,
-        marginBottom: "10px"
+        border: `1px solid ${statusColors[job.status]}`
       }}
     >
       <div {...listeners} {...attributes} style={{ cursor: "grab" }}>
@@ -64,6 +92,15 @@ function Card({ job, onClick }) {
         <p>#{job._id.slice(-6)}</p>
         <p>{job.status}</p>
       </div>
+
+      {job.status === "shipped" && job.shippingLabel && (
+        <button
+          onClick={() => window.open(job.shippingLabel, "_blank")}
+          style={printBtn}
+        >
+          🖨️ Print Label
+        </button>
+      )}
     </div>
   )
 }
@@ -93,55 +130,43 @@ function Column({ id, jobs, onClick }) {
   )
 }
 
-/* ================= METRICS ================= */
-function Metrics({ jobs }) {
-  const all = Object.values(jobs).flat()
-
-  const revenue = all.reduce((sum, j) => sum + (j.finalPrice || 0), 0)
-  const orders = all.length
-
-  const today = all.filter(j => {
-    const d = new Date(j.createdAt)
-    const now = new Date()
-    return d.toDateString() === now.toDateString()
-  }).length
-
-  return (
-    <div style={{ display: "flex", gap: 20, marginBottom: 30 }}>
-      <MetricBox title="Revenue" value={`$${revenue}`} color="#22c55e" />
-      <MetricBox title="Orders" value={orders} color="#3b82f6" />
-      <MetricBox title="Today" value={today} color="#f59e0b" />
-    </div>
-  )
-}
-
-function MetricBox({ title, value, color }) {
-  return (
-    <div
-      style={{
-        flex: 1,
-        background: "#020617",
-        padding: 20,
-        borderRadius: 12,
-        border: `1px solid ${color}`,
-        color: "white"
-      }}
-    >
-      <h4>{title}</h4>
-      <h2>{value}</h2>
-    </div>
-  )
-}
-
 /* ================= MAIN ================= */
 function ProductionBoard() {
+
   const [jobs, setJobs] = useState({})
   const [selectedJob, setSelectedJob] = useState(null)
+  const [scannerOpen, setScannerOpen] = useState(false)
+  const [scanBuffer, setScanBuffer] = useState("")
+  const [autoPrintEnabled, setAutoPrintEnabled] = useState(true)
 
   const socketRef = useRef(null)
+  const openedLabels = useRef(new Set())
+
   const sensors = useSensors(useSensor(PointerSensor))
 
-  /* LOAD */
+  /* 🔊 SOUND */
+  const playMoveSound = () => {
+    const audio = new Audio("/sounds/move.mp3")
+    audio.play().catch(() => {})
+  }
+
+  /* ================= PROCESS SCAN ================= */
+  const processScan = useCallback(async (orderId) => {
+    try {
+      await api.patch(`/orders/${orderId}/status`, {
+        status: "shipped"
+      })
+
+      playMoveSound()
+      toast.success("📦 Order shipped!")
+
+    } catch (err) {
+      console.error(err)
+      toast.error("❌ Scan failed")
+    }
+  }, [])
+
+  /* ================= INITIAL LOAD ================= */
   useEffect(() => {
     const load = async () => {
       const res = await api.get("/production")
@@ -150,24 +175,83 @@ function ProductionBoard() {
     load()
   }, [])
 
-  /* SOCKET */
+  /* ================= SOCKET ================= */
   useEffect(() => {
-    socketRef.current = io("http://localhost:5050")
 
-    socketRef.current.on("jobUpdated", async () => {
-      const res = await api.get("/production")
-      setJobs(normalizeJobs(res.data))
+    socketRef.current = io(SOCKET_URL)
+
+    socketRef.current.on("jobUpdated", (updatedOrder) => {
+
+      setJobs(prev => {
+        const updated = { ...prev }
+
+        Object.keys(updated).forEach(key => {
+          updated[key] = updated[key].filter(j => j._id !== updatedOrder._id)
+        })
+
+        if (!updated[updatedOrder.status]) {
+          updated[updatedOrder.status] = []
+        }
+
+        updated[updatedOrder.status].unshift(updatedOrder)
+
+        return updated
+      })
+
+      playMoveSound()
+
+      if (
+        updatedOrder.status === "shipped" &&
+        updatedOrder.shippingLabel &&
+        autoPrintEnabled &&
+        !openedLabels.current.has(updatedOrder._id)
+      ) {
+        openedLabels.current.add(updatedOrder._id)
+
+        autoPrintLabel(updatedOrder.shippingLabel)
+
+        setTimeout(() => {
+          window.open(updatedOrder.shippingLabel, "_blank")
+        }, 1500)
+      }
     })
 
     return () => socketRef.current.disconnect()
-  }, [])
 
-  /* DRAG */
+  }, [autoPrintEnabled])
+
+  /* ================= SCANNER ================= */
+  useEffect(() => {
+
+    const handleKeyDown = (e) => {
+
+      if (document.activeElement.tagName === "INPUT") return
+
+      if (e.key === "Enter") {
+        if (scanBuffer.length > 5) {
+          processScan(scanBuffer)
+        }
+        setScanBuffer("")
+        return
+      }
+
+      setScanBuffer(prev => prev + e.key)
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+
+    return () => window.removeEventListener("keydown", handleKeyDown)
+
+  }, [scanBuffer, processScan])
+
+  /* ================= DRAG ================= */
   const handleDragEnd = async ({ active, over }) => {
     if (!over) return
 
     const jobId = active.id
-    const newStatus = over.id === "production" ? "paid" : over.id
+    const newStatus = over.id
+
+    playMoveSound()
 
     try {
       await api.patch(`/orders/${jobId}/status`, {
@@ -180,11 +264,34 @@ function ProductionBoard() {
 
   return (
     <div style={{ padding: 20, background: "#020617", minHeight: "100vh" }}>
-      
-      {/* 🔥 MERGED DASHBOARD */}
-      <Metrics jobs={jobs} />
 
-      {/* 🔥 KANBAN */}
+      {/* 📷 SCANNER */}
+      <button
+        onClick={() => setScannerOpen(true)}
+        style={btnTop}
+      >
+        📷 Scan
+      </button>
+
+      {/* 🖨️ AUTO PRINT TOGGLE */}
+      <button
+        onClick={() => setAutoPrintEnabled(prev => !prev)}
+        style={{
+          ...btnTop,
+          top: 70,
+          background: autoPrintEnabled ? "#22c55e" : "#ef4444"
+        }}
+      >
+        🖨️ Auto Print: {autoPrintEnabled ? "ON" : "OFF"}
+      </button>
+
+      {/* DEBUG INPUT */}
+      <input
+        value={scanBuffer}
+        readOnly
+        style={debugInput}
+      />
+
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -200,8 +307,61 @@ function ProductionBoard() {
       {selectedJob && (
         <JobModal job={selectedJob} onClose={() => setSelectedJob(null)} />
       )}
+
+      {scannerOpen && (
+        <Scanner onClose={() => setScannerOpen(false)} />
+      )}
+
+      <style>{`
+        .job-card {
+          background: #020617;
+          padding: 12px;
+          border-radius: 12px;
+          color: white;
+          margin-bottom: 10px;
+          transition: all 0.2s ease;
+          animation: flash 0.3s ease;
+        }
+
+        @keyframes flash {
+          0% { background: #22c55e33; }
+          100% { background: #020617; }
+        }
+      `}</style>
+
     </div>
   )
+}
+
+/* ================= STYLES ================= */
+const printBtn = {
+  marginTop: 8,
+  width: "100%",
+  background: "#22c55e",
+  color: "black",
+  padding: "6px",
+  borderRadius: "6px",
+  fontWeight: "bold"
+}
+
+const btnTop = {
+  position: "fixed",
+  top: 20,
+  right: 20,
+  padding: "10px",
+  background: "#22c55e",
+  borderRadius: "6px",
+  zIndex: 1000
+}
+
+const debugInput = {
+  position: "fixed",
+  bottom: 20,
+  left: 20,
+  padding: 10,
+  background: "#000",
+  color: "#22c55e",
+  borderRadius: 6
 }
 
 export default ProductionBoard

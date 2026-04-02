@@ -1,6 +1,4 @@
-
-
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { io } from "socket.io-client"
 import api from "../services/api"
 import {
@@ -32,7 +30,7 @@ const COLORS = {
 
 /* ================= DRAGGABLE ================= */
 
-function DraggableJob({ job }) {
+function DraggableJob({ job, selected, toggleSelect }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: job._id,
@@ -43,23 +41,25 @@ function DraggableJob({ job }) {
     transform: transform
       ? `translate(${transform.x}px, ${transform.y}px)`
       : undefined,
-    background: isDragging ? "#1e293b" : "#0f172a",
+    background: selected ? "#22c55e33" : "#0f172a",
     padding: "12px",
     marginBottom: "10px",
     borderRadius: "8px",
     cursor: "grab",
-    opacity: isDragging ? 0.6 : 1,
-    transition: "all 0.2s ease"
+    border: selected ? "2px solid #22c55e" : "none",
+    opacity: isDragging ? 0.6 : 1
   }
 
   return (
     <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
 
-      <strong>{job.customerName}</strong>
-      <p>{job.printType || "printing"}</p>
-      <p style={{ opacity: 0.5 }}>#{job._id.slice(-6)}</p>
+      <div onClick={() => toggleSelect(job._id)}>
+        <strong>{job.customerName}</strong>
+        <p>{job.printType || "printing"}</p>
+        <p style={{ opacity: 0.5 }}>#{job._id.slice(-6)}</p>
+      </div>
 
-      {/* ================= SHIPPING UI ================= */}
+      {/* SHIPPING UI */}
       {job.status === "shipped" && (
         <div style={{
           marginTop: "10px",
@@ -70,7 +70,7 @@ function DraggableJob({ job }) {
 
           {job.trackingNumber && (
             <p style={{ fontSize: "12px" }}>
-              📦 Tracking: {job.trackingNumber}
+              📦 {job.trackingNumber}
             </p>
           )}
 
@@ -79,51 +79,39 @@ function DraggableJob({ job }) {
               href={job.trackingLink}
               target="_blank"
               rel="noreferrer"
-              style={{
-                display: "block",
-                fontSize: "12px",
-                color: "#38bdf8",
-                marginTop: "5px"
-              }}
+              style={{ fontSize: "12px", color: "#38bdf8" }}
             >
-              🔗 Track Package
+              🔗 Track
             </a>
           )}
 
           {job.shippingLabel && (
-            <a
-              href={job.shippingLabel}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              onClick={() => window.open(job.shippingLabel, "_blank")}
               style={{
-                display: "block",
-                marginTop: "8px",
+                marginTop: "6px",
+                width: "100%",
                 background: "#22c55e",
                 color: "black",
                 padding: "6px",
                 borderRadius: "4px",
-                textAlign: "center",
                 fontSize: "12px",
                 fontWeight: "bold"
               }}
             >
-              🏷️ Print Label
-            </a>
+              🖨️ Print Label
+            </button>
           )}
-
         </div>
       )}
-
     </div>
   )
 }
 
-/* ================= DROPPABLE ================= */
+/* ================= COLUMN ================= */
 
-function Column({ status, jobs }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: status
-  })
+function Column({ status, jobs, selectedJobs, toggleSelect }) {
+  const { setNodeRef, isOver } = useDroppable({ id: status })
 
   return (
     <div
@@ -133,19 +121,20 @@ function Column({ status, jobs }) {
         background: isOver ? "#020617cc" : "#020617",
         padding: "15px",
         borderRadius: "12px",
-        border: `2px solid ${COLORS[status]}`,
-        transition: "all 0.2s ease"
+        border: `2px solid ${COLORS[status]}`
       }}
     >
-      <h2 style={{
-        textAlign: "center",
-        color: COLORS[status]
-      }}>
+      <h2 style={{ textAlign: "center", color: COLORS[status] }}>
         {status.toUpperCase()} ({jobs.length})
       </h2>
 
       {jobs.map(job => (
-        <DraggableJob key={job._id} job={job} />
+        <DraggableJob
+          key={job._id}
+          job={job}
+          selected={selectedJobs.includes(job._id)}
+          toggleSelect={toggleSelect}
+        />
       ))}
     </div>
   )
@@ -164,15 +153,13 @@ function Dashboard() {
     denied: []
   })
 
+  const [selectedJobs, setSelectedJobs] = useState([])
   const [loading, setLoading] = useState(true)
 
-  /* 🔊 OPTIONAL SOUND */
-  const playMoveSound = () => {
-    const audio = new Audio("/sounds/move.mp3")
-    audio.play().catch(() => {})
-  }
+  const openedLabels = useRef(new Set())
 
-  /* ✅ FETCH */
+  /* ================= FETCH ================= */
+
   const fetchJobs = useCallback(async () => {
     try {
       const res = await api.get("/production")
@@ -184,24 +171,53 @@ function Dashboard() {
     }
   }, [])
 
+  /* ================= INITIAL LOAD ================= */
+
+  useEffect(() => {
+    fetchJobs()
+  }, [fetchJobs])
+
+  /* ================= SOCKET ================= */
+
   useEffect(() => {
 
     const socket = io(SOCKET_URL)
 
-    fetchJobs()
+    socket.on("jobUpdated", (updatedOrder) => {
+
+      if (
+        updatedOrder.status === "shipped" &&
+        updatedOrder.shippingLabel &&
+        !openedLabels.current.has(updatedOrder._id)
+      ) {
+        openedLabels.current.add(updatedOrder._id)
+        window.open(updatedOrder.shippingLabel, "_blank")
+      }
+
+      fetchJobs()
+    })
 
     socket.on("jobCreated", fetchJobs)
-    socket.on("jobUpdated", fetchJobs)
     socket.on("jobDeleted", fetchJobs)
 
     return () => socket.disconnect()
 
   }, [fetchJobs])
 
-  /* 🔥 OPTIMISTIC UPDATE */
+  /* ================= SELECT ================= */
+
+  const toggleSelect = (id) => {
+    setSelectedJobs(prev =>
+      prev.includes(id)
+        ? prev.filter(j => j !== id)
+        : [...prev, id]
+    )
+  }
+
+  /* ================= LOCAL MOVE ================= */
+
   const moveJobLocally = (jobId, newStatus) => {
     const newState = { ...jobs }
-
     let movedJob = null
 
     for (const key of STATUS_COLUMNS) {
@@ -222,32 +238,44 @@ function Dashboard() {
     setJobs(newState)
   }
 
-  /* 🔥 DRAG END */
+  /* ================= DRAG END ================= */
+
   const handleDragEnd = async (event) => {
     const { active, over } = event
-
     if (!over) return
 
-    const jobId = active.id
     const newStatus = over.id
 
-    if (newStatus === "archive") {
-      console.warn("Archive is locked")
-      return
+    const batch = selectedJobs.length ? selectedJobs : [active.id]
+
+    for (const jobId of batch) {
+
+      moveJobLocally(jobId, newStatus)
+
+      try {
+        const res = await api.patch(`/orders/${jobId}/status`, {
+          status: newStatus
+        })
+
+        const updatedOrder = res.data.order
+
+        if (
+          updatedOrder.status === "shipped" &&
+          updatedOrder.shippingLabel
+        ) {
+          window.open(updatedOrder.shippingLabel, "_blank")
+        }
+
+      } catch (err) {
+        console.error(err)
+        fetchJobs()
+      }
     }
 
-    moveJobLocally(jobId, newStatus)
-    playMoveSound()
-
-    try {
-      await api.patch(`/orders/${jobId}/status`, {
-        status: newStatus
-      })
-    } catch (err) {
-      console.error("❌ Failed update:", err)
-      fetchJobs()
-    }
+    setSelectedJobs([])
   }
+
+  /* ================= LOADING ================= */
 
   if (loading) {
     return (
@@ -261,6 +289,8 @@ function Dashboard() {
       </div>
     )
   }
+
+  /* ================= UI ================= */
 
   return (
     <DndContext onDragEnd={handleDragEnd}>
@@ -277,6 +307,8 @@ function Dashboard() {
             key={status}
             status={status}
             jobs={jobs[status] || []}
+            selectedJobs={selectedJobs}
+            toggleSelect={toggleSelect}
           />
         ))}
       </div>

@@ -38,7 +38,6 @@ function TrackOrder() {
 
     fetchOrder()
 
-    /* 🔥 SOCKET */
     const socket = io(SOCKET_URL, {
       transports: ["websocket", "polling"]
     })
@@ -51,7 +50,6 @@ function TrackOrder() {
       if (updatedOrder._id === id) {
         setOrder(updatedOrder)
 
-        /* 🔔 NOTIFICATION */
         setNotification(`Status updated: ${updatedOrder.status}`)
 
         setTimeout(() => {
@@ -66,12 +64,7 @@ function TrackOrder() {
 
   if (loading) {
     return (
-      <div style={{
-        padding: 40,
-        background: "#020617",
-        color: "white",
-        height: "100vh"
-      }}>
+      <div style={loadingStyle}>
         Loading tracking info...
       </div>
     )
@@ -79,68 +72,47 @@ function TrackOrder() {
 
   if (!order) {
     return (
-      <div style={{
-        padding: 40,
-        background: "#020617",
-        color: "white",
-        height: "100vh"
-      }}>
+      <div style={loadingStyle}>
         Order not found
       </div>
     )
   }
 
-  /* 🧠 SAFE STATUS INDEX */
   const currentIndex = Math.max(
     0,
     STATUS_STEPS.indexOf(order.status)
   )
 
   return (
-    <div style={{
-      padding: "40px",
-      background: "#020617",
-      color: "white",
-      minHeight: "100vh"
-    }}>
+    <div style={container}>
 
       {/* 🔔 NOTIFICATION */}
       {notification && (
-        <div style={{
-          position: "fixed",
-          top: "20px",
-          right: "20px",
-          background: "#22c55e",
-          color: "black",
-          padding: "10px 15px",
-          borderRadius: "6px",
-          fontWeight: "bold",
-          zIndex: 999
-        }}>
+        <div style={notificationStyle}>
           🔔 {notification}
         </div>
       )}
 
       <h1>📦 Order Tracking</h1>
 
-      <div style={{
-        background: "#0f172a",
-        padding: "20px",
-        borderRadius: "10px",
-        marginTop: "20px"
-      }}>
+      <div style={card}>
 
         <h2>Order #{order._id.slice(-6)}</h2>
         <p><strong>Status:</strong> {order.status.toUpperCase()}</p>
         <p><strong>Name:</strong> {order.customerName}</p>
 
+        {/* 🔥 SHIPPING INFO */}
+        {order.carrier && (
+          <p><strong>Carrier:</strong> {order.carrier}</p>
+        )}
+
+        {order.serviceLevel && (
+          <p><strong>Service:</strong> {order.serviceLevel}</p>
+        )}
+
         {/* ================= PROGRESS BAR ================= */}
         <div style={{ marginTop: "20px" }}>
-          <div style={{
-            display: "flex",
-            justifyContent: "space-between",
-            marginBottom: "10px"
-          }}>
+          <div style={progressLabels}>
             {STATUS_STEPS.map((step, i) => (
               <span
                 key={step}
@@ -154,18 +126,15 @@ function TrackOrder() {
             ))}
           </div>
 
-          <div style={{
-            height: "6px",
-            background: "#1e293b",
-            borderRadius: "4px",
-            overflow: "hidden"
-          }}>
-            <div style={{
-              width: `${((currentIndex + 1) / STATUS_STEPS.length) * 100}%`,
-              height: "100%",
-              background: "#22c55e",
-              transition: "width 0.5s ease"
-            }} />
+          <div style={progressBar}>
+            <div
+              style={{
+                width: `${((currentIndex + 1) / STATUS_STEPS.length) * 100}%`,
+                height: "100%",
+                background: "#22c55e",
+                transition: "width 0.5s ease"
+              }}
+            />
           </div>
         </div>
 
@@ -181,14 +150,20 @@ function TrackOrder() {
             href={order.trackingLink}
             target="_blank"
             rel="noreferrer"
-            style={{
-              display: "inline-block",
-              marginTop: "10px",
-              color: "#38bdf8"
-            }}
+            style={link}
           >
             🔗 Track Package
           </a>
+        )}
+
+        {/* 🔥 PRINT LABEL BUTTON */}
+        {order.shippingLabel && (
+          <button
+            onClick={() => window.open(order.shippingLabel, "_blank")}
+            style={printButton}
+          >
+            🖨️ Print Shipping Label
+          </button>
         )}
 
       </div>
@@ -198,13 +173,7 @@ function TrackOrder() {
         <h2>🕒 Timeline</h2>
 
         {order.timeline?.slice().reverse().map((event, index) => (
-          <div key={index} style={{
-            background: "#020617",
-            padding: "12px",
-            marginTop: "10px",
-            borderRadius: "6px",
-            borderLeft: "3px solid #22c55e"
-          }}>
+          <div key={index} style={timelineItem}>
             <p style={{ fontWeight: "bold" }}>
               {event.status}
             </p>
@@ -218,6 +187,78 @@ function TrackOrder() {
 
     </div>
   )
+}
+
+/* ================= STYLES ================= */
+
+const container = {
+  padding: "40px",
+  background: "#020617",
+  color: "white",
+  minHeight: "100vh"
+}
+
+const card = {
+  background: "#0f172a",
+  padding: "20px",
+  borderRadius: "10px",
+  marginTop: "20px"
+}
+
+const loadingStyle = {
+  padding: 40,
+  background: "#020617",
+  color: "white",
+  height: "100vh"
+}
+
+const notificationStyle = {
+  position: "fixed",
+  top: "20px",
+  right: "20px",
+  background: "#22c55e",
+  color: "black",
+  padding: "10px 15px",
+  borderRadius: "6px",
+  fontWeight: "bold",
+  zIndex: 999
+}
+
+const progressLabels = {
+  display: "flex",
+  justifyContent: "space-between",
+  marginBottom: "10px"
+}
+
+const progressBar = {
+  height: "6px",
+  background: "#1e293b",
+  borderRadius: "4px",
+  overflow: "hidden"
+}
+
+const link = {
+  display: "inline-block",
+  marginTop: "10px",
+  color: "#38bdf8"
+}
+
+const printButton = {
+  marginTop: "12px",
+  padding: "10px",
+  background: "#22c55e",
+  border: "none",
+  borderRadius: "6px",
+  cursor: "pointer",
+  fontWeight: "bold"
+}
+
+const timelineItem = {
+  background: "#020617",
+  padding: "12px",
+  marginTop: "10px",
+  borderRadius: "6px",
+  borderLeft: "3px solid #22c55e"
 }
 
 export default TrackOrder
