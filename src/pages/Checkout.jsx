@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import api from "../services/api"
 
 export default function Checkout() {
@@ -7,9 +7,34 @@ export default function Checkout() {
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [order, setOrder] = useState(null)
 
   console.log("🧠 PARAM ID:", id)
 
+  /* ================= LOAD ORDER ================= */
+  useEffect(() => {
+    const loadOrder = async () => {
+      try {
+        if (!id) return
+
+        console.log("📦 LOADING ORDER:", id)
+
+        const res = await api.get(`/orders/${id}`)
+
+        console.log("✅ ORDER LOADED:", res.data)
+
+        setOrder(res.data)
+
+      } catch (err) {
+        console.error("❌ LOAD ORDER ERROR:", err)
+        setError("Failed to load order")
+      }
+    }
+
+    loadOrder()
+  }, [id])
+
+  /* ================= CHECKOUT ================= */
   const handleCheckout = async () => {
     console.log("🔥 BUTTON CLICKED")
 
@@ -19,17 +44,36 @@ export default function Checkout() {
       return
     }
 
+    if (!order) {
+      setError("Order not loaded")
+      return
+    }
+
     if (loading) return
 
     try {
       setLoading(true)
       setError("")
 
-      const fullUrl = `${api.defaults.baseURL}/stripe/create-checkout-session/${id}`
-      console.log("🌐 FULL URL:", fullUrl)
+      /* 🔥 BUILD STRIPE PAYLOAD FROM ORDER */
+      const items = [
+        {
+          name: order.customerName || "Custom Order",
+          price: (order.finalPrice || order.price || 0) / 100,
+          quantity: order.quantity || 1
+        }
+      ]
+
+const customer = {
+  name: order.customerName,
+  email: order.email,
+  orderId: order._id   // 🔥 THIS IS REQUIRED
+}
+      console.log("🟢 SENDING TO STRIPE:", { items, customer })
 
       const res = await api.post(
-        `/stripe/create-checkout-session/${id}`
+        "/stripe/create-checkout-session",
+        { items, customer }
       )
 
       console.log("✅ STRIPE RESPONSE:", res.data)
@@ -60,6 +104,7 @@ export default function Checkout() {
     }
   }
 
+  /* ================= UI ================= */
   return (
     <div style={{ padding: 40, textAlign: "center" }}>
       <h1>Checkout</h1>
@@ -68,6 +113,17 @@ export default function Checkout() {
       <p style={{ fontWeight: "bold", marginBottom: 20 }}>
         {id || "❌ NO ID"}
       </p>
+
+      {order && (
+        <div style={{ marginBottom: 20 }}>
+          <p><strong>Customer:</strong> {order.customerName}</p>
+          <p><strong>Quantity:</strong> {order.quantity}</p>
+          <p>
+            <strong>Total:</strong> $
+            {((order.finalPrice || order.price || 0) / 100).toFixed(2)}
+          </p>
+        </div>
+      )}
 
       {error && (
         <p style={{ color: "red", marginBottom: 15 }}>
@@ -80,7 +136,7 @@ export default function Checkout() {
           console.log("👆 BUTTON PRESS DETECTED")
           handleCheckout()
         }}
-        disabled={loading}
+        disabled={loading || !order}
         style={{
           padding: "14px 28px",
           fontSize: "16px",

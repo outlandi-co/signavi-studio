@@ -7,12 +7,13 @@ function JobModal({ job, onClose, refresh }) {
 
   const [status, setStatus] = useState(job?.status || "pending")
   const [price, setPrice] = useState(Number(job?.price) || 0)
-  const [shipping, setShipping] = useState(job?.shippingCost || "")
   const [tracking, setTracking] = useState(job?.trackingNumber || "")
   const [trackingLink, setTrackingLink] = useState(job?.trackingLink || "")
   const [loading, setLoading] = useState(false)
   const [aiSuggestion, setAiSuggestion] = useState(null)
   const [file, setFile] = useState(null)
+
+  const isQuote = job?.status === "quote" || job?.type === "quote"
 
   useEffect(() => {
     document.body.style.overflow = "hidden"
@@ -24,9 +25,9 @@ function JobModal({ job, onClose, refresh }) {
   useEffect(() => {
     if (!job) return
 
-    if (!job.artwork) setAiSuggestion("Upload artwork first ⚠️")
-    else if (job.quantity > 50) setAiSuggestion("Bulk order detected 💡")
-    else setAiSuggestion("Ready for pricing 🤖")
+    if (!job.artwork) setAiSuggestion("Upload artwork first")
+    else if (job.quantity > 50) setAiSuggestion("Bulk order detected")
+    else setAiSuggestion("Ready for pricing")
   }, [job])
 
   if (!job) return null
@@ -35,7 +36,26 @@ function JobModal({ job, onClose, refresh }) {
     if (refresh) refresh(data || null)
   }
 
-  /* ================= 🤖 AI PRICING ================= */
+  /* ================= CONVERT ================= */
+  const convertToOrder = async () => {
+    try {
+      setLoading(true)
+
+      await api.post(`/quotes/${job._id}/convert`)
+
+      alert("Converted to Order")
+      safeRefresh()
+      onClose()
+
+    } catch (error) {
+      console.error(error)
+      alert("Conversion failed")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /* ================= AI ================= */
   const generateAIPrice = async () => {
     try {
       const res = await api.post("/ai-pricing", {
@@ -44,21 +64,18 @@ function JobModal({ job, onClose, refresh }) {
       })
 
       const suggested = Number(res.data.suggestedPrice)
-
-      console.log("🤖 AI PRICE:", suggested)
-
       setPrice(suggested)
-      setAiSuggestion(`Suggested: $${suggested} 💡`)
+      setAiSuggestion(`Suggested: $${suggested}`)
 
-    } catch (err) {
-      console.error("❌ AI ERROR:", err)
-      alert("AI pricing failed")
+    } catch (error) {
+      console.error(error)
+      setAiSuggestion("AI pricing not set up")
     }
   }
 
   /* ================= UPLOAD ================= */
   const uploadArtwork = async () => {
-    if (!file) return alert("Select a file first")
+    if (!file) return alert("Select file")
 
     setLoading(true)
 
@@ -66,70 +83,43 @@ function JobModal({ job, onClose, refresh }) {
       const formData = new FormData()
       formData.append("artwork", file)
 
-      const endpoint =
-        job?.type === "quote"
-          ? `/quotes/${job._id}/artwork`
-          : `/orders/${job._id}/artwork`
+      const endpoint = isQuote
+        ? `/quotes/${job._id}/artwork`
+        : `/orders/${job._id}/artwork`
 
       const res = await api.patch(endpoint, formData)
 
-      alert("✅ Artwork updated!")
+      alert("Uploaded")
       safeRefresh(res.data)
 
-    } catch (err) {
-      console.error("❌ UPLOAD ERROR:", err)
+    } catch (error) {
+      console.error(error)
       alert("Upload failed")
     } finally {
       setLoading(false)
     }
   }
 
-  /* ================= APPROVE → PAYMENT ================= */
+  /* ================= APPROVE ================= */
   const handleApprove = async () => {
+    if (isQuote) return alert("Convert quote first")
 
-    console.log("💰 PRICE:", price)
-
-    if (!price || Number(price) <= 0) {
-      return alert("Generate or enter a valid price")
-    }
+    if (!price || price <= 0) return alert("Enter price")
 
     setLoading(true)
 
     try {
       const res = await api.patch(`/orders/${job._id}/status`, {
-        status: "payment_required",   // 🔥 FIXED
-        price: Number(price),
-        finalPrice: Number(price)
+        status: "payment_required",
+        price,
+        finalPrice: price
       })
 
-      console.log("💳 PAYMENT REQUEST CREATED:", res.data)
-
       safeRefresh(res.data)
-      alert("💳 Payment request sent!")
+      alert("Payment requested")
 
-    } catch (err) {
-      console.error("❌ APPROVE ERROR:", err)
-      alert("Failed to send payment request")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  /* ================= SEND TO CUSTOMER ================= */
-  const sendForApproval = async () => {
-    setLoading(true)
-    try {
-      const res = await api.patch(`/orders/${job._id}/status`, {
-        status: "payment_required"
-      })
-
-      console.log("📧 PAYMENT EMAIL TRIGGER")
-
-      safeRefresh(res.data)
-      alert("📧 Payment email sent!")
-
-    } catch (err) {
-      console.error("❌ SEND ERROR:", err)
+    } catch (error) {
+      console.error(error)
     } finally {
       setLoading(false)
     }
@@ -137,35 +127,26 @@ function JobModal({ job, onClose, refresh }) {
 
   /* ================= STATUS ================= */
   const updateStatus = async () => {
+    if (isQuote) return alert("Convert quote first")
+
     setLoading(true)
+
     try {
       const res = await api.patch(`/orders/${job._id}/status`, { status })
       safeRefresh(res.data)
-    } catch (err) {
-      console.error(err)
+    } catch (error) {
+      console.error(error)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleDeny = async () => {
-    setLoading(true)
-    try {
-      const res = await api.patch(`/orders/${job._id}/status`, {
-        status: "denied"
-      })
-
-      safeRefresh(res.data)
-      onClose()
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  /* ================= TRACKING ================= */
   const handleTracking = async () => {
+    if (isQuote) return alert("Convert quote first")
+
     setLoading(true)
+
     try {
       const res = await api.patch(`/orders/${job._id}/status`, {
         status,
@@ -174,16 +155,17 @@ function JobModal({ job, onClose, refresh }) {
       })
 
       safeRefresh(res.data)
-    } catch (err) {
-      console.error(err)
+    } catch (error) {
+      console.error(error)
     } finally {
       setLoading(false)
     }
   }
 
+  /* ================= PDF ================= */
   const generatePDF = () => {
     const doc = new jsPDF()
-    doc.text("Production Work Order", 20, 20)
+    doc.text("Work Order", 20, 20)
     doc.text(`Customer: ${job.customerName || "Unknown"}`, 20, 40)
     doc.text(`Order ID: ${job._id}`, 20, 50)
     doc.save(`order-${job._id}.pdf`)
@@ -195,76 +177,48 @@ function JobModal({ job, onClose, refresh }) {
 
         <button onClick={onClose} style={closeBtn}>✖</button>
 
-        <h2>Production Control</h2>
+        <h2>Production</h2>
+        <p>👤 {job.customerName || "Unknown"}</p>
 
-        {/* 🔥 NAME FIXED */}
-        <p>👤 {job.customerName || job.name || "Unknown"}</p>
-
-        {loading && <p style={{ color: "#22c55e" }}>⏳ Processing...</p>}
-
-        {/* 🔥 FIXED INVOICE EDITOR */}
-        <InvoiceEditor
-          order={job}
-          onSave={(items, total) => {
-            console.log("💾 SAVING INVOICE:", items, total)
-            setPrice(total)
-          }}
-        />
-
-        <div style={profitBox}>
-          <p>💰 Price: ${price}</p>
-          <p>📦 Shipping: ${shipping || 0}</p>
-        </div>
-
-        {aiSuggestion && <p style={aiBox}>🤖 {aiSuggestion}</p>}
-
-        <button onClick={generateAIPrice} style={{ ...btn, background: "#f59e0b" }}>
-          🤖 Generate AI Price
-        </button>
-
-        <input type="file" onChange={(e) => setFile(e.target.files[0])} />
-        <button onClick={uploadArtwork} style={{ ...btn, background: "#8b5cf6" }}>
-          Upload Artwork
-        </button>
-
-        {job.artwork && (
-          <img
-            src={`http://localhost:5050/uploads/${job.artwork}`}
-            alt="artwork"
-            style={{ width: "100%", marginTop: 10 }}
-          />
+        {isQuote && (
+          <button onClick={convertToOrder} style={{...btn, background:"#22c55e"}}>
+            🔄 Convert to Order
+          </button>
         )}
 
-        <input
-          value={price}
-          onChange={(e)=>setPrice(Number(e.target.value))}
-          placeholder="Price"
-          style={input}
+        {loading && <p>⏳ Processing...</p>}
+
+        <InvoiceEditor
+          order={job}
+          onSave={(items, total) => setPrice(total)}
         />
 
-        <input
-          value={shipping}
-          onChange={(e)=>setShipping(e.target.value)}
-          placeholder="Shipping"
-          style={input}
-        />
+        <p>💰 Price: ${price}</p>
+
+        {/* 🔥 FIXED AI DISPLAY */}
+        {aiSuggestion && (
+          <p style={{ color:"#06b6d4", marginTop:10 }}>
+            🤖 {aiSuggestion}
+          </p>
+        )}
+
+        <button onClick={generateAIPrice} style={btn}>
+          🤖 AI Price
+        </button>
+
+        <input type="file" onChange={(e)=>setFile(e.target.files[0])} />
+        <button onClick={uploadArtwork} style={btn}>Upload Artwork</button>
+
+        <input value={price} onChange={(e)=>setPrice(Number(e.target.value))} style={input} />
 
         <button onClick={handleApprove} style={{...btn, background:"#22c55e"}}>
           Request Payment
         </button>
 
-        <button onClick={sendForApproval} style={{...btn, background:"#06b6d4"}}>
-          Send Payment Email
-        </button>
-
-        <button onClick={handleDeny} style={{...btn, background:"#ef4444"}}>
-          Deny
-        </button>
-
         <select value={status} onChange={(e)=>setStatus(e.target.value)} style={input}>
           <option value="payment_required">Payment Required</option>
           <option value="paid">Paid</option>
-          <option value="printing">Printing</option>
+          <option value="production">Production</option>
           <option value="shipping">Shipping</option>
           <option value="shipped">Shipped</option>
         </select>
@@ -289,30 +243,42 @@ function JobModal({ job, onClose, refresh }) {
 
 /* ================= STYLES ================= */
 const overlay = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(0,0,0,0.5)",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  zIndex: 999
+  position:"fixed",
+  inset:0,
+  background:"rgba(0,0,0,0.5)",
+  display:"flex",
+  justifyContent:"center",
+  alignItems:"center"
 }
 
 const modal = {
-  background: "#020617",
-  padding: "20px",
-  borderRadius: "12px",
-  width: "450px",
-  maxWidth: "90%",
-  color: "#fff",
-  maxHeight: "85vh",
-  overflowY: "auto"
+  background:"#020617",
+  padding:"20px",
+  borderRadius:"12px",
+  width:"420px",
+  color:"#fff"
 }
 
-const btn = { padding:"10px", borderRadius:"6px", border:"none", marginTop:"8px", color:"#fff", cursor:"pointer" }
-const input = { width:"100%", marginTop:"8px", padding:"8px" }
-const closeBtn = { float:"right", background:"none", border:"none", color:"#fff" }
-const aiBox = { background:"#020617", padding:"6px", borderRadius:"6px", color:"#06b6d4" }
-const profitBox = { marginTop:15, padding:10, border:"1px solid #1e293b", borderRadius:8 }
+const btn = {
+  padding:"10px",
+  marginTop:"8px",
+  cursor:"pointer",
+  borderRadius:"6px",
+  border:"none"
+}
+
+const input = {
+  width:"100%",
+  marginTop:"8px",
+  padding:"8px"
+}
+
+const closeBtn = {
+  float:"right",
+  background:"none",
+  border:"none",
+  color:"#fff",
+  cursor:"pointer"
+}
 
 export default JobModal

@@ -1,77 +1,53 @@
 import { useEffect, useState } from "react"
 import api from "../services/api"
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050"
-
 function AdminQuotes() {
+
   const [quotes, setQuotes] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [prices, setPrices] = useState({})
 
-  /* ================= FETCH ================= */
   useEffect(() => {
-    const fetchQuotes = async () => {
-      try {
-        const res = await api.get("/quotes")
-        setQuotes(res.data)
-      } catch (err) {
-        console.error("❌ Error fetching quotes:", err)
-      } finally {
-        setLoading(false)
-      }
+    const load = async () => {
+      const res = await api.get("/quotes")
+      setQuotes(res.data)
     }
-
-    fetchQuotes()
+    load()
   }, [])
 
-  if (loading) return <p style={{ padding: 20 }}>Loading...</p>
+  const handleSend = async (id) => {
+    await api.patch(`/quotes/${id}/send-to-payment`, {
+      price: prices[id]
+    })
+
+    alert("Sent to payment")
+  }
 
   return (
-    <div style={{ padding: "40px", background: "#0f172a", minHeight: "100vh", color: "#fff" }}>
-      
-      <h1 style={{ marginBottom: "20px" }}>📋 Admin Quotes</h1>
+    <div style={{ padding:40, background:"#0f172a", color:"#fff" }}>
 
-      {quotes.length === 0 && <p>No quotes yet</p>}
+      <h1>Admin Quotes</h1>
 
-      <div style={{ display: "grid", gap: "20px" }}>
-        {quotes.map(q => (
-          <div
-            key={q._id}
-            style={{
-              background: "#1e293b",
-              padding: "20px",
-              borderRadius: "12px",
-              boxShadow: "0 10px 25px rgba(0,0,0,0.4)"
-            }}
-          >
-            <p><strong>Name:</strong> {q.customerName}</p>
-            <p><strong>Email:</strong> {q.email}</p>
-            <p><strong>Quantity:</strong> {q.quantity}</p>
-            <p><strong>Print Type:</strong> {q.printType}</p>
+      {quotes.map(q => (
+        <div key={q._id} style={{ marginBottom:20, padding:20, background:"#1e293b" }}>
 
-            {q.notes && (
-              <p><strong>Notes:</strong> {q.notes}</p>
-            )}
+          <p>{q.customerName}</p>
+          <p>{q.email}</p>
 
-            {/* 🔥 ARTWORK PREVIEW */}
-            {q.artwork && (
-              <img
-                src={`${API_URL}/uploads/${q.artwork}`}
-                alt="artwork"
-                style={{
-                  width: "200px",
-                  marginTop: "10px",
-                  borderRadius: "8px",
-                  border: "1px solid #334155"
-                }}
-              />
-            )}
+          <input
+            type="number"
+            placeholder="Set price"
+            onChange={(e)=>setPrices({
+              ...prices,
+              [q._id]: e.target.value
+            })}
+          />
 
-            <p style={{ marginTop: "10px", fontSize: "12px", color: "#94a3b8" }}>
-              {new Date(q.createdAt).toLocaleString()}
-            </p>
-          </div>
-        ))}
-      </div>
+          <button onClick={()=>handleSend(q._id)}>
+            Send to Payment
+          </button>
+
+        </div>
+      ))}
     </div>
   )
 }

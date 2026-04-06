@@ -1,19 +1,61 @@
 import { useState, useEffect } from "react"
+import { useLocation } from "react-router-dom"
 import api from "../services/api"
 
 function CustomQuote() {
+
+  const location = useLocation()
 
   const [form, setForm] = useState({
     name: "",
     email: "",
     quantity: 1,
     printType: "screenprint",
-    notes: ""
+    notes: location.state?.idea || ""
   })
 
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
   const [loading, setLoading] = useState(false)
+
+  const [estimate, setEstimate] = useState(0)
+  const [discountMsg, setDiscountMsg] = useState("")
+
+  /* ================= SMART PRICING ================= */
+  useEffect(() => {
+
+    const pricing = {
+      screenprint: { base: 8, setup: 20 },
+      dtf: { base: 6, setup: 0 },
+      embroidery: { base: 10, setup: 30 }
+    }
+
+    const { base, setup } = pricing[form.printType] || { base: 0, setup: 0 }
+
+    const qty = Number(form.quantity || 0)
+
+    let discount = 1
+    let message = ""
+
+    if (qty >= 100) {
+      discount = 0.7
+      message = "🔥 30% bulk discount applied"
+    } else if (qty >= 50) {
+      discount = 0.8
+      message = "🔥 20% bulk discount applied"
+    } else if (qty >= 12) {
+      discount = 0.9
+      message = "🔥 10% bulk discount applied"
+    } else {
+      message = "💡 Order 12+ to unlock discounts"
+    }
+
+    const total = (base * qty * discount) + setup
+
+    setEstimate(total)
+    setDiscountMsg(message)
+
+  }, [form.quantity, form.printType])
 
   /* ================= INPUT ================= */
   const handleChange = (e) => {
@@ -40,217 +82,137 @@ function CustomQuote() {
   }, [preview])
 
   /* ================= SUBMIT ================= */
-const handleSubmit = async (e) => {
-  e.preventDefault()
+  const handleSubmit = async (e) => {
+    e.preventDefault()
 
-  if (!form.name || !form.email) {
-    alert("Please fill out name and email")
-    return
-  }
-
-  setLoading(true)
-
-  try {
-    const data = new FormData()
-
-    /* 🔥 FIX: SEND CORRECT FIELD */
-    data.append("customerName", form.name)
-
-    data.append("email", form.email)
-    data.append("quantity", form.quantity)
-    data.append("printType", form.printType)
-    data.append("notes", form.notes)
-
-    if (file) data.append("artwork", file)
-
-    console.log("🚀 Sending FormData:")
-    for (let pair of data.entries()) {
-      console.log(pair[0], pair[1])
+    if (!form.name || !form.email) {
+      alert("Please fill out name and email")
+      return
     }
 
-    const res = await api.post("/quotes", data, {
-      headers: {
-        "Content-Type": "multipart/form-data"
-      }
-    })
+    setLoading(true)
 
-    console.log("✅ RESPONSE:", res.data)
+    try {
+      const data = new FormData()
 
-    alert("🔥 Quote submitted successfully!")
+      data.append("customerName", form.name)
+      data.append("email", form.email)
+      data.append("quantity", form.quantity)
+      data.append("printType", form.printType)
+      data.append("notes", form.notes)
+      data.append("estimatedPrice", estimate)
 
-    setForm({
-      name: "",
-      email: "",
-      quantity: 1,
-      printType: "screenprint",
-      notes: ""
-    })
+      if (file) data.append("artwork", file)
 
-    setFile(null)
+      await api.post("/quotes", data, {
+        headers: { "Content-Type": "multipart/form-data" }
+      })
 
-    if (preview) URL.revokeObjectURL(preview)
-    setPreview(null)
+      alert("🔥 Quote submitted successfully!")
 
-  } catch (err) {
-    console.error("❌ Submit error:", err.response?.data || err.message)
-    alert("Server error — check backend console")
-  } finally {
-    setLoading(false)
+      setForm({
+        name: "",
+        email: "",
+        quantity: 1,
+        printType: "screenprint",
+        notes: ""
+      })
+
+      setFile(null)
+      setPreview(null)
+
+    } catch (err) {
+      console.error(err)
+      alert("Server error")
+    } finally {
+      setLoading(false)
+    }
   }
-}
+
+  const inputStyle = {
+    padding: "12px",
+    borderRadius: "8px",
+    background: "#020617",
+    border: "1px solid #374151",
+    color: "#fff",
+    outline: "none"
+  }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#0f172a",
-        color: "#fff",
-        padding: "40px",
-        display: "flex",
-        justifyContent: "center"
-      }}
-    >
-      {/* 🔥 CONTAINER */}
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "500px",
-          background: "#111827",
-          padding: "30px",
-          borderRadius: "16px",
-          boxShadow: "0 20px 50px rgba(0,0,0,0.4)"
-        }}
-      >
+    <div style={{
+      minHeight: "100vh",
+      background: "#0f172a",
+      color: "#fff",
+      padding: "40px",
+      display: "flex",
+      justifyContent: "center"
+    }}>
+      <div style={{
+        width: "100%",
+        maxWidth: "500px",
+        background: "#111827",
+        padding: "30px",
+        borderRadius: "16px"
+      }}>
 
-        <h1 style={{ marginBottom: "20px" }}>
-          Request a Custom Quote
-        </h1>
+        <h1>Request a Custom Quote</h1>
 
-        <form
-          onSubmit={handleSubmit}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "12px"
-          }}
-        >
-          
-          <input name="name" value={form.name} onChange={handleChange} placeholder="Name" required />
-          
-          <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="Email" required />
-          
-          <input name="quantity" type="number" value={form.quantity} onChange={handleChange} min="1" />
+        {/* 🔥 PRICE BOX */}
+        <div style={{
+          margin: "15px 0",
+          padding: "12px",
+          background: "#020617",
+          borderRadius: "8px",
+          border: "1px solid #06b6d4"
+        }}>
+          <div style={{ fontSize: "18px", fontWeight: "bold" }}>
+            💰 Estimated Price: ${estimate.toFixed(2)}
+          </div>
 
-          <select name="printType" value={form.printType} onChange={handleChange}>
+          <div style={{ fontSize: "13px", opacity: 0.7 }}>
+            ${(estimate / (form.quantity || 1)).toFixed(2)} per item
+          </div>
+
+          <div style={{ fontSize: "13px", marginTop: "5px", color: "#38bdf8" }}>
+            {discountMsg}
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "12px"
+        }}>
+
+          <input name="name" value={form.name} onChange={handleChange} placeholder="Name" style={inputStyle} />
+          <input name="email" value={form.email} onChange={handleChange} placeholder="Email" style={inputStyle} />
+
+          <input name="quantity" type="number" value={form.quantity} onChange={handleChange} min="1" style={inputStyle} />
+
+          <select name="printType" value={form.printType} onChange={handleChange} style={inputStyle}>
             <option value="screenprint">Screen Print</option>
             <option value="dtf">DTF Transfer</option>
             <option value="embroidery">Embroidery</option>
           </select>
 
-          <textarea
-            name="notes"
-            value={form.notes}
-            onChange={handleChange}
-            placeholder="Describe your project..."
-          />
+          <textarea name="notes" value={form.notes} onChange={handleChange} placeholder="Describe your project..." style={inputStyle} />
 
-          <input type="file" accept="image/*,.ai,.psd,.svg" onChange={handleFile} />
+          <input type="file" onChange={handleFile} style={{ color: "#ccc" }} />
 
           {preview && (
-            <img
-              src={preview}
-              alt="preview"
-              style={{
-                width: "200px",
-                borderRadius: "8px",
-                marginTop: "10px"
-              }}
-            />
+            <img src={preview} alt="preview" style={{ width: "200px", borderRadius: "8px" }} />
           )}
 
-          {/* 🔥 BUTTON */}
-          <button
-  type="submit"
-  disabled={loading}
-  style={{
-    marginTop: "10px",
-    padding: "14px 26px",
-    background: loading
-      ? "#374151"
-      : "linear-gradient(90deg, #06b6d4, #2563eb)",
-    border: "none",
-    color: "#fff",
-    cursor: loading ? "not-allowed" : "pointer",
-    borderRadius: "12px",
-    fontWeight: "600",
-    letterSpacing: "0.5px",
-
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-
-    boxShadow: loading
-      ? "none"
-      : "0 10px 25px rgba(0,0,0,0.3)",
-
-    transition: "all 0.2s ease",
-    alignSelf: "flex-start",
-  }}
-
-  /* 🔥 HOVER */
-  onMouseEnter={(e) => {
-    if (loading) return
-    e.currentTarget.style.transform = "translateY(-2px)"
-    e.currentTarget.style.boxShadow = "0 15px 35px rgba(0,0,0,0.45)"
-  }}
-
-  onMouseLeave={(e) => {
-    e.currentTarget.style.transform = "translateY(0)"
-    e.currentTarget.style.boxShadow = loading
-      ? "none"
-      : "0 10px 25px rgba(0,0,0,0.3)"
-  }}
-
-  /* 🔥 CLICK */
-  onMouseDown={(e) => {
-    if (loading) return
-    e.currentTarget.style.transform = "translateY(0) scale(0.96)"
-  }}
-
-  onMouseUp={(e) => {
-    if (loading) return
-    e.currentTarget.style.transform = "translateY(-2px) scale(1)"
-  }}
->
-  {loading ? (
-    <>
-      {/* 🔥 SPINNER */}
-      <span
-        style={{
-          width: "16px",
-          height: "16px",
-          border: "2px solid white",
-          borderTop: "2px solid transparent",
-          borderRadius: "50%",
-          animation: "spin 0.8s linear infinite"
-        }}
-      />
-      Submitting...
-    </>
-  ) : (
-    "Submit Quote"
-  )}
-
-  {/* 🔥 SPINNER KEYFRAME */}
-  <style>
-    {`
-      @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-      }
-    `}
-  </style>
-</button>
+          <button type="submit" disabled={loading} style={{
+            padding: "14px",
+            background: "#06b6d4",
+            border: "none",
+            borderRadius: "10px",
+            color: "#fff",
+            cursor: "pointer"
+          }}>
+            {loading ? "Submitting..." : "Submit Quote"}
+          </button>
 
         </form>
       </div>

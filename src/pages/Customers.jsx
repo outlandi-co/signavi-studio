@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import api from "../../services/api"
 
-export default function AdminCustomers() {
+export default function Customers() {
 
   const [customers, setCustomers] = useState([])
   const [search, setSearch] = useState("")
@@ -12,7 +12,7 @@ export default function AdminCustomers() {
         const res = await api.get("/customers")
         setCustomers(res.data)
       } catch (err) {
-        console.error("CUSTOMERS ERROR:", err)
+        console.error(err)
       }
     }
 
@@ -25,19 +25,19 @@ export default function AdminCustomers() {
   )
 
   return (
-    <div>
-      <h1 className="text-2xl mb-4">👥 Customer CRM</h1>
+    <div style={{ padding: 20 }}>
+      <h1>👥 Customer CRM</h1>
 
       <input
-        placeholder="Search..."
+        placeholder="Search customers..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="mb-4 p-2 bg-gray-800 rounded"
+        style={{ padding: 10, width: "100%", marginTop: 10 }}
       />
 
-      <table className="w-full">
+      <table style={{ width: "100%", marginTop: 20 }}>
         <thead>
-          <tr className="border-b border-gray-700">
+          <tr>
             <th>Name</th>
             <th>Email</th>
             <th>Orders</th>
@@ -47,7 +47,7 @@ export default function AdminCustomers() {
 
         <tbody>
           {filtered.map(c => (
-            <tr key={c._id} className="border-b border-gray-800">
+            <tr key={c._id}>
               <td>{c.name}</td>
               <td>{c.email}</td>
               <td>{c.totalOrders}</td>

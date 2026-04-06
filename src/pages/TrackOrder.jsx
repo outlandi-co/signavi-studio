@@ -1,264 +1,207 @@
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { useParams } from "react-router-dom"
 import { io } from "socket.io-client"
 import api from "../services/api"
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050/api"
-const SOCKET_URL = API_URL.replace("/api", "").replace(/\/$/, "")
+const SOCKET_URL = "http://localhost:5050"
 
-const STATUS_STEPS = [
+const steps = [
   "pending",
   "payment_required",
-  "paid",
-  "printing",
+  "production",
+  "shipping",
   "shipped",
   "delivered"
 ]
 
+const stepIcons = {
+  pending: "🕒",
+  payment_required: "💳",
+  production: "🏭",
+  shipping: "📦",
+  shipped: "🚚",
+  delivered: "✅"
+}
+
 function TrackOrder() {
 
   const { id } = useParams()
+
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [notification, setNotification] = useState(null)
 
-  /* ✅ FETCH ORDER */
-  const fetchOrder = useCallback(async () => {
+  const socketRef = useRef(null)
+  const deliveredRef = useRef(false)
+
+  /* ================= LOAD ================= */
+  const load = useCallback(async () => {
     try {
       const res = await api.get(`/orders/${id}`)
       setOrder(res.data)
+
+      /* 🔥 SAFE AUTO DELIVER */
+      if (
+        res.data.status === "shipped" &&
+        !deliveredRef.current
+      ) {
+        deliveredRef.current = true
+
+        await api.patch(`/orders/${id}/status`, {
+          status: "delivered"
+        })
+      }
+
     } catch (err) {
-      console.error("❌ Fetch error:", err)
+      console.error("❌ TRACK ERROR:", err)
     } finally {
       setLoading(false)
     }
   }, [id])
 
+  /* ================= INITIAL ================= */
   useEffect(() => {
+    load()
+  }, [load])
 
-    fetchOrder()
+  /* ================= REAL-TIME ================= */
+  useEffect(() => {
+    socketRef.current = io(SOCKET_URL)
 
-    const socket = io(SOCKET_URL, {
-      transports: ["websocket", "polling"]
-    })
-
-    socket.on("connect", () => {
-      console.log("🟢 Tracking connected:", socket.id)
-    })
-
-    socket.on("jobUpdated", (updatedOrder) => {
-      if (updatedOrder._id === id) {
-        setOrder(updatedOrder)
-
-        setNotification(`Status updated: ${updatedOrder.status}`)
-
-        setTimeout(() => {
-          setNotification(null)
-        }, 3000)
+    socketRef.current.on("jobUpdated", (updated) => {
+      if (updated._id === id) {
+        setOrder(updated)
       }
     })
 
-    return () => socket.disconnect()
+    return () => {
+      socketRef.current.disconnect()
+    }
+  }, [id])
 
-  }, [fetchOrder, id])
+  if (loading) return <h2 style={{ color: "white" }}>Loading...</h2>
+  if (!order) return <h2 style={{ color: "white" }}>Order not found</h2>
 
-  if (loading) {
-    return (
-      <div style={loadingStyle}>
-        Loading tracking info...
-      </div>
-    )
-  }
+  const currentStep = steps.indexOf(order.status)
 
-  if (!order) {
-    return (
-      <div style={loadingStyle}>
-        Order not found
-      </div>
-    )
-  }
-
-  const currentIndex = Math.max(
-    0,
-    STATUS_STEPS.indexOf(order.status)
-  )
+  /* ================= USE TIMELINE (FIXED) ================= */
+  const history = order.timeline?.length
+    ? order.timeline
+    : steps.slice(0, currentStep + 1).map(step => ({
+        status: step,
+        date: order.updatedAt || order.createdAt
+      }))
 
   return (
-    <div style={container}>
+    <div style={{
+      padding: 40,
+      background: "#020617",
+      minHeight: "100vh",
+      color: "white",
+      textAlign: "center"
+    }}>
 
-      {/* 🔔 NOTIFICATION */}
-      {notification && (
-        <div style={notificationStyle}>
-          🔔 {notification}
-        </div>
-      )}
+      <h1>📦 Track Order</h1>
 
-      <h1>📦 Order Tracking</h1>
+      <h2>{order.customerName}</h2>
+      <p>Order ID: {order._id}</p>
 
-      <div style={card}>
-
-        <h2>Order #{order._id.slice(-6)}</h2>
-        <p><strong>Status:</strong> {order.status.toUpperCase()}</p>
-        <p><strong>Name:</strong> {order.customerName}</p>
-
-        {/* 🔥 SHIPPING INFO */}
-        {order.carrier && (
-          <p><strong>Carrier:</strong> {order.carrier}</p>
-        )}
-
-        {order.serviceLevel && (
-          <p><strong>Service:</strong> {order.serviceLevel}</p>
-        )}
-
-        {/* ================= PROGRESS BAR ================= */}
-        <div style={{ marginTop: "20px" }}>
-          <div style={progressLabels}>
-            {STATUS_STEPS.map((step, i) => (
-              <span
-                key={step}
-                style={{
-                  fontSize: "10px",
-                  color: i <= currentIndex ? "#22c55e" : "#64748b"
-                }}
-              >
-                {step.toUpperCase()}
-              </span>
-            ))}
-          </div>
-
-          <div style={progressBar}>
-            <div
-              style={{
-                width: `${((currentIndex + 1) / STATUS_STEPS.length) * 100}%`,
-                height: "100%",
-                background: "#22c55e",
-                transition: "width 0.5s ease"
-              }}
-            />
-          </div>
-        </div>
-
-        {/* ================= SHIPPING ================= */}
-        {order.trackingNumber && (
-          <p style={{ marginTop: "15px" }}>
-            📦 Tracking: {order.trackingNumber}
-          </p>
-        )}
-
-        {order.trackingLink && (
-          <a
-            href={order.trackingLink}
-            target="_blank"
-            rel="noreferrer"
-            style={link}
-          >
-            🔗 Track Package
-          </a>
-        )}
-
-        {/* 🔥 PRINT LABEL BUTTON */}
-        {order.shippingLabel && (
-          <button
-            onClick={() => window.open(order.shippingLabel, "_blank")}
-            style={printButton}
-          >
-            🖨️ Print Shipping Label
-          </button>
-        )}
-
-      </div>
-
-      {/* ================= TIMELINE ================= */}
-      <div style={{ marginTop: "30px" }}>
-        <h2>🕒 Timeline</h2>
-
-        {order.timeline?.slice().reverse().map((event, index) => (
-          <div key={index} style={timelineItem}>
-            <p style={{ fontWeight: "bold" }}>
-              {event.status}
-            </p>
-
-            <p style={{ fontSize: "12px", opacity: 0.6 }}>
-              {new Date(event.date).toLocaleString()}
+      {/* 🔥 PROGRESS BAR */}
+      <div style={{
+        display: "flex",
+        gap: 10,
+        marginTop: 30
+      }}>
+        {steps.map((step, i) => (
+          <div key={step} style={{ flex: 1 }}>
+            <div style={{
+              height: 10,
+              borderRadius: 10,
+              background: i <= currentStep
+                ? "#22c55e"
+                : "#1e293b"
+            }} />
+            <p style={{ fontSize: 12, marginTop: 5 }}>
+              {step.replace("_", " ")}
             </p>
           </div>
         ))}
       </div>
 
+      {/* 🔥 STATUS */}
+      <div style={{ marginTop: 30 }}>
+        <h3>Status: {order.status}</h3>
+      </div>
+
+      {/* 🔥 TIMELINE (UPGRADED UI) */}
+      <div style={{
+        marginTop: 40,
+        textAlign: "left",
+        maxWidth: 500,
+        marginInline: "auto",
+        borderLeft: "2px solid #1e293b",
+        paddingLeft: 20
+      }}>
+        <h3>📜 Order Timeline</h3>
+
+        {history.map((h, i) => (
+          <div
+            key={i}
+            style={{
+              position: "relative",
+              marginBottom: 20
+            }}
+          >
+            {/* DOT */}
+            <div style={{
+              position: "absolute",
+              left: -29,
+              top: 5,
+              width: 12,
+              height: 12,
+              borderRadius: "50%",
+              background: "#22c55e"
+            }} />
+
+            <div style={{
+              display: "flex",
+              gap: 10,
+              alignItems: "center",
+              background: "#0f172a",
+              padding: 10,
+              borderRadius: 8,
+              border: "1px solid #1e293b"
+            }}>
+              <span>{stepIcons[h.status] || "📌"}</span>
+
+              <div>
+                <div>{h.status.replace("_", " ")}</div>
+                <div style={{ fontSize: 12, color: "#64748b" }}>
+                  {new Date(h.date).toLocaleString()}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 🔥 TRACKING */}
+      {order.trackingLink && (
+        <a
+          href={order.trackingLink}
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            display: "inline-block",
+            marginTop: 20,
+            color: "#38bdf8"
+          }}
+        >
+          🚚 Track Shipment
+        </a>
+      )}
+
     </div>
   )
-}
-
-/* ================= STYLES ================= */
-
-const container = {
-  padding: "40px",
-  background: "#020617",
-  color: "white",
-  minHeight: "100vh"
-}
-
-const card = {
-  background: "#0f172a",
-  padding: "20px",
-  borderRadius: "10px",
-  marginTop: "20px"
-}
-
-const loadingStyle = {
-  padding: 40,
-  background: "#020617",
-  color: "white",
-  height: "100vh"
-}
-
-const notificationStyle = {
-  position: "fixed",
-  top: "20px",
-  right: "20px",
-  background: "#22c55e",
-  color: "black",
-  padding: "10px 15px",
-  borderRadius: "6px",
-  fontWeight: "bold",
-  zIndex: 999
-}
-
-const progressLabels = {
-  display: "flex",
-  justifyContent: "space-between",
-  marginBottom: "10px"
-}
-
-const progressBar = {
-  height: "6px",
-  background: "#1e293b",
-  borderRadius: "4px",
-  overflow: "hidden"
-}
-
-const link = {
-  display: "inline-block",
-  marginTop: "10px",
-  color: "#38bdf8"
-}
-
-const printButton = {
-  marginTop: "12px",
-  padding: "10px",
-  background: "#22c55e",
-  border: "none",
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontWeight: "bold"
-}
-
-const timelineItem = {
-  background: "#020617",
-  padding: "12px",
-  marginTop: "10px",
-  borderRadius: "6px",
-  borderLeft: "3px solid #22c55e"
 }
 
 export default TrackOrder

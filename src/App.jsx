@@ -11,6 +11,7 @@ import api from "./services/api"
 import Navbar from "./components/Navbar"
 import ProtectedRoute from "./components/ProtectedRoute"
 import AdminLayout from "./components/admin/AdminLayout"
+import CustomerRoute from "./components/guards/CustomerRoute"
 
 /* PAGES */
 import Home from "./pages/Home"
@@ -24,21 +25,27 @@ import AdminQuotes from "./pages/AdminQuotes"
 import TrackOrder from "./pages/TrackOrder"
 import ClientOrder from "./pages/ClientOrder"
 
-/* 🔥 NEW ANALYTICS PAGE */
+/* CUSTOMER */
+import CustomerLogin from "./pages/customer/CustomerLogin"
+import CustomerDashboard from "./pages/customer/CustomerDashboard"
+import OrderDetail from "./pages/customer/OrderDetail"
+
+/* DASHBOARD */
+import Dashboard from "./pages/Dashboard"
 import AnalyticsPanel from "./pages/AnalyticsPanel"
 
 /* ADMIN */
-import AdminOrders from "./pages/admin/AdminOrders"
+import Orders from "./pages/admin/Orders"
 import AdminCustomers from "./pages/admin/AdminCustomers"
 import AdminPricing from "./pages/admin/AdminPricing"
 import AdminInventory from "./pages/admin/AdminInventory"
 import AdminMockups from "./pages/admin/AdminMockups"
 
-/* 🔥 APPROVAL FLOW */
+/* FLOW */
 import ApproveMockup from "./pages/ApproveMockup"
 import Checkout from "./pages/Checkout"
 
-/* ================= LAYOUT WRAPPER ================= */
+/* ================= LAYOUT ================= */
 function LayoutWrapper({ children }) {
   const location = useLocation()
   const path = location.pathname
@@ -75,11 +82,20 @@ function AppContent() {
   const location = useLocation()
   const path = location.pathname
 
-  const isAdminPage = path.startsWith("/admin")
-  const isQuotePage = path.startsWith("/quote")
-  const isSuccessPage = path.startsWith("/success")
-  const isProductionPage = path === "/production"
+  const hideNavbarRoutes = [
+    "/login",
+    "/customer-login",
+    "/quote",
+    "/success",
+    "/checkout",
+    "/order"
+  ]
 
+  const shouldHideNavbar =
+    hideNavbarRoutes.some(route => path.startsWith(route)) &&
+    !path.startsWith("/production")
+
+  /* 🔐 AUTH CHECK */
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem("token")
@@ -99,51 +115,77 @@ function AppContent() {
 
   return (
     <>
-      {/* NAVBAR CONTROL */}
-      {(!isAdminPage || isProductionPage) &&
-        path !== "/login" &&
-        !isQuotePage &&
-        !isSuccessPage && <Navbar />}
+      {/* 🔥 FIX: NAVBAR NOW SHOWS ON ADMIN */}
+      {!shouldHideNavbar && <Navbar />}
 
       <LayoutWrapper>
         <Routes>
 
-          {/* ================= PUBLIC ================= */}
+          {/* PUBLIC */}
           <Route path="/" element={<Home />} />
           <Route path="/store" element={<Store />} />
           <Route path="/login" element={<Login />} />
           <Route path="/submit" element={<CustomQuote />} />
 
-          {/* 🔥 FIXED TRACK ROUTE */}
+          {/* CUSTOMER */}
+          <Route path="/customer-login" element={<CustomerLogin />} />
+
+          <Route
+            path="/dashboard"
+            element={
+              <CustomerRoute>
+                <CustomerDashboard />
+              </CustomerRoute>
+            }
+          />
+
+          <Route
+            path="/order/:id"
+            element={
+              <CustomerRoute>
+                <OrderDetail />
+              </CustomerRoute>
+            }
+          />
+
+          {/* TRACKING */}
+          <Route path="/track" element={<TrackOrder />} />
           <Route path="/track/:id" element={<TrackOrder />} />
 
+          {/* CLIENT */}
           <Route path="/client-order/:id" element={<ClientOrder />} />
+
+          {/* QUOTE */}
           <Route path="/quote/:id" element={<QuoteResponse />} />
+
+          {/* CHECKOUT */}
+          <Route path="/checkout/:id" element={<Checkout />} />
+
+          {/* SUCCESS */}
           <Route path="/success" element={<Success />} />
           <Route path="/success/:id" element={<Success />} />
 
-          {/* 🔥 APPROVAL FLOW */}
+          {/* FLOW */}
           <Route path="/approve/:id" element={<ApproveMockup />} />
-          <Route path="/checkout/:id" element={<Checkout />} />
 
-          {/* ================= ADMIN ================= */}
+          {/* ADMIN */}
           <Route path="/admin" element={<AdminRoutes />}>
+
+            <Route index element={<Dashboard />} />
+            <Route path="dashboard" element={<Dashboard />} />
 
             <Route path="production" element={<ProductionBoard />} />
             <Route path="quotes" element={<AdminQuotes />} />
-            <Route path="orders" element={<AdminOrders />} />
+            <Route path="orders" element={<Orders />} />
             <Route path="customers" element={<AdminCustomers />} />
             <Route path="pricing" element={<AdminPricing />} />
             <Route path="inventory" element={<AdminInventory />} />
             <Route path="mockups" element={<AdminMockups />} />
-            <Route path="mockups/:id" element={<AdminMockups />} />
-
-            {/* 🔥 NEW ANALYTICS ROUTE */}
             <Route path="analytics" element={<AnalyticsPanel />} />
 
           </Route>
 
-          {/* OPTIONAL PUBLIC ACCESS */}
+          {/* PUBLIC BOARD */}
           <Route path="/production" element={<ProductionBoard />} />
 
           {/* FALLBACK */}

@@ -1,5 +1,6 @@
 import { Link, useNavigate, useLocation } from "react-router-dom"
 import logo from "../assets/SignaVi_Logo.jpg"
+import NotificationBell from "./NotificationBell" // 🔥 ADD
 
 function Navbar() {
   const navigate = useNavigate()
@@ -10,10 +11,10 @@ function Navbar() {
   const handleLogout = () => {
     localStorage.removeItem("token")
     localStorage.removeItem("user")
-    navigate("/login")
+    navigate("/")
   }
 
-  const isActive = (path) => location.pathname === path
+  const isActive = (path) => location.pathname.startsWith(path)
 
   return (
     <div style={nav}>
@@ -21,18 +22,20 @@ function Navbar() {
       {/* LEFT SIDE */}
       <div style={left}>
 
-        {/* LOGO */}
         <Link to="/" style={logoWrap}>
           <img src={logo} alt="Logo" style={logoStyle} />
         </Link>
 
-        {/* MAIN LINKS */}
         <div style={linkGroup}>
-          <NavLink to="/" active={isActive("/")}>Home</NavLink>
-          <NavLink to="/store" active={isActive("/store")}>Store</NavLink>
+          <NavLink to="/" active={location.pathname === "/"}>
+            Home
+          </NavLink>
+
+          <NavLink to="/store" active={isActive("/store")}>
+            Store
+          </NavLink>
         </div>
 
-        {/* ADMIN LINKS */}
         {user?.role === "admin" && (
           <div style={adminGroup}>
             <NavLink to="/admin/production" active={isActive("/admin/production")}>
@@ -56,34 +59,49 @@ function Navbar() {
           </div>
         )}
 
-        {/* CUSTOMER */}
         {user?.role === "customer" && (
           <div style={linkGroup}>
+            <NavLink to="/dashboard" active={isActive("/dashboard")}>
+              My Orders
+            </NavLink>
+
             <NavLink to="/account" active={isActive("/account")}>
               Account
             </NavLink>
           </div>
         )}
+
       </div>
 
       {/* RIGHT SIDE */}
-      <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
+
+        {/* 🔥 NEW */}
+        <NotificationBell />
+
         {user ? (
           <button onClick={handleLogout} style={logoutBtn}>
             Logout
           </button>
         ) : (
-          <NavLink to="/login" active={isActive("/login")}>
-            Login
-          </NavLink>
+          <>
+            <NavLink to="/login" active={isActive("/login")}>
+              Admin Login
+            </NavLink>
+
+            <NavLink to="/customer-login" active={isActive("/customer-login")}>
+              Customer Login
+            </NavLink>
+          </>
         )}
+
       </div>
+
     </div>
   )
 }
 
-/* ================= NAV LINK COMPONENT ================= */
-
+/* NAV LINK */
 function NavLink({ to, children, active }) {
   return (
     <Link
@@ -98,8 +116,7 @@ function NavLink({ to, children, active }) {
   )
 }
 
-/* ================= STYLES ================= */
-
+/* STYLES */
 const nav = {
   display: "flex",
   justifyContent: "space-between",
@@ -144,7 +161,6 @@ const link = {
   color: "#94a3b8",
   fontWeight: "500",
   fontSize: "14px",
-  transition: "0.2s",
   padding: "4px 6px",
   borderRadius: "4px"
 }

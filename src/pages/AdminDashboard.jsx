@@ -1,48 +1,82 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
+import { io } from "socket.io-client"
 import api from "../services/api"
+
+const SOCKET_URL = "http://localhost:5050"
 
 function AdminDashboard() {
 
   const [data, setData] = useState(null)
+  const loadingRef = useRef(false)
 
-  useEffect(() => {
-    const load = async () => {
+  /* ================= LOAD ================= */
+  const load = useCallback(async () => {
+    // 🔥 prevent overlapping calls
+    if (loadingRef.current) return
+
+    try {
+      loadingRef.current = true
+
       const res = await api.get("/analytics")
       setData(res.data)
-    }
 
-    load()
+    } catch (err) {
+      console.error("❌ DASHBOARD ERROR:", err)
+    } finally {
+      loadingRef.current = false
+    }
   }, [])
 
-  if (!data) return <p>Loading...</p>
+  /* ================= INITIAL LOAD ================= */
+  useEffect(() => {
+    const init = async () => {
+      await load()
+    }
+    init()
+  }, [load])
+
+  /* ================= SOCKET ================= */
+  useEffect(() => {
+
+    const socket = io(SOCKET_URL)
+
+    const handleUpdate = () => {
+      console.log("📡 Dashboard update received")
+      load()
+    }
+
+    socket.on("jobUpdated", handleUpdate)
+    socket.on("pricingUpdated", handleUpdate)
+
+    return () => {
+      socket.off("jobUpdated", handleUpdate)
+      socket.off("pricingUpdated", handleUpdate)
+      socket.disconnect()
+    }
+
+  }, [load])
+
+  if (!data) {
+    return (
+      <p style={{ color: "white", padding: 20 }}>
+        Loading dashboard...
+      </p>
+    )
+  }
 
   return (
-    <div style={{ padding: "20px", color: "white" }}>
+    <div style={{ padding: 20, color: "white" }}>
 
       <h1>📊 Dashboard</h1>
 
       <div style={card}>
-        <h2>Total Orders</h2>
-        <p>{data.totalOrders}</p>
-      </div>
-
-      <div style={card}>
-        <h2>Total Quotes</h2>
-        <p>{data.totalQuotes}</p>
-      </div>
-
-      <div style={card}>
         <h2>Revenue</h2>
-        <p>${data.revenue}</p>
+        <p>${Number(data.totalRevenue || 0).toFixed(2)}</p>
       </div>
 
       <div style={card}>
-        <h2>Status Breakdown</h2>
-        {data.statusBreakdown.map(s => (
-          <p key={s._id}>
-            {s._id}: {s.count}
-          </p>
-        ))}
+        <h2>Profit</h2>
+        <p>${Number(data.totalProfit || 0).toFixed(2)}</p>
       </div>
 
     </div>
@@ -51,9 +85,9 @@ function AdminDashboard() {
 
 const card = {
   background: "#1e293b",
-  padding: "15px",
-  marginTop: "10px",
-  borderRadius: "10px"
+  padding: 15,
+  marginTop: 10,
+  borderRadius: 10
 }
 
 export default AdminDashboard

@@ -1,318 +1,193 @@
-import { useEffect, useState, useCallback, useRef } from "react"
-import { io } from "socket.io-client"
+import { useEffect, useState, useRef } from "react"
 import api from "../services/api"
+import { useNavigate } from "react-router-dom"
+import { io } from "socket.io-client"
+
+/* 🔥 COMPONENTS */
 import {
-  DndContext,
-  useDraggable,
-  useDroppable
-} from "@dnd-kit/core"
+  SummaryBar,
+  ProfitAlerts,
+  TopJobs
+} from "../components/ProductionUI"
+
+import RevenueChart from "../components/charts/RevenueChart"
+import ProductChart from "../components/charts/ProductChart"
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050/api"
-const SOCKET_URL = API_URL.replace("/api", "").replace(/\/$/, "")
-
-const STATUS_COLUMNS = [
-  "pending",
-  "payment_required",
-  "production",
-  "shipped",
-  "archive",
-  "denied"
-]
-
-const COLORS = {
-  pending: "#facc15",
-  payment_required: "#22c55e",
-  production: "#fb923c",
-  shipped: "#38bdf8",
-  archive: "#64748b",
-  denied: "#ef4444"
-}
-
-/* ================= DRAGGABLE ================= */
-
-function DraggableJob({ job, selected, toggleSelect }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({
-      id: job._id,
-      data: job
-    })
-
-  const style = {
-    transform: transform
-      ? `translate(${transform.x}px, ${transform.y}px)`
-      : undefined,
-    background: selected ? "#22c55e33" : "#0f172a",
-    padding: "12px",
-    marginBottom: "10px",
-    borderRadius: "8px",
-    cursor: "grab",
-    border: selected ? "2px solid #22c55e" : "none",
-    opacity: isDragging ? 0.6 : 1
-  }
-
-  return (
-    <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
-
-      <div onClick={() => toggleSelect(job._id)}>
-        <strong>{job.customerName}</strong>
-        <p>{job.printType || "printing"}</p>
-        <p style={{ opacity: 0.5 }}>#{job._id.slice(-6)}</p>
-      </div>
-
-      {/* SHIPPING UI */}
-      {job.status === "shipped" && (
-        <div style={{
-          marginTop: "10px",
-          padding: "10px",
-          background: "#020617",
-          borderRadius: "6px"
-        }}>
-
-          {job.trackingNumber && (
-            <p style={{ fontSize: "12px" }}>
-              📦 {job.trackingNumber}
-            </p>
-          )}
-
-          {job.trackingLink && (
-            <a
-              href={job.trackingLink}
-              target="_blank"
-              rel="noreferrer"
-              style={{ fontSize: "12px", color: "#38bdf8" }}
-            >
-              🔗 Track
-            </a>
-          )}
-
-          {job.shippingLabel && (
-            <button
-              onClick={() => window.open(job.shippingLabel, "_blank")}
-              style={{
-                marginTop: "6px",
-                width: "100%",
-                background: "#22c55e",
-                color: "black",
-                padding: "6px",
-                borderRadius: "4px",
-                fontSize: "12px",
-                fontWeight: "bold"
-              }}
-            >
-              🖨️ Print Label
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-/* ================= COLUMN ================= */
-
-function Column({ status, jobs, selectedJobs, toggleSelect }) {
-  const { setNodeRef, isOver } = useDroppable({ id: status })
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={{
-        flex: 1,
-        background: isOver ? "#020617cc" : "#020617",
-        padding: "15px",
-        borderRadius: "12px",
-        border: `2px solid ${COLORS[status]}`
-      }}
-    >
-      <h2 style={{ textAlign: "center", color: COLORS[status] }}>
-        {status.toUpperCase()} ({jobs.length})
-      </h2>
-
-      {jobs.map(job => (
-        <DraggableJob
-          key={job._id}
-          job={job}
-          selected={selectedJobs.includes(job._id)}
-          toggleSelect={toggleSelect}
-        />
-      ))}
-    </div>
-  )
-}
-
-/* ================= MAIN ================= */
+const SOCKET_URL = API_URL.replace("/api", "")
 
 function Dashboard() {
 
-  const [jobs, setJobs] = useState({
-    pending: [],
-    payment_required: [],
-    production: [],
-    shipped: [],
-    archive: [],
-    denied: []
-  })
+  const [orders, setOrders] = useState([])
+  const [jobs, setJobs] = useState({})
+  const [analytics, setAnalytics] = useState(null)
 
-  const [selectedJobs, setSelectedJobs] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  const openedLabels = useRef(new Set())
+  const socketRef = useRef(null)
+  const navigate = useNavigate()
 
-  /* ================= FETCH ================= */
-
-  const fetchJobs = useCallback(async () => {
+  /* ================= LOAD ================= */
+  const loadData = async () => {
     try {
-      const res = await api.get("/production")
-      setJobs(res.data)
+      setLoading(true)
+      setError(null)
+
+      const [ordersRes, analyticsRes, productionRes] = await Promise.all([
+        api.get("/orders"),
+        api.get("/orders/analytics"),
+        api.get("/production")
+      ])
+
+      setOrders(ordersRes.data)
+      setAnalytics(analyticsRes.data)
+      setJobs(productionRes.data)
+
     } catch (err) {
       console.error(err)
+      setError("Failed to load dashboard")
     } finally {
       setLoading(false)
     }
+  }
+
+  /* ================= INIT ================= */
+  useEffect(() => {
+    loadData()
   }, [])
 
-  /* ================= INITIAL LOAD ================= */
-
-  useEffect(() => {
-    fetchJobs()
-  }, [fetchJobs])
-
   /* ================= SOCKET ================= */
-
   useEffect(() => {
+    socketRef.current = io(SOCKET_URL)
 
-    const socket = io(SOCKET_URL)
-
-    socket.on("jobUpdated", (updatedOrder) => {
-
-      if (
-        updatedOrder.status === "shipped" &&
-        updatedOrder.shippingLabel &&
-        !openedLabels.current.has(updatedOrder._id)
-      ) {
-        openedLabels.current.add(updatedOrder._id)
-        window.open(updatedOrder.shippingLabel, "_blank")
-      }
-
-      fetchJobs()
+    socketRef.current.on("jobUpdated", () => {
+      loadData()
     })
 
-    socket.on("jobCreated", fetchJobs)
-    socket.on("jobDeleted", fetchJobs)
+    return () => socketRef.current.disconnect()
+  }, [])
 
-    return () => socket.disconnect()
-
-  }, [fetchJobs])
-
-  /* ================= SELECT ================= */
-
-  const toggleSelect = (id) => {
-    setSelectedJobs(prev =>
-      prev.includes(id)
-        ? prev.filter(j => j !== id)
-        : [...prev, id]
-    )
+  /* ================= COUNTS ================= */
+  const counts = {
+    pending: orders.filter(o => o.status === "pending").length,
+    payment: orders.filter(o => o.status === "payment_required").length,
+    production: orders.filter(o => o.status === "production").length,
+    shipping: orders.filter(o => o.status === "shipping").length
   }
 
-  /* ================= LOCAL MOVE ================= */
-
-  const moveJobLocally = (jobId, newStatus) => {
-    const newState = { ...jobs }
-    let movedJob = null
-
-    for (const key of STATUS_COLUMNS) {
-      newState[key] = newState[key].filter(j => {
-        if (j._id === jobId) {
-          movedJob = j
-          return false
-        }
-        return true
-      })
-    }
-
-    if (movedJob) {
-      movedJob.status = newStatus
-      newState[newStatus].unshift(movedJob)
-    }
-
-    setJobs(newState)
-  }
-
-  /* ================= DRAG END ================= */
-
-  const handleDragEnd = async (event) => {
-    const { active, over } = event
-    if (!over) return
-
-    const newStatus = over.id
-
-    const batch = selectedJobs.length ? selectedJobs : [active.id]
-
-    for (const jobId of batch) {
-
-      moveJobLocally(jobId, newStatus)
-
-      try {
-        const res = await api.patch(`/orders/${jobId}/status`, {
-          status: newStatus
-        })
-
-        const updatedOrder = res.data.order
-
-        if (
-          updatedOrder.status === "shipped" &&
-          updatedOrder.shippingLabel
-        ) {
-          window.open(updatedOrder.shippingLabel, "_blank")
-        }
-
-      } catch (err) {
-        console.error(err)
-        fetchJobs()
-      }
-    }
-
-    setSelectedJobs([])
-  }
+  /* ================= ALERTS ================= */
+  const alerts = orders.filter(o =>
+    o.status === "payment_required" ||
+    o.status === "production"
+  )
 
   /* ================= LOADING ================= */
-
   if (loading) {
+    return <div className="p-6 text-white">Loading dashboard...</div>
+  }
+
+  /* ================= ERROR ================= */
+  if (error) {
     return (
-      <div style={{
-        padding: 40,
-        background: "#020617",
-        color: "white",
-        height: "100vh"
-      }}>
-        Loading Dashboard...
+      <div className="p-6 text-red-400">
+        <h1>Error</h1>
+        <p>{error}</p>
+        <button
+          onClick={loadData}
+          className="mt-4 bg-red-600 px-4 py-2 rounded"
+        >
+          Retry
+        </button>
       </div>
     )
   }
 
-  /* ================= UI ================= */
-
   return (
-    <DndContext onDragEnd={handleDragEnd}>
-      <div style={{
-        display: "flex",
-        gap: "15px",
-        padding: "20px",
-        height: "100vh",
-        background: "#020617",
-        color: "white"
-      }}>
-        {STATUS_COLUMNS.map(status => (
-          <Column
-            key={status}
-            status={status}
-            jobs={jobs[status] || []}
-            selectedJobs={selectedJobs}
-            toggleSelect={toggleSelect}
-          />
+    <div className="min-h-screen bg-slate-950 text-white p-6 space-y-6">
+
+      <h1 className="text-3xl font-bold">🚀 Dashboard</h1>
+
+      {/* 🔥 SUMMARY */}
+      <SummaryBar jobs={jobs} />
+
+      {/* 🔥 KPI CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card title="Pending" value={counts.pending} color="text-blue-400" />
+        <Card title="Payment Needed" value={counts.payment} color="text-purple-400" />
+        <Card title="Production" value={counts.production} color="text-yellow-400" />
+        <Card title="Shipping" value={counts.shipping} color="text-green-400" />
+      </div>
+
+      {/* 🔥 ALERT + TOP JOBS */}
+      <div className="grid md:grid-cols-2 gap-6">
+        <ProfitAlerts jobs={jobs} />
+        <TopJobs jobs={jobs} />
+      </div>
+
+      {/* 🔥 REVENUE */}
+      <div className="bg-slate-900 p-4 rounded-xl shadow">
+        <h2 className="text-xl font-semibold mb-2">💰 Revenue</h2>
+        <p>Total Revenue: ${analytics?.totalRevenue || 0}</p>
+        <p>Profit: ${analytics?.totalProfit || 0}</p>
+      </div>
+
+      {/* 🔥 CHARTS */}
+      <div className="grid md:grid-cols-2 gap-6">
+        <RevenueChart data={analytics?.monthly || []} />
+        <ProductChart data={analytics?.products || []} />
+      </div>
+
+      {/* 🔥 FALLBACK ALERTS */}
+      <div className="bg-slate-900 p-4 rounded-xl shadow">
+        <h2 className="text-xl mb-2">🚨 Attention Needed</h2>
+
+        {alerts.length === 0 && <p>All good 🎉</p>}
+
+        {alerts.map(o => (
+          <div key={o._id}>
+            #{o._id.slice(-6)} — {o.status}
+          </div>
         ))}
       </div>
-    </DndContext>
+
+      {/* 🔥 ACTIONS */}
+      <div className="flex flex-wrap gap-4">
+        <button
+          onClick={() => navigate("/admin/orders")}
+          className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded"
+        >
+          📦 Orders
+        </button>
+
+        <button
+          onClick={() => navigate("/admin/production")}
+          className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded"
+        >
+          🏭 Production
+        </button>
+
+        <button
+          onClick={() => navigate("/admin/analytics")}
+          className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded"
+        >
+          📊 Analytics
+        </button>
+      </div>
+
+    </div>
+  )
+}
+
+/* ================= CARD ================= */
+function Card({ title, value, color }) {
+  return (
+    <div className="bg-slate-900 p-4 rounded-xl shadow">
+      <h3 className="text-gray-400 text-sm">{title}</h3>
+      <p className={`text-2xl font-bold ${color}`}>
+        {value}
+      </p>
+    </div>
   )
 }
 
