@@ -9,9 +9,7 @@ import NotificationPanel from "../components/NotificationPanel"
 
 import {
   Column,
-  SummaryBar,
-  TopJobs,
-  ProfitAlerts
+  SummaryBar
 } from "../components/ProductionUI"
 
 const SOCKET_URL = "http://localhost:5050"
@@ -26,6 +24,7 @@ export default function ProductionBoard() {
 
   const [jobs, setJobs] = useState({})
   const [selectedJob, setSelectedJob] = useState(null)
+
   const socketRef = useRef(null)
   const loadingRef = useRef(false)
 
@@ -51,41 +50,49 @@ export default function ProductionBoard() {
 
   /* ================= SOCKET ================= */
   useEffect(() => {
-    socketRef.current = io(SOCKET_URL)
 
-    socketRef.current.on("jobUpdated", (updatedOrder) => {
+    if (!socketRef.current) {
+      socketRef.current = io(SOCKET_URL, {
+        transports: ["websocket"],
+        reconnection: true
+      })
+    }
+
+    const socket = socketRef.current
+
+    const handleUpdate = (updatedOrder) => {
       setJobs(prev => {
         const updated = { ...prev }
 
+        /* remove from all columns */
         Object.keys(updated).forEach(key => {
           updated[key] = updated[key].filter(j => j._id !== updatedOrder._id)
         })
 
+        /* add to new column */
         const status = normalizeStatus(updatedOrder)
 
         if (!updated[status]) updated[status] = []
-
         updated[status].unshift(updatedOrder)
 
         return updated
       })
-    })
+    }
 
-    socketRef.current.on("jobCreated", (job) => {
+    const handleCreate = (job) => {
       setJobs(prev => {
         const updated = { ...prev }
 
         const status = normalizeStatus(job)
 
         if (!updated[status]) updated[status] = []
-
         updated[status].unshift(job)
 
         return updated
       })
-    })
+    }
 
-    socketRef.current.on("jobDeleted", (id) => {
+    const handleDelete = (id) => {
       setJobs(prev => {
         const updated = { ...prev }
 
@@ -95,11 +102,18 @@ export default function ProductionBoard() {
 
         return updated
       })
-    })
+    }
+
+    socket.on("jobUpdated", handleUpdate)
+    socket.on("jobCreated", handleCreate)
+    socket.on("jobDeleted", handleDelete)
 
     return () => {
-      socketRef.current.disconnect()
+      socket.off("jobUpdated", handleUpdate)
+      socket.off("jobCreated", handleCreate)
+      socket.off("jobDeleted", handleDelete)
     }
+
   }, [])
 
   /* ================= DRAG ================= */
@@ -126,13 +140,15 @@ export default function ProductionBoard() {
       minHeight: "100vh"
     }}>
 
+      {/* 🔔 Notifications */}
       <NotificationPanel onSelectJob={setSelectedJob} />
 
       <h1 style={{ color: "white" }}>🏭 Production Board</h1>
 
+      {/* 📊 Summary stays (optional but useful) */}
       <SummaryBar jobs={jobs} />
-      <ProfitAlerts jobs={jobs} onSelectJob={setSelectedJob} />
-      <TopJobs jobs={jobs} onSelectJob={setSelectedJob} />
+
+      {/* 🚫 REMOVED ANALYTICS (moved to Revenue page) */}
 
       <DndContext
         collisionDetection={closestCenter}
@@ -156,6 +172,7 @@ export default function ProductionBoard() {
         </div>
       </DndContext>
 
+      {/* 🔥 Modal */}
       {selectedJob && (
         <JobModal
           job={selectedJob}

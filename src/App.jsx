@@ -2,20 +2,25 @@ import {
   BrowserRouter,
   Routes,
   Route,
-  useLocation,
-  Outlet
+  useLocation
 } from "react-router-dom"
 import { useEffect } from "react"
 import api from "./services/api"
 
+/* CONTEXT */
+import { CartProvider } from "./context/CartProvider"
+
+/* COMPONENTS */
 import Navbar from "./components/Navbar"
-import ProtectedRoute from "./components/ProtectedRoute"
 import AdminLayout from "./components/admin/AdminLayout"
 import CustomerRoute from "./components/guards/CustomerRoute"
+import AdminRoute from "./components/admin/AdminRoute"
 
 /* PAGES */
 import Home from "./pages/Home"
 import Store from "./pages/Store"
+import ProductDetail from "./pages/ProductDetail"
+import Cart from "./pages/Cart"
 import ProductionBoard from "./pages/ProductionBoard"
 import CustomQuote from "./pages/CustomQuote"
 import Login from "./pages/Login"
@@ -27,19 +32,20 @@ import ClientOrder from "./pages/ClientOrder"
 
 /* CUSTOMER */
 import CustomerLogin from "./pages/customer/CustomerLogin"
+import CustomerRegister from "./pages/CustomerRegister"
 import CustomerDashboard from "./pages/customer/CustomerDashboard"
 import OrderDetail from "./pages/customer/OrderDetail"
 
-/* DASHBOARD */
+/* ADMIN */
 import Dashboard from "./pages/Dashboard"
 import AnalyticsPanel from "./pages/AnalyticsPanel"
-
-/* ADMIN */
+import AdminRevenue from "./pages/admin/AdminRevenue"
 import Orders from "./pages/admin/Orders"
 import AdminCustomers from "./pages/admin/AdminCustomers"
 import AdminPricing from "./pages/admin/AdminPricing"
 import AdminInventory from "./pages/admin/AdminInventory"
 import AdminMockups from "./pages/admin/AdminMockups"
+import CustomerDetail from "./components/admin/CustomerDetail"
 
 /* FLOW */
 import ApproveMockup from "./pages/ApproveMockup"
@@ -51,29 +57,11 @@ function LayoutWrapper({ children }) {
   const path = location.pathname
 
   const isAdminPage = path.startsWith("/admin")
-  const isProductionPage = path === "/production"
 
   return (
-    <div
-      className={
-        isAdminPage && !isProductionPage
-          ? "w-full min-h-screen p-0 m-0"
-          : "max-w-6xl mx-auto p-6"
-      }
-    >
+    <div className={isAdminPage ? "w-full min-h-screen p-0 m-0" : "max-w-6xl mx-auto p-6"}>
       {children}
     </div>
-  )
-}
-
-/* ================= ADMIN ROUTES ================= */
-function AdminRoutes() {
-  return (
-    <ProtectedRoute roleRequired="admin">
-      <AdminLayout>
-        <Outlet />
-      </AdminLayout>
-    </ProtectedRoute>
   )
 }
 
@@ -85,6 +73,7 @@ function AppContent() {
   const hideNavbarRoutes = [
     "/login",
     "/customer-login",
+    "/customer-register",
     "/quote",
     "/success",
     "/checkout",
@@ -92,21 +81,20 @@ function AppContent() {
   ]
 
   const shouldHideNavbar =
-    hideNavbarRoutes.some(route => path.startsWith(route)) &&
-    !path.startsWith("/production")
+    hideNavbarRoutes.some(route => path.startsWith(route))
 
-  /* 🔐 AUTH CHECK */
+  /* 🔥 AUTO AUTH CHECK */
   useEffect(() => {
     const checkAuth = async () => {
-      const token = localStorage.getItem("token")
+      const token = localStorage.getItem("adminToken")
       if (!token) return
 
       try {
         const res = await api.get("/auth/profile")
-        localStorage.setItem("user", JSON.stringify(res.data.user))
+        localStorage.setItem("adminUser", JSON.stringify(res.data.user))
       } catch {
-        localStorage.removeItem("token")
-        localStorage.removeItem("user")
+        localStorage.removeItem("adminToken")
+        localStorage.removeItem("adminUser")
       }
     }
 
@@ -115,7 +103,6 @@ function AppContent() {
 
   return (
     <>
-      {/* 🔥 FIX: NAVBAR NOW SHOWS ON ADMIN */}
       {!shouldHideNavbar && <Navbar />}
 
       <LayoutWrapper>
@@ -124,11 +111,16 @@ function AppContent() {
           {/* PUBLIC */}
           <Route path="/" element={<Home />} />
           <Route path="/store" element={<Store />} />
+          <Route path="/product/:id" element={<ProductDetail />} />
+          <Route path="/cart" element={<Cart />} />
+
+          {/* AUTH */}
           <Route path="/login" element={<Login />} />
-          <Route path="/submit" element={<CustomQuote />} />
 
           {/* CUSTOMER */}
           <Route path="/customer-login" element={<CustomerLogin />} />
+          <Route path="/customer-register" element={<CustomerRegister />} />
+          <Route path="/submit" element={<CustomQuote />} />
 
           <Route
             path="/dashboard"
@@ -154,8 +146,6 @@ function AppContent() {
 
           {/* CLIENT */}
           <Route path="/client-order/:id" element={<ClientOrder />} />
-
-          {/* QUOTE */}
           <Route path="/quote/:id" element={<QuoteResponse />} />
 
           {/* CHECKOUT */}
@@ -165,28 +155,39 @@ function AppContent() {
           <Route path="/success" element={<Success />} />
           <Route path="/success/:id" element={<Success />} />
 
-          {/* FLOW */}
+          {/* APPROVAL */}
           <Route path="/approve/:id" element={<ApproveMockup />} />
 
-          {/* ADMIN */}
-          <Route path="/admin" element={<AdminRoutes />}>
+          {/* 🔥 ADMIN ROUTES */}
+          <Route element={<AdminRoute />}>
 
-            <Route index element={<Dashboard />} />
-            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="/admin" element={<AdminLayout />}>
 
-            <Route path="production" element={<ProductionBoard />} />
-            <Route path="quotes" element={<AdminQuotes />} />
-            <Route path="orders" element={<Orders />} />
-            <Route path="customers" element={<AdminCustomers />} />
-            <Route path="pricing" element={<AdminPricing />} />
-            <Route path="inventory" element={<AdminInventory />} />
-            <Route path="mockups" element={<AdminMockups />} />
-            <Route path="analytics" element={<AnalyticsPanel />} />
+              {/* DEFAULT */}
+              <Route index element={<Dashboard />} />
+
+              {/* CORE */}
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="production" element={<ProductionBoard />} />
+              <Route path="quotes" element={<AdminQuotes />} />
+              <Route path="orders" element={<Orders />} />
+
+              {/* 🔥 CRM (NESTED CLEANLY) */}
+              <Route path="customers">
+                <Route index element={<AdminCustomers />} />
+                <Route path=":id" element={<CustomerDetail />} />
+              </Route>
+
+              {/* OTHER */}
+              <Route path="pricing" element={<AdminPricing />} />
+              <Route path="inventory" element={<AdminInventory />} />
+              <Route path="mockups" element={<AdminMockups />} />
+              <Route path="analytics" element={<AnalyticsPanel />} />
+              <Route path="revenue" element={<AdminRevenue />} />
+
+            </Route>
 
           </Route>
-
-          {/* PUBLIC BOARD */}
-          <Route path="/production" element={<ProductionBoard />} />
 
           {/* FALLBACK */}
           <Route path="*" element={<h2>Page not found</h2>} />
@@ -200,9 +201,11 @@ function AppContent() {
 /* ================= ROOT ================= */
 function App() {
   return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
+    <CartProvider>
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+    </CartProvider>
   )
 }
 

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 
 export default function CustomerLogin() {
@@ -6,6 +6,14 @@ export default function CustomerLogin() {
   const [email, setEmail] = useState("")
   const [error, setError] = useState("")
   const navigate = useNavigate()
+
+  /* 🔥 AUTO REDIRECT IF LOGGED IN */
+useEffect(() => {
+  const existing = localStorage.getItem("customerEmail")
+  if (existing) {
+    navigate("/dashboard")
+  }
+}, [navigate])
 
   const handleLogin = () => {
     setError("")
@@ -16,21 +24,13 @@ export default function CustomerLogin() {
     }
 
     try {
-      /* 🔥 CREATE SIMPLE CUSTOMER TOKEN */
-      const user = {
-        email: email.toLowerCase().trim(),
-        role: "customer"
-      }
+      const cleanEmail = email.toLowerCase().trim()
 
-      const token = btoa(JSON.stringify(user))
+      /* 🔥 STORE SESSION */
+      localStorage.setItem("customerEmail", cleanEmail)
 
-      /* 🔐 STORE SESSION */
-      localStorage.setItem("token", token)
-      localStorage.setItem("user", JSON.stringify(user))
+      console.log("✅ CUSTOMER LOGGED IN:", cleanEmail)
 
-      console.log("✅ CUSTOMER LOGGED IN:", user)
-
-      /* 🚀 REDIRECT */
       navigate("/dashboard")
 
     } catch (err) {
@@ -41,7 +41,6 @@ export default function CustomerLogin() {
 
   return (
     <div style={container}>
-
       <div style={card}>
         <h1 style={title}>Customer Login</h1>
 
@@ -63,7 +62,6 @@ export default function CustomerLogin() {
           Continue
         </button>
       </div>
-
     </div>
   )
 }

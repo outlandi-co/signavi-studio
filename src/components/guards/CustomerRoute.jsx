@@ -4,20 +4,20 @@ export default function CustomerRoute({ children }) {
 
   const location = useLocation()
 
-  /* 🔐 GET SESSION */
-  const token = localStorage.getItem("token")
+  /* 🔥 CUSTOMER-ONLY STORAGE */
+  const token = localStorage.getItem("customerToken")
 
-  let user = null
+  let customer = null
 
   try {
-    user = JSON.parse(localStorage.getItem("user") || "null")
+    customer = JSON.parse(localStorage.getItem("customerUser") || "null")
   } catch (err) {
-    console.error("❌ USER PARSE ERROR:", err)
-    user = null
+    console.error("❌ CUSTOMER PARSE ERROR:", err)
+    customer = null
   }
 
   /* ================= NOT LOGGED IN ================= */
-  if (!token || !user) {
+  if (!token || !customer) {
     return (
       <Navigate
         to="/customer-login"
@@ -28,8 +28,8 @@ export default function CustomerRoute({ children }) {
   }
 
   /* ================= WRONG ROLE ================= */
-  if (user.role !== "customer") {
-    console.warn("⚠️ NON-CUSTOMER ACCESS BLOCKED:", user)
+  if (customer.role !== "customer") {
+    console.warn("⚠️ NON-CUSTOMER ACCESS BLOCKED:", customer)
 
     return <Navigate to="/" replace />
   }

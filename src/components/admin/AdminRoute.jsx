@@ -1,34 +1,24 @@
 import { Navigate, Outlet } from "react-router-dom"
 
-/* 🔥 SAFE PARSE */
 function getAdmin() {
   try {
     return JSON.parse(localStorage.getItem("adminUser") || "null")
-  } catch (err) {
-    console.error("❌ ADMIN PARSE ERROR:", err)
+  } catch {
     return null
   }
 }
 
 export default function AdminRoute() {
-
   const admin = getAdmin()
   const token = localStorage.getItem("adminToken")
 
-  console.log("🔐 ADMIN CHECK:", { admin, token })
-
-  /* 🔐 NOT LOGGED IN */
   if (!token || !admin) {
-    console.warn("⛔ NOT AUTHENTICATED")
     return <Navigate to="/login" replace />
   }
 
-  /* 🔐 WRONG ROLE */
   if (admin.role !== "admin") {
-    console.warn("⚠️ NON-ADMIN ACCESS BLOCKED:", admin)
     return <Navigate to="/" replace />
   }
 
-  /* ✅ AUTHORIZED */
   return <Outlet />
 }

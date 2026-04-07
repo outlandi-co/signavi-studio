@@ -18,29 +18,31 @@ function Login() {
     try {
       setLoading(true)
 
-      const res = await api.post("/auth/login", {
-        email,
-        password
-      })
+      const res = await api.post("/auth/login", { email, password })
 
-      if (!res.data.token) {
+      const { token, user } = res.data
+
+      if (!token || !user) {
         alert("Invalid backend response")
         return
       }
 
-      // 🔥 Save token + user
-      localStorage.setItem("token", res.data.token)
-      localStorage.setItem("user", JSON.stringify({
-        role: res.data.role
-      }))
+      /* 🔥 CLEAR OLD STORAGE */
+      localStorage.removeItem("token")
+      localStorage.removeItem("user")
+      localStorage.removeItem("customerEmail")
 
-      if (res.data.role === "admin") {
-        navigate("/admin/production")
-      } else {
-        navigate("/")
-      }
+      /* 🔐 STORE ADMIN SESSION */
+      localStorage.setItem("adminToken", token)
+      localStorage.setItem("adminUser", JSON.stringify(user))
+
+      console.log("✅ ADMIN LOGGED IN:", user)
+
+      /* 🚀 REDIRECT (FIXED PATH) */
+      navigate("/production")
 
     } catch (err) {
+      console.error(err)
       alert(err.response?.data?.error || "Login failed")
     } finally {
       setLoading(false)
@@ -48,8 +50,8 @@ function Login() {
   }
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h2>Login</h2>
+    <div style={{ padding: 20 }}>
+      <h2>Admin Login</h2>
 
       <input
         placeholder="Email"

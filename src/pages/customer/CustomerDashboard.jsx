@@ -1,18 +1,36 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
+import { useNavigate } from "react-router-dom"
 import api from "../../services/api"
+import { io } from "socket.io-client"
+
+const SOCKET_URL = "http://localhost:5050"
 
 export default function CustomerDashboard() {
 
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
 
+  const navigate = useNavigate()
+  const socketRef = useRef(null)
+
+  /* ================= LOAD ================= */
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await api.get("/orders/my-orders")
-        setOrders(res.data)
+        const email = localStorage.getItem("customerEmail")
+
+        if (!email) {
+          console.warn("⚠️ No customer email found")
+          setLoading(false)
+          return
+        }
+
+        const res = await api.get(`/customers/orders/${email}`)
+
+        setOrders(res.data || [])
+
       } catch (err) {
-        console.error(err)
+        console.error("❌ LOAD ORDERS ERROR:", err)
       } finally {
         setLoading(false)
       }
@@ -21,9 +39,47 @@ export default function CustomerDashboard() {
     load()
   }, [])
 
+  /* ================= REAL-TIME ================= */
+  useEffect(() => {
+
+    if (!socketRef.current) {
+      socketRef.current = io(SOCKET_URL, {
+        transports: ["websocket"]
+      })
+    }
+
+    const socket = socketRef.current
+
+    const handleUpdate = (updatedOrder) => {
+      setOrders(prev =>
+        prev.map(o =>
+          o._id === updatedOrder._id ? updatedOrder : o
+        )
+      )
+    }
+
+    const handleCreate = (newOrder) => {
+      setOrders(prev => [newOrder, ...prev])
+    }
+
+    socket.on("jobUpdated", handleUpdate)
+    socket.on("jobCreated", handleCreate)
+
+    return () => {
+      socket.off("jobUpdated", handleUpdate)
+      socket.off("jobCreated", handleCreate)
+    }
+
+  }, [])
+
+  /* ================= HELPERS ================= */
+
   const steps = ["payment_required","paid","production","shipping","delivered"]
 
-  const getIndex = (status) => steps.indexOf(status)
+  const getIndex = (status) => {
+    const i = steps.indexOf(status)
+    return i === -1 ? 0 : i
+  }
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -41,6 +97,8 @@ export default function CustomerDashboard() {
     }
   }
 
+  /* ================= UI ================= */
+
   if (loading) {
     return <p style={{ padding: 40 }}>Loading your orders...</p>
   }
@@ -48,7 +106,7 @@ export default function CustomerDashboard() {
   return (
     <div style={container}>
 
-      <h1 style={title}>My Orders</h1>
+      <h1 style={title}>📦 My Orders</h1>
 
       {orders.length === 0 && (
         <p style={{ opacity: 0.6 }}>No orders yet</p>
@@ -63,11 +121,10 @@ export default function CustomerDashboard() {
           return (
             <div
               key={order._id}
-              onClick={() => window.location.href = `/order/${order._id}`}
+              onClick={() => navigate(`/order/${order._id}`)}
               style={card}
             >
 
-              {/* HEADER */}
               <div style={cardHeader}>
                 <span style={orderId}>
                   #{order._id.slice(-6)}
@@ -82,12 +139,10 @@ export default function CustomerDashboard() {
                 </span>
               </div>
 
-              {/* PRICE */}
               <div style={price}>
                 ${(order.finalPrice || order.price || 0).toFixed(2)}
               </div>
 
-              {/* TIMELINE */}
               <div style={timeline}>
                 {steps.map((step, i) => (
                   <div
@@ -102,7 +157,6 @@ export default function CustomerDashboard() {
                 ))}
               </div>
 
-              {/* FOOTER */}
               <div style={footer}>
                 <span>Qty: {order.quantity}</span>
 
@@ -110,7 +164,7 @@ export default function CustomerDashboard() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      window.location.href = `/checkout/${order._id}`
+                      navigate(`/checkout/${order._id}`)
                     }}
                     style={payBtn}
                   >
@@ -154,10 +208,7 @@ const card = {
   borderRadius: 12,
   border: "1px solid #1e293b",
   cursor: "pointer",
-  transition: "0.2s",
-  display: "flex",
-  flexDirection: "column",
-  gap: 10
+  transition: "0.2s"
 }
 
 const cardHeader = {

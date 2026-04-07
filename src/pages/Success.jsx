@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo, useRef } from "react"
 import { useSearchParams, useNavigate } from "react-router-dom"
 import api from "../services/api"
 
@@ -11,6 +11,19 @@ function Success() {
   const [loading, setLoading] = useState(true)
   const [order, setOrder] = useState(null)
   const [status, setStatus] = useState("processing")
+
+  const hasRecovered = useRef(false) // 🔥 prevents duplicate calls
+
+  /* ✅ SAFE USER */
+  const user = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "null")
+    } catch {
+      return null
+    }
+  }, [])
+
+  const userEmail = user?.email
 
   /* ================= FETCH ORDER ================= */
   useEffect(() => {
@@ -44,7 +57,6 @@ function Success() {
         console.log("⚠️ Waiting for webhook...")
       }
 
-      /* 🔁 RETRY */
       if (attempts < 15) {
         attempts++
         setTimeout(fetchOrder, 1500)
@@ -63,10 +75,32 @@ function Success() {
     }
   }, [sessionId])
 
-  /* ================= CLEAR CART ================= */
+  /* ================= CLEAR + RECOVER CART ================= */
   useEffect(() => {
-    localStorage.removeItem("cart")
-  }, [])
+    const run = async () => {
+      try {
+        if (hasRecovered.current) return
+        hasRecovered.current = true
+
+        // 🔥 clear local cart
+        localStorage.removeItem("cart")
+
+        // 🔥 mark backend recovered
+        if (userEmail) {
+          await fetch("http://localhost:5050/api/cart/recovered", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: userEmail })
+          })
+        }
+
+      } catch (err) {
+        console.error("RECOVER ERROR:", err)
+      }
+    }
+
+    run()
+  }, [userEmail])
 
   return (
     <div
