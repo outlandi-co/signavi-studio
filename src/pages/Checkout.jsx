@@ -17,12 +17,7 @@ export default function Checkout() {
       try {
         if (!id) return
 
-        console.log("📦 LOADING ORDER:", id)
-
         const res = await api.get(`/orders/${id}`)
-
-        console.log("✅ ORDER LOADED:", res.data)
-
         setOrder(res.data)
 
       } catch (err) {
@@ -36,26 +31,12 @@ export default function Checkout() {
 
   /* ================= CHECKOUT ================= */
   const handleCheckout = async () => {
-    console.log("🔥 BUTTON CLICKED")
-
-    if (!id) {
-      console.log("❌ NO ID FOUND")
-      setError("Invalid order ID")
-      return
-    }
-
-    if (!order) {
-      setError("Order not loaded")
-      return
-    }
-
-    if (loading) return
+    if (!id || !order || loading) return
 
     try {
       setLoading(true)
       setError("")
 
-      /* 🔥 BUILD STRIPE PAYLOAD FROM ORDER */
       const items = [
         {
           name: order.customerName || "Custom Order",
@@ -64,33 +45,25 @@ export default function Checkout() {
         }
       ]
 
-const customer = {
-  name: order.customerName,
-  email: order.email,
-  orderId: order._id   // 🔥 THIS IS REQUIRED
-}
-      console.log("🟢 SENDING TO STRIPE:", { items, customer })
+      const customer = {
+        name: order.customerName,
+        email: order.email,
+        orderId: order._id
+      }
 
       const res = await api.post(
         "/stripe/create-checkout-session",
         { items, customer }
       )
 
-      console.log("✅ STRIPE RESPONSE:", res.data)
-
       if (!res?.data?.url) {
         throw new Error("No checkout URL returned")
       }
 
-      console.log("🚀 REDIRECTING TO STRIPE...")
       window.location.href = res.data.url
 
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err)
-
-      if (err.response) {
-        console.error("❌ SERVER RESPONSE:", err.response.data)
-      }
 
       const message =
         err?.response?.data?.message ||
@@ -132,9 +105,14 @@ const customer = {
       )}
 
       <button
-        onClick={() => {
-          console.log("👆 BUTTON PRESS DETECTED")
-          handleCheckout()
+        onClick={(event) => {
+          event.stopPropagation()
+
+          if (typeof handleCheckout === "function") {
+            handleCheckout()
+          } else {
+            console.error("❌ handleCheckout not a function")
+          }
         }}
         disabled={loading || !order}
         style={{
@@ -144,8 +122,7 @@ const customer = {
           border: "none",
           background: loading ? "#999" : "#000",
           color: "white",
-          cursor: loading ? "not-allowed" : "pointer",
-          transition: "0.2s"
+          cursor: loading ? "not-allowed" : "pointer"
         }}
       >
         {loading ? "Processing..." : "💳 Pay Now"}
