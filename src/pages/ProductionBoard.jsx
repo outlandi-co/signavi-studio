@@ -44,12 +44,11 @@ export default function ProductionBoard() {
     }
   }, [])
 
-  /* ================= INITIAL LOAD ================= */
   useEffect(() => {
     load()
   }, [load])
 
-  /* ================= DELETE HANDLER (🔥 FIX) ================= */
+  /* ================= DELETE ================= */
   const handleDeleteJob = (id) => {
     setJobs(prev => {
       const updated = {}
@@ -60,6 +59,13 @@ export default function ProductionBoard() {
 
       return updated
     })
+  }
+
+  /* ================= SAFE SELECT (🔥 FIX) ================= */
+  const handleSelectJob = (job) => {
+    if (!job) return
+
+    setSelectedJob(job)
   }
 
   /* ================= SOCKET ================= */
@@ -105,7 +111,7 @@ export default function ProductionBoard() {
     }
 
     const handleDelete = (id) => {
-      handleDeleteJob(id) // 🔥 reuse logic
+      handleDeleteJob(id)
     }
 
     socket.on("jobUpdated", handleUpdate)
@@ -121,54 +127,45 @@ export default function ProductionBoard() {
   }, [])
 
   /* ================= DRAG ================= */
-const handleDragEnd = async ({ active, over }) => {
-  if (!over) return
+  const handleDragEnd = async ({ active, over }) => {
+    if (!over) return
 
-  const jobId = active.id
-  const newStatus = over.id
+    const jobId = active.id
+    const newStatus = over.id
 
-  // 🔥 SAVE PREVIOUS STATE (for rollback)
-  const previousJobs = structuredClone(jobs)
+    const previousJobs = structuredClone(jobs)
 
-  // 🔥 OPTIMISTIC UI UPDATE (instant move)
-  setJobs(prev => {
-    const updated = { ...prev }
+    setJobs(prev => {
+      const updated = { ...prev }
 
-    let movedJob = null
+      let movedJob = null
 
-    // remove from all columns
-    Object.keys(updated).forEach(key => {
-      updated[key] = updated[key].filter(j => {
-        if (j._id === jobId) {
-          movedJob = { ...j, status: newStatus }
-          return false
-        }
-        return true
+      Object.keys(updated).forEach(key => {
+        updated[key] = updated[key].filter(j => {
+          if (j._id === jobId) {
+            movedJob = { ...j, status: newStatus }
+            return false
+          }
+          return true
+        })
       })
+
+      if (!updated[newStatus]) updated[newStatus] = []
+      updated[newStatus].unshift(movedJob)
+
+      return updated
     })
 
-    // add to new column
-    if (!updated[newStatus]) updated[newStatus] = []
-    updated[newStatus].unshift(movedJob)
-
-    return updated
-  })
-
-  // 🔥 BACKEND UPDATE (silent)
-  try {
-    await api.patch(`/orders/${jobId}/status`, {
-      status: newStatus
-    })
-
-  } catch (err) {
-    console.error("❌ STATUS UPDATE FAILED:", err)
-
-    // 🔥 ROLLBACK UI
-    setJobs(previousJobs)
-
-    toast.error("Update failed — reverted")
+    try {
+      await api.patch(`/orders/${jobId}/status`, {
+        status: newStatus
+      })
+    } catch (err) {
+      console.error("❌ STATUS UPDATE FAILED:", err)
+      setJobs(previousJobs)
+      toast.error("Update failed — reverted")
+    }
   }
-}
 
   return (
     <div style={{
@@ -177,12 +174,10 @@ const handleDragEnd = async ({ active, over }) => {
       minHeight: "100vh"
     }}>
 
-      {/* 🔔 Notifications */}
-      <NotificationPanel onSelectJob={setSelectedJob} />
+      <NotificationPanel onSelectJob={handleSelectJob} />
 
       <h1 style={{ color: "white" }}>🏭 Production Board</h1>
 
-      {/* 📊 Summary */}
       <SummaryBar jobs={jobs} />
 
       <DndContext
@@ -201,14 +196,16 @@ const handleDragEnd = async ({ active, over }) => {
               key={key}
               id={key}
               jobs={value}
-              onClick={setSelectedJob}
-              onDelete={handleDeleteJob} // 🔥 THIS WAS MISSING
+
+              /* 🔥 SAFE HANDLER */
+              onClick={handleSelectJob}
+
+              onDelete={handleDeleteJob}
             />
           ))}
         </div>
       </DndContext>
 
-      {/* 🔥 Modal */}
       {selectedJob && (
         <JobModal
           job={selectedJob}

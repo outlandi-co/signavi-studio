@@ -1,7 +1,7 @@
 import { useDroppable } from "@dnd-kit/core"
 import api from "../../services/api"
 
-export function Column({ id, jobs, onClick }) {
+export function Column({ id, jobs = [], onClick }) {
 
   const { setNodeRef, isOver } = useDroppable({ id })
 
@@ -12,17 +12,14 @@ export function Column({ id, jobs, onClick }) {
 
     try {
       await api.delete(`/orders/${jobId}`)
-      console.log("🗑️ Deleted:", jobId)
-
       window.location.reload()
-
     } catch (err) {
       console.error(err)
       alert("Delete failed")
     }
   }
 
-  const safeClick = (event, job) => {
+  const handleCardClick = (event, job) => {
     event.stopPropagation()
 
     if (typeof onClick === "function") {
@@ -46,10 +43,10 @@ export function Column({ id, jobs, onClick }) {
     >
       <h3 style={{ color: "white" }}>{id.toUpperCase()}</h3>
 
-      {(jobs || []).map(job => (
+      {jobs.map(job => (
         <div
           key={job._id}
-          onClick={(event) => safeClick(event, job)}
+          onClick={(e) => handleCardClick(e, job)}
           style={{
             background: "#020617",
             border: "1px solid #1e293b",
@@ -69,9 +66,8 @@ export function Column({ id, jobs, onClick }) {
             ${job.finalPrice || job.price || 0}
           </p>
 
-          {/* DELETE BUTTON */}
           <button
-            onClick={(event) => handleDelete(event, job._id)}
+            onClick={(e) => handleDelete(e, job._id)}
             style={{
               marginTop: "8px",
               background: "red",
@@ -83,7 +79,6 @@ export function Column({ id, jobs, onClick }) {
           >
             DELETE
           </button>
-
         </div>
       ))}
     </div>
