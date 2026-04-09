@@ -3,7 +3,8 @@ import { useParams } from "react-router-dom"
 import { io } from "socket.io-client"
 import api from "../services/api"
 
-const SOCKET_URL = "http://localhost:5050"
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050/api"
+const SOCKET_URL = API_URL.replace("/api", "")
 
 const steps = [
   "pending",

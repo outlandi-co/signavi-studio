@@ -2,7 +2,8 @@ import { useEffect, useState, useRef } from "react"
 import { io } from "socket.io-client"
 import notifySound from "../assets/notify.mp3"
 
-const SOCKET_URL = "http://localhost:5050"
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050/api"
+const SOCKET_URL = API_URL.replace("/api", "")
 
 export default function NotificationBell() {
 
