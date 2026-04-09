@@ -7,7 +7,7 @@ const BASE_URL =
   (import.meta.env.VITE_API_URL || "https://signavi-backend.onrender.com/api")
     .replace("/api", "")
 
-export default function Store() {
+export default function Store({ setCartOpen }) {
 
   const [products, setProducts] = useState([])
   const [category, setCategory] = useState("all")
@@ -15,21 +15,23 @@ export default function Store() {
   const navigate = useNavigate()
   const { addToCart } = useCart()
 
+  /* ================= LOAD ================= */
   useEffect(() => {
     const load = async () => {
       try {
         const res = await api.get("/products")
         setProducts(res.data)
       } catch (err) {
-        console.error(err)
+        console.error("❌ PRODUCT LOAD ERROR:", err)
       }
     }
     load()
   }, [])
 
-  const filtered = category === "all"
-    ? products
-    : products.filter(p => p.category === category)
+  const filtered =
+    category === "all"
+      ? products
+      : products.filter(p => p.category === category)
 
   const getImage = (p) => {
     if (!p.image) return "/placeholder.png"
@@ -46,7 +48,7 @@ export default function Store() {
       {/* FILTER */}
       <select
         value={category}
-        onChange={(e) => setCategory(e.target.value)}
+        onChange={(event) => setCategory(event.target.value)}
         style={select}
       >
         <option value="all">All</option>
@@ -64,13 +66,13 @@ export default function Store() {
             key={p._id}
             onClick={() => navigate(`/product/${p._id}`)}
             style={card}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "scale(1.04)"
-              e.currentTarget.style.boxShadow = "0 12px 30px rgba(0,0,0,0.8)"
+            onMouseEnter={(event) => {
+              event.currentTarget.style.transform = "scale(1.04)"
+              event.currentTarget.style.boxShadow = "0 12px 30px rgba(0,0,0,0.8)"
             }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "scale(1)"
-              e.currentTarget.style.boxShadow = card.boxShadow
+            onMouseLeave={(event) => {
+              event.currentTarget.style.transform = "scale(1)"
+              event.currentTarget.style.boxShadow = card.boxShadow
             }}
           >
 
@@ -79,14 +81,14 @@ export default function Store() {
               src={getImage(p)}
               alt={p.name}
               style={image}
-              onError={(e) => {
-                e.target.src = "/placeholder.png"
+              onError={(event) => {
+                event.target.src = "/placeholder.png"
               }}
-              onMouseEnter={(e) => {
-                e.target.style.transform = "scale(1.1)"
+              onMouseEnter={(event) => {
+                event.target.style.transform = "scale(1.1)"
               }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = "scale(1)"
+              onMouseLeave={(event) => {
+                event.target.style.transform = "scale(1)"
               }}
             />
 
@@ -105,12 +107,28 @@ export default function Store() {
 
             {/* BUTTON */}
             <button
-              onClick={(e) => {
-                e.stopPropagation()
+              onClick={(event) => {
+                event.stopPropagation()
+
+                if (typeof addToCart !== "function") {
+                  console.error("❌ addToCart is not a function")
+                  return
+                }
+
                 addToCart(p)
-                alert(`${p.name} added to cart`)
+
+                // 🔥 auto open cart if available
+                if (typeof setCartOpen === "function") {
+                  setCartOpen(true)
+                }
               }}
               style={button}
+              onMouseEnter={(event) => {
+                event.target.style.transform = "scale(1.05)"
+              }}
+              onMouseLeave={(event) => {
+                event.target.style.transform = "scale(1)"
+              }}
             >
               🛒 Add to Cart
             </button>
