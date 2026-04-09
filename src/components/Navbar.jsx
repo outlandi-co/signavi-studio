@@ -1,13 +1,14 @@
 import { Link, useNavigate, useLocation } from "react-router-dom"
-import { useMemo } from "react"
 import logo from "../assets/SignaVi_Logo.jpg"
 import NotificationBell from "./NotificationBell"
 import useCart from "../hooks/useCart"
 
-function Navbar() {
+function Navbar({ setCartOpen }) {
+
   const navigate = useNavigate()
   const location = useLocation()
-  const { cart } = useCart()
+
+  const { cartCount } = useCart()
 
   const admin = JSON.parse(localStorage.getItem("adminUser") || "null")
   const customer = JSON.parse(localStorage.getItem("customerUser") || "null")
@@ -26,13 +27,10 @@ function Navbar() {
     return location.pathname.startsWith(path)
   }
 
-  const totalItems = useMemo(() => {
-    return cart.reduce((sum, item) => sum + (item.quantity || 1), 0)
-  }, [cart])
-
   return (
     <div style={nav}>
 
+      {/* LEFT */}
       <div style={left}>
         <Link to="/">
           <img src={logo} style={logoStyle} />
@@ -41,14 +39,27 @@ function Navbar() {
         <NavLink to="/" active={isActive("/")}>Home</NavLink>
         <NavLink to="/store" active={isActive("/store")}>Store</NavLink>
 
-        <NavLink to="/cart" active={isActive("/cart")}>
+        {/* 🔥 CART BUTTON */}
+        <button
+          onClick={() => setCartOpen(true)}
+          style={cartBtn}
+          onMouseEnter={(e) => e.currentTarget.style.color = "#22d3ee"}
+          onMouseLeave={(e) => e.currentTarget.style.color = "#cbd5f5"}
+        >
           🛒 Cart
-          {totalItems > 0 && (
-            <span style={badge}>{totalItems}</span>
-          )}
-        </NavLink>
 
-        {user && <NavLink to="/notifications" active={isActive("/notifications")}>🔔 Alerts</NavLink>}
+          {cartCount > 0 && (
+            <span style={badge}>
+              {cartCount}
+            </span>
+          )}
+        </button>
+
+        {user && (
+          <NavLink to="/notifications" active={isActive("/notifications")}>
+            🔔 Alerts
+          </NavLink>
+        )}
 
         {admin && (
           <div style={adminGroup}>
@@ -60,6 +71,7 @@ function Navbar() {
         )}
       </div>
 
+      {/* RIGHT */}
       <div style={right}>
         <NotificationBell />
 
@@ -68,24 +80,27 @@ function Navbar() {
             Logout
           </button>
         ) : (
-          <>
+          <div style={authLinks}>
             <Link to="/customer-register">Register</Link>
             <Link to="/customer-login">Customer</Link>
             <Link to="/login">Admin</Link>
-          </>
+          </div>
         )}
       </div>
     </div>
   )
 }
 
+/* ================= NAV LINK ================= */
+
 function NavLink({ to, children, active }) {
   return (
     <Link
       to={to}
       style={{
-        color: active ? "#06b6d4" : "#cbd5f5",
-        position: "relative"
+        color: active ? "#22d3ee" : "#cbd5f5",
+        fontWeight: active ? "600" : "400",
+        transition: "color 0.2s ease"
       }}
     >
       {children}
@@ -93,40 +108,81 @@ function NavLink({ to, children, active }) {
   )
 }
 
-/* ===== STYLES ===== */
+/* ================= STYLES ================= */
 
 const nav = {
   display: "flex",
   justifyContent: "space-between",
-  padding: 20,
+  padding: "16px 24px",
   background: "#020617",
-  borderBottom: "1px solid #1e293b"
+  borderBottom: "1px solid #1e293b",
+  alignItems: "center"
 }
 
-const left = { display: "flex", gap: 20, alignItems: "center" }
-const right = { display: "flex", gap: 15 }
-const logoStyle = { height: 40 }
-const adminGroup = { display: "flex", gap: 10, marginLeft: 20 }
+const left = {
+  display: "flex",
+  gap: "20px",
+  alignItems: "center"
+}
 
+const right = {
+  display: "flex",
+  gap: "16px",
+  alignItems: "center"
+}
+
+const authLinks = {
+  display: "flex",
+  gap: "12px"
+}
+
+const logoStyle = {
+  height: 40,
+  cursor: "pointer"
+}
+
+const adminGroup = {
+  display: "flex",
+  gap: "10px",
+  marginLeft: "20px"
+}
+
+/* 🔥 CART BUTTON */
+const cartBtn = {
+  background: "none",
+  border: "none",
+  color: "#cbd5f5",
+  cursor: "pointer",
+  position: "relative",
+  fontSize: "15px",
+  display: "flex",
+  alignItems: "center",
+  gap: "6px",
+  transition: "color 0.2s ease"
+}
+
+/* 🔥 BADGE */
 const badge = {
   position: "absolute",
-  top: "-10px",
-  right: "-14px",
-  background: "#22c55e",
-  color: "#000",
+  top: "-6px",
+  right: "-10px",
+  background: "#ef4444",
+  color: "#fff",
   padding: "2px 6px",
-  borderRadius: "50%",
-  fontSize: "12px",
-  fontWeight: "bold"
+  borderRadius: "999px",
+  fontSize: "11px",
+  fontWeight: "bold",
+  boxShadow: "0 0 8px rgba(239,68,68,0.6)"
 }
 
 const logoutBtn = {
   background: "#ef4444",
   color: "#fff",
   border: "none",
-  padding: "6px 10px",
+  padding: "6px 12px",
   borderRadius: "6px",
-  cursor: "pointer"
+  cursor: "pointer",
+  transition: "0.2s"
 }
 
 export default Navbar

@@ -3,6 +3,10 @@ import { useNavigate } from "react-router-dom"
 import api from "../services/api"
 import useCart from "../hooks/useCart"
 
+const BASE_URL =
+  (import.meta.env.VITE_API_URL || "https://signavi-backend.onrender.com/api")
+    .replace("/api", "")
+
 export default function Store() {
 
   const [products, setProducts] = useState([])
@@ -27,21 +31,23 @@ export default function Store() {
     ? products
     : products.filter(p => p.category === category)
 
+  const getImage = (p) => {
+    if (!p.image) return "/placeholder.png"
+    return `${BASE_URL}/${p.image}`
+  }
+
   return (
     <div style={{ padding: 20 }}>
 
-      <h1 style={{ color: "white" }}>Store</h1>
+      <h1 style={{ color: "white", fontSize: "28px", marginBottom: "20px" }}>
+        🛍 Store
+      </h1>
 
+      {/* FILTER */}
       <select
         value={category}
         onChange={(e) => setCategory(e.target.value)}
-        style={{
-          marginBottom: 20,
-          padding: "8px",
-          borderRadius: "6px",
-          background: "#020617",
-          color: "#fff"
-        }}
+        style={select}
       >
         <option value="all">All</option>
         <option value="shirts">Shirts</option>
@@ -50,6 +56,7 @@ export default function Store() {
         <option value="prints">Prints</option>
       </select>
 
+      {/* GRID */}
       <div style={grid}>
 
         {filtered.map(p => (
@@ -57,33 +64,51 @@ export default function Store() {
             key={p._id}
             onClick={() => navigate(`/product/${p._id}`)}
             style={card}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "scale(1.04)"
+              e.currentTarget.style.boxShadow = "0 12px 30px rgba(0,0,0,0.8)"
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "scale(1)"
+              e.currentTarget.style.boxShadow = card.boxShadow
+            }}
           >
 
+            {/* IMAGE */}
             <img
-  src={
-    p.image
-      ? `${import.meta.env.VITE_API_URL.replace("/api","")}/${p.image}`
-      : "/placeholder.png"
-  }
-  alt={p.name}
-  style={image}
-  onError={(e) => {
-    e.target.src = "/placeholder.png"
-  }}
-/>
+              src={getImage(p)}
+              alt={p.name}
+              style={image}
+              onError={(e) => {
+                e.target.src = "/placeholder.png"
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = "scale(1.1)"
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = "scale(1)"
+              }}
+            />
 
+            {/* TITLE */}
             <h3 style={title}>{p.name}</h3>
 
+            {/* DESC */}
             <p style={desc}>{p.description}</p>
 
+            {/* PRICE */}
             <p style={price}>
-              ${Number(p.price || 0).toFixed(2)}
+              {p.price
+                ? `$${Number(p.price).toFixed(2)}`
+                : "Contact"}
             </p>
 
+            {/* BUTTON */}
             <button
               onClick={(e) => {
                 e.stopPropagation()
                 addToCart(p)
+                alert(`${p.name} added to cart`)
               }}
               style={button}
             >
@@ -98,12 +123,12 @@ export default function Store() {
   )
 }
 
-/* STYLES */
+/* ================= STYLES ================= */
 
 const grid = {
   display: "grid",
   gap: "20px",
-  gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))"
+  gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))"
 }
 
 const card = {
@@ -112,29 +137,36 @@ const card = {
   borderRadius: "14px",
   border: "1px solid rgba(255,255,255,0.08)",
   boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
-  cursor: "pointer"
+  cursor: "pointer",
+  transition: "all 0.25s ease"
 }
 
 const image = {
   width: "100%",
-  height: "200px",
+  height: "220px",
   objectFit: "cover",
-  borderRadius: "10px"
+  borderRadius: "10px",
+  transition: "transform 0.3s ease"
 }
 
 const title = {
   color: "white",
-  marginTop: "10px"
+  marginTop: "12px",
+  fontSize: "18px",
+  fontWeight: "600"
 }
 
 const desc = {
   color: "#94a3b8",
-  fontSize: "14px"
+  fontSize: "13px",
+  marginTop: "4px"
 }
 
 const price = {
   color: "#22d3ee",
-  fontWeight: "bold"
+  fontWeight: "bold",
+  marginTop: "8px",
+  fontSize: "16px"
 }
 
 const button = {
@@ -143,9 +175,19 @@ const button = {
   width: "100%",
   padding: "10px",
   borderRadius: "8px",
-  marginTop: "10px",
+  marginTop: "12px",
   border: "none",
   fontWeight: "600",
   boxShadow: "0 4px 12px rgba(6,182,212,0.4)",
-  cursor: "pointer"
+  cursor: "pointer",
+  transition: "all 0.2s ease"
+}
+
+const select = {
+  marginBottom: 20,
+  padding: "10px",
+  borderRadius: "8px",
+  background: "#020617",
+  color: "#fff",
+  border: "1px solid rgba(255,255,255,0.1)"
 }
