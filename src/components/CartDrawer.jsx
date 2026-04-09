@@ -12,9 +12,10 @@ function CartDrawer({ isOpen, onClose, onCheckout }) {
     }
   }
 
+  /* 🔥 FIX: PASS CART INTO CHECKOUT */
   const safeCheckout = () => {
     if (typeof onCheckout === "function") {
-      onCheckout()
+      onCheckout(cart)   // 🔥 CRITICAL FIX
     } else {
       console.error("❌ onCheckout not a function:", onCheckout)
     }
@@ -51,10 +52,8 @@ function CartDrawer({ isOpen, onClose, onCheckout }) {
 
   return (
     <>
-      {/* OVERLAY */}
       <div onClick={safeClose} style={overlay(isOpen)} />
 
-      {/* DRAWER */}
       <div style={drawer(isOpen)}>
 
         <div style={header}>
@@ -105,7 +104,7 @@ function CartDrawer({ isOpen, onClose, onCheckout }) {
             <p>Shipping: ${shipping === 0 ? "Free" : `$${shipping}`}</p>
             <h3>Total: ${total.toFixed(2)}</h3>
 
-            {/* 🔥 SAFE BUTTON */}
+            {/* 🔥 FIXED */}
             <Button onClick={safeCheckout} fullWidth>
               Checkout
             </Button>

@@ -12,7 +12,7 @@ import { CartProvider } from "./context/CartProvider"
 
 /* COMPONENTS */
 import Navbar from "./components/Navbar"
-import CartDrawer from "./components/CartDrawer"   // 🔥 ADD THIS
+import CartDrawer from "./components/CartDrawer"
 import AdminLayout from "./components/admin/AdminLayout"
 import CustomerRoute from "./components/guards/CustomerRoute"
 import AdminRoute from "./components/admin/AdminRoute"
@@ -69,8 +69,26 @@ function AppContent() {
   const location = useLocation()
   const path = location.pathname
 
-  /* 🔥 FIX: GLOBAL CART STATE */
   const [cartOpen, setCartOpen] = useState(false)
+
+  /* 🔥 CHECKOUT HANDLER (STRIPE CONNECTION) */
+  const handleCheckout = async (cart) => {
+    try {
+      const res = await api.post("/stripe/create-cart-session", {
+        items: cart
+      })
+
+      if (!res?.data?.url) {
+        throw new Error("No checkout URL returned")
+      }
+
+      window.location.href = res.data.url
+
+    } catch (err) {
+      console.error("❌ CHECKOUT ERROR:", err)
+      alert("Checkout failed")
+    }
+  }
 
   const hideNavbarRoutes = [
     "/login",
@@ -105,15 +123,15 @@ function AppContent() {
 
   return (
     <>
-      {/* 🔥 FIX: PASS PROP */}
       {!shouldHideNavbar && (
         <Navbar setCartOpen={setCartOpen} />
       )}
 
-      {/* 🔥 GLOBAL CART DRAWER */}
+      {/* 🔥 FIXED: PASS CHECKOUT */}
       <CartDrawer
         isOpen={cartOpen}
         onClose={() => setCartOpen(false)}
+        onCheckout={handleCheckout}   // ✅ THIS WAS MISSING
       />
 
       <LayoutWrapper>
@@ -193,7 +211,6 @@ function AppContent() {
             </Route>
           </Route>
 
-          {/* FALLBACK */}
           <Route path="*" element={<h2>Page not found</h2>} />
 
         </Routes>
