@@ -4,7 +4,7 @@ import {
   Route,
   useLocation
 } from "react-router-dom"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import api from "./services/api"
 
 /* CONTEXT */
@@ -12,6 +12,7 @@ import { CartProvider } from "./context/CartProvider"
 
 /* COMPONENTS */
 import Navbar from "./components/Navbar"
+import CartDrawer from "./components/CartDrawer"   // 🔥 ADD THIS
 import AdminLayout from "./components/admin/AdminLayout"
 import CustomerRoute from "./components/guards/CustomerRoute"
 import AdminRoute from "./components/admin/AdminRoute"
@@ -54,9 +55,7 @@ import Checkout from "./pages/Checkout"
 /* ================= LAYOUT ================= */
 function LayoutWrapper({ children }) {
   const location = useLocation()
-  const path = location.pathname
-
-  const isAdminPage = path.startsWith("/admin")
+  const isAdminPage = location.pathname.startsWith("/admin")
 
   return (
     <div className={isAdminPage ? "w-full min-h-screen p-0 m-0" : "max-w-6xl mx-auto p-6"}>
@@ -69,6 +68,9 @@ function LayoutWrapper({ children }) {
 function AppContent() {
   const location = useLocation()
   const path = location.pathname
+
+  /* 🔥 FIX: GLOBAL CART STATE */
+  const [cartOpen, setCartOpen] = useState(false)
 
   const hideNavbarRoutes = [
     "/login",
@@ -103,14 +105,23 @@ function AppContent() {
 
   return (
     <>
-      {!shouldHideNavbar && <Navbar />}
+      {/* 🔥 FIX: PASS PROP */}
+      {!shouldHideNavbar && (
+        <Navbar setCartOpen={setCartOpen} />
+      )}
+
+      {/* 🔥 GLOBAL CART DRAWER */}
+      <CartDrawer
+        isOpen={cartOpen}
+        onClose={() => setCartOpen(false)}
+      />
 
       <LayoutWrapper>
         <Routes>
 
           {/* PUBLIC */}
           <Route path="/" element={<Home />} />
-          <Route path="/store" element={<Store />} />
+          <Route path="/store" element={<Store setCartOpen={setCartOpen} />} />
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/cart" element={<Cart />} />
 
@@ -158,27 +169,21 @@ function AppContent() {
           {/* APPROVAL */}
           <Route path="/approve/:id" element={<ApproveMockup />} />
 
-          {/* 🔥 ADMIN ROUTES */}
+          {/* ADMIN */}
           <Route element={<AdminRoute />}>
-
             <Route path="/admin" element={<AdminLayout />}>
 
-              {/* DEFAULT */}
               <Route index element={<Dashboard />} />
-
-              {/* CORE */}
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="production" element={<ProductionBoard />} />
               <Route path="quotes" element={<AdminQuotes />} />
               <Route path="orders" element={<Orders />} />
 
-              {/* 🔥 CRM (NESTED CLEANLY) */}
               <Route path="customers">
                 <Route index element={<AdminCustomers />} />
                 <Route path=":id" element={<CustomerDetail />} />
               </Route>
 
-              {/* OTHER */}
               <Route path="pricing" element={<AdminPricing />} />
               <Route path="inventory" element={<AdminInventory />} />
               <Route path="mockups" element={<AdminMockups />} />
@@ -186,7 +191,6 @@ function AppContent() {
               <Route path="revenue" element={<AdminRevenue />} />
 
             </Route>
-
           </Route>
 
           {/* FALLBACK */}

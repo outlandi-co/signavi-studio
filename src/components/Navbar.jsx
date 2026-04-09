@@ -27,6 +27,14 @@ function Navbar({ setCartOpen }) {
     return location.pathname.startsWith(path)
   }
 
+  const handleCartClick = () => {
+    if (typeof setCartOpen === "function") {
+      setCartOpen(true)
+    } else {
+      console.warn("⚠️ setCartOpen not provided to Navbar")
+    }
+  }
+
   return (
     <div style={nav}>
 
@@ -39,9 +47,9 @@ function Navbar({ setCartOpen }) {
         <NavLink to="/" active={isActive("/")}>Home</NavLink>
         <NavLink to="/store" active={isActive("/store")}>Store</NavLink>
 
-        {/* 🔥 CART BUTTON */}
+        {/* 🔥 SAFE CART BUTTON */}
         <button
-          onClick={() => setCartOpen(true)}
+          onClick={handleCartClick}
           style={cartBtn}
           onMouseEnter={(e) => e.currentTarget.style.color = "#22d3ee"}
           onMouseLeave={(e) => e.currentTarget.style.color = "#cbd5f5"}
@@ -49,9 +57,7 @@ function Navbar({ setCartOpen }) {
           🛒 Cart
 
           {cartCount > 0 && (
-            <span style={badge}>
-              {cartCount}
-            </span>
+            <span style={badge}>{cartCount}</span>
           )}
         </button>
 
@@ -91,16 +97,14 @@ function Navbar({ setCartOpen }) {
   )
 }
 
-/* ================= NAV LINK ================= */
-
+/* NAV LINK */
 function NavLink({ to, children, active }) {
   return (
     <Link
       to={to}
       style={{
         color: active ? "#22d3ee" : "#cbd5f5",
-        fontWeight: active ? "600" : "400",
-        transition: "color 0.2s ease"
+        fontWeight: active ? "600" : "400"
       }}
     >
       {children}
@@ -108,60 +112,30 @@ function NavLink({ to, children, active }) {
   )
 }
 
-/* ================= STYLES ================= */
-
+/* STYLES */
 const nav = {
   display: "flex",
   justifyContent: "space-between",
   padding: "16px 24px",
   background: "#020617",
-  borderBottom: "1px solid #1e293b",
-  alignItems: "center"
+  borderBottom: "1px solid #1e293b"
 }
 
-const left = {
-  display: "flex",
-  gap: "20px",
-  alignItems: "center"
-}
+const left = { display: "flex", gap: 20, alignItems: "center" }
+const right = { display: "flex", gap: 16, alignItems: "center" }
+const authLinks = { display: "flex", gap: 12 }
 
-const right = {
-  display: "flex",
-  gap: "16px",
-  alignItems: "center"
-}
+const logoStyle = { height: 40 }
+const adminGroup = { display: "flex", gap: 10, marginLeft: 20 }
 
-const authLinks = {
-  display: "flex",
-  gap: "12px"
-}
-
-const logoStyle = {
-  height: 40,
-  cursor: "pointer"
-}
-
-const adminGroup = {
-  display: "flex",
-  gap: "10px",
-  marginLeft: "20px"
-}
-
-/* 🔥 CART BUTTON */
 const cartBtn = {
   background: "none",
   border: "none",
   color: "#cbd5f5",
   cursor: "pointer",
-  position: "relative",
-  fontSize: "15px",
-  display: "flex",
-  alignItems: "center",
-  gap: "6px",
-  transition: "color 0.2s ease"
+  position: "relative"
 }
 
-/* 🔥 BADGE */
 const badge = {
   position: "absolute",
   top: "-6px",
@@ -170,9 +144,7 @@ const badge = {
   color: "#fff",
   padding: "2px 6px",
   borderRadius: "999px",
-  fontSize: "11px",
-  fontWeight: "bold",
-  boxShadow: "0 0 8px rgba(239,68,68,0.6)"
+  fontSize: "11px"
 }
 
 const logoutBtn = {
@@ -181,8 +153,7 @@ const logoutBtn = {
   border: "none",
   padding: "6px 12px",
   borderRadius: "6px",
-  cursor: "pointer",
-  transition: "0.2s"
+  cursor: "pointer"
 }
 
 export default Navbar
