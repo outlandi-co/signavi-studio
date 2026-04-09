@@ -13,7 +13,13 @@ export default function Store({ setCartOpen }) {
   const [category, setCategory] = useState("all")
 
   const navigate = useNavigate()
-  const { addToCart } = useCart()
+
+  /* 🔥 GET CART HOOK SAFELY */
+  const cartHook = useCart() || {}
+  const addToCart = cartHook.addToCart
+
+  /* 🔥 DEBUG (remove later) */
+  console.log("🛒 CART HOOK:", cartHook)
 
   /* ================= LOAD ================= */
   useEffect(() => {
@@ -82,13 +88,13 @@ export default function Store({ setCartOpen }) {
               alt={p.name}
               style={image}
               onError={(event) => {
-                event.target.src = "/placeholder.png"
+                event.currentTarget.src = "/placeholder.png"
               }}
               onMouseEnter={(event) => {
-                event.target.style.transform = "scale(1.1)"
+                event.currentTarget.style.transform = "scale(1.1)"
               }}
               onMouseLeave={(event) => {
-                event.target.style.transform = "scale(1)"
+                event.currentTarget.style.transform = "scale(1)"
               }}
             />
 
@@ -111,23 +117,22 @@ export default function Store({ setCartOpen }) {
                 event.stopPropagation()
 
                 if (typeof addToCart !== "function") {
-                  console.error("❌ addToCart is not a function")
+                  console.error("❌ addToCart NOT WORKING:", addToCart)
                   return
                 }
 
                 addToCart(p)
 
-                // 🔥 auto open cart if available
                 if (typeof setCartOpen === "function") {
                   setCartOpen(true)
                 }
               }}
               style={button}
               onMouseEnter={(event) => {
-                event.target.style.transform = "scale(1.05)"
+                event.currentTarget.style.transform = "scale(1.05)"
               }}
               onMouseLeave={(event) => {
-                event.target.style.transform = "scale(1)"
+                event.currentTarget.style.transform = "scale(1)"
               }}
             >
               🛒 Add to Cart

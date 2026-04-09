@@ -5,20 +5,15 @@ const CartContext = createContext()
 export function CartProvider({ children }) {
 
   const [cart, setCart] = useState(() => {
-    try {
-      const saved = localStorage.getItem("cart")
-      return saved ? JSON.parse(saved) : []
-    } catch {
-      return []
-    }
+    const saved = localStorage.getItem("cart")
+    return saved ? JSON.parse(saved) : []
   })
 
-  /* ================= PERSIST ================= */
   useEffect(() => {
     localStorage.setItem("cart", JSON.stringify(cart))
   }, [cart])
 
-  /* ================= ADD ================= */
+  /* 🔥 ADD */
   const addToCart = (product) => {
     setCart(prev => {
       const exists = prev.find(p => p._id === product._id)
@@ -35,7 +30,7 @@ export function CartProvider({ children }) {
     })
   }
 
-  /* ================= REMOVE ================= */
+  /* 🔥 REMOVE */
   const removeFromCart = (id) => {
     setCart(prev =>
       prev
@@ -47,8 +42,6 @@ export function CartProvider({ children }) {
         .filter(p => p.quantity > 0)
     )
   }
-
-  const clearCart = () => setCart([])
 
   const cartCount = cart.reduce(
     (sum, item) => sum + (item.quantity || 1),
@@ -62,7 +55,6 @@ export function CartProvider({ children }) {
         setCart,
         addToCart,
         removeFromCart,
-        clearCart,
         cartCount
       }}
     >
@@ -72,4 +64,3 @@ export function CartProvider({ children }) {
 }
 
 export default CartContext
-
