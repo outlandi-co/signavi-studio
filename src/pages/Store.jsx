@@ -14,12 +14,8 @@ export default function Store({ setCartOpen }) {
 
   const navigate = useNavigate()
 
-  /* 🔥 GET CART HOOK SAFELY */
-  const cartHook = useCart() || {}
-  const addToCart = cartHook.addToCart
-
-  /* 🔥 DEBUG (remove later) */
-  console.log("🛒 CART HOOK:", cartHook)
+  /* 🔥 CORRECT CONTEXT USAGE */
+  const { addToCart } = useCart()
 
   /* ================= LOAD ================= */
   useEffect(() => {
@@ -111,20 +107,20 @@ export default function Store({ setCartOpen }) {
                 : "Contact"}
             </p>
 
-            {/* BUTTON */}
+            {/* 🔥 FINAL BUTTON FIX */}
             <button
               onClick={(event) => {
                 event.stopPropagation()
 
-                if (typeof addToCart !== "function") {
-                  console.error("❌ addToCart NOT WORKING:", addToCart)
-                  return
-                }
+                try {
+                  addToCart(p)
 
-                addToCart(p)
+                  if (setCartOpen) {
+                    setCartOpen(true)
+                  }
 
-                if (typeof setCartOpen === "function") {
-                  setCartOpen(true)
+                } catch (err) {
+                  console.error("❌ CART ERROR:", err)
                 }
               }}
               style={button}

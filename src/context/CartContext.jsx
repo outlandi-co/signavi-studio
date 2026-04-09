@@ -13,16 +13,15 @@ export function CartProvider({ children }) {
     localStorage.setItem("cart", JSON.stringify(cart))
   }, [cart])
 
-  /* 🔥 ADD */
   const addToCart = (product) => {
     setCart(prev => {
-      const exists = prev.find(p => p._id === product._id)
+      const exists = prev.find(item => item._id === product._id)
 
       if (exists) {
-        return prev.map(p =>
-          p._id === product._id
-            ? { ...p, quantity: (p.quantity || 1) + 1 }
-            : p
+        return prev.map(item =>
+          item._id === product._id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
         )
       }
 
@@ -30,21 +29,14 @@ export function CartProvider({ children }) {
     })
   }
 
-  /* 🔥 REMOVE */
   const removeFromCart = (id) => {
     setCart(prev =>
-      prev
-        .map(p =>
-          p._id === id
-            ? { ...p, quantity: (p.quantity || 1) - 1 }
-            : p
-        )
-        .filter(p => p.quantity > 0)
+      prev.filter(item => item._id !== id)
     )
   }
 
   const cartCount = cart.reduce(
-    (sum, item) => sum + (item.quantity || 1),
+    (sum, item) => sum + item.quantity,
     0
   )
 
