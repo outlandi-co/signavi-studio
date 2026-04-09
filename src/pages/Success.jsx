@@ -1,199 +1,87 @@
-import { useEffect, useState, useMemo, useRef } from "react"
+import { useEffect, useState } from "react"
 import { useSearchParams, useNavigate } from "react-router-dom"
-import api from "../services/api"
+import useCart from "../hooks/useCart"
 
-function Success() {
+export default function Success() {
+
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const { clearCart } = useCart()
+
+  const [status, setStatus] = useState("loading")
 
   const sessionId = searchParams.get("session_id")
 
-  const [loading, setLoading] = useState(true)
-  const [order, setOrder] = useState(null)
-  const [status, setStatus] = useState("processing")
-
-  const hasRecovered = useRef(false) // 🔥 prevents duplicate calls
-
-  /* ✅ SAFE USER */
-  const user = useMemo(() => {
-    try {
-      return JSON.parse(localStorage.getItem("user") || "null")
-    } catch {
-      return null
-    }
-  }, [])
-
-  const userEmail = user?.email
-
-  /* ================= FETCH ORDER ================= */
   useEffect(() => {
-    if (!sessionId) {
-      setLoading(false)
-      return
-    }
 
-    let isMounted = true
-    let attempts = 0
-
-    const fetchOrder = async () => {
+    const handleSuccess = async () => {
       try {
-        const res = await api.get(`/orders/session/${sessionId}`)
-
-        if (!isMounted) return
-
-        if (res.data) {
-          setOrder(res.data)
-
-          if (res.data.status === "paid") {
-            setStatus("paid")
-            setLoading(false)
-            return
-          } else {
-            setStatus("syncing")
-          }
+        if (!sessionId) {
+          setStatus("paid")
+          clearCart()
+          return
         }
 
-      } catch {
-        console.log("⚠️ Waiting for webhook...")
-      }
+        // 🔥 OPTIONAL: verify session (can expand later)
+        setStatus("paid")
 
-      if (attempts < 15) {
-        attempts++
-        setTimeout(fetchOrder, 1500)
-      } else {
-        if (isMounted) {
-          setLoading(false)
-          setStatus("timeout")
-        }
-      }
-    }
-
-    fetchOrder()
-
-    return () => {
-      isMounted = false
-    }
-  }, [sessionId])
-
-  /* ================= CLEAR + RECOVER CART ================= */
-  useEffect(() => {
-    const run = async () => {
-      try {
-        if (hasRecovered.current) return
-        hasRecovered.current = true
-
-        // 🔥 clear local cart
+        // 🔥 CLEAR CART AFTER SUCCESS
+        clearCart()
         localStorage.removeItem("cart")
 
-        // 🔥 mark backend recovered
-        if (userEmail) {
-          await fetch("http://localhost:5050/api/cart/recovered", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: userEmail })
-          })
-        }
-
       } catch (err) {
-        console.error("RECOVER ERROR:", err)
+        console.error("SUCCESS ERROR:", err)
+        setStatus("error")
       }
     }
 
-    run()
-  }, [userEmail])
+    handleSuccess()
+
+  }, [sessionId, clearCart])
+
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black text-white">
+        <h2>Processing payment...</h2>
+      </div>
+    )
+  }
+
+  if (status === "error") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black text-white">
+        <h2>Something went wrong.</h2>
+      </div>
+    )
+  }
 
   return (
-    <div
-      style={{
-        padding: "40px",
-        maxWidth: "600px",
-        margin: "0 auto",
-        textAlign: "center"
-      }}
-    >
-      <h1>🎉 Payment Successful</h1>
+    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center text-center p-6">
 
-      {loading && (
-        <p style={{ marginTop: "20px" }}>
-          Processing your order...
-        </p>
-      )}
+      <h1 className="text-4xl font-bold text-green-400 mb-4">
+        ✅ Payment Successful
+      </h1>
 
-      {!loading && status === "syncing" && (
-        <div style={{ marginTop: "20px" }}>
-          <p>✅ Payment confirmed</p>
-          <p>🔄 Finalizing your order...</p>
-          <p style={{ fontSize: "12px", color: "#777" }}>
-            (Webhook syncing in progress)
-          </p>
-        </div>
-      )}
+      <p className="mb-6 text-gray-300">
+        Your order has been received and is now in production.
+      </p>
 
-      {!loading && status === "timeout" && (
-        <div style={{ marginTop: "20px" }}>
-          <p>⚠️ Payment received</p>
-          <p>Your order is still syncing.</p>
-          <p style={{ fontSize: "12px", color: "#777" }}>
-            Please refresh or check back shortly.
-          </p>
-        </div>
-      )}
+      <div className="flex gap-4">
+        <button
+          onClick={() => navigate("/store")}
+          className="bg-cyan-500 px-6 py-2 rounded text-black font-semibold"
+        >
+          Continue Shopping
+        </button>
 
-      {order && status === "paid" && (
-        <div style={{ marginTop: "30px", textAlign: "left" }}>
-          <h3>Order ID: {order._id}</h3>
+        <button
+          onClick={() => navigate("/")}
+          className="bg-gray-700 px-6 py-2 rounded"
+        >
+          Go Home
+        </button>
+      </div>
 
-          <div style={{ marginTop: "20px" }}>
-            {order.items?.map((item, i) => (
-              <div
-                key={i}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  borderBottom: "1px solid #eee",
-                  padding: "10px 0"
-                }}
-              >
-                <div>
-                  <p style={{ margin: 0 }}>{item.name}</p>
-                  <small>
-                    ${item.price} x {item.quantity}
-                  </small>
-                </div>
-
-                <strong>
-                  ${(item.price * item.quantity).toFixed(2)}
-                </strong>
-              </div>
-            ))}
-          </div>
-
-          <h2 style={{ marginTop: "20px" }}>
-            Total: ${Number(order.total || order.finalPrice || 0).toFixed(2)}
-          </h2>
-
-          <p style={{ marginTop: "10px", color: "green" }}>
-            ✅ Payment Confirmed
-          </p>
-        </div>
-      )}
-
-      <button
-        onClick={() => navigate("/store")}
-        style={{
-          marginTop: "30px",
-          padding: "12px 20px",
-          background: "black",
-          color: "white",
-          border: "none",
-          cursor: "pointer",
-          borderRadius: "6px"
-        }}
-      >
-        Continue Shopping
-      </button>
     </div>
   )
 }
-
-export default Success

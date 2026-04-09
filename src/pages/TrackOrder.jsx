@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useParams } from "react-router-dom"
 import { io } from "socket.io-client"
 import api from "../services/api"
@@ -23,7 +23,7 @@ const stepIcons = {
   delivered: "✅"
 }
 
-function TrackOrder() {
+export default function TrackOrder() {
 
   const { id } = useParams()
 
@@ -31,59 +31,107 @@ function TrackOrder() {
   const [loading, setLoading] = useState(true)
 
   const socketRef = useRef(null)
-  const deliveredRef = useRef(false)
+  const hasAutoDelivered = useRef(false)
 
   /* ================= LOAD ================= */
-  const load = useCallback(async () => {
-    try {
-      const res = await api.get(`/orders/${id}`)
-      setOrder(res.data)
+  useEffect(() => {
+    if (!id) return
 
-      /* 🔥 SAFE AUTO DELIVER */
-      if (
-        res.data.status === "shipped" &&
-        !deliveredRef.current
-      ) {
-        deliveredRef.current = true
+    const load = async () => {
+      try {
+        setLoading(true)
 
-        await api.patch(`/orders/${id}/status`, {
-          status: "delivered"
+        const res = await api.get(`/orders/${id}`)
+        const data = res.data.data
+
+        setOrder(data)
+
+      } catch (err) {
+        console.error("❌ TRACK ERROR:", err)
+        setOrder(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    load()
+  }, [id])
+
+  /* ================= AUTO DELIVER ================= */
+  useEffect(() => {
+    if (!order) return
+
+    if (
+      order.status === "shipped" &&
+      !hasAutoDelivered.current
+    ) {
+      hasAutoDelivered.current = true
+
+      api.patch(`/orders/${id}/status`, {
+        status: "delivered"
+      }).catch(err => {
+        console.error("❌ AUTO DELIVER ERROR:", err)
+      })
+    }
+  }, [order, id])
+
+  /* ================= SOCKET (FIXED 🔥) ================= */
+  useEffect(() => {
+    if (!id) return
+
+    if (!socketRef.current) {
+      socketRef.current = io(SOCKET_URL, {
+        transports: ["websocket"],
+        reconnection: true,
+        reconnectionAttempts: 5
+      })
+    }
+
+    const socket = socketRef.current
+
+    const handleUpdate = (updated) => {
+      if (updated._id === id) {
+        setOrder(prev => {
+          if (
+            prev &&
+            prev._id === updated._id &&
+            prev.status === updated.status
+          ) {
+            return prev // 🔥 prevent unnecessary rerender
+          }
+          return updated
         })
       }
-
-    } catch (err) {
-      console.error("❌ TRACK ERROR:", err)
-    } finally {
-      setLoading(false)
     }
-  }, [id])
 
-  /* ================= INITIAL ================= */
-  useEffect(() => {
-    load()
-  }, [load])
-
-  /* ================= REAL-TIME ================= */
-  useEffect(() => {
-    socketRef.current = io(SOCKET_URL)
-
-    socketRef.current.on("jobUpdated", (updated) => {
-      if (updated._id === id) {
-        setOrder(updated)
-      }
-    })
+    socket.on("jobUpdated", handleUpdate)
 
     return () => {
-      socketRef.current.disconnect()
+      socket.off("jobUpdated", handleUpdate)
     }
+
   }, [id])
 
-  if (loading) return <h2 style={{ color: "white" }}>Loading...</h2>
-  if (!order) return <h2 style={{ color: "white" }}>Order not found</h2>
+  /* ================= UI ================= */
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black text-white">
+        Loading...
+      </div>
+    )
+  }
+
+  if (!order) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black text-white">
+        Order not found
+      </div>
+    )
+  }
 
   const currentStep = steps.indexOf(order.status)
 
-  /* ================= USE TIMELINE (FIXED) ================= */
   const history = order.timeline?.length
     ? order.timeline
     : steps.slice(0, currentStep + 1).map(step => ({
@@ -92,116 +140,49 @@ function TrackOrder() {
       }))
 
   return (
-    <div style={{
-      padding: 40,
-      background: "#020617",
-      minHeight: "100vh",
-      color: "white",
-      textAlign: "center"
-    }}>
+    <div className="min-h-screen bg-black text-white px-4 py-8">
 
-      <h1>📦 Track Order</h1>
+      <div className="max-w-2xl mx-auto text-center mb-6">
+        <h1 className="text-2xl font-bold">📦 Track Order</h1>
+        <p className="text-gray-400 text-sm">
+          Order #{order._id.slice(-6)}
+        </p>
+      </div>
 
-      <h2>{order.customerName}</h2>
-      <p>Order ID: {order._id}</p>
-
-      {/* 🔥 PROGRESS BAR */}
-      <div style={{
-        display: "flex",
-        gap: 10,
-        marginTop: 30
-      }}>
+      {/* PROGRESS */}
+      <div className="max-w-2xl mx-auto flex gap-2 mb-6">
         {steps.map((step, i) => (
-          <div key={step} style={{ flex: 1 }}>
-            <div style={{
-              height: 10,
-              borderRadius: 10,
-              background: i <= currentStep
-                ? "#22c55e"
-                : "#1e293b"
-            }} />
-            <p style={{ fontSize: 12, marginTop: 5 }}>
+          <div key={step} className="flex-1 text-center">
+            <div className={`h-2 rounded-full ${i <= currentStep ? "bg-green-500" : "bg-gray-800"}`} />
+            <p className="text-[10px] text-gray-400 mt-1">
               {step.replace("_", " ")}
             </p>
           </div>
         ))}
       </div>
 
-      {/* 🔥 STATUS */}
-      <div style={{ marginTop: 30 }}>
-        <h3>Status: {order.status}</h3>
-      </div>
-
-      {/* 🔥 TIMELINE (UPGRADED UI) */}
-      <div style={{
-        marginTop: 40,
-        textAlign: "left",
-        maxWidth: 500,
-        marginInline: "auto",
-        borderLeft: "2px solid #1e293b",
-        paddingLeft: 20
-      }}>
-        <h3>📜 Order Timeline</h3>
-
+      {/* TIMELINE */}
+      <div className="max-w-2xl mx-auto border-l border-gray-800 pl-4">
         {history.map((h, i) => (
-          <div
-            key={i}
-            style={{
-              position: "relative",
-              marginBottom: 20
-            }}
-          >
-            {/* DOT */}
-            <div style={{
-              position: "absolute",
-              left: -29,
-              top: 5,
-              width: 12,
-              height: 12,
-              borderRadius: "50%",
-              background: "#22c55e"
-            }} />
+          <div key={i} className="mb-4 relative">
 
-            <div style={{
-              display: "flex",
-              gap: 10,
-              alignItems: "center",
-              background: "#0f172a",
-              padding: 10,
-              borderRadius: 8,
-              border: "1px solid #1e293b"
-            }}>
-              <span>{stepIcons[h.status] || "📌"}</span>
+            <div className="absolute -left-[22px] top-1 w-3 h-3 bg-green-500 rounded-full" />
 
-              <div>
-                <div>{h.status.replace("_", " ")}</div>
-                <div style={{ fontSize: 12, color: "#64748b" }}>
-                  {new Date(h.date).toLocaleString()}
-                </div>
+            <div className="bg-[#0f172a] border border-gray-800 p-3 rounded-lg">
+              <div className="flex items-center gap-2">
+                <span>{stepIcons[h.status]}</span>
+                <span>{h.status}</span>
               </div>
+
+              <p className="text-xs text-gray-500">
+                {new Date(h.date).toLocaleString()}
+              </p>
             </div>
+
           </div>
         ))}
       </div>
 
-      {/* 🔥 TRACKING */}
-      {order.trackingLink && (
-        <a
-          href={order.trackingLink}
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            display: "inline-block",
-            marginTop: 20,
-            color: "#38bdf8"
-          }}
-        >
-          🚚 Track Shipment
-        </a>
-      )}
-
     </div>
   )
 }
-
-export default TrackOrder

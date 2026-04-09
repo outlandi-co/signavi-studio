@@ -1,56 +1,56 @@
-import { useState, useEffect } from "react"
-import { CartContext } from "./CartContext"
-
-const STORAGE_KEY = "signavi_cart"
+import { useState } from "react"
+import CartContext from "./cartContext"
 
 export function CartProvider({ children }) {
 
   const [cart, setCart] = useState(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      return stored ? JSON.parse(stored) : []
+      return JSON.parse(localStorage.getItem("cart") || "[]")
     } catch {
       return []
     }
   })
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(cart))
-  }, [cart])
+  const saveCart = (newCart) => {
+    setCart(newCart)
+    localStorage.setItem("cart", JSON.stringify(newCart))
+  }
 
   const addToCart = (product) => {
-    if (!product?._id) return
+    const existing = cart.find(i => i._id === product._id)
 
-    setCart(prev => {
-      const existing = prev.find(p => p._id === product._id)
+    let updated
 
-      if (existing) {
-        return prev.map(p =>
-          p._id === product._id
-            ? { ...p, quantity: (p.quantity || 1) + 1 }
-            : p
-        )
-      }
+    if (existing) {
+      updated = cart.map(i =>
+        i._id === product._id
+          ? { ...i, quantity: i.quantity + 1 }
+          : i
+      )
+    } else {
+      updated = [...cart, { ...product, quantity: 1 }]
+    }
 
-      return [...prev, { ...product, quantity: 1 }]
-    })
+    saveCart(updated)
   }
 
   const removeFromCart = (id) => {
-    setCart(prev => prev.filter(p => p._id !== id))
+    saveCart(cart.filter(i => i._id !== id))
+  }
+
+  const clearCart = () => {
+    saveCart([])
   }
 
   const updateQuantity = (id, qty) => {
-    if (qty < 1) return
+    if (qty <= 0) return removeFromCart(id)
 
-    setCart(prev =>
-      prev.map(p =>
-        p._id === id ? { ...p, quantity: qty } : p
-      )
+    const updated = cart.map(i =>
+      i._id === id ? { ...i, quantity: qty } : i
     )
-  }
 
-  const clearCart = () => setCart([])
+    saveCart(updated)
+  }
 
   return (
     <CartContext.Provider
@@ -58,8 +58,8 @@ export function CartProvider({ children }) {
         cart,
         addToCart,
         removeFromCart,
-        updateQuantity,
-        clearCart
+        clearCart,
+        updateQuantity
       }}
     >
       {children}

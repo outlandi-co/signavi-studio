@@ -48,6 +48,19 @@ export default function ProductionBoard() {
     load()
   }, [load])
 
+  /* ================= DELETE HANDLER (🔥 FIX) ================= */
+  const handleDeleteJob = (id) => {
+    setJobs(prev => {
+      const updated = {}
+
+      Object.keys(prev).forEach(key => {
+        updated[key] = prev[key].filter(j => j._id !== id)
+      })
+
+      return updated
+    })
+  }
+
   /* ================= SOCKET ================= */
   useEffect(() => {
 
@@ -64,12 +77,10 @@ export default function ProductionBoard() {
       setJobs(prev => {
         const updated = { ...prev }
 
-        /* remove from all columns */
         Object.keys(updated).forEach(key => {
           updated[key] = updated[key].filter(j => j._id !== updatedOrder._id)
         })
 
-        /* add to new column */
         const status = normalizeStatus(updatedOrder)
 
         if (!updated[status]) updated[status] = []
@@ -93,15 +104,7 @@ export default function ProductionBoard() {
     }
 
     const handleDelete = (id) => {
-      setJobs(prev => {
-        const updated = { ...prev }
-
-        Object.keys(updated).forEach(key => {
-          updated[key] = updated[key].filter(j => j._id !== id)
-        })
-
-        return updated
-      })
+      handleDeleteJob(id) // 🔥 reuse logic
     }
 
     socket.on("jobUpdated", handleUpdate)
@@ -117,21 +120,54 @@ export default function ProductionBoard() {
   }, [])
 
   /* ================= DRAG ================= */
-  const handleDragEnd = async ({ active, over }) => {
-    if (!over) return
+const handleDragEnd = async ({ active, over }) => {
+  if (!over) return
 
-    try {
-      await api.patch(`/orders/${active.id}/status`, {
-        status: over.id
+  const jobId = active.id
+  const newStatus = over.id
+
+  // 🔥 SAVE PREVIOUS STATE (for rollback)
+  const previousJobs = structuredClone(jobs)
+
+  // 🔥 OPTIMISTIC UI UPDATE (instant move)
+  setJobs(prev => {
+    const updated = { ...prev }
+
+    let movedJob = null
+
+    // remove from all columns
+    Object.keys(updated).forEach(key => {
+      updated[key] = updated[key].filter(j => {
+        if (j._id === jobId) {
+          movedJob = { ...j, status: newStatus }
+          return false
+        }
+        return true
       })
+    })
 
-      toast.success("Status updated")
+    // add to new column
+    if (!updated[newStatus]) updated[newStatus] = []
+    updated[newStatus].unshift(movedJob)
 
-    } catch (err) {
-      console.error(err)
-      toast.error("Failed to update")
-    }
+    return updated
+  })
+
+  // 🔥 BACKEND UPDATE (silent)
+  try {
+    await api.patch(`/orders/${jobId}/status`, {
+      status: newStatus
+    })
+
+  } catch (err) {
+    console.error("❌ STATUS UPDATE FAILED:", err)
+
+    // 🔥 ROLLBACK UI
+    setJobs(previousJobs)
+
+    toast.error("Update failed — reverted")
   }
+}
 
   return (
     <div style={{
@@ -145,10 +181,8 @@ export default function ProductionBoard() {
 
       <h1 style={{ color: "white" }}>🏭 Production Board</h1>
 
-      {/* 📊 Summary stays (optional but useful) */}
+      {/* 📊 Summary */}
       <SummaryBar jobs={jobs} />
-
-      {/* 🚫 REMOVED ANALYTICS (moved to Revenue page) */}
 
       <DndContext
         collisionDetection={closestCenter}
@@ -167,6 +201,7 @@ export default function ProductionBoard() {
               id={key}
               jobs={value}
               onClick={setSelectedJob}
+              onDelete={handleDeleteJob} // 🔥 THIS WAS MISSING
             />
           ))}
         </div>

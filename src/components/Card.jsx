@@ -1,5 +1,6 @@
 import { useState } from "react"
 import api from "../services/api"
+import Timeline from "./Timeline"
 
 const statusColors = {
   pending: "bg-yellow-100 text-yellow-700",
@@ -9,25 +10,49 @@ const statusColors = {
   denied: "bg-red-100 text-red-700"
 }
 
-export default function Card({ order, job }) {
+export default function Card({ order, job, onDelete }) {
 
   const data = order || job
 
-  console.log("🧪 CARD DATA:", data)
-
   const [tracking, setTracking] = useState("")
+  const [deleting, setDeleting] = useState(false)
 
+  /* ================= ADD TRACKING ================= */
   const addTracking = async () => {
     if (!tracking) return
 
-    await api.patch(`/shipping/${data._id}/tracking`, {
-      trackingNumber: tracking
-    })
+    try {
+      await api.patch(`/shipping/${data._id}/tracking`, {
+        trackingNumber: tracking
+      })
 
-    setTracking("")
+      setTracking("")
+    } catch (err) {
+      console.error("❌ TRACKING ERROR:", err)
+    }
   }
 
-  /* 💰 CALCULATE FALLBACK TOTAL */
+  /* ================= DELETE (🔥 UNIVERSAL) ================= */
+  const handleDelete = async () => {
+    if (!window.confirm("Delete this item?")) return
+
+    try {
+      setDeleting(true)
+
+      await api.delete(`/job/${data._id}`)
+
+      // 🔥 instant UI removal
+      onDelete?.(data._id)
+
+    } catch (err) {
+      console.error("❌ DELETE ERROR:", err.response?.data || err.message)
+      alert("Delete failed")
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  /* ================= PRICE ================= */
   const itemsTotal = data.items?.reduce(
     (sum, item) => sum + (item.price || 0) * item.quantity,
     0
@@ -37,7 +62,16 @@ export default function Card({ order, job }) {
   const shipping = data.shippingCost || 0
 
   return (
-    <div className="bg-white border rounded-xl p-4 shadow-sm hover:shadow-2xl transition duration-300">
+    <div className="bg-white border rounded-xl p-4 shadow-sm hover:shadow-2xl transition duration-300 relative">
+
+      {/* DELETE BUTTON 🔥 */}
+      <button
+        onClick={handleDelete}
+        disabled={deleting}
+        className="absolute top-2 right-2 text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 disabled:opacity-50"
+      >
+        {deleting ? "..." : "Delete"}
+      </button>
 
       {/* CUSTOMER */}
       <p className="font-semibold">{data.customerName}</p>
@@ -47,7 +81,7 @@ export default function Card({ order, job }) {
         {data.type === "quote" ? "📝 Quote Request" : "📦 Order"}
       </p>
 
-      {/* ORDER NUMBER (FIXED 🔥) */}
+      {/* ORDER NUMBER */}
       <p className="text-[11px] opacity-70">
         Order #{data?._id?.slice(-6) || "----"}
       </p>
@@ -80,7 +114,7 @@ export default function Card({ order, job }) {
         )}
       </div>
 
-      {/* MESSAGE (IMPORTANT FOR QUOTES 🔥) */}
+      {/* MESSAGE */}
       {data.message && (
         <p className="text-xs mt-2 text-gray-500">
           💬 {data.message}
@@ -94,15 +128,8 @@ export default function Card({ order, job }) {
         ))}
       </div>
 
-      {/* TIMELINE */}
-      <div className="mt-2 text-xs text-gray-500">
-        {data.timeline?.map((t, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-            <span>{t.status}</span>
-          </div>
-        ))}
-      </div>
+{/* TIMELINE */}
+<Timeline timeline={data.timeline} />
 
       {/* TRACKING */}
       {data.status !== "shipped" && (

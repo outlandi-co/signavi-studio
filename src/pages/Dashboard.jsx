@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import api from "../services/api"
 import { useNavigate } from "react-router-dom"
 import { io } from "socket.io-client"
@@ -16,6 +16,27 @@ import ProductChart from "../components/charts/ProductChart"
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050/api"
 const SOCKET_URL = API_URL.replace("/api", "")
 
+/* ================= NORMALIZE (OUTSIDE COMPONENT 🔥) ================= */
+const normalizeJobs = (data) => {
+  if (!data) return {}
+
+  if (!Array.isArray(data)) return data
+
+  const grouped = {
+    pending: [],
+    production: [],
+    completed: []
+  }
+
+  data.forEach(j => {
+    if (j.status === "production") grouped.production.push(j)
+    else if (j.status === "completed") grouped.completed.push(j)
+    else grouped.pending.push(j)
+  })
+
+  return grouped
+}
+
 function Dashboard() {
 
   const [orders, setOrders] = useState([])
@@ -29,7 +50,7 @@ function Dashboard() {
   const navigate = useNavigate()
 
   /* ================= LOAD ================= */
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -40,33 +61,47 @@ function Dashboard() {
         api.get("/production")
       ])
 
-      setOrders(ordersRes.data)
-      setAnalytics(analyticsRes.data)
-      setJobs(productionRes.data)
+      setOrders(ordersRes.data || [])
+      setAnalytics(analyticsRes.data || null)
+      setJobs(normalizeJobs(productionRes.data))
 
     } catch (err) {
-      console.error(err)
+      console.error("❌ DASHBOARD LOAD ERROR:", err)
       setError("Failed to load dashboard")
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   /* ================= INIT ================= */
   useEffect(() => {
     loadData()
-  }, [])
+  }, [loadData])
 
   /* ================= SOCKET ================= */
   useEffect(() => {
-    socketRef.current = io(SOCKET_URL)
 
-    socketRef.current.on("jobUpdated", () => {
-      loadData()
-    })
+    if (!socketRef.current) {
+      socketRef.current = io(SOCKET_URL, {
+        transports: ["websocket"]
+      })
+    }
 
-    return () => socketRef.current.disconnect()
-  }, [])
+    const socket = socketRef.current
+
+    socket.on("jobUpdated", loadData)
+    socket.on("jobCreated", loadData)
+    socket.on("jobDeleted", loadData)
+
+    return () => {
+      socket.off("jobUpdated", loadData)
+      socket.off("jobCreated", loadData)
+      socket.off("jobDeleted", loadData)
+
+      socket.disconnect() // 🔥 IMPORTANT
+    }
+
+  }, [loadData])
 
   /* ================= COUNTS ================= */
   const counts = {
@@ -109,7 +144,7 @@ function Dashboard() {
       <h1 className="text-3xl font-bold">🚀 Dashboard</h1>
 
       {/* 🔥 SUMMARY */}
-      <SummaryBar jobs={jobs} />
+      <SummaryBar jobs={jobs || {}} />
 
       {/* 🔥 KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -121,8 +156,8 @@ function Dashboard() {
 
       {/* 🔥 ALERT + TOP JOBS */}
       <div className="grid md:grid-cols-2 gap-6">
-        <ProfitAlerts jobs={jobs} />
-        <TopJobs jobs={jobs} />
+        <ProfitAlerts jobs={jobs || {}} />
+        <TopJobs jobs={jobs || {}} />
       </div>
 
       {/* 🔥 REVENUE */}
@@ -179,7 +214,7 @@ function Dashboard() {
   )
 }
 
-/* ================= CARD ================= */
+/* ================= KPI CARD ================= */
 function Card({ title, value, color }) {
   return (
     <div className="bg-slate-900 p-4 rounded-xl shadow">

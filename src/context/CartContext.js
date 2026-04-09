@@ -1,5 +1,5 @@
-// src/context/CartContext.js
-
 import { createContext } from "react"
 
-export const CartContext = createContext(null)
+const CartContext = createContext()
+
+export default CartContext

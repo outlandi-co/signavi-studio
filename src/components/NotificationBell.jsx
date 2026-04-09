@@ -1,6 +1,5 @@
-import { useEffect, useState, useRef, useMemo } from "react"
+import { useEffect, useState, useRef } from "react"
 import { io } from "socket.io-client"
-import { useNavigate } from "react-router-dom"
 import notifySound from "../assets/notify.mp3"
 
 const SOCKET_URL = "http://localhost:5050"
@@ -11,119 +10,66 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false)
 
   const audioRef = useRef(null)
-  const socketRef = useRef(null)
-  const navigate = useNavigate()
 
-  /* 🔥 SAFE USER (ADMIN + CUSTOMER SPLIT) */
-  const { userEmail } = useMemo(() => {
-    try {
-      const admin = JSON.parse(localStorage.getItem("adminUser") || "null")
-      const customer = JSON.parse(localStorage.getItem("customerUser") || "null")
+  const user = JSON.parse(localStorage.getItem("user") || "null")
+  const userEmail = user?.email // ✅ USED PROPERLY
 
-      return {
-        userEmail: customer?.email || admin?.email || null
-      }
-    } catch {
-      return { userEmail: null }
-    }
-  }, [])
-
-  /* ================= ADD ================= */
-  const addNotification = (job, text) => {
+  const addNotification = (text) => {
     const newNotif = {
       id: Date.now(),
-      orderId: job._id,
       text,
-      time: new Date().toLocaleTimeString(),
-      read: false
+      time: new Date().toLocaleTimeString()
     }
 
     setNotifications(prev => [newNotif, ...prev.slice(0, 9)])
 
-    /* 🔊 SAFE AUDIO */
     if (audioRef.current) {
-      try {
-        audioRef.current.currentTime = 0
-        audioRef.current.play().catch(() => {})
-      } catch {
-        // silent fail (no audio file or blocked autoplay)
-      }
+      audioRef.current.currentTime = 0
+      audioRef.current.play().catch(() => {})
     }
   }
 
   /* ================= SOCKET ================= */
   useEffect(() => {
-    if (!userEmail) return
 
-    /* 🔥 CREATE ONLY ONCE */
-    if (!socketRef.current) {
-      socketRef.current = io(SOCKET_URL, {
-        transports: ["websocket"],
-        reconnection: true
-      })
-    }
+    if (!userEmail) return // 🔥 prevents unnecessary socket if no user
 
-    const socket = socketRef.current
+    const socket = io(SOCKET_URL)
 
-    const handleUpdate = (job) => {
+    socket.on("jobUpdated", (job) => {
       if (job.email !== userEmail) return
-      addNotification(job, `📦 Order updated → ${job.status}`)
-    }
-
-    const handleCreate = (job) => {
-      if (job.email !== userEmail) return
-      addNotification(job, "🆕 Your order was created")
-    }
-
-    const handleDelete = (job) => {
-      if (job.email !== userEmail) return
-      addNotification(job, "🗑 Order removed")
-    }
-
-    socket.on("connect", () => {
-      console.log("🔔 Socket connected:", socket.id)
+      addNotification(`📦 Order updated → ${job.status}`)
     })
 
-    socket.on("jobUpdated", handleUpdate)
-    socket.on("jobCreated", handleCreate)
-    socket.on("jobDeleted", handleDelete)
+    socket.on("jobCreated", (job) => {
+      if (job.email !== userEmail) return
+      addNotification("🆕 Your order was created")
+    })
 
-    /* 🔥 CLEAN LISTENERS ONLY (NOT SOCKET) */
-    return () => {
-      socket.off("jobUpdated", handleUpdate)
-      socket.off("jobCreated", handleCreate)
-      socket.off("jobDeleted", handleDelete)
-    }
+    socket.on("jobDeleted", (job) => {
+      if (job.email !== userEmail) return
+      addNotification("🗑 Order removed")
+    })
 
-  }, [userEmail])
+    return () => socket.disconnect()
 
-  /* ================= CLICK ================= */
-  const handleClick = (notif) => {
-    setNotifications(prev =>
-      prev.map(n =>
-        n.id === notif.id ? { ...n, read: true } : n
-      )
-    )
+  }, [userEmail]) // ✅ FIXED DEPENDENCY
 
-    if (notif.orderId) {
-      navigate(`/order/${notif.orderId}`)
-    }
-
-    setOpen(false)
-  }
-
-  const unreadCount = notifications.filter(n => !n.read).length
+  const unreadCount = notifications.length
 
   return (
     <>
-      {/* 🔊 AUDIO */}
       <audio ref={audioRef} src={notifySound} preload="auto" />
 
       <div style={{ position: "relative" }}>
 
         {/* 🔔 BELL */}
-        <div onClick={() => setOpen(!open)} style={bell}>
+        <div
+          onClick={() => setOpen(!open)}
+          style={bell}
+        >
           🔔
+
           {unreadCount > 0 && (
             <span style={badge}>{unreadCount}</span>
           )}
@@ -139,15 +85,7 @@ export default function NotificationBell() {
             )}
 
             {notifications.map(n => (
-              <div
-                key={n.id}
-                onClick={() => handleClick(n)}
-                style={{
-                  ...item,
-                  background: n.read ? "#020617" : "#1e293b",
-                  cursor: "pointer"
-                }}
-              >
+              <div key={n.id} style={item}>
                 <p style={{ margin: 0 }}>{n.text}</p>
                 <small style={time}>{n.time}</small>
               </div>
@@ -197,6 +135,7 @@ const dropdown = {
 const item = {
   padding: 10,
   borderRadius: 6,
+  background: "#0f172a",
   marginBottom: 6,
   fontSize: 13
 }
