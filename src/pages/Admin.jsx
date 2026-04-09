@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import api from "../services/api"
 import { io } from "socket.io-client"
 
-const socket = io("http://localhost:5050")
+const socket = io("https://signavi-backend.onrender.com")
 
 function Admin() {
 

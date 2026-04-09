@@ -10,7 +10,7 @@ function JobCard({ job, updateStatus }) {
       {/* IMAGE */}
       {job.artwork && (
         <img
-          src={`http://localhost:5050/uploads/${job.artwork}`}
+          src={`https://signavi-backend.onrender.com/uploads/${job.artwork}`}
           alt="artwork"
           className="w-full h-32 object-cover rounded mb-2"
         />

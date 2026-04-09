@@ -12,7 +12,7 @@ import {
   SummaryBar
 } from "../components/ProductionUI"
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050/api"
+const API_URL = import.meta.env.VITE_API_URL || "https://signavi-backend.onrender.com/api"
 const SOCKET_URL = API_URL.replace("/api", "")
 
 const normalizeStatus = (job) => {

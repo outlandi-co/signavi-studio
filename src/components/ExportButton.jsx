@@ -3,7 +3,7 @@ import Button from "./UI/Button"
 function ExportButton() {
 
   const handleExport = () => {
-    window.open("http://localhost:5050/api/export-orders", "_blank")
+    window.open("https://signavi-backend.onrender.com/api/export-orders", "_blank")
   }
 
   return (

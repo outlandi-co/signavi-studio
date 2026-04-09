@@ -88,7 +88,7 @@ export default function AdminInventory() {
       image: null
     })
 
-    setEditPreview(p.image ? `http://localhost:5050/${p.image}` : null)
+    setEditPreview(p.image ? `https://signavi-backend.onrender.com/${p.image}` : null)
   }
 
   const handleEditChange = (e) => {
@@ -225,7 +225,7 @@ export default function AdminInventory() {
 
               <td>
                 {p.image && (
-                  <img src={`http://localhost:5050/${p.image}`} className="h-10" />
+                  <img src={`https://signavi-backend.onrender.com/${p.image}`} className="h-10" />
                 )}
               </td>
 

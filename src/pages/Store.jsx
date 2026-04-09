@@ -60,7 +60,7 @@ export default function Store() {
           >
 
             <img
-              src={p.image ? `http://localhost:5050/${p.image}` : "/placeholder.png"}
+              src={p.image ? `https://signavi-backend.onrender.com/${p.image}` : "/placeholder.png"}
               style={image}
             />
 

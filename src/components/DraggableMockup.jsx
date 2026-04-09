@@ -1,7 +1,7 @@
 import { useDraggable } from "@dnd-kit/core"
 import api from "../services/api"
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050"
+const API_URL = import.meta.env.VITE_API_URL || "https://signavi-backend.onrender.com"
 
 function DraggableMockup({ job, onOpen = null }) {
 

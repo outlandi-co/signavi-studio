@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { io } from "socket.io-client"
 
-const socket = io("http://localhost:5050")
+const socket = io("https://signavi-backend.onrender.com")
 
 export default function NotificationPanel({ onSelectJob }) {
 

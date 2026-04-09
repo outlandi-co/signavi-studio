@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom"
 import api from "../../services/api"
 import { io } from "socket.io-client"
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050/api"
+const API_URL = import.meta.env.VITE_API_URL || "https://signavi-backend.onrender.com/api"
 const SOCKET_URL = API_URL.replace("/api", "")
 
 export default function OrderDetail() {

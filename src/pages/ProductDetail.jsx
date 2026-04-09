@@ -40,7 +40,7 @@ export default function ProductDetail() {
     <div style={{ padding: 20, color: "white" }}>
 
       <img
-        src={`http://localhost:5050/${product.image}`}
+        src={`https://signavi-backend.onrender.com/${product.image}`}
         style={{ width: 300, borderRadius: 10 }}
       />
 

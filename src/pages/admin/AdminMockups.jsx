@@ -6,7 +6,7 @@ import html2canvas from "html2canvas"
 const productImage =
   "https://www.bellacanvas.com/wp-content/uploads/2018/10/3001_white.jpg"
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050"
+const API_URL = import.meta.env.VITE_API_URL || "https://signavi-backend.onrender.com"
 
 export default function AdminMockups() {
   const location = useLocation()

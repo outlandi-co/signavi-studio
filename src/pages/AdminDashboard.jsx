@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react"
 import { io } from "socket.io-client"
 import api from "../services/api"
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050/api"
+const API_URL = import.meta.env.VITE_API_URL || "https://signavi-backend.onrender.com/api"
 const SOCKET_URL = API_URL.replace("/api", "")
 
 function AdminDashboard() {

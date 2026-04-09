@@ -9,11 +9,11 @@ export default function AdminCarts() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const res = await fetch("http://localhost:5050/api/admin/carts")
+        const res = await fetch("https://signavi-backend.onrender.com/api/admin/carts")
         const data = await res.json()
         setCarts(data)
 
-        const statRes = await fetch("http://localhost:5050/api/admin/carts/stats")
+        const statRes = await fetch("https://signavi-backend.onrender.com/api/admin/carts/stats")
         const statData = await statRes.json()
         setStats(statData)
 
@@ -26,7 +26,7 @@ export default function AdminCarts() {
   }, [])
 
   const resend = async (id) => {
-    await fetch(`http://localhost:5050/api/admin/carts/resend/${id}`, {
+    await fetch(`https://signavi-backend.onrender.com/api/admin/carts/resend/${id}`, {
       method: "POST"
     })
 
