@@ -60,9 +60,17 @@ export default function Store() {
           >
 
             <img
-              src={p.image ? `https://signavi-backend.onrender.com/${p.image}` : "/placeholder.png"}
-              style={image}
-            />
+  src={
+    p.image
+      ? `${import.meta.env.VITE_API_URL.replace("/api","")}/${p.image}`
+      : "/placeholder.png"
+  }
+  alt={p.name}
+  style={image}
+  onError={(e) => {
+    e.target.src = "/placeholder.png"
+  }}
+/>
 
             <h3 style={title}>{p.name}</h3>
 

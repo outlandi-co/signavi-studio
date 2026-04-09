@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react"
 import api from "../../services/api"
 
+const BASE_URL =
+  (import.meta.env.VITE_API_URL || "https://signavi-backend.onrender.com/api")
+    .replace("/api", "")
+
 export default function AdminInventory() {
 
   const [products, setProducts] = useState([])
@@ -88,7 +92,9 @@ export default function AdminInventory() {
       image: null
     })
 
-    setEditPreview(p.image ? `https://signavi-backend.onrender.com/${p.image}` : null)
+    setEditPreview(
+      p.image ? `${BASE_URL}/${p.image}` : "/placeholder.png"
+    )
   }
 
   const handleEditChange = (e) => {
@@ -132,6 +138,12 @@ export default function AdminInventory() {
 
     await api.delete(`/products/${id}`)
     setProducts(prev => prev.filter(p => p._id !== id))
+  }
+
+  /* ================= IMAGE HELPER ================= */
+  const getImage = (p) => {
+    if (!p.image) return "/placeholder.png"
+    return `${BASE_URL}/${p.image}`
   }
 
   return (
@@ -193,7 +205,12 @@ export default function AdminInventory() {
           </label>
         </div>
 
-        {preview && <img src={preview} className="h-16 mt-2" />}
+        {preview && (
+          <img
+            src={preview}
+            className="h-16 mt-2 object-cover rounded"
+          />
+        )}
 
         <button onClick={createProduct} className="mt-3 bg-green-600 px-4 py-2 rounded">
           ➕ Create
@@ -224,9 +241,14 @@ export default function AdminInventory() {
               <td>{p.stock}</td>
 
               <td>
-                {p.image && (
-                  <img src={`https://signavi-backend.onrender.com/${p.image}`} className="h-10" />
-                )}
+                <img
+                  src={getImage(p)}
+                  alt={p.name}
+                  className="h-12 w-12 object-cover rounded"
+                  onError={(e) => {
+                    e.target.src = "/placeholder.png"
+                  }}
+                />
               </td>
 
               <td>
@@ -239,7 +261,7 @@ export default function AdminInventory() {
         </tbody>
       </table>
 
-      {/* 🔥 EDIT MODAL */}
+      {/* EDIT MODAL */}
       {selected && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
 
@@ -258,7 +280,15 @@ export default function AdminInventory() {
               <input type="file" onChange={handleEditImage} className="hidden" />
             </label>
 
-            {editPreview && <img src={editPreview} className="h-16 mb-2" />}
+            {editPreview && (
+              <img
+                src={editPreview}
+                className="h-16 mb-2 object-cover rounded"
+                onError={(e) => {
+                  e.target.src = "/placeholder.png"
+                }}
+              />
+            )}
 
             <div className="flex justify-between">
               <button onClick={saveEdit} className="bg-green-600 px-3 py-2 rounded">
