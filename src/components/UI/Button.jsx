@@ -22,9 +22,20 @@ function Button({
   return (
     <button
       type={type}
-      onClick={onClick}
       disabled={loading}
       {...props}
+
+      /* 🔥 SAFE CLICK HANDLER */
+      onClick={(event) => {
+        if (loading) return
+
+        if (typeof onClick === "function") {
+          onClick(event)
+        } else if (onClick !== undefined) {
+          console.error("❌ Button onClick is NOT a function:", onClick)
+        }
+      }}
+
       style={{
         padding: "12px 18px",
         background: variants[variant],
@@ -44,15 +55,15 @@ function Button({
         ...style
       }}
 
-      onMouseEnter={(e) => {
+      onMouseEnter={(event) => {
         if (loading) return
-        e.currentTarget.style.transform = "translateY(-2px)"
-        e.currentTarget.style.boxShadow = "0 15px 35px rgba(0,0,0,0.45)"
+        event.currentTarget.style.transform = "translateY(-2px)"
+        event.currentTarget.style.boxShadow = "0 15px 35px rgba(0,0,0,0.45)"
       }}
 
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = "translateY(0)"
-        e.currentTarget.style.boxShadow =
+      onMouseLeave={(event) => {
+        event.currentTarget.style.transform = "translateY(0)"
+        event.currentTarget.style.boxShadow =
           "0 10px 25px rgba(0,0,0,0.3)"
       }}
 
