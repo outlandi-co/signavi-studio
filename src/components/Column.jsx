@@ -5,8 +5,8 @@ export function Column({ id, jobs, onClick }) {
 
   const { setNodeRef, isOver } = useDroppable({ id })
 
-  const handleDelete = async (e, jobId) => {
-    e.stopPropagation()
+  const handleDelete = async (event, jobId) => {
+    event.stopPropagation()
 
     if (!window.confirm("Delete this order?")) return
 
@@ -19,6 +19,16 @@ export function Column({ id, jobs, onClick }) {
     } catch (err) {
       console.error(err)
       alert("Delete failed")
+    }
+  }
+
+  const safeClick = (event, job) => {
+    event.stopPropagation()
+
+    if (typeof onClick === "function") {
+      onClick(job)
+    } else {
+      console.error("❌ Column onClick is not a function:", onClick)
     }
   }
 
@@ -39,7 +49,7 @@ export function Column({ id, jobs, onClick }) {
       {(jobs || []).map(job => (
         <div
           key={job._id}
-          onClick={() => onClick(job)}
+          onClick={(event) => safeClick(event, job)}
           style={{
             background: "#020617",
             border: "1px solid #1e293b",
@@ -59,9 +69,9 @@ export function Column({ id, jobs, onClick }) {
             ${job.finalPrice || job.price || 0}
           </p>
 
-          {/* 🔥 DELETE BUTTON */}
+          {/* DELETE BUTTON */}
           <button
-            onClick={(e) => handleDelete(e, job._id)}
+            onClick={(event) => handleDelete(event, job._id)}
             style={{
               marginTop: "8px",
               background: "red",
