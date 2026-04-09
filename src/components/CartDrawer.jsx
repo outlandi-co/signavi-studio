@@ -6,6 +6,20 @@ function CartDrawer({ isOpen, onClose, onCheckout }) {
 
   const { cart, setCart, removeFromCart } = useCart()
 
+  const safeClose = () => {
+    if (typeof onClose === "function") {
+      onClose()
+    }
+  }
+
+  const safeCheckout = () => {
+    if (typeof onCheckout === "function") {
+      onCheckout()
+    } else {
+      console.error("❌ onCheckout not a function:", onCheckout)
+    }
+  }
+
   const increaseQty = (id) => {
     setCart(prev =>
       prev.map(item =>
@@ -37,13 +51,15 @@ function CartDrawer({ isOpen, onClose, onCheckout }) {
 
   return (
     <>
-      <div onClick={onClose} style={overlay(isOpen)} />
+      {/* OVERLAY */}
+      <div onClick={safeClose} style={overlay(isOpen)} />
 
+      {/* DRAWER */}
       <div style={drawer(isOpen)}>
 
         <div style={header}>
           <h2>🛒 Cart</h2>
-          <button onClick={onClose}>✖</button>
+          <button onClick={safeClose}>✖</button>
         </div>
 
         <div style={items}>
@@ -69,7 +85,15 @@ function CartDrawer({ isOpen, onClose, onCheckout }) {
                 </div>
               </div>
 
-              <button onClick={() => removeFromCart(item._id)}>✖</button>
+              <button
+                onClick={() => {
+                  if (typeof removeFromCart === "function") {
+                    removeFromCart(item._id)
+                  }
+                }}
+              >
+                ✖
+              </button>
             </div>
           ))}
         </div>
@@ -81,7 +105,8 @@ function CartDrawer({ isOpen, onClose, onCheckout }) {
             <p>Shipping: ${shipping === 0 ? "Free" : `$${shipping}`}</p>
             <h3>Total: ${total.toFixed(2)}</h3>
 
-            <Button onClick={onCheckout} fullWidth>
+            {/* 🔥 SAFE BUTTON */}
+            <Button onClick={safeCheckout} fullWidth>
               Checkout
             </Button>
           </div>
