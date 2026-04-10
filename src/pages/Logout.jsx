@@ -1,25 +1,16 @@
-import api from "../services/api"
 import { useNavigate } from "react-router-dom"
 
-function LogoutButton() {
+export default function LogoutButton() {
   const navigate = useNavigate()
 
-  const handleLogout = async () => {
-    try {
-      await api.post("/logout")
+  const handleLogout = () => {
+    localStorage.removeItem("adminToken")
+    localStorage.removeItem("adminUser")
+    localStorage.removeItem("customerToken")
+    localStorage.removeItem("customerUser")
 
-      // 🔥 CLEAR LOCAL STORAGE (IMPORTANT)
-      localStorage.removeItem("token")
-      localStorage.removeItem("role")
-
-      navigate("/login")
-
-    } catch (err) {
-      console.error("Logout error:", err)
-    }
+    navigate("/")
   }
 
   return <button onClick={handleLogout}>Logout</button>
 }
-
-export default LogoutButton

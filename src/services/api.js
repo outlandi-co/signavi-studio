@@ -11,13 +11,16 @@ const api = axios.create({
 
 console.log("🌐 API BASE:", api.defaults.baseURL)
 
-/* 🔥 ADMIN TOKEN ONLY */
+/* ================= TOKEN HANDLING ================= */
 api.interceptors.request.use((config) => {
 
   const adminToken = localStorage.getItem("adminToken")
+  const customerToken = localStorage.getItem("customerToken")
 
-  if (adminToken) {
-    config.headers.Authorization = `Bearer ${adminToken}`
+  const token = adminToken || customerToken
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
   }
 
   console.log("🔥 REQUEST:", config.baseURL + config.url)
@@ -25,6 +28,7 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+/* ================= RESPONSE ================= */
 api.interceptors.response.use(
   (res) => {
     console.log("✅ RESPONSE:", res.config.url, res.data)
@@ -37,10 +41,11 @@ api.interceptors.response.use(
       err?.config?.baseURL + err?.config?.url
     )
 
-    /* 🔥 AUTO CLEAN ADMIN SESSION */
     if (err?.response?.status === 401) {
       localStorage.removeItem("adminToken")
       localStorage.removeItem("adminUser")
+      localStorage.removeItem("customerToken")
+      localStorage.removeItem("customerUser")
     }
 
     return Promise.reject(err)
