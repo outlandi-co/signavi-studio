@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import api from "../../services/api"
 
 export default function CustomerProfile() {
@@ -6,6 +7,8 @@ export default function CustomerProfile() {
   const [user, setUser] = useState(null)
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
+
+  const navigate = useNavigate() // 🔥 ADD THIS
 
   useEffect(() => {
     const load = async () => {
@@ -96,7 +99,7 @@ export default function CustomerProfile() {
         {orders.slice(0, 5).map(order => (
           <div
             key={order._id}
-            onClick={() => window.location.href = `/order/${order._id}`}
+            onClick={() => navigate(`/order/${order._id}`)} // 🔥 FIXED
             style={{
               padding: 12,
               borderBottom: "1px solid #1e293b",

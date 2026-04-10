@@ -1,5 +1,6 @@
-export function logout() {
-  localStorage.removeItem("token")
-  localStorage.removeItem("user")
-  window.location.href = "/login"
+export const logout = (navigate) => {
+  localStorage.removeItem("adminToken")
+  localStorage.removeItem("adminUser")
+
+  navigate("/login")
 }

@@ -10,10 +10,20 @@ export default function Login() {
   const navigate = useNavigate()
 
   const handleLogin = async () => {
+    if (loading) return // 🔥 prevent double click
+
     try {
       setLoading(true)
 
+      console.log("🔥 REQUEST: login")
+
       const res = await api.post("/auth/login", { email, password })
+
+      console.log("✅ RESPONSE:", res.data)
+
+      if (!res.data?.token) {
+        throw new Error("No token returned")
+      }
 
       const { token, user } = res.data
 
@@ -22,11 +32,13 @@ export default function Login() {
 
       console.log("✅ ADMIN LOGGED IN:", user)
 
-      navigate("/admin/production") // 🔥 FIXED
+      // 🔥 SAFE NAVIGATION (NO CRASH)
+      navigate("/admin/production")
 
     } catch (err) {
-      console.error(err)
-      alert("Login failed")
+      console.error("❌ LOGIN ERROR:", err)
+
+      alert("Server waking up or login failed. Try again in a few seconds.")
     } finally {
       setLoading(false)
     }
@@ -36,10 +48,20 @@ export default function Login() {
     <div style={{ padding: 20 }}>
       <h2>Admin Login</h2>
 
-      <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
-      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" />
+      <input
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="Email"
+      />
 
-      <button onClick={handleLogin}>
+      <input
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="Password"
+      />
+
+      <button onClick={handleLogin} disabled={loading}>
         {loading ? "Logging in..." : "Login"}
       </button>
     </div>
