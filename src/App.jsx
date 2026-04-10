@@ -58,7 +58,10 @@ function LayoutWrapper({ children }) {
   const isAdminPage = location.pathname.startsWith("/admin")
 
   return (
-    <div className={isAdminPage ? "w-full min-h-screen p-0 m-0" : "max-w-6xl mx-auto p-6"}>
+    <div className={isAdminPage
+      ? "w-full min-h-screen p-0 m-0"
+      : "max-w-6xl mx-auto p-6"
+    }>
       {children}
     </div>
   )
@@ -70,10 +73,21 @@ function AppContent() {
   const path = location.pathname
 
   const [cartOpen, setCartOpen] = useState(false)
+  const [isRedirecting, setIsRedirecting] = useState(false)
 
-  /* 🔥 CHECKOUT HANDLER (STRIPE CONNECTION) */
+  /* ================= ✅ CENTRALIZED CHECKOUT ================= */
   const handleCheckout = async (cart) => {
+    if (isRedirecting) {
+      console.warn("⚠️ Already redirecting")
+      return
+    }
+
     try {
+      setIsRedirecting(true)
+
+      console.log("🛒 Checkout triggered from App.jsx")
+      console.log("📦 Cart:", cart)
+
       const res = await api.post("/stripe/create-cart-session", {
         items: cart
       })
@@ -82,14 +96,21 @@ function AppContent() {
         throw new Error("No checkout URL returned")
       }
 
-      window.location.href = res.data.url
+      console.log("🚀 Redirecting to Stripe:", res.data.url)
+
+      // 🔥 SAFE REDIRECT (no throttling)
+      window.location.assign(res.data.url)
 
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err)
-      alert("Checkout failed")
+      alert("Checkout failed. Please try again.")
+
+      // allow retry
+      setIsRedirecting(false)
     }
   }
 
+  /* ================= NAVBAR CONTROL ================= */
   const hideNavbarRoutes = [
     "/login",
     "/customer-login",
@@ -103,7 +124,7 @@ function AppContent() {
   const shouldHideNavbar =
     hideNavbarRoutes.some(route => path.startsWith(route))
 
-  /* 🔥 AUTO AUTH CHECK */
+  /* ================= AUTO AUTH ================= */
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem("adminToken")
@@ -127,11 +148,11 @@ function AppContent() {
         <Navbar setCartOpen={setCartOpen} />
       )}
 
-      {/* 🔥 FIXED: PASS CHECKOUT */}
+      {/* 🔥 CART DRAWER CONNECTED TO APP CHECKOUT */}
       <CartDrawer
         isOpen={cartOpen}
         onClose={() => setCartOpen(false)}
-        onCheckout={handleCheckout}   // ✅ THIS WAS MISSING
+        onCheckout={handleCheckout}
       />
 
       <LayoutWrapper>
@@ -169,7 +190,7 @@ function AppContent() {
             }
           />
 
-          {/* TRACKING */}
+          {/* TRACK */}
           <Route path="/track" element={<TrackOrder />} />
           <Route path="/track/:id" element={<TrackOrder />} />
 
@@ -177,7 +198,7 @@ function AppContent() {
           <Route path="/client-order/:id" element={<ClientOrder />} />
           <Route path="/quote/:id" element={<QuoteResponse />} />
 
-          {/* CHECKOUT */}
+          {/* CHECKOUT PAGE (optional flow) */}
           <Route path="/checkout/:id" element={<Checkout />} />
 
           {/* SUCCESS */}

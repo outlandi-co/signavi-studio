@@ -4,15 +4,13 @@ import useCart from "../hooks/useCart"
 import api from "../services/api"
 import { useEffect, useState } from "react"
 
-export default function CartDrawer({ isOpen, onClose }) {
+export default function CartDrawer({ isOpen, onClose, onCheckout }) {
 
   const { cart, setCart, removeFromCart } = useCart()
 
   const [tax, setTax] = useState(0)
   const [loadingTax, setLoadingTax] = useState(false)
-  const [isRedirecting, setIsRedirecting] = useState(false)
 
-  /* ================= SAFE CLOSE ================= */
   const safeClose = () => {
     if (typeof onClose === "function") onClose()
   }
@@ -45,7 +43,7 @@ export default function CartDrawer({ isOpen, onClose }) {
     0
   )
 
-  /* ================= TAX API CALL ================= */
+  /* ================= TAX FIX ================= */
   useEffect(() => {
     const fetchTax = async () => {
       try {
@@ -56,20 +54,16 @@ export default function CartDrawer({ isOpen, onClose }) {
 
         setLoadingTax(true)
 
-        console.log("🧮 Sending subtotal:", subtotal)
-
-        const res = await api.post("/tax/calculate", {
-          subtotal // 🔥 THIS WAS MISSING BEFORE
-        })
+        const res = await api.post("/tax/calculate", { subtotal })
 
         console.log("💰 TAX RESPONSE:", res.data)
 
         const parsedTax =
-  typeof res.data.tax === "number"
-    ? res.data.tax
-    : Number(res.data.tax) || 0
+          typeof res.data.tax === "number"
+            ? res.data.tax
+            : Number(res.data.tax) || 0
 
-setTax(parsedTax)
+        setTax(parsedTax)
 
       } catch (err) {
         console.error("❌ TAX ERROR:", err)
@@ -82,39 +76,8 @@ setTax(parsedTax)
     fetchTax()
   }, [subtotal])
 
-  /* ================= SHIPPING ================= */
   const shipping = subtotal > 100 ? 0 : 10
-
-  /* ================= TOTAL ================= */
   const total = subtotal + tax + shipping
-
-  /* ================= STRIPE CHECKOUT ================= */
-  const handleCheckout = async () => {
-    if (isRedirecting) return
-
-    try {
-      setIsRedirecting(true)
-
-      console.log("🔥 Sending cart to Stripe:", cart)
-
-      const res = await api.post("/stripe/create-cart-session", {
-        items: cart
-      })
-
-      if (!res?.data?.url) {
-        throw new Error("No Stripe URL returned")
-      }
-
-      console.log("🚀 Redirecting:", res.data.url)
-
-      window.location.href = res.data.url
-
-    } catch (err) {
-      console.error("❌ CHECKOUT ERROR:", err)
-      alert("Checkout failed")
-      setIsRedirecting(false)
-    }
-  }
 
   return (
     <>
@@ -126,9 +89,7 @@ setTax(parsedTax)
           inset: 0,
           background: "rgba(0,0,0,0.6)",
           opacity: isOpen ? 1 : 0,
-          pointerEvents: isOpen ? "auto" : "none",
-          transition: "0.3s",
-          zIndex: 500
+          pointerEvents: isOpen ? "auto" : "none"
         }}
       />
 
@@ -143,40 +104,35 @@ setTax(parsedTax)
           background: "#020617",
           transform: isOpen ? "translateX(0)" : "translateX(100%)",
           transition: "0.3s",
-          zIndex: 1000,
           display: "flex",
           flexDirection: "column",
           color: "white"
         }}
       >
 
-        {/* HEADER */}
         <div style={{ padding: 20, display: "flex", justifyContent: "space-between" }}>
           <h2>🛒 Cart</h2>
           <button onClick={safeClose}>✖</button>
         </div>
 
-        {/* ITEMS */}
         <div style={{ padding: 20, flex: 1, overflowY: "auto" }}>
           {cart.length === 0 && <p>Your cart is empty</p>}
 
           {cart.map(item => (
             <div key={item._id} style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-
               <SafeImage
                 src={item.image || "/placeholder.png"}
                 alt={item.name}
-                style={{ width: 60, height: 60, objectFit: "cover" }}
+                style={{ width: 60, height: 60 }}
               />
 
               <div style={{ flex: 1 }}>
                 <strong>{item.name}</strong>
-
-                <p>${Number(item.price || 0).toFixed(2)}</p>
+                <p>${Number(item.price).toFixed(2)}</p>
 
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => decreaseQty(item._id)}>−</button>
-                  <span>{item.quantity || 1}</span>
+                  <span>{item.quantity}</span>
                   <button onClick={() => increaseQty(item._id)}>+</button>
                 </div>
               </div>
@@ -186,33 +142,23 @@ setTax(parsedTax)
           ))}
         </div>
 
-        {/* FOOTER */}
         {cart.length > 0 && (
-          <div style={{ padding: 20, borderTop: "1px solid #1e293b" }}>
-
+          <div style={{ padding: 20 }}>
             <p>Subtotal: ${subtotal.toFixed(2)}</p>
-
-            <p>
-              Tax: {loadingTax ? "Calculating..." : `$${tax.toFixed(2)}`}
-            </p>
-
-            <p>
-              Shipping: {shipping === 0 ? "Free" : `$${shipping}`}
-            </p>
-
+            <p>Tax: {loadingTax ? "..." : `$${tax.toFixed(2)}`}</p>
+            <p>Shipping: {shipping === 0 ? "Free" : `$${shipping}`}</p>
             <h3>Total: ${total.toFixed(2)}</h3>
 
+            {/* ✅ USE APP CHECKOUT */}
             <Button
-              onClick={handleCheckout}
+              onClick={() => onCheckout && onCheckout(cart)}
               fullWidth
-              style={{ marginTop: 10 }}
             >
-              {isRedirecting ? "Redirecting..." : "💳 Checkout"}
+              💳 Checkout
             </Button>
 
           </div>
         )}
-
       </div>
     </>
   )
