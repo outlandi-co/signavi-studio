@@ -76,39 +76,39 @@ function AppContent() {
   const [isRedirecting, setIsRedirecting] = useState(false)
 
   /* ================= ✅ CENTRALIZED CHECKOUT ================= */
-  const handleCheckout = async (cart) => {
-    if (isRedirecting) {
-      console.warn("⚠️ Already redirecting")
-      return
+const handleCheckout = async (cart) => {
+  if (isRedirecting) return
+
+  try {
+    setIsRedirecting(true)
+
+    console.log("🛒 Starting checkout...")
+
+    const timeout = setTimeout(() => {
+      console.warn("⏳ Backend taking too long...")
+    }, 5000)
+
+    const res = await api.post("/stripe/create-cart-session", {
+      items: cart
+    })
+
+    clearTimeout(timeout)
+
+    if (!res?.data?.url) {
+      throw new Error("No checkout URL returned")
     }
 
-    try {
-      setIsRedirecting(true)
+    console.log("🚀 Redirecting:", res.data.url)
 
-      console.log("🛒 Checkout triggered from App.jsx")
-      console.log("📦 Cart:", cart)
+    window.location.assign(res.data.url)
 
-      const res = await api.post("/stripe/create-cart-session", {
-        items: cart
-      })
+  } catch (err) {
+    console.error("❌ CHECKOUT ERROR:", err)
+    alert("Server is waking up... try again in a few seconds.")
 
-      if (!res?.data?.url) {
-        throw new Error("No checkout URL returned")
-      }
-
-      console.log("🚀 Redirecting to Stripe:", res.data.url)
-
-      // 🔥 SAFE REDIRECT (no throttling)
-      window.location.assign(res.data.url)
-
-    } catch (err) {
-      console.error("❌ CHECKOUT ERROR:", err)
-      alert("Checkout failed. Please try again.")
-
-      // allow retry
-      setIsRedirecting(false)
-    }
+    setIsRedirecting(false)
   }
+}
 
   /* ================= NAVBAR CONTROL ================= */
   const hideNavbarRoutes = [

@@ -11,6 +11,7 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
   const [tax, setTax] = useState(0)
   const [loadingTax, setLoadingTax] = useState(false)
 
+  /* ================= SAFE CLOSE ================= */
   const safeClose = () => {
     if (typeof onClose === "function") onClose()
   }
@@ -43,7 +44,7 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
     0
   )
 
-  /* ================= TAX FIX ================= */
+  /* ================= TAX ================= */
   useEffect(() => {
     const fetchTax = async () => {
       try {
@@ -89,7 +90,9 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
           inset: 0,
           background: "rgba(0,0,0,0.6)",
           opacity: isOpen ? 1 : 0,
-          pointerEvents: isOpen ? "auto" : "none"
+          pointerEvents: isOpen ? "auto" : "none",
+          transition: "0.3s",
+          zIndex: 500
         }}
       />
 
@@ -103,27 +106,39 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
           height: "100%",
           background: "#020617",
           transform: isOpen ? "translateX(0)" : "translateX(100%)",
-          transition: "0.3s",
+          transition: "transform 0.3s ease",
           display: "flex",
           flexDirection: "column",
-          color: "white"
+          color: "white",
+          zIndex: 1000
         }}
       >
 
+        {/* HEADER */}
         <div style={{ padding: 20, display: "flex", justifyContent: "space-between" }}>
           <h2>🛒 Cart</h2>
-          <button onClick={safeClose}>✖</button>
+          <button onClick={safeClose} style={{ cursor: "pointer" }}>✖</button>
         </div>
 
+        {/* ITEMS */}
         <div style={{ padding: 20, flex: 1, overflowY: "auto" }}>
           {cart.length === 0 && <p>Your cart is empty</p>}
 
           {cart.map(item => (
-            <div key={item._id} style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+            <div
+              key={item._id}
+              style={{
+                display: "flex",
+                gap: 10,
+                marginBottom: 12,
+                borderBottom: "1px solid #1e293b",
+                paddingBottom: 10
+              }}
+            >
               <SafeImage
                 src={item.image || "/placeholder.png"}
                 alt={item.name}
-                style={{ width: 60, height: 60 }}
+                style={{ width: 60, height: 60, borderRadius: 6 }}
               />
 
               <div style={{ flex: 1 }}>
@@ -137,22 +152,35 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
                 </div>
               </div>
 
-              <button onClick={() => removeFromCart(item._id)}>✖</button>
+              <button
+                onClick={() => removeFromCart(item._id)}
+                style={{ color: "red", cursor: "pointer" }}
+              >
+                ✖
+              </button>
             </div>
           ))}
         </div>
 
+        {/* FOOTER */}
         {cart.length > 0 && (
           <div style={{ padding: 20 }}>
             <p>Subtotal: ${subtotal.toFixed(2)}</p>
-            <p>Tax: {loadingTax ? "..." : `$${tax.toFixed(2)}`}</p>
+            <p>Tax: {loadingTax ? "Calculating..." : `$${tax.toFixed(2)}`}</p>
             <p>Shipping: {shipping === 0 ? "Free" : `$${shipping}`}</p>
             <h3>Total: ${total.toFixed(2)}</h3>
 
-            {/* ✅ USE APP CHECKOUT */}
+            {/* 🔥 CHECKOUT (APP CONTROLLED) */}
             <Button
-              onClick={() => onCheckout && onCheckout(cart)}
+              onClick={() => {
+                if (typeof onCheckout === "function") {
+                  onCheckout(cart)
+                } else {
+                  console.error("❌ onCheckout missing")
+                }
+              }}
               fullWidth
+              style={{ marginTop: 10 }}
             >
               💳 Checkout
             </Button>
