@@ -2,16 +2,13 @@ import Button from "../components/UI/Button"
 import SafeImage from "../components/SafeImage"
 import useCart from "../hooks/useCart"
 import api from "../services/api"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
-export default function CartDrawer({ isOpen, onClose, onCheckout }) {
+export default function CartDrawer({ isOpen, onClose }) {
 
   const { cart, setCart, removeFromCart } = useCart()
+  const [isRedirecting, setIsRedirecting] = useState(false)
 
-  const [tax, setTax] = useState(0)
-  const [loadingTax, setLoadingTax] = useState(false)
-
-  /* ================= SAFE CLOSE ================= */
   const safeClose = () => {
     if (typeof onClose === "function") onClose()
   }
@@ -44,41 +41,30 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
     0
   )
 
-  /* ================= TAX ================= */
-  useEffect(() => {
-    const fetchTax = async () => {
-      try {
-        if (subtotal <= 0) {
-          setTax(0)
-          return
-        }
+  /* ================= CHECKOUT ================= */
+  const handleCheckout = async () => {
+    if (isRedirecting) return
 
-        setLoadingTax(true)
+    try {
+      setIsRedirecting(true)
 
-        const res = await api.post("/tax/calculate", { subtotal })
+      const res = await api.post("/stripe/create-cart-session", {
+        items: cart
+      })
 
-        console.log("💰 TAX RESPONSE:", res.data)
-
-        const parsedTax =
-          typeof res.data.tax === "number"
-            ? res.data.tax
-            : Number(res.data.tax) || 0
-
-        setTax(parsedTax)
-
-      } catch (err) {
-        console.error("❌ TAX ERROR:", err)
-        setTax(0)
-      } finally {
-        setLoadingTax(false)
+      if (!res?.data?.url) {
+        throw new Error("No Stripe URL returned")
       }
+
+      // 🔥 CLEAN REDIRECT (NO LOOP)
+      window.location.assign(res.data.url)
+
+    } catch (err) {
+      console.error("❌ CHECKOUT ERROR:", err)
+      alert("Checkout failed")
+      setIsRedirecting(false)
     }
-
-    fetchTax()
-  }, [subtotal])
-
-  const shipping = subtotal > 100 ? 0 : 10
-  const total = subtotal + tax + shipping
+  }
 
   return (
     <>
@@ -91,7 +77,6 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
           background: "rgba(0,0,0,0.6)",
           opacity: isOpen ? 1 : 0,
           pointerEvents: isOpen ? "auto" : "none",
-          transition: "0.3s",
           zIndex: 500
         }}
       />
@@ -106,7 +91,7 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
           height: "100%",
           background: "#020617",
           transform: isOpen ? "translateX(0)" : "translateX(100%)",
-          transition: "transform 0.3s ease",
+          transition: "0.3s",
           display: "flex",
           flexDirection: "column",
           color: "white",
@@ -117,7 +102,7 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
         {/* HEADER */}
         <div style={{ padding: 20, display: "flex", justifyContent: "space-between" }}>
           <h2>🛒 Cart</h2>
-          <button onClick={safeClose} style={{ cursor: "pointer" }}>✖</button>
+          <button onClick={safeClose}>✖</button>
         </div>
 
         {/* ITEMS */}
@@ -125,20 +110,11 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
           {cart.length === 0 && <p>Your cart is empty</p>}
 
           {cart.map(item => (
-            <div
-              key={item._id}
-              style={{
-                display: "flex",
-                gap: 10,
-                marginBottom: 12,
-                borderBottom: "1px solid #1e293b",
-                paddingBottom: 10
-              }}
-            >
+            <div key={item._id} style={{ display: "flex", gap: 10, marginBottom: 12 }}>
               <SafeImage
                 src={item.image || "/placeholder.png"}
                 alt={item.name}
-                style={{ width: 60, height: 60, borderRadius: 6 }}
+                style={{ width: 60, height: 60 }}
               />
 
               <div style={{ flex: 1 }}>
@@ -152,12 +128,7 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
                 </div>
               </div>
 
-              <button
-                onClick={() => removeFromCart(item._id)}
-                style={{ color: "red", cursor: "pointer" }}
-              >
-                ✖
-              </button>
+              <button onClick={() => removeFromCart(item._id)}>✖</button>
             </div>
           ))}
         </div>
@@ -166,23 +137,21 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
         {cart.length > 0 && (
           <div style={{ padding: 20 }}>
             <p>Subtotal: ${subtotal.toFixed(2)}</p>
-            <p>Tax: {loadingTax ? "Calculating..." : `$${tax.toFixed(2)}`}</p>
-            <p>Shipping: {shipping === 0 ? "Free" : `$${shipping}`}</p>
-            <h3>Total: ${total.toFixed(2)}</h3>
 
-            {/* 🔥 CHECKOUT (APP CONTROLLED) */}
+            {/* 🔥 STRIPE HANDLES THESE */}
+            <p>Tax: Calculated at checkout</p>
+            <p>Shipping: Calculated at checkout</p>
+
+            <h3>Estimated Total: ${subtotal.toFixed(2)}</h3>
+
             <Button
-              onClick={() => {
-                if (typeof onCheckout === "function") {
-                  onCheckout(cart)
-                } else {
-                  console.error("❌ onCheckout missing")
-                }
-              }}
+              onClick={handleCheckout}
               fullWidth
               style={{ marginTop: 10 }}
             >
-              💳 Checkout
+              {isRedirecting
+                ? "Connecting to secure payment..."
+                : "💳 Checkout"}
             </Button>
 
           </div>
