@@ -53,13 +53,13 @@ export default function Card({ order, job, onDelete }) {
   }
 
   /* ================= PRICE ================= */
-  const itemsTotal = data.items?.reduce(
-    (sum, item) => sum + (item.price || 0) * item.quantity,
-    0
-  ) || 0
+  const itemsTotal = (data.items || []).reduce(
+  (sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)),
+  0
+)
 
-  const final = data.finalPrice || itemsTotal
-  const shipping = data.shippingCost || 0
+const final = Number(data.finalPrice || itemsTotal || 0)
+const shipping = Number(data.shippingCost || 0)
 
   return (
     <div className="bg-white border rounded-xl p-4 shadow-sm hover:shadow-2xl transition duration-300 relative">
