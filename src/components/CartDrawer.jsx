@@ -2,16 +2,19 @@ import Button from "../components/UI/Button"
 import SafeImage from "../components/SafeImage"
 import useCart from "../hooks/useCart"
 import api from "../services/api"
+import { useEffect, useState } from "react"
 
 export default function CartDrawer({ isOpen, onClose }) {
 
   const { cart, setCart, removeFromCart } = useCart()
 
+  const [tax, setTax] = useState(0)
+  const [loadingTax, setLoadingTax] = useState(false)
+  const [isRedirecting, setIsRedirecting] = useState(false)
+
   /* ================= SAFE CLOSE ================= */
   const safeClose = () => {
-    if (typeof onClose === "function") {
-      onClose()
-    }
+    if (typeof onClose === "function") onClose()
   }
 
   /* ================= QTY ================= */
@@ -35,20 +38,58 @@ export default function CartDrawer({ isOpen, onClose }) {
     )
   }
 
-  /* ================= CALCULATIONS ================= */
+  /* ================= SUBTOTAL ================= */
   const subtotal = cart.reduce(
     (acc, item) =>
       acc + (Number(item.price) || 0) * (item.quantity || 1),
     0
   )
 
-  const tax = subtotal * 0.08
+  /* ================= TAX API CALL ================= */
+  useEffect(() => {
+    const fetchTax = async () => {
+      try {
+        if (subtotal <= 0) {
+          setTax(0)
+          return
+        }
+
+        setLoadingTax(true)
+
+        console.log("🧮 Sending subtotal:", subtotal)
+
+        const res = await api.post("/tax/calculate", {
+          subtotal // 🔥 THIS WAS MISSING BEFORE
+        })
+
+        console.log("💰 TAX RESPONSE:", res.data)
+
+        setTax(res.data.tax || 0)
+
+      } catch (err) {
+        console.error("❌ TAX ERROR:", err)
+        setTax(0)
+      } finally {
+        setLoadingTax(false)
+      }
+    }
+
+    fetchTax()
+  }, [subtotal])
+
+  /* ================= SHIPPING ================= */
   const shipping = subtotal > 100 ? 0 : 10
+
+  /* ================= TOTAL ================= */
   const total = subtotal + tax + shipping
 
   /* ================= STRIPE CHECKOUT ================= */
   const handleCheckout = async () => {
+    if (isRedirecting) return
+
     try {
+      setIsRedirecting(true)
+
       console.log("🔥 Sending cart to Stripe:", cart)
 
       const res = await api.post("/stripe/create-cart-session", {
@@ -59,13 +100,14 @@ export default function CartDrawer({ isOpen, onClose }) {
         throw new Error("No Stripe URL returned")
       }
 
-      console.log("🚀 Redirecting to Stripe:", res.data.url)
+      console.log("🚀 Redirecting:", res.data.url)
 
       window.location.href = res.data.url
 
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err)
-      alert("Checkout failed. Check console.")
+      alert("Checkout failed")
+      setIsRedirecting(false)
     }
   }
 
@@ -144,18 +186,23 @@ export default function CartDrawer({ isOpen, onClose }) {
           <div style={{ padding: 20, borderTop: "1px solid #1e293b" }}>
 
             <p>Subtotal: ${subtotal.toFixed(2)}</p>
-            <p>Tax: ${tax.toFixed(2)}</p>
-            <p>Shipping: {shipping === 0 ? "Free" : `$${shipping}`}</p>
+
+            <p>
+              Tax: {loadingTax ? "Calculating..." : `$${tax.toFixed(2)}`}
+            </p>
+
+            <p>
+              Shipping: {shipping === 0 ? "Free" : `$${shipping}`}
+            </p>
 
             <h3>Total: ${total.toFixed(2)}</h3>
 
-            {/* 🔥 STRIPE BUTTON */}
             <Button
               onClick={handleCheckout}
               fullWidth
               style={{ marginTop: 10 }}
             >
-              💳 Checkout
+              {isRedirecting ? "Redirecting..." : "💳 Checkout"}
             </Button>
 
           </div>
