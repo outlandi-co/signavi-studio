@@ -33,10 +33,6 @@ function Scanner({ onClose }) {
       alert("❌ Failed to update")
     }
 
-    /* 🔁 RESET SCANNER */
-    setTimeout(() => {
-      setScanned(false)
-    }, 2000)
   }
 
   return (

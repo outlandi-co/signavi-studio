@@ -64,7 +64,12 @@ export default function CartDrawer({ isOpen, onClose }) {
 
         console.log("💰 TAX RESPONSE:", res.data)
 
-        setTax(res.data.tax || 0)
+        const parsedTax =
+  typeof res.data.tax === "number"
+    ? res.data.tax
+    : Number(res.data.tax) || 0
+
+setTax(parsedTax)
 
       } catch (err) {
         console.error("❌ TAX ERROR:", err)
