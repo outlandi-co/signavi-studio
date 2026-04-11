@@ -68,14 +68,17 @@ export default function Store() {
               >
 
                 {/* IMAGE */}
-                <img
-                  src={product.image || "/placeholder.png"}
-                  alt={product.name}
-                  style={image}
-                  onError={(e) => {
-                    e.target.src = "/placeholder.png"
-                  }}
-                />
+                {product.image ? (
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    style={image}
+                  />
+                ) : (
+                  <div style={imagePlaceholder}>
+                    No Image
+                  </div>
+                )}
 
                 {/* NAME */}
                 <h3 style={{ color: "white" }}>
@@ -161,6 +164,21 @@ const image = {
   objectFit: "cover",
   borderRadius: 8,
   marginBottom: 10
+}
+
+/* 🔥 FIXED (THIS WAS MISSING) */
+const imagePlaceholder = {
+  width: "100%",
+  height: 200,
+  borderRadius: 8,
+  marginBottom: 10,
+  background: "#0f172a",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: "#475569",
+  fontSize: 12,
+  border: "1px dashed #1e293b"
 }
 
 const price = {
