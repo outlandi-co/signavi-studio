@@ -1,165 +1,115 @@
-import { useEffect, useState, useRef, useCallback } from "react"
+import { useEffect, useState } from "react"
 import api from "../services/api"
 import { DndContext, closestCenter } from "@dnd-kit/core"
-import JobModal from "../components/modals/JobModal"
-import toast from "react-hot-toast"
-
-import NotificationPanel from "../components/NotificationPanel"
-import { Column, SummaryBar } from "../components/ProductionUI"
-
-import { getSocket } from "../services/socket"
-
-const normalizeStatus = (job) => {
-  if (!job) return "pending"
-  if (job.status === "paid") return "production"
-  return job.status || "pending"
-}
 
 export default function ProductionBoard() {
-  const [jobs, setJobs] = useState({})
-  const [selectedJob, setSelectedJob] = useState(null)
 
-  const loadingRef = useRef(false)
+  const [jobs, setJobs] = useState(null)
 
   /* ================= LOAD ================= */
-  const load = useCallback(async () => {
-    if (loadingRef.current) return
-
-    try {
-      loadingRef.current = true
-      const res = await api.get("/production")
-
-      // ✅ SAFETY: never allow undefined
-      setJobs(res?.data || {})
-
-    } catch (err) {
-      console.error("❌ LOAD ERROR:", err)
-      setJobs({})
-    } finally {
-      loadingRef.current = false
-    }
-  }, [])
-
   useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await api.get("/production")
+
+        console.log("🔥 PRODUCTION DATA:", res.data)
+
+        // ✅ ALWAYS SAFE OBJECT
+        if (res && res.data && typeof res.data === "object") {
+          setJobs(res.data)
+        } else {
+          console.warn("⚠️ Unexpected data format")
+          setJobs({})
+        }
+
+      } catch (err) {
+        console.error("❌ LOAD FAILED:", err)
+        setJobs({})
+      }
+    }
+
     load()
-  }, [load])
-
-  /* ================= SOCKET ================= */
-  useEffect(() => {
-    let socket
-
-    const init = async () => {
-      socket = await getSocket()
-      if (!socket) return
-
-      socket.on("jobUpdated", (updatedOrder) => {
-        setJobs(prev => {
-          const updated = { ...prev }
-
-          Object.keys(updated).forEach(key => {
-            updated[key] = (updated[key] || []).filter(
-              j => j._id !== updatedOrder._id
-            )
-          })
-
-          const status = normalizeStatus(updatedOrder)
-
-          if (!updated[status]) updated[status] = []
-          updated[status].unshift(updatedOrder)
-
-          return updated
-        })
-      })
-    }
-
-    init()
-
-    return () => {
-      socket?.off("jobUpdated")
-    }
   }, [])
 
   /* ================= DRAG ================= */
   const handleDragEnd = async ({ active, over }) => {
-    // ✅ HARD GUARD (prevents crashes)
     if (!active?.id || !over?.id) return
 
-    const jobId = active.id
-    const newStatus = over.id
-
-    console.log("🔥 DRAGGING JOB ID:", jobId)
-
-    const previousJobs = structuredClone(jobs)
-
-    /* 🔥 OPTIMISTIC UI */
-    setJobs(prev => {
-      const updated = { ...prev }
-      let movedJob = null
-
-      Object.keys(updated).forEach(key => {
-        updated[key] = (updated[key] || []).filter(j => {
-          if (j._id === jobId) {
-            movedJob = { ...j, status: newStatus }
-            return false
-          }
-          return true
-        })
-      })
-
-      // ✅ SAFETY: only add if found
-      if (movedJob) {
-        if (!updated[newStatus]) updated[newStatus] = []
-        updated[newStatus].unshift(movedJob)
-      }
-
-      return updated
-    })
+    console.log("🔥 DRAGGING:", active.id)
 
     try {
-      // ✅ FINAL CORRECT ROUTE
-      await api.patch(`/orders/${jobId}/status`, {
-        status: newStatus
+      await api.patch(`/orders/${active.id}/status`, {
+        status: over.id
       })
 
-      console.log("✅ STATUS UPDATE SUCCESS")
+      console.log("✅ STATUS UPDATED")
 
     } catch (err) {
-      console.error("❌ STATUS UPDATE FAILED:", err)
-
-      // 🔥 ROLLBACK
-      setJobs(previousJobs)
-
-      toast.error("Update failed — reverted")
+      console.error("❌ DRAG ERROR:", err)
     }
   }
 
+  /* ================= LOADING ================= */
+  if (!jobs) {
+    return (
+      <div style={{ color: "white", padding: 40 }}>
+        ⏳ Loading Production Board...
+      </div>
+    )
+  }
+
+  /* ================= UI ================= */
   return (
-    <div style={{ padding: 20, background: "#020617", minHeight: "100vh" }}>
-      <NotificationPanel onSelectJob={setSelectedJob} />
+    <div style={{
+      padding: 20,
+      background: "#020617",
+      minHeight: "100vh",
+      color: "white"
+    }}>
+      <h1>🏭 Production Board</h1>
 
-      <h1 style={{ color: "white" }}>🏭 Production Board</h1>
-
-      <SummaryBar jobs={jobs || {}} />
-
-      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <DndContext
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
         <div style={{ display: "flex", gap: 20, marginTop: 20 }}>
-          {Object.entries(jobs || {}).map(([key, value]) => (
-            <Column
-              key={key}
-              id={key}
-              jobs={value || []}
-              onClick={setSelectedJob}
-            />
+
+          {Object.entries(jobs).map(([status, list]) => (
+            <div
+              key={status}
+              id={status}
+              style={{
+                minWidth: 220,
+                background: "#1e293b",
+                padding: 12,
+                borderRadius: 8
+              }}
+            >
+              <h3 style={{ marginBottom: 10 }}>{status}</h3>
+
+              {(list || []).map(job => (
+                <div
+                  key={job._id}
+                  id={job._id}
+                  style={{
+                    padding: 10,
+                    marginBottom: 10,
+                    background: "#334155",
+                    borderRadius: 6
+                  }}
+                >
+                  <div>{job.customerName || "No Name"}</div>
+                  <div style={{ fontSize: 12, opacity: 0.7 }}>
+                    #{job._id?.slice(-6)}
+                  </div>
+                </div>
+              ))}
+
+            </div>
           ))}
+
         </div>
       </DndContext>
-
-      {selectedJob && (
-        <JobModal
-          job={selectedJob}
-          onClose={() => setSelectedJob(null)}
-        />
-      )}
     </div>
   )
 }
