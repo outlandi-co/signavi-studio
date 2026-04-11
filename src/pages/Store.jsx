@@ -51,6 +51,4 @@ export default function Store() {
       )}
     </div>
   )
-}git add .
-git commit -m "debug store products"
-git push origin main
+}
