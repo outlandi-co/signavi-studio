@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import api from "../services/api"
 import useCart from "../hooks/useCart"
+import toast from "react-hot-toast"
 
 export default function Store() {
 
@@ -9,12 +10,17 @@ export default function Store() {
 
   const { addToCart } = useCart()
 
+  /* ================= LOAD PRODUCTS ================= */
   useEffect(() => {
     const load = async () => {
       try {
         const res = await api.get("/products")
 
-        const data = res.data.data || res.data || []
+        const data = Array.isArray(res.data?.data)
+          ? res.data.data
+          : Array.isArray(res.data)
+          ? res.data
+          : []
 
         console.log("🔥 PRODUCTS:", data)
 
@@ -30,6 +36,7 @@ export default function Store() {
     load()
   }, [])
 
+  /* ================= LOADING ================= */
   if (loading) {
     return (
       <div style={center}>
@@ -38,6 +45,7 @@ export default function Store() {
     )
   }
 
+  /* ================= UI ================= */
   return (
     <div style={container}>
       <h1 style={title}>🛒 Store</h1>
@@ -46,63 +54,74 @@ export default function Store() {
         <p style={{ color: "white" }}>No products found.</p>
       ) : (
         <div style={grid}>
-          {products.map(product => (
-            <div
-              key={product._id}
-              style={card}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "scale(1.05)"
-                e.currentTarget.style.boxShadow = "0 10px 25px rgba(0,0,0,0.5)"
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "scale(1)"
-                e.currentTarget.style.boxShadow = "none"
-              }}
-            >
+          {products.map(product => {
 
-              {/* IMAGE */}
-              <img
-                src={product.image || "/placeholder.png"}
-                alt={product.name}
-                style={image}
-                onError={(e) => {
-                  e.target.src = "/placeholder.png"
-                }}
-              />
+            const priceValue = Number(product.price || product.basePrice || 0)
+            const stock = Number(product.stock ?? 0)
+            const inStock = stock > 0
 
-              {/* NAME */}
-              <h3 style={{ color: "white" }}>
-                {product.name}
-              </h3>
-
-              {/* DESCRIPTION */}
-              <p style={{ color: "#94a3b8", fontSize: 13 }}>
-                {product.description || "No description"}
-              </p>
-
-              {/* PRICE */}
-              <p style={price}>
-                ${Number(product.price || product.basePrice || 0).toFixed(2)}
-              </p>
-
-              {/* STOCK */}
-              <p style={{ fontSize: 12, opacity: 0.6 }}>
-                Stock: {product.stock ?? 0}
-              </p>
-
-              {/* BUTTON */}
-              <button
-                style={button}
-                onClick={() => {
-                  console.log("🛒 ADDING:", product)
-                  addToCart(product)
-                }}
+            return (
+              <div
+                key={product._id}
+                className="product-card"
+                style={card}
               >
-                Add to Cart
-              </button>
 
-            </div>
-          ))}
+                {/* IMAGE */}
+                <img
+                  src={product.image || "/placeholder.png"}
+                  alt={product.name}
+                  style={image}
+                  onError={(e) => {
+                    e.target.src = "/placeholder.png"
+                  }}
+                />
+
+                {/* NAME */}
+                <h3 style={{ color: "white" }}>
+                  {product.name}
+                </h3>
+
+                {/* DESCRIPTION */}
+                <p style={{ color: "#94a3b8", fontSize: 13 }}>
+                  {product.description || "No description"}
+                </p>
+
+                {/* PRICE */}
+                <p style={price}>
+                  ${priceValue.toFixed(2)}
+                </p>
+
+                {/* STOCK */}
+                <p style={{ fontSize: 12, opacity: 0.6 }}>
+                  {inStock ? `Stock: ${stock}` : "Out of Stock"}
+                </p>
+
+                {/* BUTTON */}
+                <button
+                  style={{
+                    ...button,
+                    opacity: inStock ? 1 : 0.5,
+                    cursor: inStock ? "pointer" : "not-allowed"
+                  }}
+                  disabled={!inStock}
+                  onClick={() => {
+                    addToCart(product)
+                    toast.success(`${product.name} added to cart`)
+                  }}
+                  onMouseEnter={(e) => {
+                    if (inStock) e.currentTarget.style.transform = "scale(1.05)"
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "scale(1)"
+                  }}
+                >
+                  Add to Cart
+                </button>
+
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
@@ -129,12 +148,10 @@ const grid = {
 }
 
 const card = {
-  background: "#020617",
-  border: "1px solid #1e293b",
   borderRadius: 12,
   padding: 15,
   textAlign: "center",
-  transition: "all 0.25s ease",
+  transition: "transform 0.25s ease, box-shadow 0.25s ease",
   cursor: "pointer"
 }
 
@@ -158,9 +175,9 @@ const button = {
   borderRadius: 6,
   background: "#06b6d4",
   border: "none",
-  cursor: "pointer",
   color: "black",
-  fontWeight: "bold"
+  fontWeight: "bold",
+  transition: "transform 0.2s ease"
 }
 
 const center = {
