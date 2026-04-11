@@ -75,56 +75,44 @@ function AppContent() {
   const [cartOpen, setCartOpen] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
 
-  /* ================= ✅ CENTRALIZED CHECKOUT ================= */
-const handleCheckout = async (cart) => {
-  if (isRedirecting) return
+  /* ================= CHECKOUT ================= */
+  const handleCheckout = async (cart) => {
+    if (isRedirecting) return
 
-  try {
-    setIsRedirecting(true)
+    try {
+      setIsRedirecting(true)
 
-    console.log("🛒 Starting checkout...")
+      const res = await api.post("/stripe/create-cart-session", {
+        items: cart
+      })
 
-    const timeout = setTimeout(() => {
-      console.warn("⏳ Backend taking too long...")
-    }, 5000)
+      if (!res?.data?.url) {
+        throw new Error("No checkout URL returned")
+      }
 
-    const res = await api.post("/stripe/create-cart-session", {
-      items: cart
-    })
+      window.location.assign(res.data.url)
 
-    clearTimeout(timeout)
+    } catch (err) {
+      console.error("❌ CHECKOUT ERROR:", err)
+      alert("Server waking up... try again.")
 
-    if (!res?.data?.url) {
-      throw new Error("No checkout URL returned")
+      setIsRedirecting(false)
     }
-
-    console.log("🚀 Redirecting:", res.data.url)
-
-    window.location.assign(res.data.url)
-
-  } catch (err) {
-    console.error("❌ CHECKOUT ERROR:", err)
-    alert("Server is waking up... try again in a few seconds.")
-
-    setIsRedirecting(false)
   }
-}
 
-  /* ================= NAVBAR CONTROL ================= */
+  /* ================= NAVBAR ================= */
   const hideNavbarRoutes = [
     "/login",
     "/customer-login",
     "/customer-register",
-    "/quote",
     "/success",
-    "/checkout",
-    "/order"
+    "/checkout"
   ]
 
   const shouldHideNavbar =
     hideNavbarRoutes.some(route => path.startsWith(route))
 
-  /* ================= AUTO AUTH ================= */
+  /* ================= AUTH CHECK ================= */
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem("adminToken")
@@ -148,7 +136,6 @@ const handleCheckout = async (cart) => {
         <Navbar setCartOpen={setCartOpen} />
       )}
 
-      {/* 🔥 CART DRAWER CONNECTED TO APP CHECKOUT */}
       <CartDrawer
         isOpen={cartOpen}
         onClose={() => setCartOpen(false)}
@@ -162,73 +149,36 @@ const handleCheckout = async (cart) => {
           <Route path="/" element={<Home />} />
           <Route path="/store" element={<Store setCartOpen={setCartOpen} />} />
           <Route path="/product/:id" element={<ProductDetail />} />
-          <Route path="/cart" element={<Cart />} />
 
           {/* AUTH */}
           <Route path="/login" element={<Login />} />
 
-          {/* CUSTOMER */}
+          {/* CUSTOMER PUBLIC */}
           <Route path="/customer-login" element={<CustomerLogin />} />
           <Route path="/customer-register" element={<CustomerRegister />} />
-          <Route path="/submit" element={<CustomQuote />} />
 
-          <Route
-            path="/dashboard"
-            element={
-              <CustomerRoute>
-                <CustomerDashboard />
-              </CustomerRoute>
-            }
-          />
+          {/* 🔥 FIXED CUSTOMER ROUTES */}
+          <Route element={<CustomerRoute />}>
+            <Route path="/dashboard" element={<CustomerDashboard />} />
+            <Route path="/order/:id" element={<OrderDetail />} />
+          </Route>
 
-          <Route
-            path="/order/:id"
-            element={
-              <CustomerRoute>
-                <OrderDetail />
-              </CustomerRoute>
-            }
-          />
-
-          {/* TRACK */}
-          <Route path="/track" element={<TrackOrder />} />
+          {/* OTHER */}
           <Route path="/track/:id" element={<TrackOrder />} />
-
-          {/* CLIENT */}
           <Route path="/client-order/:id" element={<ClientOrder />} />
           <Route path="/quote/:id" element={<QuoteResponse />} />
-
-          {/* CHECKOUT PAGE (optional flow) */}
           <Route path="/checkout/:id" element={<Checkout />} />
-
-          {/* SUCCESS */}
-          <Route path="/success" element={<Success />} />
           <Route path="/success/:id" element={<Success />} />
-
-          {/* APPROVAL */}
           <Route path="/approve/:id" element={<ApproveMockup />} />
 
-          {/* ADMIN */}
+          {/* 🔥 FIXED ADMIN ROUTES */}
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminLayout />}>
-
               <Route index element={<Dashboard />} />
-              <Route path="dashboard" element={<Dashboard />} />
               <Route path="production" element={<ProductionBoard />} />
-              <Route path="quotes" element={<AdminQuotes />} />
               <Route path="orders" element={<Orders />} />
-
-              <Route path="customers">
-                <Route index element={<AdminCustomers />} />
-                <Route path=":id" element={<CustomerDetail />} />
-              </Route>
-
-              <Route path="pricing" element={<AdminPricing />} />
-              <Route path="inventory" element={<AdminInventory />} />
-              <Route path="mockups" element={<AdminMockups />} />
-              <Route path="analytics" element={<AnalyticsPanel />} />
+              <Route path="customers" element={<AdminCustomers />} />
               <Route path="revenue" element={<AdminRevenue />} />
-
             </Route>
           </Route>
 
