@@ -28,9 +28,13 @@ export default function ProductionBoard() {
     try {
       loadingRef.current = true
       const res = await api.get("/production")
-      setJobs(res.data)
+
+      // ✅ SAFETY: never allow undefined
+      setJobs(res?.data || {})
+
     } catch (err) {
       console.error("❌ LOAD ERROR:", err)
+      setJobs({})
     } finally {
       loadingRef.current = false
     }
@@ -53,7 +57,9 @@ export default function ProductionBoard() {
           const updated = { ...prev }
 
           Object.keys(updated).forEach(key => {
-            updated[key] = updated[key].filter(j => j._id !== updatedOrder._id)
+            updated[key] = (updated[key] || []).filter(
+              j => j._id !== updatedOrder._id
+            )
           })
 
           const status = normalizeStatus(updatedOrder)
@@ -75,15 +81,11 @@ export default function ProductionBoard() {
 
   /* ================= DRAG ================= */
   const handleDragEnd = async ({ active, over }) => {
-    if (!over) return
+    // ✅ HARD GUARD (prevents crashes)
+    if (!active?.id || !over?.id) return
 
     const jobId = active.id
     const newStatus = over.id
-
-    if (!jobId) {
-      console.error("❌ NO JOB ID FOUND")
-      return
-    }
 
     console.log("🔥 DRAGGING JOB ID:", jobId)
 
@@ -95,7 +97,7 @@ export default function ProductionBoard() {
       let movedJob = null
 
       Object.keys(updated).forEach(key => {
-        updated[key] = updated[key].filter(j => {
+        updated[key] = (updated[key] || []).filter(j => {
           if (j._id === jobId) {
             movedJob = { ...j, status: newStatus }
             return false
@@ -104,15 +106,18 @@ export default function ProductionBoard() {
         })
       })
 
-      if (!updated[newStatus]) updated[newStatus] = []
-      updated[newStatus].unshift(movedJob)
+      // ✅ SAFETY: only add if found
+      if (movedJob) {
+        if (!updated[newStatus]) updated[newStatus] = []
+        updated[newStatus].unshift(movedJob)
+      }
 
       return updated
     })
 
     try {
-      /* ✅ FIXED ROUTE */
-      await api.patch(`/orders/status/${jobId}`, {
+      // ✅ FINAL CORRECT ROUTE
+      await api.patch(`/orders/${jobId}/status`, {
         status: newStatus
       })
 
@@ -121,7 +126,7 @@ export default function ProductionBoard() {
     } catch (err) {
       console.error("❌ STATUS UPDATE FAILED:", err)
 
-      /* 🔥 ROLLBACK UI */
+      // 🔥 ROLLBACK
       setJobs(previousJobs)
 
       toast.error("Update failed — reverted")
@@ -134,15 +139,15 @@ export default function ProductionBoard() {
 
       <h1 style={{ color: "white" }}>🏭 Production Board</h1>
 
-      <SummaryBar jobs={jobs} />
+      <SummaryBar jobs={jobs || {}} />
 
       <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <div style={{ display: "flex", gap: 20, marginTop: 20 }}>
-          {Object.entries(jobs).map(([key, value]) => (
+          {Object.entries(jobs || {}).map(([key, value]) => (
             <Column
               key={key}
               id={key}
-              jobs={value}
+              jobs={value || []}
               onClick={setSelectedJob}
             />
           ))}
@@ -150,7 +155,10 @@ export default function ProductionBoard() {
       </DndContext>
 
       {selectedJob && (
-        <JobModal job={selectedJob} onClose={() => setSelectedJob(null)} />
+        <JobModal
+          job={selectedJob}
+          onClose={() => setSelectedJob(null)}
+        />
       )}
     </div>
   )
