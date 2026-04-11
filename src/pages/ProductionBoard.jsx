@@ -7,7 +7,6 @@ import toast from "react-hot-toast"
 import NotificationPanel from "../components/NotificationPanel"
 import { Column, SummaryBar } from "../components/ProductionUI"
 
-// ✅ NEW SOCKET SERVICE
 import { getSocket } from "../services/socket"
 
 const normalizeStatus = (job) => {
@@ -47,7 +46,6 @@ export default function ProductionBoard() {
 
     const init = async () => {
       socket = await getSocket()
-
       if (!socket) return
 
       socket.on("jobUpdated", (updatedOrder) => {
@@ -91,6 +89,7 @@ export default function ProductionBoard() {
 
     const previousJobs = structuredClone(jobs)
 
+    /* 🔥 OPTIMISTIC UI */
     setJobs(prev => {
       const updated = { ...prev }
       let movedJob = null
@@ -112,12 +111,19 @@ export default function ProductionBoard() {
     })
 
     try {
-      await api.patch(`/orders/${jobId}/status`, {
+      /* ✅ FIXED ROUTE */
+      await api.patch(`/orders/status/${jobId}`, {
         status: newStatus
       })
+
+      console.log("✅ STATUS UPDATE SUCCESS")
+
     } catch (err) {
       console.error("❌ STATUS UPDATE FAILED:", err)
+
+      /* 🔥 ROLLBACK UI */
       setJobs(previousJobs)
+
       toast.error("Update failed — reverted")
     }
   }
