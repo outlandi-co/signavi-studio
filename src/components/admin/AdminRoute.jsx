@@ -1,23 +1,26 @@
+
 import { Navigate, Outlet } from "react-router-dom"
 
-function getAdmin() {
-  try {
-    return JSON.parse(localStorage.getItem("adminUser") || "null")
-  } catch {
-    return null
-  }
-}
-
 export default function AdminRoute() {
-  const admin = getAdmin()
-  const token = localStorage.getItem("adminToken")
 
-  if (!token || !admin) {
-    return <Navigate to="/login" replace />
+  let adminUser = null
+
+  try {
+    adminUser = JSON.parse(localStorage.getItem("adminUser"))
+  } catch (err) {
+    console.warn("⚠️ Failed to parse adminUser:", err)
   }
 
-  if (admin.role !== "admin") {
-    return <Navigate to="/" replace />
+  const adminToken = localStorage.getItem("adminToken")
+
+  console.log("🔐 AdminRoute Check:", {
+    adminUser,
+    adminToken
+  })
+
+  if (!adminUser || !adminToken) {
+    console.warn("🚫 Admin blocked → redirecting to login")
+    return <Navigate to="/login" replace />
   }
 
   return <Outlet />

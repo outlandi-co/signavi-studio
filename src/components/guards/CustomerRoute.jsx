@@ -1,39 +1,26 @@
-import { Navigate, useLocation } from "react-router-dom"
+import { Navigate, Outlet } from "react-router-dom"
 
-export default function CustomerRoute({ children }) {
+export default function CustomerRoute() {
 
-  const location = useLocation()
-
-  /* 🔥 CUSTOMER-ONLY STORAGE */
-  const token = localStorage.getItem("customerToken")
-
-  let customer = null
+  let customerUser = null
 
   try {
-    customer = JSON.parse(localStorage.getItem("customerUser") || "null")
+    customerUser = JSON.parse(localStorage.getItem("customerUser"))
   } catch (err) {
-    console.error("❌ CUSTOMER PARSE ERROR:", err)
-    customer = null
+    console.warn("⚠️ Failed to parse customerUser:", err)
   }
 
-  /* ================= NOT LOGGED IN ================= */
-  if (!token || !customer) {
-    return (
-      <Navigate
-        to="/customer-login"
-        state={{ from: location }}
-        replace
-      />
-    )
+  const customerToken = localStorage.getItem("customerToken")
+
+  console.log("👤 CustomerRoute Check:", {
+    customerUser,
+    customerToken
+  })
+
+  if (!customerUser || !customerToken) {
+    console.warn("🚫 Customer blocked → redirecting to login")
+    return <Navigate to="/customer-login" replace />
   }
 
-  /* ================= WRONG ROLE ================= */
-  if (customer.role !== "customer") {
-    console.warn("⚠️ NON-CUSTOMER ACCESS BLOCKED:", customer)
-
-    return <Navigate to="/" replace />
-  }
-
-  /* ================= AUTHORIZED ================= */
-  return children
+  return <Outlet />
 }

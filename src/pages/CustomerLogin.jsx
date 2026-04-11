@@ -1,47 +1,129 @@
-import axios from "axios"
+import { useState } from "react"
+import { useNavigate } from "react-router-dom"
+import api from "../../services/api"
 
-const BASE_URL =
-  import.meta.env.VITE_API_URL || "https://signavi-backend.onrender.com/api"
+export default function CustomerLogin() {
 
-const normalizedBase = BASE_URL.replace(/\/$/, "")
+  const navigate = useNavigate()
 
-const api = axios.create({
-  baseURL: normalizedBase
-})
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
 
-console.log("🌐 API BASE:", api.defaults.baseURL)
+  /* ================= LOGIN ================= */
+  const handleLogin = async () => {
+    if (loading) return
 
-/* 🔥 FIXED TOKEN SYSTEM */
-api.interceptors.request.use((config) => {
+    try {
+      setLoading(true)
 
-  const adminToken = localStorage.getItem("adminToken")
-  const customerToken = localStorage.getItem("customerToken")
+      console.log("🔥 CUSTOMER LOGIN REQUEST")
 
-  /* PRIORITY: admin > customer */
-  const token = adminToken || customerToken
+      const res = await api.post("/auth/login", {
+        email,
+        password
+      })
 
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+      console.log("✅ LOGIN RESPONSE:", res.data)
+
+      if (!res.data?.token || !res.data?.user) {
+        throw new Error("Invalid login response")
+      }
+
+      const { token, user } = res.data
+
+      /* 🔥 FIXED STORAGE SYSTEM */
+      localStorage.setItem("customerToken", token)
+      localStorage.setItem("customerUser", JSON.stringify(user))
+
+      /* OPTIONAL: clear admin session */
+      localStorage.removeItem("adminToken")
+      localStorage.removeItem("adminUser")
+
+      console.log("✅ CUSTOMER LOGGED IN:", user)
+
+      navigate("/store")
+
+    } catch (err) {
+      console.error("❌ CUSTOMER LOGIN ERROR:", err)
+
+      alert(
+        "Login failed. Server may be waking up — try again in a few seconds."
+      )
+
+    } finally {
+      setLoading(false)
+    }
   }
 
-  console.log("🔥 REQUEST:", config.baseURL + config.url)
+  return (
+    <div style={wrap}>
 
-  return config
-})
+      <div style={card}>
+        <h2>Customer Login</h2>
 
-api.interceptors.response.use(
-  (res) => {
-    console.log("✅ RESPONSE:", res.config.url, res.data)
-    return res
-  },
-  (err) => {
-    console.error(
-      "❌ API ERROR:",
-      err?.response?.status,
-      err?.config?.baseURL + err?.config?.url
-    )
-    return Promise.reject(err)
-  }
-)
+        <input
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email"
+          style={input}
+        />
 
-export default api
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Password"
+          style={input}
+        />
+
+        <button
+          onClick={handleLogin}
+          disabled={loading}
+          style={btn}
+        >
+          {loading ? "Logging in..." : "Login"}
+        </button>
+
+      </div>
+
+    </div>
+  )
+}
+
+/* ================= STYLES ================= */
+
+const wrap = {
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  height: "80vh",
+  color: "white"
+}
+
+const card = {
+  background: "#020617",
+  padding: 30,
+  borderRadius: 12,
+  width: 300,
+  display: "flex",
+  flexDirection: "column",
+  gap: 10
+}
+
+const input = {
+  padding: 10,
+  borderRadius: 6,
+  background: "#0f172a",
+  color: "white",
+  border: "1px solid #1e293b"
+}
+
+const btn = {
+  padding: 10,
+  background: "#22c55e",
+  border: "none",
+  borderRadius: 6,
+  color: "white",
+  cursor: "pointer"
+}

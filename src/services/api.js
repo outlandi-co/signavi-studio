@@ -1,16 +1,16 @@
 import axios from "axios"
 
-const BASE_URL = "https://signavi-backend.onrender.com/api"
-
-const normalizedBase = BASE_URL.replace(/\/$/, "")
+const BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://signavi-backend.onrender.com/api"
 
 const api = axios.create({
-  baseURL: normalizedBase
+  baseURL: BASE_URL.replace(/\/$/, "")
 })
 
 console.log("🌐 API BASE:", api.defaults.baseURL)
 
-/* ================= TOKEN HANDLING ================= */
+/* ================= REQUEST ================= */
 api.interceptors.request.use((config) => {
 
   const adminToken = localStorage.getItem("adminToken")
@@ -34,12 +34,14 @@ api.interceptors.response.use(
     return res
   },
   (err) => {
+
     console.error(
       "❌ API ERROR:",
       err?.response?.status,
       err?.config?.baseURL + err?.config?.url
     )
 
+    // 🔥 AUTO CLEANUP ON AUTH FAIL
     if (err?.response?.status === 401) {
       localStorage.removeItem("adminToken")
       localStorage.removeItem("adminUser")

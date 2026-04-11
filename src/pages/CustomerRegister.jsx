@@ -14,32 +14,57 @@ export default function CustomerRegister() {
 
   const [loading, setLoading] = useState(false)
 
+  /* ================= HANDLE INPUT ================= */
   const handleChange = (e) => {
-    setForm({
-      ...form,
+    setForm(prev => ({
+      ...prev,
       [e.target.name]: e.target.value
-    })
+    }))
   }
 
+  /* ================= SUBMIT ================= */
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setLoading(true)
+
+    if (loading) return
 
     try {
+      setLoading(true)
+
+      console.log("🔥 CUSTOMER REGISTER REQUEST")
+
       const res = await api.post("/auth/register", {
         ...form,
         role: "customer"
       })
 
-      localStorage.setItem("token", res.data.token)
-      localStorage.setItem("user", JSON.stringify(res.data.user))
-      localStorage.setItem("userEmail", res.data.user.email)
+      console.log("✅ REGISTER RESPONSE:", res.data)
+
+      if (!res.data?.token || !res.data?.user) {
+        throw new Error("Invalid server response")
+      }
+
+      const { token, user } = res.data
+
+      /* ================= 🔥 FIXED AUTH STORAGE ================= */
+      localStorage.setItem("customerToken", token)
+      localStorage.setItem("customerUser", JSON.stringify(user))
+
+      /* OPTIONAL: clear admin if switching */
+      localStorage.removeItem("adminToken")
+      localStorage.removeItem("adminUser")
+
+      console.log("✅ CUSTOMER STORED:", user)
 
       navigate("/store")
 
     } catch (err) {
-      console.error(err)
-      alert("Registration failed")
+      console.error("❌ REGISTER ERROR:", err)
+
+      alert(
+        "Registration failed. Server may be waking up — try again in a few seconds."
+      )
+
     } finally {
       setLoading(false)
     }
@@ -51,11 +76,36 @@ export default function CustomerRegister() {
 
         <h2>Create Account</h2>
 
-        <input name="name" placeholder="Name" onChange={handleChange} style={input} />
-        <input name="email" placeholder="Email" onChange={handleChange} style={input} />
-        <input name="password" type="password" placeholder="Password" onChange={handleChange} style={input} />
+        <input
+          name="name"
+          placeholder="Name"
+          value={form.name}
+          onChange={handleChange}
+          style={input}
+        />
 
-        <button type="submit" style={btn}>
+        <input
+          name="email"
+          placeholder="Email"
+          value={form.email}
+          onChange={handleChange}
+          style={input}
+        />
+
+        <input
+          name="password"
+          type="password"
+          placeholder="Password"
+          value={form.password}
+          onChange={handleChange}
+          style={input}
+        />
+
+        <button
+          type="submit"
+          style={btn}
+          disabled={loading}
+        >
           {loading ? "Creating..." : "Register"}
         </button>
 
@@ -63,6 +113,8 @@ export default function CustomerRegister() {
     </div>
   )
 }
+
+/* ================= STYLES ================= */
 
 const wrap = {
   display: "flex",
@@ -86,12 +138,15 @@ const input = {
   padding: 10,
   borderRadius: 6,
   background: "#0f172a",
-  color: "white"
+  color: "white",
+  border: "1px solid #1e293b"
 }
 
 const btn = {
   padding: 10,
   background: "#22c55e",
   border: "none",
-  borderRadius: 6
+  borderRadius: 6,
+  color: "white",
+  cursor: "pointer"
 }
