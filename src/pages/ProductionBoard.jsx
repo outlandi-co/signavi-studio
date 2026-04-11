@@ -14,8 +14,8 @@ export default function ProductionBoard() {
 
         console.log("🔥 PRODUCTION DATA:", res.data)
 
-        // ✅ ALWAYS SAFE OBJECT
-        if (res && res.data && typeof res.data === "object") {
+        // ✅ FORCE SAFE OBJECT
+        if (res?.data && typeof res.data === "object") {
           setJobs(res.data)
         } else {
           console.warn("⚠️ Unexpected data format")
@@ -33,13 +33,17 @@ export default function ProductionBoard() {
 
   /* ================= DRAG ================= */
   const handleDragEnd = async ({ active, over }) => {
+    // ✅ HARD GUARD (prevents crash)
     if (!active?.id || !over?.id) return
 
-    console.log("🔥 DRAGGING:", active.id)
+    const jobId = active.id
+    const newStatus = over.id
+
+    console.log("🔥 DRAGGING:", jobId)
 
     try {
-      await api.patch(`/orders/${active.id}/status`, {
-        status: over.id
+      await api.patch(`/orders/${jobId}/status`, {
+        status: newStatus
       })
 
       console.log("✅ STATUS UPDATED")
@@ -52,7 +56,12 @@ export default function ProductionBoard() {
   /* ================= LOADING ================= */
   if (!jobs) {
     return (
-      <div style={{ color: "white", padding: 40 }}>
+      <div style={{
+        background: "#020617",
+        color: "white",
+        minHeight: "100vh",
+        padding: 40
+      }}>
         ⏳ Loading Production Board...
       </div>
     )
@@ -66,28 +75,41 @@ export default function ProductionBoard() {
       minHeight: "100vh",
       color: "white"
     }}>
-      <h1>🏭 Production Board</h1>
+      <h1 style={{ marginBottom: 20 }}>🏭 Production Board</h1>
 
       <DndContext
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
       >
-        <div style={{ display: "flex", gap: 20, marginTop: 20 }}>
+        <div style={{
+          display: "flex",
+          gap: 20,
+          marginTop: 20,
+          alignItems: "flex-start",
+          flexWrap: "wrap" // ✅ prevents layout break
+        }}>
 
-          {Object.entries(jobs).map(([status, list]) => (
+          {Object.entries(jobs || {}).map(([status, list]) => (
             <div
               key={status}
               id={status}
               style={{
-                minWidth: 220,
+                minWidth: 240,
+                maxWidth: 260,
                 background: "#1e293b",
                 padding: 12,
-                borderRadius: 8
+                borderRadius: 8,
+                flexShrink: 0
               }}
             >
-              <h3 style={{ marginBottom: 10 }}>{status}</h3>
+              <h3 style={{
+                marginBottom: 10,
+                textTransform: "capitalize"
+              }}>
+                {status}
+              </h3>
 
-              {(list || []).map(job => (
+              {(Array.isArray(list) ? list : []).map(job => (
                 <div
                   key={job._id}
                   id={job._id}
@@ -95,11 +117,18 @@ export default function ProductionBoard() {
                     padding: 10,
                     marginBottom: 10,
                     background: "#334155",
-                    borderRadius: 6
+                    borderRadius: 6,
+                    cursor: "grab"
                   }}
                 >
-                  <div>{job.customerName || "No Name"}</div>
-                  <div style={{ fontSize: 12, opacity: 0.7 }}>
+                  <div style={{ fontWeight: "bold" }}>
+                    {job.customerName || "No Name"}
+                  </div>
+
+                  <div style={{
+                    fontSize: 12,
+                    opacity: 0.7
+                  }}>
                     #{job._id?.slice(-6)}
                   </div>
                 </div>
