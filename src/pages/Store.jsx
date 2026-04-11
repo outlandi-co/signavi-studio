@@ -18,12 +18,16 @@ export default function Store() {
 
         console.log("🔥 RAW RESPONSE:", res.data)
 
-        // ✅ ALWAYS FORCE ARRAY
-        const safeProducts = Array.isArray(res.data)
-          ? res.data
-          : Array.isArray(res.data?.data)
-          ? res.data.data
-          : []
+        // ✅ FORCE SAFE ARRAY
+        let safeProducts = []
+
+        if (Array.isArray(res.data)) {
+          safeProducts = res.data
+        } else if (Array.isArray(res.data?.data)) {
+          safeProducts = res.data.data
+        }
+
+        console.log("🧪 SAFE PRODUCTS:", safeProducts)
 
         setProducts(safeProducts)
 
@@ -47,8 +51,17 @@ export default function Store() {
     )
   }
 
+  /* ================= FAIL SAFE ================= */
+  if (!Array.isArray(products)) {
+    return (
+      <div style={center}>
+        <h2 style={{ color: "red" }}>⚠️ Data error</h2>
+      </div>
+    )
+  }
+
   /* ================= EMPTY ================= */
-  if (!products.length) {
+  if (products.length === 0) {
     return (
       <div style={center}>
         <h2 style={{ color: "white" }}>No products found.</h2>
