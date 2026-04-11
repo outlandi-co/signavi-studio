@@ -1,212 +1,147 @@
 import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
 import api from "../services/api"
-import useCart from "../hooks/useCart"
 
-const BASE_URL =
-  (import.meta.env.VITE_API_URL || "https://signavi-backend.onrender.com/api")
-    .replace("/api", "")
-
-export default function Store({ setCartOpen }) {
+export default function Store() {
 
   const [products, setProducts] = useState([])
-  const [category, setCategory] = useState("all")
+  const [loading, setLoading] = useState(true)
 
-  const navigate = useNavigate()
-
-  /* 🔥 CORRECT CONTEXT USAGE */
-  const { addToCart } = useCart()
-
-  /* ================= LOAD ================= */
   useEffect(() => {
     const load = async () => {
       try {
         const res = await api.get("/products")
-        setProducts(res.data)
+
+        // 🔥 HANDLE BOTH BACKEND FORMATS
+        const data = res.data.data || res.data || []
+
+        console.log("🔥 PRODUCTS:", data)
+
+        setProducts(data)
+
       } catch (err) {
-        console.error("❌ PRODUCT LOAD ERROR:", err)
+        console.error("❌ STORE LOAD ERROR:", err)
+      } finally {
+        setLoading(false)
       }
     }
+
     load()
   }, [])
 
-  const filtered =
-    category === "all"
-      ? products
-      : products.filter(p => p.category === category)
-
-  const getImage = (p) => {
-    if (!p.image) return "/placeholder.png"
-    return `${BASE_URL}/${p.image}`
+  if (loading) {
+    return (
+      <div style={center}>
+        <h2 style={{ color: "white" }}>Loading products...</h2>
+      </div>
+    )
   }
 
   return (
-    <div style={{ padding: 20 }}>
+    <div style={container}>
+      <h1 style={title}>🛒 Store</h1>
 
-      <h1 style={{ color: "white", fontSize: "28px", marginBottom: "20px" }}>
-        🛍 Store
-      </h1>
+      {products.length === 0 ? (
+        <p style={{ color: "white" }}>No products found.</p>
+      ) : (
+        <div style={grid}>
+          {products.map(product => (
+            <div key={product._id} style={card}>
 
-      {/* FILTER */}
-      <select
-        value={category}
-        onChange={(event) => setCategory(event.target.value)}
-        style={select}
-      >
-        <option value="all">All</option>
-        <option value="shirts">Shirts</option>
-        <option value="hats">Hats</option>
-        <option value="stickers">Stickers</option>
-        <option value="prints">Prints</option>
-      </select>
+              {/* IMAGE SAFE FALLBACK */}
+              <img
+                src={product.image || "/placeholder.png"}
+                alt={product.name}
+                style={image}
+                onError={(e) => {
+                  e.target.src = "/placeholder.png"
+                }}
+              />
 
-      {/* GRID */}
-      <div style={grid}>
+              <h3 style={{ color: "white" }}>
+                {product.name}
+              </h3>
 
-        {filtered.map(p => (
-          <div
-            key={p._id}
-            onClick={() => navigate(`/product/${p._id}`)}
-            style={card}
-            onMouseEnter={(event) => {
-              event.currentTarget.style.transform = "scale(1.04)"
-              event.currentTarget.style.boxShadow = "0 12px 30px rgba(0,0,0,0.8)"
-            }}
-            onMouseLeave={(event) => {
-              event.currentTarget.style.transform = "scale(1)"
-              event.currentTarget.style.boxShadow = card.boxShadow
-            }}
-          >
+              <p style={{ color: "#94a3b8", fontSize: 13 }}>
+                {product.description}
+              </p>
 
-            {/* IMAGE */}
-            <img
-              src={getImage(p)}
-              alt={p.name}
-              style={image}
-              onError={(event) => {
-                event.currentTarget.src = "/placeholder.png"
-              }}
-              onMouseEnter={(event) => {
-                event.currentTarget.style.transform = "scale(1.1)"
-              }}
-              onMouseLeave={(event) => {
-                event.currentTarget.style.transform = "scale(1)"
-              }}
-            />
+              <p style={price}>
+                ${Number(product.price || product.basePrice || 0).toFixed(2)}
+              </p>
 
-            {/* TITLE */}
-            <h3 style={title}>{p.name}</h3>
+              {/* STOCK DISPLAY (no filtering) */}
+              <p style={{ fontSize: 12, opacity: 0.6 }}>
+                Stock: {product.stock ?? 0}
+              </p>
 
-            {/* DESC */}
-            <p style={desc}>{p.description}</p>
+              <button style={button}>
+                Add to Cart
+              </button>
 
-            {/* PRICE */}
-            <p style={price}>
-              {p.price
-                ? `$${Number(p.price).toFixed(2)}`
-                : "Contact"}
-            </p>
-
-            {/* 🔥 FINAL BUTTON FIX */}
-            <button
-              onClick={(event) => {
-                event.stopPropagation()
-
-                try {
-                  addToCart(p)
-
-                  if (setCartOpen) {
-                    setCartOpen(true)
-                  }
-
-                } catch (err) {
-                  console.error("❌ CART ERROR:", err)
-                }
-              }}
-              style={button}
-              onMouseEnter={(event) => {
-                event.currentTarget.style.transform = "scale(1.05)"
-              }}
-              onMouseLeave={(event) => {
-                event.currentTarget.style.transform = "scale(1)"
-              }}
-            >
-              🛒 Add to Cart
-            </button>
-
-          </div>
-        ))}
-
-      </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
 /* ================= STYLES ================= */
 
-const grid = {
-  display: "grid",
-  gap: "20px",
-  gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))"
-}
-
-const card = {
+const container = {
+  padding: 20,
   background: "#020617",
-  padding: "16px",
-  borderRadius: "14px",
-  border: "1px solid rgba(255,255,255,0.08)",
-  boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
-  cursor: "pointer",
-  transition: "all 0.25s ease"
-}
-
-const image = {
-  width: "100%",
-  height: "220px",
-  objectFit: "cover",
-  borderRadius: "10px",
-  transition: "transform 0.3s ease"
+  minHeight: "100vh"
 }
 
 const title = {
   color: "white",
-  marginTop: "12px",
-  fontSize: "18px",
-  fontWeight: "600"
+  marginBottom: 20
 }
 
-const desc = {
-  color: "#94a3b8",
-  fontSize: "13px",
-  marginTop: "4px"
+const grid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
+  gap: 20
+}
+
+const card = {
+  background: "#020617",
+  border: "1px solid #1e293b",
+  borderRadius: 12,
+  padding: 15,
+  textAlign: "center"
+}
+
+const image = {
+  width: "100%",
+  height: 200,
+  objectFit: "cover",
+  borderRadius: 8,
+  marginBottom: 10
 }
 
 const price = {
-  color: "#22d3ee",
+  color: "#22c55e",
   fontWeight: "bold",
-  marginTop: "8px",
-  fontSize: "16px"
+  marginTop: 10
 }
 
 const button = {
+  marginTop: 10,
+  padding: "8px 12px",
+  borderRadius: 6,
   background: "#06b6d4",
-  color: "#fff",
-  width: "100%",
-  padding: "10px",
-  borderRadius: "8px",
-  marginTop: "12px",
   border: "none",
-  fontWeight: "600",
-  boxShadow: "0 4px 12px rgba(6,182,212,0.4)",
   cursor: "pointer",
-  transition: "all 0.2s ease"
+  color: "black",
+  fontWeight: "bold"
 }
 
-const select = {
-  marginBottom: 20,
-  padding: "10px",
-  borderRadius: "8px",
-  background: "#020617",
-  color: "#fff",
-  border: "1px solid rgba(255,255,255,0.1)"
+const center = {
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  height: "100vh",
+  background: "#020617"
 }
