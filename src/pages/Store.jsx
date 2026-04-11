@@ -16,18 +16,20 @@ export default function Store() {
       try {
         const res = await api.get("/products")
 
-        const data = Array.isArray(res.data?.data)
-          ? res.data.data
-          : Array.isArray(res.data)
+        console.log("🔥 RAW RESPONSE:", res.data)
+
+        // ✅ ALWAYS FORCE ARRAY
+        const safeProducts = Array.isArray(res.data)
           ? res.data
+          : Array.isArray(res.data?.data)
+          ? res.data.data
           : []
 
-        console.log("🔥 PRODUCTS:", data)
-
-        setProducts(data)
+        setProducts(safeProducts)
 
       } catch (err) {
         console.error("❌ STORE LOAD ERROR:", err)
+        setProducts([])
       } finally {
         setLoading(false)
       }
@@ -40,7 +42,16 @@ export default function Store() {
   if (loading) {
     return (
       <div style={center}>
-        <h2 style={{ color: "white" }}>Loading products...</h2>
+        <h2 style={{ color: "white" }}>⏳ Loading products...</h2>
+      </div>
+    )
+  }
+
+  /* ================= EMPTY ================= */
+  if (!products.length) {
+    return (
+      <div style={center}>
+        <h2 style={{ color: "white" }}>No products found.</h2>
       </div>
     )
   }
@@ -50,83 +61,63 @@ export default function Store() {
     <div style={container}>
       <h1 style={title}>🛒 Store</h1>
 
-      {products.length === 0 ? (
-        <p style={{ color: "white" }}>No products found.</p>
-      ) : (
-        <div style={grid}>
-          {products.map(product => {
+      <div style={grid}>
+        {products.map(product => {
 
-            const priceValue = Number(product.price || product.basePrice || 0)
-            const stock = Number(product.stock ?? 0)
-            const inStock = stock > 0
+          const priceValue = Number(product.price || 0)
+          const stock = Number(product.stock ?? 0)
+          const inStock = stock > 0
 
-            return (
-              <div
-                key={product._id}
-                className="product-card"
-                style={card}
+          return (
+            <div key={product._id} style={card}>
+
+              {/* IMAGE */}
+              {product.image ? (
+                <img src={product.image} alt={product.name} style={image} />
+              ) : (
+                <div style={imagePlaceholder}>No Image</div>
+              )}
+
+              {/* NAME */}
+              <h3 style={{ color: "white" }}>
+                {product.name}
+              </h3>
+
+              {/* DESCRIPTION */}
+              <p style={{ color: "#94a3b8", fontSize: 13 }}>
+                {product.description || "No description"}
+              </p>
+
+              {/* PRICE */}
+              <p style={price}>
+                ${priceValue.toFixed(2)}
+              </p>
+
+              {/* STOCK */}
+              <p style={{ fontSize: 12, opacity: 0.6 }}>
+                {inStock ? `Stock: ${stock}` : "Out of Stock"}
+              </p>
+
+              {/* BUTTON */}
+              <button
+                style={{
+                  ...button,
+                  opacity: inStock ? 1 : 0.5,
+                  cursor: inStock ? "pointer" : "not-allowed"
+                }}
+                disabled={!inStock}
+                onClick={() => {
+                  addToCart(product)
+                  toast.success(`${product.name} added to cart`)
+                }}
               >
+                Add to Cart
+              </button>
 
-                {/* IMAGE */}
-                {product.image ? (
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    style={image}
-                  />
-                ) : (
-                  <div style={imagePlaceholder}>
-                    No Image
-                  </div>
-                )}
-
-                {/* NAME */}
-                <h3 style={{ color: "white" }}>
-                  {product.name}
-                </h3>
-
-                {/* DESCRIPTION */}
-                <p style={{ color: "#94a3b8", fontSize: 13 }}>
-                  {product.description || "No description"}
-                </p>
-
-                {/* PRICE */}
-                <p style={price}>
-                  ${priceValue.toFixed(2)}
-                </p>
-
-                {/* STOCK */}
-                <p style={{ fontSize: 12, opacity: 0.6 }}>
-                  {inStock ? `Stock: ${stock}` : "Out of Stock"}
-                </p>
-
-                {/* BUTTON */}
-                <button
-                  style={{
-                    ...button,
-                    opacity: inStock ? 1 : 0.5,
-                    cursor: inStock ? "pointer" : "not-allowed"
-                  }}
-                  disabled={!inStock}
-                  onClick={() => {
-                    addToCart(product)
-                    toast.success(`${product.name} added to cart`)
-                  }}
-                  onMouseEnter={(e) => {
-                    if (inStock) e.currentTarget.style.transform = "scale(1.05)"
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = "scale(1)"
-                  }}
-                >
-                  Add to Cart
-                </button>
-
-              </div>
-            )
-          })}
-        </div>
-      )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -153,9 +144,7 @@ const grid = {
 const card = {
   borderRadius: 12,
   padding: 15,
-  textAlign: "center",
-  transition: "transform 0.25s ease, box-shadow 0.25s ease",
-  cursor: "pointer"
+  textAlign: "center"
 }
 
 const image = {
@@ -166,7 +155,6 @@ const image = {
   marginBottom: 10
 }
 
-/* 🔥 FIXED (THIS WAS MISSING) */
 const imagePlaceholder = {
   width: "100%",
   height: 200,
@@ -194,8 +182,7 @@ const button = {
   background: "#06b6d4",
   border: "none",
   color: "black",
-  fontWeight: "bold",
-  transition: "transform 0.2s ease"
+  fontWeight: "bold"
 }
 
 const center = {
