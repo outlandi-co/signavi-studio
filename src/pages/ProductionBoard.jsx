@@ -1,45 +1,114 @@
 import { useEffect, useState } from "react"
 import api from "../services/api"
-import { DndContext, closestCenter } from "@dnd-kit/core"
+import {
+  DndContext,
+  closestCenter,
+  useDraggable,
+  useDroppable
+} from "@dnd-kit/core"
 
+/* ================= DRAGGABLE CARD ================= */
+function JobCard({ job }) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: job._id
+  })
+
+  const style = {
+    transform: transform
+      ? `translate(${transform.x}px, ${transform.y}px)`
+      : undefined,
+    padding: 10,
+    marginBottom: 10,
+    background: "#334155",
+    borderRadius: 6,
+    cursor: "grab"
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
+      <div style={{ fontWeight: "bold" }}>
+        {job.customerName || "No Name"}
+      </div>
+
+      <div style={{ fontSize: 12, opacity: 0.7 }}>
+        #{job._id?.slice(-6)}
+      </div>
+    </div>
+  )
+}
+
+/* ================= DROPPABLE COLUMN ================= */
+function Column({ status, jobs }) {
+  const { setNodeRef } = useDroppable({
+    id: status
+  })
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        minWidth: 240,
+        maxWidth: 260,
+        background: "#1e293b",
+        padding: 12,
+        borderRadius: 8,
+        flexShrink: 0
+      }}
+    >
+      <h3 style={{ marginBottom: 10, textTransform: "capitalize" }}>
+        {status}
+      </h3>
+
+      {(Array.isArray(jobs) ? jobs : []).map(job => (
+        <JobCard key={job._id} job={job} />
+      ))}
+    </div>
+  )
+}
+
+/* ================= MAIN ================= */
 export default function ProductionBoard() {
-
   const [jobs, setJobs] = useState(null)
 
-  /* ================= LOAD ================= */
+  /* ================= LOAD (ESLINT SAFE) ================= */
   useEffect(() => {
-    const load = async () => {
+    let isMounted = true
+
+    const init = async () => {
       try {
         const res = await api.get("/production")
 
         console.log("🔥 PRODUCTION DATA:", res.data)
 
-        // ✅ FORCE SAFE OBJECT
-        if (res?.data && typeof res.data === "object") {
-          setJobs(res.data)
-        } else {
-          console.warn("⚠️ Unexpected data format")
-          setJobs({})
-        }
+        if (!isMounted) return
 
+        setJobs(
+          res?.data && typeof res.data === "object"
+            ? res.data
+            : {}
+        )
       } catch (err) {
         console.error("❌ LOAD FAILED:", err)
-        setJobs({})
+
+        if (isMounted) setJobs({})
       }
     }
 
-    load()
+    init()
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   /* ================= DRAG ================= */
   const handleDragEnd = async ({ active, over }) => {
-    // ✅ HARD GUARD (prevents crash)
     if (!active?.id || !over?.id) return
 
     const jobId = active.id
     const newStatus = over.id
 
-    console.log("🔥 DRAGGING:", jobId)
+    console.log("🔥 DRAGGING:", jobId, "→", newStatus)
 
     try {
       await api.patch(`/orders/${jobId}/status`, {
@@ -47,6 +116,10 @@ export default function ProductionBoard() {
       })
 
       console.log("✅ STATUS UPDATED")
+
+      // 🔥 reload AFTER update (no ESLint issues)
+      const res = await api.get("/production")
+      setJobs(res.data)
 
     } catch (err) {
       console.error("❌ DRAG ERROR:", err)
@@ -75,7 +148,9 @@ export default function ProductionBoard() {
       minHeight: "100vh",
       color: "white"
     }}>
-      <h1 style={{ marginBottom: 20 }}>🏭 Production Board</h1>
+      <h1 style={{ marginBottom: 20 }}>
+        🏭 Production Board
+      </h1>
 
       <DndContext
         collisionDetection={closestCenter}
@@ -84,59 +159,16 @@ export default function ProductionBoard() {
         <div style={{
           display: "flex",
           gap: 20,
-          marginTop: 20,
-          alignItems: "flex-start",
-          flexWrap: "wrap" // ✅ prevents layout break
+          flexWrap: "wrap",
+          alignItems: "flex-start"
         }}>
-
-          {Object.entries(jobs || {}).map(([status, list]) => (
-            <div
+          {Object.entries(jobs).map(([status, list]) => (
+            <Column
               key={status}
-              id={status}
-              style={{
-                minWidth: 240,
-                maxWidth: 260,
-                background: "#1e293b",
-                padding: 12,
-                borderRadius: 8,
-                flexShrink: 0
-              }}
-            >
-              <h3 style={{
-                marginBottom: 10,
-                textTransform: "capitalize"
-              }}>
-                {status}
-              </h3>
-
-              {(Array.isArray(list) ? list : []).map(job => (
-                <div
-                  key={job._id}
-                  id={job._id}
-                  style={{
-                    padding: 10,
-                    marginBottom: 10,
-                    background: "#334155",
-                    borderRadius: 6,
-                    cursor: "grab"
-                  }}
-                >
-                  <div style={{ fontWeight: "bold" }}>
-                    {job.customerName || "No Name"}
-                  </div>
-
-                  <div style={{
-                    fontSize: 12,
-                    opacity: 0.7
-                  }}>
-                    #{job._id?.slice(-6)}
-                  </div>
-                </div>
-              ))}
-
-            </div>
+              status={status}
+              jobs={list}
+            />
           ))}
-
         </div>
       </DndContext>
     </div>
