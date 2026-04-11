@@ -1,9 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react"
-import { io } from "socket.io-client"
 import api from "../services/api"
-
-const API_URL = import.meta.env.VITE_API_URL || "https://signavi-backend.onrender.com/api"
-const SOCKET_URL = API_URL.replace("/api", "")
+import { getSocket } from "../services/socket"
 
 function AdminDashboard() {
 
@@ -12,15 +9,12 @@ function AdminDashboard() {
 
   /* ================= LOAD ================= */
   const load = useCallback(async () => {
-    // 🔥 prevent overlapping calls
     if (loadingRef.current) return
 
     try {
       loadingRef.current = true
-
       const res = await api.get("/analytics")
       setData(res.data)
-
     } catch (err) {
       console.error("❌ DASHBOARD ERROR:", err)
     } finally {
@@ -30,31 +24,32 @@ function AdminDashboard() {
 
   /* ================= INITIAL LOAD ================= */
   useEffect(() => {
-    const init = async () => {
-      await load()
-    }
-    init()
+    load()
   }, [load])
 
   /* ================= SOCKET ================= */
   useEffect(() => {
+    let socket
 
-    const socket = io(SOCKET_URL)
+    const init = async () => {
+      socket = await getSocket()
+      if (!socket) return
 
-    const handleUpdate = () => {
-      console.log("📡 Dashboard update received")
-      load()
+      const handleUpdate = () => {
+        console.log("📡 Dashboard update received")
+        load()
+      }
+
+      socket.on("jobUpdated", handleUpdate)
+      socket.on("pricingUpdated", handleUpdate)
     }
 
-    socket.on("jobUpdated", handleUpdate)
-    socket.on("pricingUpdated", handleUpdate)
+    init()
 
     return () => {
-      socket.off("jobUpdated", handleUpdate)
-      socket.off("pricingUpdated", handleUpdate)
-      socket.disconnect()
+      socket?.off("jobUpdated")
+      socket?.off("pricingUpdated")
     }
-
   }, [load])
 
   if (!data) {
@@ -67,7 +62,6 @@ function AdminDashboard() {
 
   return (
     <div style={{ padding: 20, color: "white" }}>
-
       <h1>📊 Dashboard</h1>
 
       <div style={card}>
@@ -79,7 +73,6 @@ function AdminDashboard() {
         <h2>Profit</h2>
         <p>${Number(data.totalProfit || 0).toFixed(2)}</p>
       </div>
-
     </div>
   )
 }

@@ -1,9 +1,6 @@
 import { useEffect, useState, useRef } from "react"
-import { io } from "socket.io-client"
 import notifySound from "../assets/notify.mp3"
-
-const API_URL = import.meta.env.VITE_API_URL || "https://signavi-backend.onrender.com/api"
-const SOCKET_URL = API_URL.replace("/api", "")
+import { getSocket } from "../services/socket"
 
 export default function NotificationBell() {
 
@@ -13,7 +10,7 @@ export default function NotificationBell() {
   const audioRef = useRef(null)
 
   const user = JSON.parse(localStorage.getItem("user") || "null")
-  const userEmail = user?.email // ✅ USED PROPERLY
+  const userEmail = user?.email
 
   const addNotification = (text) => {
     const newNotif = {
@@ -32,29 +29,39 @@ export default function NotificationBell() {
 
   /* ================= SOCKET ================= */
   useEffect(() => {
+    if (!userEmail) return
 
-    if (!userEmail) return // 🔥 prevents unnecessary socket if no user
+    let socket
 
-    const socket = io(SOCKET_URL)
+    const init = async () => {
+      socket = await getSocket()
+      if (!socket) return
 
-    socket.on("jobUpdated", (job) => {
-      if (job.email !== userEmail) return
-      addNotification(`📦 Order updated → ${job.status}`)
-    })
+      socket.on("jobUpdated", (job) => {
+        if (job.email !== userEmail) return
+        addNotification(`📦 Order updated → ${job.status}`)
+      })
 
-    socket.on("jobCreated", (job) => {
-      if (job.email !== userEmail) return
-      addNotification("🆕 Your order was created")
-    })
+      socket.on("jobCreated", (job) => {
+        if (job.email !== userEmail) return
+        addNotification("🆕 Your order was created")
+      })
 
-    socket.on("jobDeleted", (job) => {
-      if (job.email !== userEmail) return
-      addNotification("🗑 Order removed")
-    })
+      socket.on("jobDeleted", (job) => {
+        if (job.email !== userEmail) return
+        addNotification("🗑 Order removed")
+      })
+    }
 
-    return () => socket.disconnect()
+    init()
 
-  }, [userEmail]) // ✅ FIXED DEPENDENCY
+    return () => {
+      socket?.off("jobUpdated")
+      socket?.off("jobCreated")
+      socket?.off("jobDeleted")
+    }
+
+  }, [userEmail])
 
   const unreadCount = notifications.length
 
@@ -63,20 +70,11 @@ export default function NotificationBell() {
       <audio ref={audioRef} src={notifySound} preload="auto" />
 
       <div style={{ position: "relative" }}>
-
-        {/* 🔔 BELL */}
-        <div
-          onClick={() => setOpen(!open)}
-          style={bell}
-        >
+        <div onClick={() => setOpen(!open)} style={bell}>
           🔔
-
-          {unreadCount > 0 && (
-            <span style={badge}>{unreadCount}</span>
-          )}
+          {unreadCount > 0 && <span style={badge}>{unreadCount}</span>}
         </div>
 
-        {/* DROPDOWN */}
         {open && (
           <div style={dropdown}>
             <h4 style={{ marginBottom: 10 }}>Notifications</h4>

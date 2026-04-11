@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react"
 import api from "../services/api"
-import { io } from "socket.io-client"
 import { DndContext, closestCenter } from "@dnd-kit/core"
 import JobModal from "../components/modals/JobModal"
 import toast from "react-hot-toast"
@@ -8,8 +7,8 @@ import toast from "react-hot-toast"
 import NotificationPanel from "../components/NotificationPanel"
 import { Column, SummaryBar } from "../components/ProductionUI"
 
-const API_URL = import.meta.env.VITE_API_URL || "https://signavi-backend.onrender.com/api"
-const SOCKET_URL = API_URL.replace("/api", "")
+// ✅ NEW SOCKET SERVICE
+import { getSocket } from "../services/socket"
 
 const normalizeStatus = (job) => {
   if (!job) return "pending"
@@ -21,7 +20,6 @@ export default function ProductionBoard() {
   const [jobs, setJobs] = useState({})
   const [selectedJob, setSelectedJob] = useState(null)
 
-  const socketRef = useRef(null)
   const loadingRef = useRef(false)
 
   /* ================= LOAD ================= */
@@ -45,34 +43,35 @@ export default function ProductionBoard() {
 
   /* ================= SOCKET ================= */
   useEffect(() => {
-    if (!socketRef.current) {
-      socketRef.current = io(SOCKET_URL, {
-        transports: ["websocket"],
-        reconnection: true
+    let socket
+
+    const init = async () => {
+      socket = await getSocket()
+
+      if (!socket) return
+
+      socket.on("jobUpdated", (updatedOrder) => {
+        setJobs(prev => {
+          const updated = { ...prev }
+
+          Object.keys(updated).forEach(key => {
+            updated[key] = updated[key].filter(j => j._id !== updatedOrder._id)
+          })
+
+          const status = normalizeStatus(updatedOrder)
+
+          if (!updated[status]) updated[status] = []
+          updated[status].unshift(updatedOrder)
+
+          return updated
+        })
       })
     }
 
-    const socket = socketRef.current
-
-    socket.on("jobUpdated", (updatedOrder) => {
-      setJobs(prev => {
-        const updated = { ...prev }
-
-        Object.keys(updated).forEach(key => {
-          updated[key] = updated[key].filter(j => j._id !== updatedOrder._id)
-        })
-
-        const status = normalizeStatus(updatedOrder)
-
-        if (!updated[status]) updated[status] = []
-        updated[status].unshift(updatedOrder)
-
-        return updated
-      })
-    })
+    init()
 
     return () => {
-      socket.off("jobUpdated")
+      socket?.off("jobUpdated")
     }
   }, [])
 
