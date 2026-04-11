@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react"
 import api from "../services/api"
+import useCart from "../hooks/useCart"
 
 export default function Store() {
 
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
+
+  const { addToCart } = useCart()
 
   useEffect(() => {
     const load = async () => {
@@ -44,7 +47,18 @@ export default function Store() {
       ) : (
         <div style={grid}>
           {products.map(product => (
-            <div key={product._id} style={card}>
+            <div
+              key={product._id}
+              style={card}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "scale(1.05)"
+                e.currentTarget.style.boxShadow = "0 10px 25px rgba(0,0,0,0.5)"
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "scale(1)"
+                e.currentTarget.style.boxShadow = "none"
+              }}
+            >
 
               {/* IMAGE */}
               <img
@@ -77,7 +91,13 @@ export default function Store() {
               </p>
 
               {/* BUTTON */}
-              <button style={button}>
+              <button
+                style={button}
+                onClick={() => {
+                  console.log("🛒 ADDING:", product)
+                  addToCart(product)
+                }}
+              >
                 Add to Cart
               </button>
 
@@ -114,7 +134,8 @@ const card = {
   borderRadius: 12,
   padding: 15,
   textAlign: "center",
-  transition: "0.2s"
+  transition: "all 0.25s ease",
+  cursor: "pointer"
 }
 
 const image = {
