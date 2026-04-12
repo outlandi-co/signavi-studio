@@ -150,11 +150,11 @@ export default function ProductionBoard() {
     const jobId = active.id
     const newStatus = over.id
 
-    // ⚡ instant UI update
+    let movedJob = null
+
+    // 🔥 optimistic UI update
     setJobs(prev => {
       const updated = { ...prev }
-
-      let movedJob = null
 
       for (const key in updated) {
         updated[key] = updated[key].filter(job => {
@@ -175,14 +175,25 @@ export default function ProductionBoard() {
     })
 
     try {
-      await api.patch(`/orders/update-status/${jobId}`, {
-        status: newStatus
-      })
+      // 🔥 detect if quote vs order
+      if (movedJob?.source === "quote") {
+        await api.patch(`/quotes/${jobId}/status`, {
+          status: newStatus
+        })
+      } else {
+        await api.patch(`/orders/update-status/${jobId}`, {
+          status: newStatus
+        })
+      }
 
       playSound()
 
     } catch (err) {
-      console.error("❌ DRAG ERROR:", err)
+      console.error("❌ DRAG ERROR FULL:", {
+        message: err.message,
+        status: err.response?.status,
+        data: err.response?.data
+      })
     }
   }
 

@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react"
-import { useSearchParams, useNavigate } from "react-router-dom"
+import { useSearchParams, useNavigate, useParams } from "react-router-dom"
 import useCart from "../hooks/useCart"
+import api from "../services/api"
 
 export default function Success() {
 
   const [searchParams] = useSearchParams()
+  const { id } = useParams() // 🔥 for Square redirect
   const navigate = useNavigate()
   const { clearCart } = useCart()
 
@@ -16,28 +18,40 @@ export default function Success() {
 
     const handleSuccess = async () => {
       try {
-        if (!sessionId) {
-          setStatus("paid")
-          clearCart()
-          return
+
+        console.log("🔥 SUCCESS PAGE HIT")
+
+        /* ================= STRIPE FALLBACK ================= */
+        if (sessionId) {
+          console.log("💳 Stripe success:", sessionId)
         }
 
-        // 🔥 OPTIONAL: verify session (can expand later)
+        /* ================= SQUARE FLOW ================= */
+        if (id) {
+          console.log("💳 Square success for order:", id)
+
+          await api.patch(`/orders/update-status/${id}`, {
+            status: "paid"
+          })
+        }
+
+        /* ================= FINALIZE ================= */
         setStatus("paid")
 
-        // 🔥 CLEAR CART AFTER SUCCESS
         clearCart()
         localStorage.removeItem("cart")
 
       } catch (err) {
-        console.error("SUCCESS ERROR:", err)
+        console.error("❌ SUCCESS ERROR:", err)
         setStatus("error")
       }
     }
 
     handleSuccess()
 
-  }, [sessionId, clearCart])
+  }, [sessionId, id, clearCart])
+
+  /* ================= UI ================= */
 
   if (status === "loading") {
     return (

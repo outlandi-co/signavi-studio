@@ -4,8 +4,22 @@ function JobCard({ job, updateStatus }) {
 
   if (!job) return null
 
+  /* ================= LOCK LOGIC ================= */
+  const isLocked =
+    job.source === "quote" ||
+    job.status === "payment_required"
+
+  const isPaid = job.status === "paid"
+
   return (
-    <div className="bg-white shadow p-3 rounded mb-3">
+    <div
+      className="shadow p-3 rounded mb-3 transition-all"
+      style={{
+        background: isLocked ? "#1e293b" : "#ffffff",
+        opacity: isLocked ? 0.6 : 1,
+        cursor: isLocked ? "not-allowed" : "default"
+      }}
+    >
 
       {/* IMAGE */}
       {job.artwork && (
@@ -33,10 +47,18 @@ function JobCard({ job, updateStatus }) {
         {job.status}
       </span>
 
+      {/* 🔒 LOCK MESSAGE */}
+      {isLocked && (
+        <p className="text-xs text-red-400 mt-2">
+          🔒 Awaiting payment approval
+        </p>
+      )}
+
       {/* ACTIONS */}
       <div className="flex gap-2 mt-2">
 
-        {job.status === "pending" && (
+        {/* START PRODUCTION */}
+        {isPaid && job.status === "paid" && (
           <button
             onClick={() => updateStatus(job._id, "production")}
             className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
@@ -45,6 +67,7 @@ function JobCard({ job, updateStatus }) {
           </button>
         )}
 
+        {/* READY */}
         {job.status === "production" && (
           <button
             onClick={() => updateStatus(job._id, "shipping")}
@@ -54,6 +77,7 @@ function JobCard({ job, updateStatus }) {
           </button>
         )}
 
+        {/* DELIVER */}
         {job.status === "shipping" && (
           <button
             onClick={() => updateStatus(job._id, "delivered")}
