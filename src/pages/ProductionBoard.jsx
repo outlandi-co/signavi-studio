@@ -111,7 +111,7 @@ export default function ProductionBoard() {
     console.log("🔥 DRAGGING:", jobId, "→", newStatus)
 
     try {
-      await api.patch(`/orders/${jobId}/status`, {
+      await api.patch(`/orders/status/${jobId}`, {
         status: newStatus
       })
 
