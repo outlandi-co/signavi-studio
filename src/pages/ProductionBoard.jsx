@@ -6,8 +6,31 @@ import {
   useDraggable,
   useDroppable
 } from "@dnd-kit/core"
+import { io } from "socket.io-client"
 
-/* ================= DRAGGABLE CARD ================= */
+/* ================= SOCKET ================= */
+const socket = io("https://signavi-backend.onrender.com")
+
+/* ================= SOUND ================= */
+const playSound = () => {
+  const audio = new Audio("/notify.mp3")
+  audio.volume = 0.5
+  audio.play().catch(() => {})
+}
+
+/* ================= COLORS ================= */
+const getColor = (status) => {
+  switch (status) {
+    case "pending": return "#334155"
+    case "payment_required": return "#7c2d12"
+    case "production": return "#1e40af"
+    case "shipping": return "#065f46"
+    case "shipped": return "#4c1d95"
+    default: return "#1e293b"
+  }
+}
+
+/* ================= DRAG CARD ================= */
 function JobCard({ job }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: job._id
@@ -19,9 +42,10 @@ function JobCard({ job }) {
       : undefined,
     padding: 10,
     marginBottom: 10,
-    background: "#334155",
+    background: "#020617",
     borderRadius: 6,
-    cursor: "grab"
+    cursor: "grab",
+    border: "1px solid #334155"
   }
 
   return (
@@ -37,7 +61,7 @@ function JobCard({ job }) {
   )
 }
 
-/* ================= DROPPABLE COLUMN ================= */
+/* ================= COLUMN ================= */
 function Column({ status, jobs }) {
   const { setNodeRef } = useDroppable({
     id: status
@@ -49,7 +73,7 @@ function Column({ status, jobs }) {
       style={{
         minWidth: 240,
         maxWidth: 260,
-        background: "#1e293b",
+        background: getColor(status),
         padding: 12,
         borderRadius: 8,
         flexShrink: 0
@@ -70,15 +94,13 @@ function Column({ status, jobs }) {
 export default function ProductionBoard() {
   const [jobs, setJobs] = useState(null)
 
-  /* ================= LOAD (ESLINT SAFE) ================= */
+  /* ================= LOAD ================= */
   useEffect(() => {
     let isMounted = true
 
-    const init = async () => {
+    const load = async () => {
       try {
         const res = await api.get("/production")
-
-        console.log("🔥 PRODUCTION DATA:", res.data)
 
         if (!isMounted) return
 
@@ -87,18 +109,38 @@ export default function ProductionBoard() {
             ? res.data
             : {}
         )
+
       } catch (err) {
         console.error("❌ LOAD FAILED:", err)
-
         if (isMounted) setJobs({})
       }
     }
 
-    init()
+    load()
 
     return () => {
       isMounted = false
     }
+  }, [])
+
+  /* ================= SOCKET LIVE ================= */
+  useEffect(() => {
+    socket.on("jobUpdated", (updatedJob) => {
+      setJobs(prev => {
+        const updated = { ...prev }
+
+        for (const key in updated) {
+          updated[key] = updated[key].filter(j => j._id !== updatedJob._id)
+        }
+
+        const status = updatedJob.status
+        updated[status] = [...(updated[status] || []), updatedJob]
+
+        return updated
+      })
+    })
+
+    return () => socket.off("jobUpdated")
   }, [])
 
   /* ================= DRAG ================= */
@@ -108,18 +150,36 @@ export default function ProductionBoard() {
     const jobId = active.id
     const newStatus = over.id
 
-    console.log("🔥 DRAGGING:", jobId, "→", newStatus)
+    // ⚡ instant UI update
+    setJobs(prev => {
+      const updated = { ...prev }
+
+      let movedJob = null
+
+      for (const key in updated) {
+        updated[key] = updated[key].filter(job => {
+          if (job._id === jobId) {
+            movedJob = job
+            return false
+          }
+          return true
+        })
+      }
+
+      if (movedJob) {
+        movedJob.status = newStatus
+        updated[newStatus] = [...(updated[newStatus] || []), movedJob]
+      }
+
+      return updated
+    })
 
     try {
-      await api.patch(`/orders/status/${jobId}`, {
+      await api.patch(`/orders/update-status/${jobId}`, {
         status: newStatus
       })
 
-      console.log("✅ STATUS UPDATED")
-
-      // 🔥 reload AFTER update (no ESLint issues)
-      const res = await api.get("/production")
-      setJobs(res.data)
+      playSound()
 
     } catch (err) {
       console.error("❌ DRAG ERROR:", err)
