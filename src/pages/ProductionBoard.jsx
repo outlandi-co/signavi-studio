@@ -23,6 +23,7 @@ const getColor = (status) => {
   switch (status) {
     case "pending": return "#334155"
     case "payment_required": return "#7c2d12"
+    case "paid": return "#065f46"
     case "production": return "#1e40af"
     case "shipping": return "#065f46"
     case "shipped": return "#4c1d95"
@@ -32,8 +33,14 @@ const getColor = (status) => {
 
 /* ================= DRAG CARD ================= */
 function JobCard({ job }) {
+
+  const isLocked =
+    job.source === "quote" ||
+    job.status === "payment_required"
+
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
-    id: job._id
+    id: job._id,
+    disabled: isLocked // 🔥 LOCK DRAG
   })
 
   const style = {
@@ -42,9 +49,10 @@ function JobCard({ job }) {
       : undefined,
     padding: 10,
     marginBottom: 10,
-    background: "#020617",
+    background: isLocked ? "#1e293b" : "#020617",
     borderRadius: 6,
-    cursor: "grab",
+    cursor: isLocked ? "not-allowed" : "grab",
+    opacity: isLocked ? 0.6 : 1,
     border: "1px solid #334155"
   }
 
@@ -57,15 +65,19 @@ function JobCard({ job }) {
       <div style={{ fontSize: 12, opacity: 0.7 }}>
         #{job._id?.slice(-6)}
       </div>
+
+      {isLocked && (
+        <div style={{ fontSize: 10, color: "#f87171" }}>
+          🔒 Awaiting Payment
+        </div>
+      )}
     </div>
   )
 }
 
 /* ================= COLUMN ================= */
 function Column({ status, jobs }) {
-  const { setNodeRef } = useDroppable({
-    id: status
-  })
+  const { setNodeRef } = useDroppable({ id: status })
 
   return (
     <div
@@ -96,34 +108,20 @@ export default function ProductionBoard() {
 
   /* ================= LOAD ================= */
   useEffect(() => {
-    let isMounted = true
-
     const load = async () => {
       try {
         const res = await api.get("/production")
-
-        if (!isMounted) return
-
-        setJobs(
-          res?.data && typeof res.data === "object"
-            ? res.data
-            : {}
-        )
-
+        setJobs(res.data || {})
       } catch (err) {
         console.error("❌ LOAD FAILED:", err)
-        if (isMounted) setJobs({})
+        setJobs({})
       }
     }
 
     load()
-
-    return () => {
-      isMounted = false
-    }
   }, [])
 
-  /* ================= SOCKET LIVE ================= */
+  /* ================= SOCKET ================= */
   useEffect(() => {
     socket.on("jobUpdated", (updatedJob) => {
       setJobs(prev => {
@@ -152,48 +150,38 @@ export default function ProductionBoard() {
 
     let movedJob = null
 
-    // 🔥 optimistic UI update
-    setJobs(prev => {
-      const updated = { ...prev }
-
-      for (const key in updated) {
-        updated[key] = updated[key].filter(job => {
-          if (job._id === jobId) {
-            movedJob = job
-            return false
-          }
-          return true
-        })
+    // 🔍 find job
+    for (const key in jobs) {
+      const found = jobs[key]?.find(j => j._id === jobId)
+      if (found) {
+        movedJob = found
+        break
       }
+    }
 
-      if (movedJob) {
-        movedJob.status = newStatus
-        updated[newStatus] = [...(updated[newStatus] || []), movedJob]
-      }
+    // 🚫 BLOCK QUOTES
+    if (movedJob?.source === "quote") {
+      console.warn("🚫 Cannot move quotes")
+      return
+    }
 
-      return updated
-    })
+    // 🚫 BLOCK UNPAID
+    if (movedJob?.status === "payment_required") {
+      console.warn("🚫 Payment required")
+      return
+    }
+
+    console.log("🔥 DRAGGING:", jobId, "→", newStatus)
 
     try {
-      // 🔥 detect if quote vs order
-      if (movedJob?.source === "quote") {
-        await api.patch(`/quotes/${jobId}/status`, {
-          status: newStatus
-        })
-      } else {
-        await api.patch(`/orders/update-status/${jobId}`, {
-          status: newStatus
-        })
-      }
+      await api.patch(`/orders/update-status/${jobId}`, {
+        status: newStatus
+      })
 
       playSound()
 
     } catch (err) {
-      console.error("❌ DRAG ERROR FULL:", {
-        message: err.message,
-        status: err.response?.status,
-        data: err.response?.data
-      })
+      console.error("❌ DRAG ERROR:", err.response?.data || err.message)
     }
   }
 
@@ -234,11 +222,7 @@ export default function ProductionBoard() {
           alignItems: "flex-start"
         }}>
           {Object.entries(jobs).map(([status, list]) => (
-            <Column
-              key={status}
-              status={status}
-              jobs={list}
-            />
+            <Column key={status} status={status} jobs={list} />
           ))}
         </div>
       </DndContext>
