@@ -2,52 +2,157 @@ import { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
 import api from "../services/api"
 
-function QuoteResponse() {
+export default function QuoteResponse() {
 
   const { id } = useParams()
+
   const [quote, setQuote] = useState(null)
   const [loading, setLoading] = useState(false)
 
+  /* ================= LOAD ================= */
   useEffect(() => {
-    api.get(`/quotes/${id}`)
-      .then(res => setQuote(res.data))
-  }, [id])
+    const load = async () => {
+      try {
+        const res = await api.get(`/quotes/${id}`)
 
-  const handleCheckout = async () => {
-    setLoading(true)
+        console.log("🔥 RAW QUOTE:", res.data)
 
-    try {
-      const res = await api.post(`/stripe/create-quote-checkout/${id}`)
-      window.location.href = res.data.url
-    } catch (err) {
-      console.error(err)
-      alert("Checkout failed")
+        // ✅ SAFE FORMAT
+        const safeQuote =
+          res.data?.data || res.data || null
+
+        setQuote(safeQuote)
+
+      } catch (err) {
+        console.error("❌ QUOTE LOAD ERROR:", err)
+        setQuote(null)
+      }
     }
 
-    setLoading(false)
+    load()
+  }, [id])
+
+  /* ================= CHECKOUT ================= */
+  const handleCheckout = async () => {
+    try {
+      setLoading(true)
+
+      // ✅ USE YOUR WORKING STRIPE ROUTE
+      const res = await api.post(`/stripe/create-order-session/${id}`)
+
+      if (res.data?.url) {
+        window.location.href = res.data.url
+      } else {
+        throw new Error("No checkout URL returned")
+      }
+
+    } catch (err) {
+      console.error("❌ CHECKOUT ERROR:", err)
+      alert("Checkout failed")
+    } finally {
+      setLoading(false)
+    }
   }
 
-  if (!quote) return <p>Loading...</p>
+  /* ================= LOADING ================= */
+  if (!quote) {
+    return (
+      <div style={center}>
+        <h2 style={{ color: "white" }}>⏳ Loading quote...</h2>
+      </div>
+    )
+  }
 
-  const total = (quote.price || 0) + (quote.cleanupFee || 0)
+  /* ================= CALC ================= */
+  const price = Number(quote.price || 0)
+  const cleanup = Number(quote.cleanupFee || 0)
+  const quantity = Number(quote.quantity || 1)
 
+  const total = price + cleanup
+
+  /* ================= UI ================= */
   return (
-    <div style={{ padding: "40px" }}>
-      <h1>Review Your Quote</h1>
+    <div style={container}>
 
-      <p><b>Name:</b> {quote.customerName}</p>
-      <p><b>Notes:</b> {quote.adminNotes}</p>
+      <h1 style={title}>📄 Review Your Quote</h1>
 
-      <p>Price: ${quote.price}</p>
-      <p>Cleanup Fee: ${quote.cleanupFee}</p>
+      <div style={card}>
+        <p><b>Name:</b> {quote.customerName || "Unknown"}</p>
+        <p><b>Email:</b> {quote.email || "N/A"}</p>
+        <p><b>Quantity:</b> {quantity}</p>
 
-      <h2>Total: ${total}</h2>
+        {quote.adminNotes && (
+          <p><b>Notes:</b> {quote.adminNotes}</p>
+        )}
 
-      <button onClick={handleCheckout} disabled={loading}>
-        {loading ? "Redirecting..." : "Pay & Accept"}
-      </button>
+        <hr style={{ margin: "15px 0", opacity: 0.2 }} />
+
+        <p>Base Price: ${price.toFixed(2)}</p>
+        <p>Cleanup Fee: ${cleanup.toFixed(2)}</p>
+
+        <h2 style={totalStyle}>
+          Total: ${total.toFixed(2)}
+        </h2>
+
+        <button
+          onClick={handleCheckout}
+          disabled={loading}
+          style={{
+            ...button,
+            opacity: loading ? 0.6 : 1
+          }}
+        >
+          {loading ? "Redirecting..." : "💳 Pay & Accept"}
+        </button>
+
+      </div>
+
     </div>
   )
 }
 
-export default QuoteResponse
+/* ================= STYLES ================= */
+
+const container = {
+  padding: 40,
+  background: "#020617",
+  minHeight: "100vh",
+  color: "white",
+  textAlign: "center"
+}
+
+const title = {
+  marginBottom: 20
+}
+
+const card = {
+  background: "#1e293b",
+  padding: 20,
+  borderRadius: 10,
+  maxWidth: 500,
+  margin: "0 auto"
+}
+
+const totalStyle = {
+  color: "#22c55e",
+  marginTop: 10
+}
+
+const button = {
+  marginTop: 20,
+  padding: "12px 24px",
+  borderRadius: 6,
+  border: "none",
+  background: "#06b6d4",
+  color: "black",
+  fontWeight: "bold",
+  cursor: "pointer"
+}
+
+const center = {
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  height: "100vh",
+  background: "#020617"
+}
