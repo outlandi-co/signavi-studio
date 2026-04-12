@@ -42,46 +42,62 @@ export default function CartDrawer({ isOpen, onClose }) {
   )
 
   /* ================= CHECKOUT (🔥 FIXED) ================= */
-  const handleCheckout = async () => {
-    if (isRedirecting) return
+const handleCheckout = async () => {
+  if (isRedirecting) return
 
-    try {
-      setIsRedirecting(true)
+  try {
+    setIsRedirecting(true)
 
-      console.log("🛒 Creating order from cart...")
+    console.log("🛒 Creating order from cart...", cart)
 
-      /* 🔥 STEP 1: CREATE ORDER */
-      const orderRes = await api.post("/orders", {
-        items: cart,
-        source: "store",
-        status: "payment_required"
-      })
+    /* ================= SANITIZE CART ================= */
+    const safeItems = cart.map(item => ({
+      name: item?.name || "Item",
+      quantity: Number(item?.quantity) || 1,
+      price: Number(item?.price) || 0
+    }))
 
-      const orderId = orderRes?.data?.data?._id
-
-      if (!orderId) {
-        throw new Error("Order creation failed")
-      }
-
-      console.log("✅ Order created:", orderId)
-
-      /* 🔥 STEP 2: SEND TO SQUARE */
-      const paymentRes = await api.post(`/square/create-payment/${orderId}`)
-
-      if (!paymentRes?.data?.url) {
-        throw new Error("No payment URL returned")
-      }
-
-      console.log("🚀 Redirecting to Square:", paymentRes.data.url)
-
-      window.location.href = paymentRes.data.url
-
-    } catch (err) {
-      console.error("❌ CHECKOUT ERROR:", err)
-      alert("Checkout failed")
-      setIsRedirecting(false)
+    if (!safeItems.length) {
+      throw new Error("Cart is empty")
     }
+
+    /* 🔥 STEP 1: CREATE ORDER */
+    const orderRes = await api.post("/orders", {
+      items: safeItems,
+      customerName: "Guest",
+      email: "",
+      source: "store"
+    })
+
+    const orderId = orderRes?.data?.data?._id
+
+    if (!orderId) {
+      throw new Error("Order creation failed")
+    }
+
+    console.log("✅ Order created:", orderId)
+
+    /* 🔥 STEP 2: SEND TO SQUARE */
+    const paymentRes = await api.post(`/square/create-payment/${orderId}`)
+
+    const url = paymentRes?.data?.url
+
+    if (!url) {
+      throw new Error("No payment URL returned")
+    }
+
+    console.log("🚀 Redirecting to Square:", url)
+
+    window.location.assign(url)
+
+  } catch (err) {
+    console.error("❌ CHECKOUT ERROR:", err?.response?.data || err.message)
+
+    alert("Checkout failed — check console")
+
+    setIsRedirecting(false)
   }
+}
 
   return (
     <>
