@@ -1,11 +1,10 @@
 import { useEffect, useState, useRef } from "react"
-import { useSearchParams, useNavigate, useParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import useCart from "../hooks/useCart"
 import api from "../services/api"
 
 export default function Success() {
 
-  const [searchParams] = useSearchParams()
   const { id } = useParams()
   const navigate = useNavigate()
   const { clearCart } = useCart()
@@ -14,8 +13,6 @@ export default function Success() {
 
   /* 🔥 PREVENT DOUBLE CALLS */
   const hasRun = useRef(false)
-
-  const sessionId = searchParams.get("session_id")
 
   useEffect(() => {
 
@@ -26,20 +23,19 @@ export default function Success() {
       try {
         console.log("🔥 SUCCESS PAGE HIT")
 
-        /* ================= STRIPE FALLBACK ================= */
-        if (sessionId) {
-          console.log("💳 Stripe success:", sessionId)
+        /* ================= VALIDATION ================= */
+        if (!id) {
+          console.warn("⚠️ Missing order ID")
+          setStatus("error")
+          return
         }
 
-        /* ================= SQUARE FLOW ================= */
-        if (id) {
-          console.log("💳 Square success for order:", id)
+        console.log("💳 Square success for order:", id)
 
-          /* 🔥 USE YOUR CENTRAL HANDLER */
-          await api.patch(`/orders/update-status/${id}`, {
-            status: "paid"
-          })
-        }
+        /* ================= UPDATE ORDER ================= */
+        await api.patch(`/orders/update-status/${id}`, {
+          status: "paid"
+        })
 
         /* ================= FINALIZE ================= */
         setStatus("paid")
@@ -50,14 +46,14 @@ export default function Success() {
       } catch (err) {
         console.error("❌ SUCCESS ERROR:", err)
 
-        /* 🔥 SHOW USER BUT DON’T BREAK UX */
+        /* 🔥 FAIL SAFE */
         setStatus("error")
       }
     }
 
     handleSuccess()
 
-  }, [sessionId, id, clearCart])
+  }, [id, clearCart])
 
   /* ================= UI ================= */
 
