@@ -6,13 +6,28 @@ export default function AdminRevenue() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
 
+  /* ================= LOAD ================= */
   useEffect(() => {
     const load = async () => {
       try {
         const res = await api.get("/orders")
-        setOrders(res.data)
+
+        console.log("🔥 RAW ORDERS:", res.data)
+
+        // ✅ ALWAYS NORMALIZE RESPONSE
+        const safeOrders = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.data)
+          ? res.data.data
+          : []
+
+        console.log("✅ SAFE ORDERS:", safeOrders)
+
+        setOrders(safeOrders)
+
       } catch (err) {
         console.error("❌ REVENUE LOAD ERROR:", err)
+        setOrders([])
       } finally {
         setLoading(false)
       }
@@ -21,57 +36,112 @@ export default function AdminRevenue() {
     load()
   }, [])
 
-  if (loading) return <p className="text-white">Loading...</p>
+  /* ================= LOADING ================= */
+  if (loading) {
+    return (
+      <div style={center}>
+        <h2 style={{ color: "white" }}>⏳ Loading revenue...</h2>
+      </div>
+    )
+  }
 
-  /* 💰 CALCULATIONS */
-  const totalRevenue = orders.reduce((sum, o) => sum + (o.finalPrice || o.price || 0), 0)
+  /* ================= SAFE DATA ================= */
+  const safeOrders = Array.isArray(orders) ? orders : []
 
-  const lowProfit = orders.filter(o => (o.profit || 0) < 5)
+  /* ================= CALCULATIONS ================= */
+  const totalRevenue = safeOrders.reduce(
+    (sum, o) => sum + Number(o?.finalPrice || o?.price || 0),
+    0
+  )
 
-  const topJobs = [...orders]
-    .sort((a, b) => (b.profit || 0) - (a.profit || 0))
+  const lowProfit = safeOrders.filter(
+    o => Number(o?.profit || 0) < 5
+  )
+
+  const topJobs = [...safeOrders]
+    .sort((a, b) => Number(b?.profit || 0) - Number(a?.profit || 0))
     .slice(0, 5)
 
+  /* ================= UI ================= */
   return (
-    <div>
-
-      <h1 className="text-2xl font-bold mb-6">💰 Revenue Dashboard</h1>
+    <div style={container}>
+      <h1 style={title}>💰 Revenue Dashboard</h1>
 
       {/* SUMMARY */}
-      <div className="flex gap-6 mb-6">
-        <div className="bg-gray-900 p-4 rounded-lg">
+      <div style={summary}>
+        <div style={card}>
           <p>Total Revenue</p>
           <strong>${totalRevenue.toFixed(2)}</strong>
         </div>
       </div>
 
-      {/* ⚠️ ALERTS */}
-      <div className="bg-gray-900 p-4 rounded-lg mb-6 border border-gray-800">
-        <h2 className="text-lg mb-2">🚨 Alerts</h2>
-        <p className="text-red-400">
+      {/* ALERTS */}
+      <div style={card}>
+        <h2>🚨 Alerts</h2>
+        <p style={{ color: "#f87171" }}>
           {lowProfit.length} low-profit job(s)
         </p>
       </div>
 
-      {/* 🏆 TOP PROFIT */}
-      <div className="bg-gray-900 p-4 rounded-lg border border-gray-800">
+      {/* TOP JOBS */}
+      <div style={card}>
+        <h2>🏆 Top Profit Jobs</h2>
 
-        <h2 className="text-lg mb-4">🏆 Top Profit Jobs</h2>
-
-        {topJobs.map((job, i) => (
-          <div
-            key={job._id}
-            className="flex justify-between border-b border-gray-800 py-2"
-          >
-            <p>{i + 1}. {job.customerName || "Unknown"}</p>
-            <p className="text-green-400">
-              ${job.profit || 0}
-            </p>
-          </div>
-        ))}
-
+        {topJobs.length === 0 ? (
+          <p>No jobs yet</p>
+        ) : (
+          topJobs.map((job, i) => (
+            <div key={job._id} style={row}>
+              <p>{i + 1}. {job.customerName || "Unknown"}</p>
+              <p style={{ color: "#22c55e" }}>
+                ${Number(job?.profit || 0).toFixed(2)}
+              </p>
+            </div>
+          ))
+        )}
       </div>
 
     </div>
   )
+}
+
+/* ================= STYLES ================= */
+
+const container = {
+  padding: 20,
+  background: "#020617",
+  minHeight: "100vh",
+  color: "white"
+}
+
+const title = {
+  marginBottom: 20
+}
+
+const summary = {
+  display: "flex",
+  gap: 20,
+  marginBottom: 20
+}
+
+const card = {
+  background: "#1e293b",
+  padding: 15,
+  borderRadius: 8,
+  marginBottom: 20
+}
+
+const row = {
+  display: "flex",
+  justifyContent: "space-between",
+  padding: "8px 0",
+  borderBottom: "1px solid #334155"
+}
+
+const center = {
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  height: "100vh",
+  background: "#020617"
 }
