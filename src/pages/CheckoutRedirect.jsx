@@ -8,29 +8,27 @@ function CheckoutRedirect() {
   useEffect(() => {
     if (!id) return
 
-    const goToStripe = async () => {
+    const goToSquare = async () => {
       try {
-        console.log("💳 Creating checkout for:", id)
+        console.log("💳 Creating Square checkout for:", id)
 
-        /* 🔥 FIX: USE PARAM ROUTE */
-        const res = await api.post(`/stripe/create-checkout-session/${id}`)
+        const res = await api.post(`/square/create-payment/${id}`)
 
         if (!res?.data?.url) {
-          throw new Error("No checkout URL returned")
+          throw new Error("No payment URL returned")
         }
 
-        console.log("🚀 Redirecting to Stripe:", res.data.url)
+        console.log("🚀 Redirecting to Square:", res.data.url)
 
         window.location.href = res.data.url
 
       } catch (err) {
         console.error("❌ Checkout error:", err)
-
         alert("Failed to start checkout. Please try again.")
       }
     }
 
-    goToStripe()
+    goToSquare()
   }, [id])
 
   return (

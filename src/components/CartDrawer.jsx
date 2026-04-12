@@ -41,23 +41,40 @@ export default function CartDrawer({ isOpen, onClose }) {
     0
   )
 
-  /* ================= CHECKOUT ================= */
+  /* ================= CHECKOUT (🔥 FIXED) ================= */
   const handleCheckout = async () => {
     if (isRedirecting) return
 
     try {
       setIsRedirecting(true)
 
-      const res = await api.post("/stripe/create-cart-session", {
-        items: cart
+      console.log("🛒 Creating order from cart...")
+
+      /* 🔥 STEP 1: CREATE ORDER */
+      const orderRes = await api.post("/orders", {
+        items: cart,
+        source: "store",
+        status: "payment_required"
       })
 
-      if (!res?.data?.url) {
-        throw new Error("No Stripe URL returned")
+      const orderId = orderRes?.data?.data?._id
+
+      if (!orderId) {
+        throw new Error("Order creation failed")
       }
 
-      // 🔥 CLEAN REDIRECT (NO LOOP)
-      window.location.assign(res.data.url)
+      console.log("✅ Order created:", orderId)
+
+      /* 🔥 STEP 2: SEND TO SQUARE */
+      const paymentRes = await api.post(`/square/create-payment/${orderId}`)
+
+      if (!paymentRes?.data?.url) {
+        throw new Error("No payment URL returned")
+      }
+
+      console.log("🚀 Redirecting to Square:", paymentRes.data.url)
+
+      window.location.href = paymentRes.data.url
 
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err)
@@ -138,7 +155,6 @@ export default function CartDrawer({ isOpen, onClose }) {
           <div style={{ padding: 20 }}>
             <p>Subtotal: ${subtotal.toFixed(2)}</p>
 
-            {/* 🔥 STRIPE HANDLES THESE */}
             <p>Tax: Calculated at checkout</p>
             <p>Shipping: Calculated at checkout</p>
 
