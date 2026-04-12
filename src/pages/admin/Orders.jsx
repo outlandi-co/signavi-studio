@@ -14,34 +14,56 @@ function Orders() {
 
   const [orders, setOrders] = useState([])
   const [selected, setSelected] = useState([])
+  const [loading, setLoading] = useState(true)
 
   /* ================= LOAD ================= */
   useEffect(() => {
     const load = async () => {
       try {
         const res = await api.get("/orders")
-        setOrders(res.data)
+
+        console.log("🔥 RAW ORDERS:", res.data)
+
+        // ✅ FIX: normalize backend response
+        const safeOrders = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.data)
+          ? res.data.data
+          : []
+
+        console.log("✅ SAFE ORDERS:", safeOrders)
+
+        setOrders(safeOrders)
+
       } catch (err) {
-        console.error(err)
+        console.error("❌ LOAD ERROR:", err)
+        setOrders([])
+      } finally {
+        setLoading(false)
       }
     }
 
     load()
   }, [])
 
+  /* ================= SAFE ================= */
+  const safeOrders = Array.isArray(orders) ? orders : []
+
   /* ================= UPDATE STATUS ================= */
   const updateStatus = async (id, status) => {
     try {
       const res = await api.patch(`/orders/${id}/status`, { status })
 
+      const updatedOrder = res.data?.data || res.data?.order
+
       setOrders(prev =>
-        prev.map(o =>
-          o._id === id ? res.data.order : o
+        (Array.isArray(prev) ? prev : []).map(o =>
+          o._id === id ? updatedOrder : o
         )
       )
 
     } catch (err) {
-      console.error(err)
+      console.error("❌ STATUS ERROR:", err)
     }
   }
 
@@ -73,11 +95,11 @@ function Orders() {
     try {
       const res = await api.get(`/orders/${id}/print-all`)
 
-      if (res.data.label) {
+      if (res.data?.label) {
         window.open(res.data.label, "_blank")
       }
 
-      if (res.data.packingSlip) {
+      if (res.data?.packingSlip) {
         window.open(res.data.packingSlip, "_blank")
       }
 
@@ -91,27 +113,34 @@ function Orders() {
     window.open(`/api/orders/${id}/invoice`, "_blank")
   }
 
+  /* ================= LOADING ================= */
+  if (loading) {
+    return (
+      <div style={center}>
+        <h2 style={{ color: "white" }}>⏳ Loading orders...</h2>
+      </div>
+    )
+  }
+
+  /* ================= UI ================= */
   return (
-    <div style={{ padding: 20 }}>
+    <div style={container}>
 
       <h1>📦 Orders</h1>
 
-      {/* ================= BULK ACTION BAR ================= */}
-      <div style={{
-        display: "flex",
-        gap: 10,
-        marginBottom: 12
-      }}>
+      <p style={{ opacity: 0.6 }}>
+        DEBUG: {safeOrders.length} orders loaded
+      </p>
+
+      {/* BULK ACTION BAR */}
+      <div style={toolbar}>
         <button
           onClick={handleBulkPrint}
           style={{
-            padding: "8px 14px",
+            ...button,
             background: selected.length ? "#22c55e" : "#374151",
             color: selected.length ? "#000" : "#9ca3af",
-            border: "none",
-            borderRadius: 6,
-            cursor: selected.length ? "pointer" : "not-allowed",
-            fontWeight: "bold"
+            cursor: selected.length ? "pointer" : "not-allowed"
           }}
         >
           🧾 Bulk Labels ({selected.length})
@@ -120,106 +149,125 @@ function Orders() {
         {selected.length > 0 && (
           <button
             onClick={() => setSelected([])}
-            style={{
-              padding: "8px 12px",
-              background: "#ef4444",
-              color: "#fff",
-              border: "none",
-              borderRadius: 6,
-              cursor: "pointer"
-            }}
+            style={{ ...button, background: "#ef4444", color: "#fff" }}
           >
             ❌ Clear
           </button>
         )}
       </div>
 
-      {/* ================= TABLE ================= */}
-      <table style={{ width: "100%" }}>
-        <thead>
-          <tr>
-            <th></th>
-            <th>ID</th>
-            <th>Customer</th>
-            <th>Status</th>
-            <th>Tracking</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {orders.map(o => (
-            <tr key={o._id}>
-
-              {/* SELECT */}
-              <td>
-                <input
-                  type="checkbox"
-                  checked={selected.includes(o._id)}
-                  onChange={() => {
-                    setSelected(prev =>
-                      prev.includes(o._id)
-                        ? prev.filter(id => id !== o._id)
-                        : [...prev, o._id]
-                    )
-                  }}
-                />
-              </td>
-
-              <td>{o._id.slice(-6)}</td>
-              <td>{o.customerName}</td>
-
-              {/* STATUS */}
-              <td>
-                {STATUS_LIST.map(s => (
-                  <button
-                    key={s}
-                    onClick={() => updateStatus(o._id, s)}
-                    style={{
-                      marginRight: 4,
-                      opacity: o.status === s ? 1 : 0.4
-                    }}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </td>
-
-              {/* TRACKING */}
-              <td>
-                {o.trackingNumber || "Not shipped"}
-              </td>
-
-              {/* ACTIONS */}
-              <td>
-
-                {o.status === "production" && (
-                  <button onClick={() => updateStatus(o._id, "shipping")}>
-                    🚚 Ship
-                  </button>
-                )}
-
-                {o.status === "shipping" && (
-                  <>
-                    <button onClick={() => printAll(o._id)}>
-                      🚀 Print All
-                    </button>
-
-                    <button onClick={() => printInvoice(o._id)}>
-                      🧾 Invoice
-                    </button>
-                  </>
-                )}
-
-              </td>
-
+      {/* TABLE */}
+      {safeOrders.length === 0 ? (
+        <p>No orders found.</p>
+      ) : (
+        <table style={{ width: "100%" }}>
+          <thead>
+            <tr>
+              <th></th>
+              <th>ID</th>
+              <th>Customer</th>
+              <th>Status</th>
+              <th>Tracking</th>
+              <th>Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody>
+            {safeOrders.map(o => (
+              <tr key={o._id}>
+
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(o._id)}
+                    onChange={() => {
+                      setSelected(prev =>
+                        prev.includes(o._id)
+                          ? prev.filter(id => id !== o._id)
+                          : [...prev, o._id]
+                      )
+                    }}
+                  />
+                </td>
+
+                <td>{o._id?.slice(-6)}</td>
+                <td>{o.customerName || "Unknown"}</td>
+
+                <td>
+                  {STATUS_LIST.map(s => (
+                    <button
+                      key={s}
+                      onClick={() => updateStatus(o._id, s)}
+                      style={{
+                        marginRight: 4,
+                        opacity: o.status === s ? 1 : 0.4
+                      }}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </td>
+
+                <td>{o.trackingNumber || "Not shipped"}</td>
+
+                <td>
+                  {o.status === "production" && (
+                    <button onClick={() => updateStatus(o._id, "shipping")}>
+                      🚚 Ship
+                    </button>
+                  )}
+
+                  {o.status === "shipping" && (
+                    <>
+                      <button onClick={() => printAll(o._id)}>
+                        🚀 Print All
+                      </button>
+
+                      <button onClick={() => printInvoice(o._id)}>
+                        🧾 Invoice
+                      </button>
+                    </>
+                  )}
+                </td>
+
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
 
     </div>
   )
+}
+
+/* ================= STYLES ================= */
+
+const container = {
+  padding: 20,
+  background: "#020617",
+  minHeight: "100vh",
+  color: "white"
+}
+
+const toolbar = {
+  display: "flex",
+  gap: 10,
+  marginBottom: 12
+}
+
+const button = {
+  padding: "8px 14px",
+  border: "none",
+  borderRadius: 6,
+  fontWeight: "bold"
+}
+
+const center = {
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  height: "100vh",
+  background: "#020617"
 }
 
 export default Orders
