@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useSearchParams, useNavigate, useParams } from "react-router-dom"
 import useCart from "../hooks/useCart"
 import api from "../services/api"
@@ -6,19 +6,24 @@ import api from "../services/api"
 export default function Success() {
 
   const [searchParams] = useSearchParams()
-  const { id } = useParams() // 🔥 for Square redirect
+  const { id } = useParams()
   const navigate = useNavigate()
   const { clearCart } = useCart()
 
   const [status, setStatus] = useState("loading")
+
+  /* 🔥 PREVENT DOUBLE CALLS */
+  const hasRun = useRef(false)
 
   const sessionId = searchParams.get("session_id")
 
   useEffect(() => {
 
     const handleSuccess = async () => {
-      try {
+      if (hasRun.current) return
+      hasRun.current = true
 
+      try {
         console.log("🔥 SUCCESS PAGE HIT")
 
         /* ================= STRIPE FALLBACK ================= */
@@ -30,6 +35,7 @@ export default function Success() {
         if (id) {
           console.log("💳 Square success for order:", id)
 
+          /* 🔥 USE YOUR CENTRAL HANDLER */
           await api.patch(`/orders/update-status/${id}`, {
             status: "paid"
           })
@@ -43,6 +49,8 @@ export default function Success() {
 
       } catch (err) {
         console.error("❌ SUCCESS ERROR:", err)
+
+        /* 🔥 SHOW USER BUT DON’T BREAK UX */
         setStatus("error")
       }
     }
@@ -63,8 +71,20 @@ export default function Success() {
 
   if (status === "error") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black text-white">
-        <h2>Something went wrong.</h2>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-black text-white text-center">
+        <h2 className="text-red-400 text-xl mb-2">
+          ⚠️ Payment received but update failed
+        </h2>
+        <p className="text-gray-400 mb-4">
+          Your order may still be processing. Refresh or contact support.
+        </p>
+
+        <button
+          onClick={() => window.location.reload()}
+          className="bg-yellow-500 px-6 py-2 rounded text-black font-semibold"
+        >
+          Retry
+        </button>
       </div>
     )
   }
