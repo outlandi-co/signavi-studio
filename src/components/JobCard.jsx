@@ -1,4 +1,4 @@
-import { useState } from "react"
+import React from "react"
 
 function JobCard({ job, updateStatus }) {
 
@@ -38,28 +38,28 @@ function JobCard({ job, updateStatus }) {
 
         {job.status === "pending" && (
           <button
-            onClick={() => updateStatus(job, "printing")}
+            onClick={() => updateStatus(job._id, "production")}
             className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
           >
             Start
           </button>
         )}
 
-        {job.status === "printing" && (
+        {job.status === "production" && (
           <button
-            onClick={() => updateStatus(job, "ready")}
+            onClick={() => updateStatus(job._id, "shipping")}
             className="bg-yellow-500 text-white px-2 py-1 rounded text-xs"
           >
             Ready
           </button>
         )}
 
-        {job.status === "ready" && (
+        {job.status === "shipping" && (
           <button
-            onClick={() => updateStatus(job, "delivered")}
+            onClick={() => updateStatus(job._id, "delivered")}
             className="bg-green-500 text-white px-2 py-1 rounded text-xs"
           >
-            Ship
+            Deliver
           </button>
         )}
 
