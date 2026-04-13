@@ -10,7 +10,7 @@ export default function Login() {
 
   const navigate = useNavigate()
 
-  /* 🔥 WAKE SERVER */
+  /* 🔥 WAKE SERVER (Render cold start fix) */
   useEffect(() => {
     api.get("/ping").catch(() => {})
   }, [])
@@ -18,7 +18,7 @@ export default function Login() {
   const handleLogin = async () => {
     if (loading) return
 
-    /* 🔥 BASIC VALIDATION */
+    /* ✅ BASIC VALIDATION */
     if (!email || !password) {
       setError("Please enter email and password")
       return
@@ -34,7 +34,7 @@ export default function Login() {
       let success = false
       let res
 
-      /* 🔥 RETRY LOOP (fix Render cold start) */
+      /* 🔥 RETRY LOOP */
       while (attempts < 3 && !success) {
         try {
           res = await api.post("/auth/login", { email, password })
@@ -59,6 +59,7 @@ export default function Login() {
 
       const { token, user } = res.data
 
+      /* 🔐 SAVE AUTH */
       localStorage.setItem("adminToken", token)
       localStorage.setItem("adminUser", JSON.stringify(user))
 
@@ -69,11 +70,23 @@ export default function Login() {
     } catch (err) {
       console.error("❌ LOGIN ERROR FULL:", err)
 
-      const message =
-        err?.response?.data?.message ||
-        err?.response?.data ||
-        err.message ||
-        "Login failed"
+      /* 🔥 SAFE ERROR HANDLING (NO REACT CRASH) */
+      let message = "Login failed"
+
+      if (err?.response?.data) {
+        const data = err.response.data
+
+        if (typeof data === "string") {
+          message = data
+        } else if (typeof data === "object") {
+          message =
+            data.message ||
+            data.error ||
+            JSON.stringify(data)
+        }
+      } else if (err.message) {
+        message = err.message
+      }
 
       setError(message)
     } finally {
@@ -89,6 +102,7 @@ export default function Login() {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder="Email"
+        style={{ display: "block", marginBottom: 10 }}
       />
 
       <input
@@ -96,10 +110,11 @@ export default function Login() {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         placeholder="Password"
+        style={{ display: "block", marginBottom: 10 }}
       />
 
       {error && (
-        <p style={{ color: "red", marginTop: 10 }}>
+        <p style={{ color: "red", marginBottom: 10 }}>
           {error}
         </p>
       )}
