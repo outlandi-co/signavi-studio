@@ -10,77 +10,113 @@ export default function Success() {
   const { clearCart } = useCart()
 
   const [status, setStatus] = useState("loading")
+  const [retrying, setRetrying] = useState(false)
 
-  /* 🔥 PREVENT DOUBLE CALLS */
+  /* 🔒 prevent double execution */
   const hasRun = useRef(false)
 
   useEffect(() => {
 
-    const handleSuccess = async () => {
+    const confirmPayment = async () => {
       if (hasRun.current) return
       hasRun.current = true
 
       try {
         console.log("🔥 SUCCESS PAGE HIT")
 
-        /* ================= VALIDATION ================= */
         if (!id) {
           console.warn("⚠️ Missing order ID")
           setStatus("error")
           return
         }
 
-        console.log("💳 Square success for order:", id)
+        console.log("💳 Confirming payment for:", id)
 
-        /* ================= UPDATE ORDER ================= */
-        await api.patch(`/orders/update-status/${id}`, {
-          status: "paid"
-        })
+        /* ================= 🔥 CORRECT FLOW ================= */
+        await api.post(`/square/confirm/${id}`)
 
-        /* ================= FINALIZE ================= */
+        console.log("✅ Payment confirmed")
+
         setStatus("paid")
 
+        /* 🧹 cleanup */
         clearCart()
         localStorage.removeItem("cart")
 
       } catch (err) {
-        console.error("❌ SUCCESS ERROR:", err)
+        console.error("❌ CONFIRM ERROR:", err.response?.data || err.message)
 
-        /* 🔥 FAIL SAFE */
         setStatus("error")
       }
     }
 
-    handleSuccess()
+    confirmPayment()
 
   }, [id, clearCart])
+
+  /* ================= RETRY ================= */
+  const handleRetry = async () => {
+    try {
+      setRetrying(true)
+
+      await api.post(`/square/confirm/${id}`)
+
+      setStatus("paid")
+
+      clearCart()
+      localStorage.removeItem("cart")
+
+    } catch (err) {
+      console.error("❌ RETRY FAILED:", err)
+      alert("Still failed. Please contact support.")
+    } finally {
+      setRetrying(false)
+    }
+  }
 
   /* ================= UI ================= */
 
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black text-white">
-        <h2>Processing payment...</h2>
+        <h2 className="animate-pulse text-lg">
+          Processing your payment...
+        </h2>
       </div>
     )
   }
 
   if (status === "error") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-black text-white text-center">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-black text-white text-center p-6">
+
         <h2 className="text-red-400 text-xl mb-2">
-          ⚠️ Payment received but update failed
+          ⚠️ Payment received but confirmation failed
         </h2>
-        <p className="text-gray-400 mb-4">
-          Your order may still be processing. Refresh or contact support.
+
+        <p className="text-gray-400 mb-6 max-w-md">
+          Your payment likely went through, but we couldn’t finalize your order.
+          Tap retry or refresh.
         </p>
 
-        <button
-          onClick={() => window.location.reload()}
-          className="bg-yellow-500 px-6 py-2 rounded text-black font-semibold"
-        >
-          Retry
-        </button>
+        <div className="flex gap-4">
+
+          <button
+            onClick={handleRetry}
+            disabled={retrying}
+            className="bg-yellow-500 px-6 py-2 rounded text-black font-semibold"
+          >
+            {retrying ? "Retrying..." : "Retry"}
+          </button>
+
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-gray-700 px-6 py-2 rounded"
+          >
+            Refresh
+          </button>
+
+        </div>
       </div>
     )
   }
@@ -92,11 +128,12 @@ export default function Success() {
         ✅ Payment Successful
       </h1>
 
-      <p className="mb-6 text-gray-300">
-        Your order has been received and is now in production.
+      <p className="mb-6 text-gray-300 max-w-md">
+        Your order is confirmed and has been moved into production.
       </p>
 
       <div className="flex gap-4">
+
         <button
           onClick={() => navigate("/store")}
           className="bg-cyan-500 px-6 py-2 rounded text-black font-semibold"
@@ -110,6 +147,7 @@ export default function Success() {
         >
           Go Home
         </button>
+
       </div>
 
     </div>
