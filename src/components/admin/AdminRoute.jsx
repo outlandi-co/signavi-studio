@@ -1,4 +1,3 @@
-
 import { Navigate, Outlet } from "react-router-dom"
 
 export default function AdminRoute() {
@@ -18,7 +17,8 @@ export default function AdminRoute() {
     adminToken
   })
 
-  if (!adminUser || !adminToken) {
+  /* 🔥 STRICT CHECK */
+  if (!adminUser || !adminToken || adminUser.role !== "admin") {
     console.warn("🚫 Admin blocked → redirecting to login")
     return <Navigate to="/login" replace />
   }
