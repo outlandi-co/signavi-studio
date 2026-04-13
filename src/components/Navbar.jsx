@@ -30,8 +30,6 @@ function Navbar({ setCartOpen }) {
   const handleCartClick = () => {
     if (typeof setCartOpen === "function") {
       setCartOpen(true)
-    } else {
-      console.warn("⚠️ setCartOpen not provided to Navbar")
     }
   }
 
@@ -47,18 +45,10 @@ function Navbar({ setCartOpen }) {
         <NavLink to="/" active={isActive("/")}>Home</NavLink>
         <NavLink to="/store" active={isActive("/store")}>Store</NavLink>
 
-        {/* 🔥 SAFE CART BUTTON */}
-        <button
-          onClick={handleCartClick}
-          style={cartBtn}
-          onMouseEnter={(e) => e.currentTarget.style.color = "#22d3ee"}
-          onMouseLeave={(e) => e.currentTarget.style.color = "#cbd5f5"}
-        >
+        {/* CART */}
+        <button onClick={handleCartClick} style={cartBtn}>
           🛒 Cart
-
-          {cartCount > 0 && (
-            <span style={badge}>{cartCount}</span>
-          )}
+          {cartCount > 0 && <span style={badge}>{cartCount}</span>}
         </button>
 
         {user && (
@@ -67,12 +57,23 @@ function Navbar({ setCartOpen }) {
           </NavLink>
         )}
 
+        {/* 🔥 ADMIN NAV */}
         {admin && (
           <div style={adminGroup}>
             <NavLink to="/admin/production" active={isActive("/admin/production")}>Production</NavLink>
             <NavLink to="/admin/orders" active={isActive("/admin/orders")}>Orders</NavLink>
             <NavLink to="/admin/customers" active={isActive("/admin/customers")}>Customers</NavLink>
             <NavLink to="/admin/revenue" active={isActive("/admin/revenue")}>Revenue</NavLink>
+
+            {/* 🔥 NEW LINKS */}
+            <NavLink to="/admin/products" active={isActive("/admin/products")}>
+              📦 Products
+            </NavLink>
+
+            <NavLink to="/admin/products/new" active={isActive("/admin/products/new")}>
+              ➕ Add Product
+            </NavLink>
+
           </div>
         )}
       </div>

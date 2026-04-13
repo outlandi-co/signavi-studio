@@ -53,6 +53,23 @@ export default function AdminInventory() {
     }
   }
 
+  /* ================= ANALYTICS ================= */
+  const totalProducts = products.length
+
+  const totalValue = products.reduce(
+    (sum, p) => sum + (p.price * p.stock),
+    0
+  )
+
+  const totalCost = products.reduce(
+    (sum, p) => sum + (p.cost * p.stock),
+    0
+  )
+
+  const totalProfit = totalValue - totalCost
+
+  const lowStockCount = products.filter(p => p.stock < 5).length
+
   /* ================= CREATE ================= */
   const handleNewChange = async (e) => {
     const { name, value } = e.target
@@ -185,6 +202,37 @@ export default function AdminInventory() {
     <div className="p-6 bg-black text-white min-h-screen">
 
       <h1 className="text-3xl mb-6 font-bold">📦 Inventory Dashboard</h1>
+
+      {/* ================= ANALYTICS BAR ================= */}
+      <div className="grid grid-cols-4 gap-4 mb-6">
+
+        <div className="bg-gray-900 p-4 rounded">
+          <p className="text-gray-400 text-sm">Total Products</p>
+          <h2 className="text-xl font-bold">{totalProducts}</h2>
+        </div>
+
+        <div className="bg-gray-900 p-4 rounded">
+          <p className="text-gray-400 text-sm">Inventory Value</p>
+          <h2 className="text-xl font-bold text-cyan-400">
+            ${totalValue.toFixed(2)}
+          </h2>
+        </div>
+
+        <div className="bg-gray-900 p-4 rounded">
+          <p className="text-gray-400 text-sm">Potential Profit</p>
+          <h2 className="text-xl font-bold text-green-400">
+            ${totalProfit.toFixed(2)}
+          </h2>
+        </div>
+
+        <div className="bg-gray-900 p-4 rounded">
+          <p className="text-gray-400 text-sm">Low Stock</p>
+          <h2 className="text-xl font-bold text-red-400">
+            {lowStockCount}
+          </h2>
+        </div>
+
+      </div>
 
       {/* SEARCH + FILTER */}
       <div className="flex gap-4 mb-6">

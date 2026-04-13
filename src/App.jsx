@@ -48,6 +48,10 @@ import AdminInventory from "./pages/admin/AdminInventory"
 import AdminMockups from "./pages/admin/AdminMockups"
 import CustomerDetail from "./components/admin/CustomerDetail"
 
+/* 🔥 NEW IMPORTS */
+import Products from "./pages/admin/Products"
+import CreateProduct from "./pages/admin/CreateProduct"
+
 /* FLOW */
 import ApproveMockup from "./pages/ApproveMockup"
 import Checkout from "./pages/Checkout"
@@ -95,7 +99,6 @@ function AppContent() {
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err)
       alert("Server waking up... try again.")
-
       setIsRedirecting(false)
     }
   }
@@ -157,7 +160,7 @@ function AppContent() {
           <Route path="/customer-login" element={<CustomerLogin />} />
           <Route path="/customer-register" element={<CustomerRegister />} />
 
-          {/* 🔥 FIXED CUSTOMER ROUTES */}
+          {/* CUSTOMER PROTECTED */}
           <Route element={<CustomerRoute />}>
             <Route path="/dashboard" element={<CustomerDashboard />} />
             <Route path="/order/:id" element={<OrderDetail />} />
@@ -171,17 +174,25 @@ function AppContent() {
           <Route path="/success/:id" element={<Success />} />
           <Route path="/approve/:id" element={<ApproveMockup />} />
 
-          {/* 🔥 FIXED ADMIN ROUTES */}
+          {/* 🔥 ADMIN ROUTES (UPDATED) */}
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminLayout />}>
+
               <Route index element={<Dashboard />} />
+
               <Route path="production" element={<ProductionBoard />} />
               <Route path="orders" element={<Orders />} />
               <Route path="customers" element={<AdminCustomers />} />
               <Route path="revenue" element={<AdminRevenue />} />
+
+              {/* 🔥 NEW PRODUCT MANAGEMENT */}
+              <Route path="products" element={<Products />} />
+              <Route path="create-product" element={<CreateProduct />} />
+
             </Route>
           </Route>
 
+          {/* 404 */}
           <Route path="*" element={<h2>Page not found</h2>} />
 
         </Routes>
