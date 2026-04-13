@@ -41,67 +41,66 @@ export default function CartDrawer({ isOpen, onClose }) {
     0
   )
 
-  /* ================= CHECKOUT (🔥 FIXED) ================= */
-const handleCheckout = async () => {
-  if (isRedirecting) return
+  /* ================= CHECKOUT ================= */
+  const handleCheckout = async () => {
+    if (isRedirecting) return
 
-  try {
-    setIsRedirecting(true)
+    try {
+      setIsRedirecting(true)
 
-    console.log("🛒 Creating order from cart...", cart)
+      console.log("🛒 Creating order from cart...", cart)
 
-    /* ================= SANITIZE CART ================= */
-    const safeItems = cart.map(item => ({
-      name: item?.name || "Item",
-      quantity: Number(item?.quantity) || 1,
-      price: Number(item?.price) || 0
-    }))
+      const safeItems = cart.map(item => ({
+        name: item?.name || "Item",
+        quantity: Number(item?.quantity) || 1,
+        price: Number(item?.price) || 0
+      }))
 
-    if (!safeItems.length) {
-      throw new Error("Cart is empty")
+      if (!safeItems.length) {
+        throw new Error("Cart is empty")
+      }
+
+      /* 🔥 STEP 1: CREATE ORDER */
+      const orderRes = await api.post("/orders", {
+        items: safeItems,
+        customerName: "Guest",
+        email: "",
+        source: "store"
+      })
+
+      const orderId = orderRes?.data?.data?._id
+
+      if (!orderId) {
+        throw new Error("Order creation failed")
+      }
+
+      console.log("✅ Order created:", orderId)
+
+      /* 🔥 STEP 2: CREATE SQUARE PAYMENT LINK */
+      const paymentRes = await api.post(`/square/create-payment/${orderId}`)
+
+      console.log("💳 Square response:", paymentRes.data)
+
+      const url = paymentRes?.data?.url
+
+      if (!url) {
+        throw new Error("No payment URL returned")
+      }
+
+      console.log("🚀 Redirecting to Square:", url)
+
+      /* 🔥 FINAL STEP: REDIRECT */
+      window.location.assign(url)
+
+    } catch (err) {
+      console.error("❌ CHECKOUT ERROR:", err?.response?.data || err.message)
+      alert("Checkout failed — check console")
+      setIsRedirecting(false)
     }
-
-    /* 🔥 STEP 1: CREATE ORDER */
-    const orderRes = await api.post("/orders", {
-      items: safeItems,
-      customerName: "Guest",
-      email: "",
-      source: "store"
-    })
-
-    const orderId = orderRes?.data?.data?._id
-
-    if (!orderId) {
-      throw new Error("Order creation failed")
-    }
-
-    console.log("✅ Order created:", orderId)
-
-    /* 🔥 STEP 2: SEND TO SQUARE */
-    const paymentRes = await api.post(`/square/create-payment/${orderId}`)
-
-    const url = paymentRes?.data?.url
-
-    if (!url) {
-      throw new Error("No payment URL returned")
-    }
-
-    console.log("🚀 Redirecting to Square:", url)
-
-    window.location.assign(url)
-
-  } catch (err) {
-    console.error("❌ CHECKOUT ERROR:", err?.response?.data || err.message)
-
-    alert("Checkout failed — check console")
-
-    setIsRedirecting(false)
   }
-}
 
   return (
     <>
-      {/* OVERLAY */}
       <div
         onClick={safeClose}
         style={{
@@ -114,7 +113,6 @@ const handleCheckout = async () => {
         }}
       />
 
-      {/* DRAWER */}
       <div
         style={{
           position: "fixed",
@@ -132,13 +130,11 @@ const handleCheckout = async () => {
         }}
       >
 
-        {/* HEADER */}
         <div style={{ padding: 20, display: "flex", justifyContent: "space-between" }}>
           <h2>🛒 Cart</h2>
           <button onClick={safeClose}>✖</button>
         </div>
 
-        {/* ITEMS */}
         <div style={{ padding: 20, flex: 1, overflowY: "auto" }}>
           {cart.length === 0 && <p>Your cart is empty</p>}
 
@@ -166,15 +162,11 @@ const handleCheckout = async () => {
           ))}
         </div>
 
-        {/* FOOTER */}
         {cart.length > 0 && (
           <div style={{ padding: 20 }}>
             <p>Subtotal: ${subtotal.toFixed(2)}</p>
 
-            <p>Tax: Calculated at checkout</p>
-            <p>Shipping: Calculated at checkout</p>
-
-            <h3>Estimated Total: ${subtotal.toFixed(2)}</h3>
+            <h3>Total: ${subtotal.toFixed(2)}</h3>
 
             <Button
               onClick={handleCheckout}
@@ -182,10 +174,9 @@ const handleCheckout = async () => {
               style={{ marginTop: 10 }}
             >
               {isRedirecting
-                ? "Connecting to secure payment..."
+                ? "🔐 Connecting to payment..."
                 : "💳 Checkout"}
             </Button>
-
           </div>
         )}
       </div>
