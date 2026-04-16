@@ -8,56 +8,49 @@ export default function Store() {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
 
+  /* 🔥 TRACK USER SELECTION */
+  const [selected, setSelected] = useState({})
+
   const { addToCart } = useCart()
 
   const BASE_URL = api.defaults.baseURL.replace("/api", "")
 
-  /* ================= LOAD PRODUCTS ================= */
+  /* ================= LOAD ================= */
   useEffect(() => {
     const load = async () => {
       try {
         const res = await api.get("/products")
-
-        let safeProducts = []
-
-        if (Array.isArray(res.data)) {
-          safeProducts = res.data
-        } else if (Array.isArray(res.data?.data)) {
-          safeProducts = res.data.data
-        }
-
-        setProducts(safeProducts)
-
+        setProducts(Array.isArray(res.data) ? res.data : [])
       } catch (err) {
-        console.error("❌ STORE LOAD ERROR:", err)
-        setProducts([])
+        console.error(err)
       } finally {
         setLoading(false)
       }
     }
-
     load()
   }, [])
 
-  /* ================= LOADING ================= */
-  if (loading) {
-    return (
-      <div style={center}>
-        <h2 style={{ color: "white" }}>⏳ Loading products...</h2>
-      </div>
-    )
-  }
+  /* ================= HELPERS ================= */
 
-  /* ================= EMPTY ================= */
-  if (!products.length) {
-    return (
-      <div style={center}>
-        <h2 style={{ color: "white" }}>No products found.</h2>
-      </div>
+  const getVariants = (product) => product.variants || []
+
+  const getColors = (product) =>
+    [...new Set(getVariants(product).map(v => v.color))]
+
+  const getSizes = (product, color) =>
+    getVariants(product)
+      .filter(v => v.color === color)
+      .map(v => v.size)
+
+  const getVariant = (product, color, size) =>
+    getVariants(product).find(
+      v => v.color === color && v.size === size
     )
-  }
 
   /* ================= UI ================= */
+
+  if (loading) return <div style={center}><h2>Loading...</h2></div>
+
   return (
     <div style={container}>
       <h1 style={title}>🛒 Store</h1>
@@ -65,85 +58,96 @@ export default function Store() {
       <div style={grid}>
         {products.map(product => {
 
-          const priceValue = Number(product.price || 0)
-          const stock = Number(product.stock ?? 0)
-          const inStock = stock > 0
+          const sel = selected[product._id] || {}
 
-          // 🔥 DEFAULT IMAGE
-          const defaultImage = product.image
+          const colors = getColors(product)
+          const sizes = sel.color ? getSizes(product, sel.color) : []
+          const variant = getVariant(product, sel.color, sel.size)
+
+          const imageUrl = product.image
             ? product.image.startsWith("/uploads")
               ? `${BASE_URL}${product.image}`
               : product.image
             : "/placeholders/hoodie.png"
 
-          // 🔥 COLOR IMAGE (if exists)
-          const firstColor = product.colors?.[0]
-          const colorImage = firstColor?.images?.front || defaultImage
-
-          const imageUrl = colorImage.startsWith("/uploads")
-            ? `${BASE_URL}${colorImage}`
-            : colorImage
-
           return (
             <div key={product._id} style={card}>
 
-              {/* IMAGE */}
-              <img
-                src={imageUrl}
-                alt={product.name}
-                style={image}
-                onError={(e) => {
-                  e.target.src = "/placeholders/hoodie.png"
-                }}
-              />
+              <img src={imageUrl} style={image} />
 
-              {/* NAME */}
-              <h3 style={{ color: "white" }}>
-                {product.name}
-              </h3>
+              <h3>{product.name}</h3>
 
-              {/* DESCRIPTION */}
-              <p style={{ color: "#94a3b8", fontSize: 13 }}>
-                {product.description || "No description"}
-              </p>
-
-              {/* 🔥 COLOR SWATCHES */}
-              {product.colors?.length > 0 && (
-                <div style={swatchContainer}>
-                  {product.colors.map((color, idx) => (
-                    <div
-                      key={idx}
+              {/* 🎨 COLORS */}
+              <div>
+                <p>Color</p>
+                <div style={row}>
+                  {colors.map(c => (
+                    <button
+                      key={c}
+                      onClick={() =>
+                        setSelected(prev => ({
+                          ...prev,
+                          [product._id]: { color: c }
+                        }))
+                      }
                       style={{
-                        ...swatch,
-                        backgroundColor: color.hex || "#ccc"
+                        ...btn,
+                        background: sel.color === c ? "#22c55e" : "#333"
                       }}
-                      title={color.name}
-                    />
+                    >
+                      {c}
+                    </button>
                   ))}
+                </div>
+              </div>
+
+              {/* 📏 SIZES */}
+              {sel.color && (
+                <div>
+                  <p>Size</p>
+                  <div style={row}>
+                    {sizes.map(s => (
+                      <button
+                        key={s}
+                        onClick={() =>
+                          setSelected(prev => ({
+                            ...prev,
+                            [product._id]: {
+                              ...prev[product._id],
+                              size: s
+                            }
+                          }))
+                        }
+                        style={{
+                          ...btn,
+                          background: sel.size === s ? "#3b82f6" : "#333"
+                        }}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {/* PRICE */}
+              {/* 💰 PRICE */}
               <p style={price}>
-                ${priceValue.toFixed(2)}
+                {variant ? `$${variant.price}` : "Select options"}
               </p>
 
-              {/* STOCK */}
-              <p style={{ fontSize: 12, opacity: 0.6 }}>
-                {inStock ? `Stock: ${stock}` : "Out of Stock"}
-              </p>
-
-              {/* BUTTON */}
+              {/* 🛒 */}
               <button
+                disabled={!variant}
+                onClick={() => {
+                  addToCart({
+                    ...product,
+                    selectedVariant: variant
+                  })
+                  toast.success("Added to cart")
+                }}
                 style={{
                   ...button,
-                  opacity: inStock ? 1 : 0.5,
-                  cursor: inStock ? "pointer" : "not-allowed"
-                }}
-                disabled={!inStock}
-                onClick={() => {
-                  addToCart(product)
-                  toast.success(`${product.name} added to cart`)
+                  opacity: variant ? 1 : 0.5
                 }}
               >
                 Add to Cart
@@ -159,71 +163,13 @@ export default function Store() {
 
 /* ================= STYLES ================= */
 
-const container = {
-  padding: 20,
-  background: "#020617",
-  minHeight: "100vh"
-}
-
-const title = {
-  color: "white",
-  marginBottom: 20
-}
-
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
-  gap: 20
-}
-
-const card = {
-  borderRadius: 12,
-  padding: 15,
-  textAlign: "center"
-}
-
-const image = {
-  width: "100%",
-  height: 200,
-  objectFit: "cover",
-  borderRadius: 8,
-  marginBottom: 10
-}
-
-const swatchContainer = {
-  display: "flex",
-  justifyContent: "center",
-  gap: 6,
-  marginTop: 8
-}
-
-const swatch = {
-  width: 16,
-  height: 16,
-  borderRadius: "50%",
-  border: "1px solid #fff"
-}
-
-const price = {
-  color: "#22c55e",
-  fontWeight: "bold",
-  marginTop: 10
-}
-
-const button = {
-  marginTop: 10,
-  padding: "8px 12px",
-  borderRadius: 6,
-  background: "#06b6d4",
-  border: "none",
-  color: "black",
-  fontWeight: "bold"
-}
-
-const center = {
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  height: "100vh",
-  background: "#020617"
-}
+const container = { padding: 20, background: "#020617", minHeight: "100vh", color: "white" }
+const title = { marginBottom: 20 }
+const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(250px,1fr))", gap: 20 }
+const card = { padding: 15, background: "#111", borderRadius: 10 }
+const image = { width: "100%", height: 200, objectFit: "cover" }
+const price = { color: "#22c55e", fontWeight: "bold" }
+const row = { display: "flex", gap: 5, flexWrap: "wrap" }
+const btn = { padding: 5, borderRadius: 5, border: "none", color: "white" }
+const button = { marginTop: 10, padding: 10, background: "#06b6d4", border: "none" }
+const center = { display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }
