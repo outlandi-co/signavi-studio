@@ -10,6 +10,9 @@ export default function Store() {
 
   const { addToCart } = useCart()
 
+  // 🔥 BASE URL FIX (for uploads)
+  const BASE_URL = api.defaults.baseURL.replace("/api", "")
+
   /* ================= LOAD PRODUCTS ================= */
   useEffect(() => {
     const load = async () => {
@@ -18,7 +21,6 @@ export default function Store() {
 
         console.log("🔥 RAW RESPONSE:", res.data)
 
-        // ✅ FORCE SAFE ARRAY
         let safeProducts = []
 
         if (Array.isArray(res.data)) {
@@ -81,15 +83,25 @@ export default function Store() {
           const stock = Number(product.stock ?? 0)
           const inStock = stock > 0
 
+          // 🔥 IMAGE FIX
+          const imageUrl = product.image
+            ? product.image.startsWith("/uploads")
+              ? `${BASE_URL}${product.image}`
+              : product.image
+            : "/placeholders/hoodie.png"
+
           return (
             <div key={product._id} style={card}>
 
-              {/* IMAGE */}
-              {product.image ? (
-                <img src={product.image} alt={product.name} style={image} />
-              ) : (
-                <div style={imagePlaceholder}>No Image</div>
-              )}
+              {/* IMAGE (ALWAYS SHOW) */}
+              <img
+                src={imageUrl}
+                alt={product.name}
+                style={image}
+                onError={(e) => {
+                  e.target.src = "/placeholders/hoodie.png"
+                }}
+              />
 
               {/* NAME */}
               <h3 style={{ color: "white" }}>
@@ -166,20 +178,6 @@ const image = {
   objectFit: "cover",
   borderRadius: 8,
   marginBottom: 10
-}
-
-const imagePlaceholder = {
-  width: "100%",
-  height: 200,
-  borderRadius: 8,
-  marginBottom: 10,
-  background: "#0f172a",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  color: "#475569",
-  fontSize: 12,
-  border: "1px dashed #1e293b"
 }
 
 const price = {
