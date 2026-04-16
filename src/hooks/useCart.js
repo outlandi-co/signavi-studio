@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 
 export default function useCart() {
 
-  /* ================= INIT (🔥 FIXED) ================= */
+  /* ================= INIT ================= */
   const [cart, setCart] = useState(() => {
     try {
       const saved = localStorage.getItem("cart")
@@ -67,11 +67,19 @@ export default function useCart() {
   }
 
   /* ================= TOTAL ================= */
-  const total = cart.reduce(
-    (sum, item) => sum + item.variant.price * item.quantity,
-    0
-  )
+  const total = cart.reduce((sum, item) => {
+    const quantity = Number(item?.quantity) || 1
 
+    const price = Number(
+      item?.variant?.price ??
+      item?.price ?? // fallback for old cart items
+      0
+    )
+
+    return sum + price * quantity
+  }, 0)
+
+  /* ================= RETURN (🔥 MISSING BEFORE) ================= */
   return {
     cart,
     addToCart,

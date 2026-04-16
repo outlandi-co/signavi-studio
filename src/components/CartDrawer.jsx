@@ -17,7 +17,7 @@ export default function CartDrawer({ isOpen, onClose }) {
   const increaseQty = (id) => {
     setCart(prev =>
       prev.map(item =>
-        item._id === id
+        item.productId === id
           ? { ...item, quantity: (item.quantity || 1) + 1 }
           : item
       )
@@ -27,19 +27,25 @@ export default function CartDrawer({ isOpen, onClose }) {
   const decreaseQty = (id) => {
     setCart(prev =>
       prev.map(item =>
-        item._id === id
+        item.productId === id
           ? { ...item, quantity: Math.max(1, (item.quantity || 1) - 1) }
           : item
       )
     )
   }
 
-  /* ================= SUBTOTAL ================= */
-  const subtotal = cart.reduce(
-    (acc, item) =>
-      acc + (Number(item.price) || 0) * (item.quantity || 1),
-    0
-  )
+  /* ================= SUBTOTAL (🔥 FIXED) ================= */
+  const subtotal = cart.reduce((acc, item) => {
+    const price = Number(
+      item?.variant?.price ??
+      item?.price ??
+      0
+    )
+
+    const qty = Number(item?.quantity) || 1
+
+    return acc + price * qty
+  }, 0)
 
   /* ================= CHECKOUT ================= */
   const handleCheckout = async () => {
@@ -53,14 +59,18 @@ export default function CartDrawer({ isOpen, onClose }) {
       const safeItems = cart.map(item => ({
         name: item?.name || "Item",
         quantity: Number(item?.quantity) || 1,
-        price: Number(item?.price) || 0
+        price: Number(
+          item?.variant?.price ??
+          item?.price ??
+          0
+        )
       }))
 
       if (!safeItems.length) {
         throw new Error("Cart is empty")
       }
 
-      /* 🔥 STEP 1: CREATE ORDER */
+      /* 🔥 CREATE ORDER */
       const orderRes = await api.post("/orders", {
         items: safeItems,
         customerName: "Guest",
@@ -76,10 +86,8 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       console.log("✅ Order created:", orderId)
 
-      /* 🔥 STEP 2: CREATE SQUARE PAYMENT LINK */
+      /* 🔥 CREATE PAYMENT LINK */
       const paymentRes = await api.post(`/square/create-payment/${orderId}`)
-
-      console.log("💳 Square response:", paymentRes.data)
 
       const url = paymentRes?.data?.url
 
@@ -89,7 +97,6 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       console.log("🚀 Redirecting to Square:", url)
 
-      /* 🔥 FINAL STEP: REDIRECT */
       window.location.assign(url)
 
     } catch (err) {
@@ -101,6 +108,7 @@ export default function CartDrawer({ isOpen, onClose }) {
 
   return (
     <>
+      {/* BACKDROP */}
       <div
         onClick={safeClose}
         style={{
@@ -113,6 +121,7 @@ export default function CartDrawer({ isOpen, onClose }) {
         }}
       />
 
+      {/* DRAWER */}
       <div
         style={{
           position: "fixed",
@@ -130,38 +139,57 @@ export default function CartDrawer({ isOpen, onClose }) {
         }}
       >
 
+        {/* HEADER */}
         <div style={{ padding: 20, display: "flex", justifyContent: "space-between" }}>
           <h2>🛒 Cart</h2>
           <button onClick={safeClose}>✖</button>
         </div>
 
+        {/* ITEMS */}
         <div style={{ padding: 20, flex: 1, overflowY: "auto" }}>
           {cart.length === 0 && <p>Your cart is empty</p>}
 
-          {cart.map(item => (
-            <div key={item._id} style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-              <SafeImage
-                src={item.image || "/placeholder.png"}
-                alt={item.name}
-                style={{ width: 60, height: 60 }}
-              />
+          {cart.map(item => {
+            const price = Number(
+              item?.variant?.price ??
+              item?.price ??
+              0
+            )
 
-              <div style={{ flex: 1 }}>
-                <strong>{item.name}</strong>
-                <p>${Number(item.price).toFixed(2)}</p>
+            return (
+              <div
+                key={`${item.productId}-${item.variant?.color}-${item.variant?.size}`}
+                style={{ display: "flex", gap: 10, marginBottom: 12 }}
+              >
+                <SafeImage
+                  src={item.image || "/placeholder.png"}
+                  alt={item.name}
+                  style={{ width: 60, height: 60 }}
+                />
 
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => decreaseQty(item._id)}>−</button>
-                  <span>{item.quantity}</span>
-                  <button onClick={() => increaseQty(item._id)}>+</button>
+                <div style={{ flex: 1 }}>
+                  <strong>{item.name}</strong>
+
+                  <p style={{ fontSize: 12, opacity: 0.7 }}>
+                    {item.variant?.color} / {item.variant?.size}
+                  </p>
+
+                  <p>${price.toFixed(2)}</p>
+
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => decreaseQty(item.productId)}>−</button>
+                    <span>{item.quantity}</span>
+                    <button onClick={() => increaseQty(item.productId)}>+</button>
+                  </div>
                 </div>
-              </div>
 
-              <button onClick={() => removeFromCart(item._id)}>✖</button>
-            </div>
-          ))}
+                <button onClick={() => removeFromCart(item.productId)}>✖</button>
+              </div>
+            )
+          })}
         </div>
 
+        {/* FOOTER */}
         {cart.length > 0 && (
           <div style={{ padding: 20 }}>
             <p>Subtotal: ${subtotal.toFixed(2)}</p>
