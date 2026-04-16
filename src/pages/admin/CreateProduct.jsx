@@ -7,7 +7,6 @@ const COLORS = [
   "Gray", "Dust", "Pink", "Blue"
 ]
 
-/* 🔥 ONLY UP TO 3XL */
 const SIZES = ["XS", "S", "M", "L", "XL", "2XL", "3XL"]
 
 export default function CreateProduct() {
@@ -66,9 +65,16 @@ export default function CreateProduct() {
 
       const formData = new FormData()
 
-      Object.entries(product).forEach(([k, v]) => {
-        formData.append(k, JSON.stringify(v))
-      })
+      /* 🔥 FIX: DO NOT JSON STRINGIFY NUMBERS */
+      formData.append("name", product.name)
+      formData.append("category", product.category)
+      formData.append("cost", product.cost)
+      formData.append("price", product.price)
+      formData.append("stock", product.stock)
+
+      /* 🔥 ONLY JSON FOR ARRAYS */
+      formData.append("colors", JSON.stringify(product.colors))
+      formData.append("sizes", JSON.stringify(product.sizes))
 
       if (image) formData.append("image", image)
 
@@ -115,6 +121,14 @@ export default function CreateProduct() {
             className="bg-gray-800 p-3 rounded"
           />
 
+          {/* 🔥 ADD PRICE INPUT */}
+          <input
+            name="price"
+            placeholder="Price (e.g. 22)"
+            onChange={handleChange}
+            className="bg-gray-800 p-3 rounded"
+          />
+
           <input
             name="stock"
             placeholder="Stock"
@@ -130,6 +144,7 @@ export default function CreateProduct() {
                 <button
                   key={c}
                   onClick={() => toggleValue("colors", c)}
+                  type="button"
                   className={`px-3 py-1 rounded border ${
                     product.colors.includes(c)
                       ? "bg-green-500 text-black"
@@ -150,6 +165,7 @@ export default function CreateProduct() {
                 <button
                   key={s}
                   onClick={() => toggleValue("sizes", s)}
+                  type="button"
                   className={`px-3 py-1 rounded border ${
                     product.sizes.includes(s)
                       ? "bg-blue-500 text-black"
