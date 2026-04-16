@@ -48,9 +48,10 @@ import AdminInventory from "./pages/admin/AdminInventory"
 import AdminMockups from "./pages/admin/AdminMockups"
 import CustomerDetail from "./components/admin/CustomerDetail"
 
-/* 🔥 NEW IMPORTS */
+/* 🔥 PRODUCTS */
 import Products from "./pages/admin/Products"
 import CreateProduct from "./pages/admin/CreateProduct"
+import EditProduct from "./pages/admin/EditProduct"
 
 /* FLOW */
 import ApproveMockup from "./pages/ApproveMockup"
@@ -148,25 +149,25 @@ function AppContent() {
       <LayoutWrapper>
         <Routes>
 
-          {/* PUBLIC */}
+          {/* ================= PUBLIC ================= */}
           <Route path="/" element={<Home />} />
           <Route path="/store" element={<Store setCartOpen={setCartOpen} />} />
           <Route path="/product/:id" element={<ProductDetail />} />
 
-          {/* AUTH */}
+          {/* ================= AUTH ================= */}
           <Route path="/login" element={<Login />} />
 
-          {/* CUSTOMER PUBLIC */}
+          {/* ================= CUSTOMER PUBLIC ================= */}
           <Route path="/customer-login" element={<CustomerLogin />} />
           <Route path="/customer-register" element={<CustomerRegister />} />
 
-          {/* CUSTOMER PROTECTED */}
+          {/* ================= CUSTOMER PROTECTED ================= */}
           <Route element={<CustomerRoute />}>
             <Route path="/dashboard" element={<CustomerDashboard />} />
             <Route path="/order/:id" element={<OrderDetail />} />
           </Route>
 
-          {/* OTHER */}
+          {/* ================= OTHER ================= */}
           <Route path="/track/:id" element={<TrackOrder />} />
           <Route path="/client-order/:id" element={<ClientOrder />} />
           <Route path="/quote/:id" element={<QuoteResponse />} />
@@ -174,7 +175,7 @@ function AppContent() {
           <Route path="/success/:id" element={<Success />} />
           <Route path="/approve/:id" element={<ApproveMockup />} />
 
-          {/* 🔥 ADMIN ROUTES (UPDATED) */}
+          {/* ================= ADMIN ================= */}
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminLayout />}>
 
@@ -185,14 +186,15 @@ function AppContent() {
               <Route path="customers" element={<AdminCustomers />} />
               <Route path="revenue" element={<AdminRevenue />} />
 
-              {/* 🔥 NEW PRODUCT MANAGEMENT */}
+              {/* 🔥 PRODUCT MANAGEMENT (FINAL CLEAN SETUP) */}
               <Route path="products" element={<Products />} />
-              <Route path="create-product" element={<CreateProduct />} />
+              <Route path="products/new" element={<CreateProduct />} />
+              <Route path="products/edit/:id" element={<EditProduct />} />
 
             </Route>
           </Route>
 
-          {/* 404 */}
+          {/* ================= 404 ================= */}
           <Route path="*" element={<h2>Page not found</h2>} />
 
         </Routes>
