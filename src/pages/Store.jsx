@@ -10,7 +10,6 @@ export default function Store() {
 
   const { addToCart } = useCart()
 
-  // 🔥 BASE URL FIX (for uploads)
   const BASE_URL = api.defaults.baseURL.replace("/api", "")
 
   /* ================= LOAD PRODUCTS ================= */
@@ -19,8 +18,6 @@ export default function Store() {
       try {
         const res = await api.get("/products")
 
-        console.log("🔥 RAW RESPONSE:", res.data)
-
         let safeProducts = []
 
         if (Array.isArray(res.data)) {
@@ -28,8 +25,6 @@ export default function Store() {
         } else if (Array.isArray(res.data?.data)) {
           safeProducts = res.data.data
         }
-
-        console.log("🧪 SAFE PRODUCTS:", safeProducts)
 
         setProducts(safeProducts)
 
@@ -53,17 +48,8 @@ export default function Store() {
     )
   }
 
-  /* ================= FAIL SAFE ================= */
-  if (!Array.isArray(products)) {
-    return (
-      <div style={center}>
-        <h2 style={{ color: "red" }}>⚠️ Data error</h2>
-      </div>
-    )
-  }
-
   /* ================= EMPTY ================= */
-  if (products.length === 0) {
+  if (!products.length) {
     return (
       <div style={center}>
         <h2 style={{ color: "white" }}>No products found.</h2>
@@ -83,17 +69,25 @@ export default function Store() {
           const stock = Number(product.stock ?? 0)
           const inStock = stock > 0
 
-          // 🔥 IMAGE FIX
-          const imageUrl = product.image
+          // 🔥 DEFAULT IMAGE
+          const defaultImage = product.image
             ? product.image.startsWith("/uploads")
               ? `${BASE_URL}${product.image}`
               : product.image
             : "/placeholders/hoodie.png"
 
+          // 🔥 COLOR IMAGE (if exists)
+          const firstColor = product.colors?.[0]
+          const colorImage = firstColor?.images?.front || defaultImage
+
+          const imageUrl = colorImage.startsWith("/uploads")
+            ? `${BASE_URL}${colorImage}`
+            : colorImage
+
           return (
             <div key={product._id} style={card}>
 
-              {/* IMAGE (ALWAYS SHOW) */}
+              {/* IMAGE */}
               <img
                 src={imageUrl}
                 alt={product.name}
@@ -112,6 +106,22 @@ export default function Store() {
               <p style={{ color: "#94a3b8", fontSize: 13 }}>
                 {product.description || "No description"}
               </p>
+
+              {/* 🔥 COLOR SWATCHES */}
+              {product.colors?.length > 0 && (
+                <div style={swatchContainer}>
+                  {product.colors.map((color, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        ...swatch,
+                        backgroundColor: color.hex || "#ccc"
+                      }}
+                      title={color.name}
+                    />
+                  ))}
+                </div>
+              )}
 
               {/* PRICE */}
               <p style={price}>
@@ -178,6 +188,20 @@ const image = {
   objectFit: "cover",
   borderRadius: 8,
   marginBottom: 10
+}
+
+const swatchContainer = {
+  display: "flex",
+  justifyContent: "center",
+  gap: 6,
+  marginTop: 8
+}
+
+const swatch = {
+  width: 16,
+  height: 16,
+  borderRadius: "50%",
+  border: "1px solid #fff"
 }
 
 const price = {
