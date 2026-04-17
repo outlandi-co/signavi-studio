@@ -1,7 +1,14 @@
 {
   "rewrites": [
     {
-      "source": "/((?!assets/|favicon.ico|.*\\.(js|css|png|jpg|jpeg|svg|webp|ico)).*)",
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "header",
+          "key": "accept",
+          "value": "text/html"
+        }
+      ],
       "destination": "/index.html"
     }
   ]
