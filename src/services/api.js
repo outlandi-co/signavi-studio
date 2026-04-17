@@ -12,14 +12,23 @@ console.log("🌐 API BASE:", api.defaults.baseURL)
 
 /* ================= REQUEST ================= */
 api.interceptors.request.use((config) => {
-
   const adminToken = localStorage.getItem("adminToken")
   const customerToken = localStorage.getItem("customerToken")
 
   const token = adminToken || customerToken
 
+  // ✅ Preserve existing headers safely
+  config.headers = {
+    ...(config.headers || {})
+  }
+
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
+  }
+
+  // 🔥 CRITICAL FIX: allow Axios to handle multipart boundaries
+  if (config.data instanceof FormData) {
+    delete config.headers["Content-Type"]
   }
 
   console.log("🔥 REQUEST:", config.baseURL + config.url)
@@ -34,7 +43,6 @@ api.interceptors.response.use(
     return res
   },
   (err) => {
-
     console.error(
       "❌ API ERROR:",
       err?.response?.status,
