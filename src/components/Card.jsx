@@ -17,6 +17,10 @@ export default function Card({ order, job, onDelete }) {
   const [tracking, setTracking] = useState("")
   const [deleting, setDeleting] = useState(false)
 
+  const BASE_URL =
+    import.meta.env.VITE_API_URL?.replace("/api", "") ||
+    "https://signavi-backend.onrender.com"
+
   /* ================= ADD TRACKING ================= */
   const addTracking = async () => {
     if (!tracking) return
@@ -25,25 +29,20 @@ export default function Card({ order, job, onDelete }) {
       await api.patch(`/shipping/${data._id}/tracking`, {
         trackingNumber: tracking
       })
-
       setTracking("")
     } catch (err) {
       console.error("❌ TRACKING ERROR:", err)
     }
   }
 
-  /* ================= DELETE (🔥 UNIVERSAL) ================= */
+  /* ================= DELETE ================= */
   const handleDelete = async () => {
     if (!window.confirm("Delete this item?")) return
 
     try {
       setDeleting(true)
-
       await api.delete(`/job/${data._id}`)
-
-      // 🔥 instant UI removal
       onDelete?.(data._id)
-
     } catch (err) {
       console.error("❌ DELETE ERROR:", err.response?.data || err.message)
       alert("Delete failed")
@@ -54,17 +53,18 @@ export default function Card({ order, job, onDelete }) {
 
   /* ================= PRICE ================= */
   const itemsTotal = (data.items || []).reduce(
-  (sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)),
-  0
-)
+    (sum, item) =>
+      sum + (Number(item.price || 0) * Number(item.quantity || 1)),
+    0
+  )
 
-const final = Number(data.finalPrice || itemsTotal || 0)
-const shipping = Number(data.shippingCost || 0)
+  const final = Number(data.finalPrice || itemsTotal || 0)
+  const shipping = Number(data.shippingCost || 0)
 
   return (
     <div className="bg-white border rounded-xl p-4 shadow-sm hover:shadow-2xl transition duration-300 relative">
 
-      {/* DELETE BUTTON 🔥 */}
+      {/* DELETE */}
       <button
         onClick={handleDelete}
         disabled={deleting}
@@ -78,7 +78,7 @@ const shipping = Number(data.shippingCost || 0)
 
       {/* TYPE */}
       <p className="text-[10px] opacity-60">
-        {data.type === "quote" ? "📝 Quote Request" : "📦 Order"}
+        {data.source === "quote" ? "📝 Quote Request" : "📦 Order"}
       </p>
 
       {/* ORDER NUMBER */}
@@ -91,7 +91,24 @@ const shipping = Number(data.shippingCost || 0)
         {data.status}
       </span>
 
-      {/* 💰 PRICE */}
+      {/* 🖼️ ARTWORK IMAGE (🔥 FIX) */}
+      {data.artwork && (
+        <img
+          src={
+            data.artwork.startsWith("http")
+              ? data.artwork
+              : `${BASE_URL}${data.artwork}`
+          }
+          alt="Artwork"
+          className="mt-2 w-full h-32 object-cover rounded border"
+          onError={(e) => {
+            console.warn("⚠️ Image failed:", data.artwork)
+            e.target.src = "/placeholder.png"
+          }}
+        />
+      )}
+
+      {/* PRICE */}
       <div className="mt-2">
         {data.finalPrice ? (
           <p className="text-green-600 font-bold">
@@ -128,8 +145,8 @@ const shipping = Number(data.shippingCost || 0)
         ))}
       </div>
 
-{/* TIMELINE */}
-<Timeline timeline={data.timeline} />
+      {/* TIMELINE */}
+      <Timeline timeline={data.timeline} />
 
       {/* TRACKING */}
       {data.status !== "shipped" && (
@@ -148,7 +165,6 @@ const shipping = Number(data.shippingCost || 0)
           </button>
         </div>
       )}
-
     </div>
   )
 }
