@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import { useLocation } from "react-router-dom"
 import api from "../services/api"
 
-function CustomQuote() {
+export default function CustomQuote() {
 
   const location = useLocation()
 
@@ -21,7 +21,7 @@ function CustomQuote() {
   const [estimate, setEstimate] = useState(0)
   const [discountMsg, setDiscountMsg] = useState("")
 
-  /* ================= SMART PRICING ================= */
+  /* ================= PRICING ================= */
   useEffect(() => {
 
     const pricing = {
@@ -60,6 +60,7 @@ function CustomQuote() {
   /* ================= INPUT ================= */
   const handleChange = (e) => {
     const { name, value } = e.target
+
     setForm(prev => ({
       ...prev,
       [name]: name === "quantity" ? Number(value) : value
@@ -107,23 +108,25 @@ function CustomQuote() {
 
       if (file) data.append("artwork", file)
 
-      /* 🔥 CAPTURE RESPONSE */
       const res = await api.post("/quotes", data, {
         headers: { "Content-Type": "multipart/form-data" }
       })
 
-      console.log("🔥 CREATED QUOTE:", res.data)
+      console.log("🔥 FULL RESPONSE:", res.data)
 
       /* 🔥 SAFE ID EXTRACTION */
       const quoteId =
+        res?.data?._id ||
         res?.data?.data?._id ||
-        res?.data?._id
+        null
 
       if (!quoteId) {
-        throw new Error("No quote ID returned")
+        console.error("❌ NO QUOTE ID RETURNED:", res.data)
+        alert("Quote created but failed to load page")
+        return
       }
 
-      /* 🚀 REDIRECT (FIXES YOUR ISSUE) */
+      /* ✅ SAFE REDIRECT */
       window.location.href = `/quote/${quoteId}`
 
     } catch (err) {
@@ -134,13 +137,14 @@ function CustomQuote() {
     }
   }
 
+  /* ================= UI ================= */
+
   const inputStyle = {
     padding: "12px",
     borderRadius: "8px",
     background: "#020617",
     border: "1px solid #374151",
-    color: "#fff",
-    outline: "none"
+    color: "#fff"
   }
 
   return (
@@ -178,7 +182,7 @@ function CustomQuote() {
             ${(estimate / (form.quantity || 1)).toFixed(2)} per item
           </div>
 
-          <div style={{ fontSize: "13px", marginTop: "5px", color: "#38bdf8" }}>
+          <div style={{ fontSize: "13px", color: "#38bdf8" }}>
             {discountMsg}
           </div>
         </div>
@@ -189,9 +193,8 @@ function CustomQuote() {
           gap: "12px"
         }}>
 
-          <input name="name" value={form.name} onChange={handleChange} placeholder="Name" style={inputStyle} />
-          <input name="email" value={form.email} onChange={handleChange} placeholder="Email" style={inputStyle} />
-
+          <input name="name" placeholder="Name" value={form.name} onChange={handleChange} style={inputStyle} />
+          <input name="email" placeholder="Email" value={form.email} onChange={handleChange} style={inputStyle} />
           <input name="quantity" type="number" value={form.quantity} onChange={handleChange} min="1" style={inputStyle} />
 
           <select name="printType" value={form.printType} onChange={handleChange} style={inputStyle}>
@@ -200,22 +203,26 @@ function CustomQuote() {
             <option value="embroidery">Embroidery</option>
           </select>
 
-          <textarea name="notes" value={form.notes} onChange={handleChange} placeholder="Describe your project..." style={inputStyle} />
+          <textarea name="notes" placeholder="Describe your project..." value={form.notes} onChange={handleChange} style={inputStyle} />
 
-          <input type="file" onChange={handleFile} style={{ color: "#ccc" }} />
+          <input type="file" onChange={handleFile} />
 
           {preview && (
             <img src={preview} alt="preview" style={{ width: "200px", borderRadius: "8px" }} />
           )}
 
-          <button type="submit" disabled={loading} style={{
-            padding: "14px",
-            background: "#06b6d4",
-            border: "none",
-            borderRadius: "10px",
-            color: "#fff",
-            cursor: "pointer"
-          }}>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              padding: "14px",
+              background: "#06b6d4",
+              border: "none",
+              borderRadius: "10px",
+              color: "#fff",
+              cursor: "pointer"
+            }}
+          >
             {loading ? "Submitting..." : "Submit Quote"}
           </button>
 
@@ -224,5 +231,3 @@ function CustomQuote() {
     </div>
   )
 }
-
-export default CustomQuote
