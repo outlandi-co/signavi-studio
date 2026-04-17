@@ -6,7 +6,7 @@ import {
   useDroppable
 } from "@dnd-kit/core"
 import { io } from "socket.io-client"
-import JobCard from "../components/JobCard" // ✅ USE YOUR REAL CARD
+import JobCard from "../components/JobCard"
 
 /* ================= SOCKET ================= */
 const socket = io("https://signavi-backend.onrender.com")
@@ -57,9 +57,15 @@ export default function ProductionBoard() {
   /* ================= LOAD ================= */
   useEffect(() => {
     const load = async () => {
-      const res = await api.get("/production")
-      setJobs(res.data || {})
+      try {
+        const res = await api.get("/production")
+        setJobs(res.data || {})
+      } catch (err) {
+        console.error("❌ LOAD FAILED:", err)
+        setJobs({})
+      }
     }
+
     load()
   }, [])
 
@@ -69,10 +75,12 @@ export default function ProductionBoard() {
       setJobs(prev => {
         const updated = { ...prev }
 
+        // remove from all columns
         for (const key in updated) {
           updated[key] = updated[key].filter(j => j._id !== updatedJob._id)
         }
 
+        // add to correct column
         const status = updatedJob.status || "quotes"
         updated[status] = [...(updated[status] || []), updatedJob]
 
@@ -100,23 +108,38 @@ export default function ProductionBoard() {
       }
     }
 
-    /* 🚫 BLOCK QUOTES ONLY */
+    /* 🚫 ONLY LOCK QUOTES */
     if (movedJob?.source === "quote") {
       console.warn("🚫 Cannot move quotes")
       return
     }
+
+    console.log("🔥 DRAG:", jobId, "→", newStatus)
 
     try {
       await api.patch(`/orders/update-status/${jobId}`, {
         status: newStatus
       })
     } catch (err) {
-      console.error("❌ DRAG ERROR:", err)
+      console.error("❌ DRAG ERROR:", err.response?.data || err.message)
     }
   }
 
-  if (!jobs) return <p style={{ color: "white" }}>Loading...</p>
+  /* ================= LOADING ================= */
+  if (!jobs) {
+    return (
+      <div style={{
+        background: "#020617",
+        color: "white",
+        minHeight: "100vh",
+        padding: 40
+      }}>
+        ⏳ Loading Production Board...
+      </div>
+    )
+  }
 
+  /* ================= UI ================= */
   return (
     <div style={{
       padding: 20,
@@ -135,7 +158,8 @@ export default function ProductionBoard() {
         <div style={{
           display: "flex",
           gap: 20,
-          flexWrap: "wrap"
+          flexWrap: "wrap",
+          alignItems: "flex-start"
         }}>
           {Object.entries(jobs).map(([status, list]) => (
             <Column key={status} status={status} jobs={list} />
