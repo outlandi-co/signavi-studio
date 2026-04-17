@@ -3,24 +3,18 @@ import api from "../services/api"
 import {
   DndContext,
   closestCenter,
-  useDraggable,
   useDroppable
 } from "@dnd-kit/core"
 import { io } from "socket.io-client"
+import JobCard from "../components/JobCard" // ✅ USE YOUR REAL CARD
 
 /* ================= SOCKET ================= */
 const socket = io("https://signavi-backend.onrender.com")
 
-/* ================= SOUND ================= */
-const playSound = () => {
-  const audio = new Audio("/notify.mp3")
-  audio.volume = 0.5
-  audio.play().catch(() => {})
-}
-
 /* ================= COLORS ================= */
 const getColor = (status) => {
   switch (status) {
+    case "quotes": return "#1e293b"
     case "pending": return "#334155"
     case "payment_required": return "#7c2d12"
     case "paid": return "#065f46"
@@ -31,50 +25,6 @@ const getColor = (status) => {
   }
 }
 
-/* ================= DRAG CARD ================= */
-function JobCard({ job }) {
-
-  const isLocked =
-    job.source === "quote" ||
-    job.status === "payment_required"
-
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({
-    id: job._id,
-    disabled: isLocked // 🔥 LOCK DRAG
-  })
-
-  const style = {
-    transform: transform
-      ? `translate(${transform.x}px, ${transform.y}px)`
-      : undefined,
-    padding: 10,
-    marginBottom: 10,
-    background: isLocked ? "#1e293b" : "#020617",
-    borderRadius: 6,
-    cursor: isLocked ? "not-allowed" : "grab",
-    opacity: isLocked ? 0.6 : 1,
-    border: "1px solid #334155"
-  }
-
-  return (
-    <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
-      <div style={{ fontWeight: "bold" }}>
-        {job.customerName || "No Name"}
-      </div>
-
-      <div style={{ fontSize: 12, opacity: 0.7 }}>
-        #{job._id?.slice(-6)}
-      </div>
-
-      {isLocked && (
-        <div style={{ fontSize: 10, color: "#f87171" }}>
-          🔒 Awaiting Payment
-        </div>
-      )}
-    </div>
-  )
-}
-
 /* ================= COLUMN ================= */
 function Column({ status, jobs }) {
   const { setNodeRef } = useDroppable({ id: status })
@@ -83,19 +33,17 @@ function Column({ status, jobs }) {
     <div
       ref={setNodeRef}
       style={{
-        minWidth: 240,
-        maxWidth: 260,
+        minWidth: 260,
         background: getColor(status),
         padding: 12,
-        borderRadius: 8,
-        flexShrink: 0
+        borderRadius: 10
       }}
     >
-      <h3 style={{ marginBottom: 10, textTransform: "capitalize" }}>
-        {status}
+      <h3 style={{ marginBottom: 10 }}>
+        {status.toUpperCase()}
       </h3>
 
-      {(Array.isArray(jobs) ? jobs : []).map(job => (
+      {jobs.map(job => (
         <JobCard key={job._id} job={job} />
       ))}
     </div>
@@ -109,15 +57,9 @@ export default function ProductionBoard() {
   /* ================= LOAD ================= */
   useEffect(() => {
     const load = async () => {
-      try {
-        const res = await api.get("/production")
-        setJobs(res.data || {})
-      } catch (err) {
-        console.error("❌ LOAD FAILED:", err)
-        setJobs({})
-      }
+      const res = await api.get("/production")
+      setJobs(res.data || {})
     }
-
     load()
   }, [])
 
@@ -131,7 +73,7 @@ export default function ProductionBoard() {
           updated[key] = updated[key].filter(j => j._id !== updatedJob._id)
         }
 
-        const status = updatedJob.status
+        const status = updatedJob.status || "quotes"
         updated[status] = [...(updated[status] || []), updatedJob]
 
         return updated
@@ -150,7 +92,6 @@ export default function ProductionBoard() {
 
     let movedJob = null
 
-    // 🔍 find job
     for (const key in jobs) {
       const found = jobs[key]?.find(j => j._id === jobId)
       if (found) {
@@ -159,47 +100,23 @@ export default function ProductionBoard() {
       }
     }
 
-    // 🚫 BLOCK QUOTES
+    /* 🚫 BLOCK QUOTES ONLY */
     if (movedJob?.source === "quote") {
       console.warn("🚫 Cannot move quotes")
       return
     }
 
-    // 🚫 BLOCK UNPAID
-    if (movedJob?.status === "payment_required") {
-      console.warn("🚫 Payment required")
-      return
-    }
-
-    console.log("🔥 DRAGGING:", jobId, "→", newStatus)
-
     try {
       await api.patch(`/orders/update-status/${jobId}`, {
         status: newStatus
       })
-
-      playSound()
-
     } catch (err) {
-      console.error("❌ DRAG ERROR:", err.response?.data || err.message)
+      console.error("❌ DRAG ERROR:", err)
     }
   }
 
-  /* ================= LOADING ================= */
-  if (!jobs) {
-    return (
-      <div style={{
-        background: "#020617",
-        color: "white",
-        minHeight: "100vh",
-        padding: 40
-      }}>
-        ⏳ Loading Production Board...
-      </div>
-    )
-  }
+  if (!jobs) return <p style={{ color: "white" }}>Loading...</p>
 
-  /* ================= UI ================= */
   return (
     <div style={{
       padding: 20,
@@ -218,8 +135,7 @@ export default function ProductionBoard() {
         <div style={{
           display: "flex",
           gap: 20,
-          flexWrap: "wrap",
-          alignItems: "flex-start"
+          flexWrap: "wrap"
         }}>
           {Object.entries(jobs).map(([status, list]) => (
             <Column key={status} status={status} jobs={list} />
