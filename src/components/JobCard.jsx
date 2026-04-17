@@ -2,7 +2,6 @@ import React, { useState } from "react"
 import api from "../services/api"
 
 function JobCard({ job }) {
-
   const [showModal, setShowModal] = useState(false)
   const [zoom, setZoom] = useState(1)
 
@@ -10,16 +9,17 @@ function JobCard({ job }) {
 
   const isQuote = job.source === "quote"
 
-  const artworkUrl = job.artwork
-    ? `https://signavi-backend.onrender.com/uploads/${job.artwork}`
-    : null
+  /* ================= IMAGE FIX ================= */
+  const artworkUrl = job.artwork?.startsWith("http")
+    ? job.artwork // ✅ Cloudinary
+    : job.artwork
+      ? `https://signavi-backend.onrender.com/uploads/${job.artwork}` // legacy
+      : "/placeholders/tshirt.png" // fallback
 
   /* ================= APPROVE ================= */
   const handleApprove = async (e) => {
     e.stopPropagation()
-
     await api.patch(`/quotes/${job._id}/approve`)
-
     alert("✅ Approved — customer can now pay")
     window.location.reload()
   }
@@ -54,24 +54,27 @@ function JobCard({ job }) {
         }}
       >
 
-        {/* IMAGE */}
-        {artworkUrl && (
-          <img
-            src={artworkUrl}
-            style={{
-              width: "100%",
-              height: 120,
-              objectFit: "cover",
-              cursor: "pointer"
-            }}
-            onClick={() => {
-              setZoom(1)
-              setShowModal(true)
-            }}
-          />
-        )}
+        {/* ================= IMAGE ================= */}
+        <img
+          src={artworkUrl}
+          alt="artwork"
+          style={{
+            width: "100%",
+            height: 120,
+            objectFit: "cover",
+            cursor: "pointer",
+            borderRadius: 6
+          }}
+          onClick={() => {
+            setZoom(1)
+            setShowModal(true)
+          }}
+          onError={(e) => {
+            e.target.src = "/placeholders/tshirt.png"
+          }}
+        />
 
-        <p><b>{job.customerName}</b></p>
+        <p><b>{job.customerName || "Guest"}</b></p>
         <p>Qty: {job.quantity}</p>
         <p>Status: {job.status}</p>
 
@@ -102,11 +105,10 @@ function JobCard({ job }) {
             )}
           </>
         )}
-
       </div>
 
       {/* ================= MODAL ================= */}
-      {showModal && artworkUrl && (
+      {showModal && (
         <div
           onClick={() => setShowModal(false)}
           style={{
@@ -121,11 +123,15 @@ function JobCard({ job }) {
         >
           <img
             src={artworkUrl}
+            alt="zoom"
             style={{
               maxHeight: "80vh",
               transform: `scale(${zoom})`
             }}
-            onClick={() => setZoom(z => z + 0.25)}
+            onClick={(e) => {
+              e.stopPropagation()
+              setZoom(z => z + 0.25)
+            }}
           />
         </div>
       )}
