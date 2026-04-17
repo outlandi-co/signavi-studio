@@ -10,12 +10,12 @@ function JobCard({ job }) {
   const isQuote = job.source === "quote"
 
   /* ================= IMAGE FIX ================= */
-  const artworkUrl = job.artwork?.startsWith("http")
+  const artworkUrl = job.artwork
+  ? job.artwork.startsWith("http")
     ? job.artwork // ✅ Cloudinary
-    : job.artwork
-      ? `https://signavi-backend.onrender.com/uploads/${job.artwork}` // legacy
-      : "/placeholders/tshirt.png" // fallback
-
+    : `https://signavi-backend.onrender.com/uploads/${job.artwork}` // ✅ local
+  : null
+  
   /* ================= APPROVE ================= */
   const handleApprove = async (e) => {
     e.stopPropagation()
