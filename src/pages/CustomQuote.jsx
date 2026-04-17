@@ -60,7 +60,10 @@ function CustomQuote() {
   /* ================= INPUT ================= */
   const handleChange = (e) => {
     const { name, value } = e.target
-    setForm(prev => ({ ...prev, [name]: value }))
+    setForm(prev => ({
+      ...prev,
+      [name]: name === "quantity" ? Number(value) : value
+    }))
   }
 
   /* ================= FILE ================= */
@@ -81,7 +84,7 @@ function CustomQuote() {
     }
   }, [preview])
 
-  /* ================= SUBMIT ================= */
+  /* ================= SUBMIT (🔥 FIXED) ================= */
   const handleSubmit = async (e) => {
     e.preventDefault()
 
@@ -104,25 +107,27 @@ function CustomQuote() {
 
       if (file) data.append("artwork", file)
 
-      await api.post("/quotes", data, {
+      /* 🔥 CAPTURE RESPONSE */
+      const res = await api.post("/quotes", data, {
         headers: { "Content-Type": "multipart/form-data" }
       })
 
-      alert("🔥 Quote submitted successfully!")
+      console.log("🔥 CREATED QUOTE:", res.data)
 
-      setForm({
-        name: "",
-        email: "",
-        quantity: 1,
-        printType: "screenprint",
-        notes: ""
-      })
+      /* 🔥 SAFE ID EXTRACTION */
+      const quoteId =
+        res?.data?.data?._id ||
+        res?.data?._id
 
-      setFile(null)
-      setPreview(null)
+      if (!quoteId) {
+        throw new Error("No quote ID returned")
+      }
+
+      /* 🚀 REDIRECT (FIXES YOUR ISSUE) */
+      window.location.href = `/quote/${quoteId}`
 
     } catch (err) {
-      console.error(err)
+      console.error("❌ SUBMIT ERROR:", err)
       alert("Server error")
     } finally {
       setLoading(false)
@@ -157,7 +162,7 @@ function CustomQuote() {
 
         <h1>Request a Custom Quote</h1>
 
-        {/* 🔥 PRICE BOX */}
+        {/* PRICE BOX */}
         <div style={{
           margin: "15px 0",
           padding: "12px",
