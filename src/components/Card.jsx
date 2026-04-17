@@ -91,23 +91,23 @@ export default function Card({ order, job, onDelete }) {
         {data.status}
       </span>
 
-      {/* 🖼️ ARTWORK IMAGE (🔥 FIX) */}
-      {data.artwork && (
-        <img
-          src={
-            data.artwork.startsWith("http")
-              ? data.artwork
-              : `${BASE_URL}${data.artwork}`
-          }
-          alt="Artwork"
-          className="mt-2 w-full h-32 object-cover rounded border"
-          onError={(e) => {
-            console.warn("⚠️ Image failed:", data.artwork)
-            e.target.src = "/placeholder.png"
-          }}
-        />
-      )}
-
+<img
+  src={
+    data.artwork
+      ? data.artwork.startsWith("http")
+        ? data.artwork
+        : data.artwork.startsWith("/uploads")
+          ? `https://signavi-backend.onrender.com${data.artwork}`
+          : `https://signavi-backend.onrender.com/uploads/${data.artwork}`
+      : "/placeholder.png"
+  }
+  alt="Artwork"
+  className="mt-2 w-full h-32 object-cover rounded border"
+  onError={(e) => {
+    console.warn("❌ Broken image:", data.artwork)
+    e.target.src = "/placeholder.png"
+  }}
+/>
       {/* PRICE */}
       <div className="mt-2">
         {data.finalPrice ? (
