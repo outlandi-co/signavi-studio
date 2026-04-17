@@ -46,9 +46,8 @@ import AdminCustomers from "./pages/admin/AdminCustomers"
 import AdminPricing from "./pages/admin/AdminPricing"
 import AdminInventory from "./pages/admin/AdminInventory"
 import AdminMockups from "./pages/admin/AdminMockups"
-import CustomerDetail from "./components/admin/CustomerDetail"
 
-/* 🔥 PRODUCTS */
+/* PRODUCTS */
 import Products from "./pages/admin/Products"
 import CreateProduct from "./pages/admin/CreateProduct"
 import EditProduct from "./pages/admin/EditProduct"
@@ -154,20 +153,22 @@ function AppContent() {
           <Route path="/store" element={<Store setCartOpen={setCartOpen} />} />
           <Route path="/product/:id" element={<ProductDetail />} />
 
+          {/* 🔥 FIX: SUBMIT ROUTE */}
+          <Route path="/submit" element={<CustomQuote />} />
+
           {/* ================= AUTH ================= */}
           <Route path="/login" element={<Login />} />
 
-          {/* ================= CUSTOMER PUBLIC ================= */}
+          {/* ================= CUSTOMER ================= */}
           <Route path="/customer-login" element={<CustomerLogin />} />
           <Route path="/customer-register" element={<CustomerRegister />} />
 
-          {/* ================= CUSTOMER PROTECTED ================= */}
           <Route element={<CustomerRoute />}>
             <Route path="/dashboard" element={<CustomerDashboard />} />
             <Route path="/order/:id" element={<OrderDetail />} />
           </Route>
 
-          {/* ================= OTHER ================= */}
+          {/* ================= FLOW ================= */}
           <Route path="/track/:id" element={<TrackOrder />} />
           <Route path="/client-order/:id" element={<ClientOrder />} />
           <Route path="/quote/:id" element={<QuoteResponse />} />
@@ -180,13 +181,11 @@ function AppContent() {
             <Route path="/admin" element={<AdminLayout />}>
 
               <Route index element={<Dashboard />} />
-
               <Route path="production" element={<ProductionBoard />} />
               <Route path="orders" element={<Orders />} />
               <Route path="customers" element={<AdminCustomers />} />
               <Route path="revenue" element={<AdminRevenue />} />
 
-              {/* 🔥 PRODUCT MANAGEMENT (FINAL CLEAN SETUP) */}
               <Route path="products" element={<Products />} />
               <Route path="products/new" element={<CreateProduct />} />
               <Route path="products/edit/:id" element={<EditProduct />} />
