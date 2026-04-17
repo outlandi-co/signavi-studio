@@ -1,9 +1,8 @@
-
 {
-  "routes": [
+  "rewrites": [
     {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/((?!assets|favicon.ico|.*\\.(js|css|png|jpg|svg|webp)).*)",
+      "destination": "/index.html"
     }
   ]
 }
