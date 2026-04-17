@@ -41,29 +41,26 @@ export default function QuoteForm() {
 
       const formData = new FormData()
 
-      // 🔥 TEXT FIELDS
+      /* 🔥 APPEND ALL FIELDS */
       formData.append("customerName", form.customerName)
       formData.append("email", form.email)
       formData.append("quantity", form.quantity)
       formData.append("price", form.price)
       formData.append("notes", form.notes)
 
-      // 🔥 FILE (THIS WAS MISSING BEFORE)
+      /* 🔥 APPEND FILE */
       formData.append("artwork", file)
 
       console.log("📦 Sending FormData...")
 
-      const res = await api.post("/quotes", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data"
-        }
-      })
+      // 🚀 IMPORTANT: NO HEADERS HERE
+      const res = await api.post("/quotes", formData)
 
       console.log("✅ Quote created:", res.data)
 
       alert("✅ Quote submitted successfully!")
 
-      // reset form
+      /* RESET FORM */
       setForm({
         customerName: "",
         email: "",
@@ -134,7 +131,7 @@ export default function QuoteForm() {
           required
         />
 
-        {/* PREVIEW */}
+        {/* 🔥 PREVIEW */}
         {file && (
           <img
             src={URL.createObjectURL(file)}
