@@ -3,58 +3,50 @@ import { useParams } from "react-router-dom"
 import api from "../services/api"
 
 export default function QuoteResponse() {
-
   const { id } = useParams()
 
   const [quote, setQuote] = useState(null)
   const [loading, setLoading] = useState(false)
 
-  /* ================= LOAD ================= */
   useEffect(() => {
     const load = async () => {
       try {
         const res = await api.get(`/quotes/${id}`)
-
-        console.log("🔥 RAW QUOTE:", res.data)
-
-        // ✅ SAFE FORMAT
-        const safeQuote =
-          res.data?.data || res.data || null
-
-        setQuote(safeQuote)
-
+        setQuote(res.data?.data || res.data)
       } catch (err) {
-        console.error("❌ QUOTE LOAD ERROR:", err)
-        setQuote(null)
+        console.error("❌ LOAD ERROR:", err)
       }
     }
-
     load()
   }, [id])
 
-  /* ================= CHECKOUT ================= */
   const handleCheckout = async () => {
+    /* 🔒 FRONTEND LOCK */
+    if (quote?.approvalStatus !== "approved") {
+      alert("⏳ Awaiting artwork approval")
+      return
+    }
+
     try {
       setLoading(true)
 
-      // ✅ USE YOUR WORKING STRIPE ROUTE
-      const res = await api.post(`/stripe/create-order-session/${id}`)
+      const res = await api.post(`/square/create-payment/${id}`)
 
-      if (res.data?.url) {
-        window.location.href = res.data.url
-      } else {
-        throw new Error("No checkout URL returned")
+      if (!res?.data?.url) {
+        throw new Error("No payment URL")
       }
 
+      window.location.href = res.data.url
+
     } catch (err) {
-      console.error("❌ CHECKOUT ERROR:", err)
-      alert("Checkout failed")
+      console.error("❌ CHECKOUT ERROR:", err?.response?.data || err.message)
+      alert(err?.response?.data?.message || "Payment blocked")
+
     } finally {
       setLoading(false)
     }
   }
 
-  /* ================= LOADING ================= */
   if (!quote) {
     return (
       <div style={center}>
@@ -63,50 +55,42 @@ export default function QuoteResponse() {
     )
   }
 
-  /* ================= CALC ================= */
   const price = Number(quote.price || 0)
-  const cleanup = Number(quote.cleanupFee || 0)
-  const quantity = Number(quote.quantity || 1)
 
-  const total = price + cleanup
-
-  /* ================= UI ================= */
   return (
     <div style={container}>
-
       <h1 style={title}>📄 Review Your Quote</h1>
 
       <div style={card}>
-        <p><b>Name:</b> {quote.customerName || "Unknown"}</p>
-        <p><b>Email:</b> {quote.email || "N/A"}</p>
-        <p><b>Quantity:</b> {quantity}</p>
+        <p><b>Name:</b> {quote.customerName}</p>
+        <p><b>Email:</b> {quote.email}</p>
+        <p><b>Quantity:</b> {quote.quantity}</p>
 
-        {quote.adminNotes && (
-          <p><b>Notes:</b> {quote.adminNotes}</p>
-        )}
-
-        <hr style={{ margin: "15px 0", opacity: 0.2 }} />
-
-        <p>Base Price: ${price.toFixed(2)}</p>
-        <p>Cleanup Fee: ${cleanup.toFixed(2)}</p>
-
-        <h2 style={totalStyle}>
-          Total: ${total.toFixed(2)}
+        <h2 style={{ marginTop: 10 }}>
+          ${price.toFixed(2)}
         </h2>
 
-        <button
-          onClick={handleCheckout}
-          disabled={loading}
-          style={{
-            ...button,
-            opacity: loading ? 0.6 : 1
-          }}
-        >
-          {loading ? "Redirecting..." : "💳 Pay & Accept"}
-        </button>
+        {/* 🔥 STATUS UI */}
+        {quote.approvalStatus !== "approved" && (
+          <div style={pendingBox}>
+            ⏳ Awaiting artwork approval
+          </div>
+        )}
 
+        {/* 🔒 ONLY SHOW BUTTON IF APPROVED */}
+        {quote.approvalStatus === "approved" && (
+          <button
+            onClick={handleCheckout}
+            disabled={loading}
+            style={{
+              ...button,
+              opacity: loading ? 0.6 : 1
+            }}
+          >
+            {loading ? "Redirecting..." : "💳 Pay Now"}
+          </button>
+        )}
       </div>
-
     </div>
   )
 }
@@ -121,9 +105,7 @@ const container = {
   textAlign: "center"
 }
 
-const title = {
-  marginBottom: 20
-}
+const title = { marginBottom: 20 }
 
 const card = {
   background: "#1e293b",
@@ -133,9 +115,13 @@ const card = {
   margin: "0 auto"
 }
 
-const totalStyle = {
-  color: "#22c55e",
-  marginTop: 10
+const pendingBox = {
+  marginTop: 15,
+  padding: 10,
+  background: "#f59e0b",
+  borderRadius: 6,
+  color: "black",
+  fontWeight: "bold"
 }
 
 const button = {
