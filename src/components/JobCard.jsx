@@ -9,22 +9,28 @@ function JobCard({ job }) {
 
   const isQuote = job.source === "quote"
 
-  /* ================= IMAGE FIX ================= */
-  const artworkUrl = job?.artwork
-    ? job.artwork.startsWith("http")
-      ? job.artwork // ✅ Cloudinary
-      : `https://signavi-backend.onrender.com/uploads/${job.artwork}` // ✅ legacy/local
-    : null
+  /* ================= IMAGE LOGIC ================= */
 
-  // 🔥 ALWAYS have a valid image
+  // ✅ Only use Cloudinary URLs (production-safe)
+  const artworkUrl =
+    typeof job?.artwork === "string" && job.artwork.startsWith("http")
+      ? job.artwork
+      : null
+
+  // ✅ Always fallback (no broken images EVER)
   const displayImage = artworkUrl || "/placeholders/tshirt.png"
 
   /* ================= APPROVE ================= */
   const handleApprove = async (e) => {
     e.stopPropagation()
-    await api.patch(`/quotes/${job._id}/approve`)
-    alert("✅ Approved — customer can now pay")
-    window.location.reload()
+    try {
+      await api.patch(`/quotes/${job._id}/approve`)
+      alert("✅ Approved — customer can now pay")
+      window.location.reload()
+    } catch (err) {
+      console.error("❌ APPROVE ERROR:", err)
+      alert("Error approving quote")
+    }
   }
 
   /* ================= DENY ================= */
@@ -36,13 +42,19 @@ function JobCard({ job }) {
 
     const fee = prompt("Revision fee?", "15")
 
-    await api.patch(`/quotes/${job._id}/deny`, {
-      reason,
-      fee: Number(fee) || 0
-    })
+    try {
+      await api.patch(`/quotes/${job._id}/deny`, {
+        reason,
+        fee: Number(fee) || 0
+      })
 
-    alert("❌ Denied")
-    window.location.reload()
+      alert("❌ Denied")
+      window.location.reload()
+
+    } catch (err) {
+      console.error("❌ DENY ERROR:", err)
+      alert("Error denying quote")
+    }
   }
 
   return (
@@ -65,10 +77,11 @@ function JobCard({ job }) {
             width: "100%",
             height: 120,
             objectFit: "cover",
-            cursor: "pointer",
+            cursor: artworkUrl ? "pointer" : "default",
             borderRadius: 6
           }}
           onClick={() => {
+            if (!artworkUrl) return
             setZoom(1)
             setShowModal(true)
           }}
@@ -77,11 +90,18 @@ function JobCard({ job }) {
           }}
         />
 
+        {/* 🔥 Helpful UI hint */}
+        {!artworkUrl && (
+          <p style={{ color: "orange", fontSize: 12 }}>
+            ⚠️ No artwork uploaded
+          </p>
+        )}
+
         <p><b>{job.customerName || "Guest"}</b></p>
         <p>Qty: {job.quantity}</p>
         <p>Status: {job.status}</p>
 
-        {/* ================= QUOTE ================= */}
+        {/* ================= QUOTE ACTIONS ================= */}
         {isQuote && (
           <>
             {job.approvalStatus !== "approved" && (
@@ -111,7 +131,7 @@ function JobCard({ job }) {
       </div>
 
       {/* ================= MODAL ================= */}
-      {showModal && (
+      {showModal && artworkUrl && (
         <div
           onClick={() => setShowModal(false)}
           style={{
@@ -125,15 +145,16 @@ function JobCard({ job }) {
           }}
         >
           <img
-            src={displayImage}
+            src={artworkUrl}
             alt="zoom"
             style={{
               maxHeight: "80vh",
-              transform: `scale(${zoom})`
+              transform: `scale(${zoom})`,
+              cursor: "zoom-in"
             }}
             onClick={(e) => {
               e.stopPropagation()
-              setZoom(z => z + 0.25)
+              setZoom((z) => z + 0.25)
             }}
           />
         </div>
