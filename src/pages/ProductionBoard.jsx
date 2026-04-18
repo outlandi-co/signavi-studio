@@ -70,26 +70,41 @@ export default function ProductionBoard() {
   }, [])
 
   /* ================= SOCKET ================= */
-  useEffect(() => {
-    socket.on("jobUpdated", (updatedJob) => {
-      setJobs(prev => {
-        const updated = { ...prev }
+useEffect(() => {
+  const handleJobUpdated = (updatedJob) => {
+    setJobs((prev) => {
+      if (!prev) return prev
 
-        // remove from all columns
-        for (const key in updated) {
-          updated[key] = updated[key].filter(j => j._id !== updatedJob._id)
-        }
+      const updated = {}
 
-        // add to correct column
-        const status = updatedJob.status || "quotes"
-        updated[status] = [...(updated[status] || []), updatedJob]
+      // 🔥 deep clean: remove job from ALL columns safely
+      for (const key in prev) {
+        updated[key] = (prev[key] || []).filter(
+          (j) => j._id !== updatedJob._id
+        )
+      }
 
-        return updated
-      })
+      // 🔥 determine correct column
+      const status = updatedJob.status || "quotes"
+
+      // 🔥 ensure column exists
+      if (!updated[status]) {
+        updated[status] = []
+      }
+
+      // 🔥 add updated job
+      updated[status] = [...updated[status], updatedJob]
+
+      return updated
     })
+  }
 
-    return () => socket.off("jobUpdated")
-  }, [])
+  socket.on("jobUpdated", handleJobUpdated)
+
+  return () => {
+    socket.off("jobUpdated", handleJobUpdated)
+  }
+}, [])
 
   /* ================= DRAG ================= */
   const handleDragEnd = async ({ active, over }) => {

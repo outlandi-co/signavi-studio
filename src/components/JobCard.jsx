@@ -9,27 +9,33 @@ function JobCard({ job }) {
 
   const isQuote = job.source === "quote"
 
-  /* ================= IMAGE LOGIC ================= */
-
-  // ✅ Only use Cloudinary URLs (production-safe)
+  /* ================= IMAGE ================= */
   const artworkUrl =
     typeof job?.artwork === "string" && job.artwork.startsWith("http")
       ? job.artwork
       : null
 
-  // ✅ Always fallback (no broken images EVER)
   const displayImage = artworkUrl || "/placeholders/tshirt.png"
+
+  /* ================= STATUS COLOR ================= */
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "quotes": return "#64748b"
+      case "payment_required": return "#f59e0b"
+      case "production": return "#3b82f6"
+      case "shipping": return "#10b981"
+      case "denied": return "#ef4444"
+      default: return "#64748b"
+    }
+  }
 
   /* ================= APPROVE ================= */
   const handleApprove = async (e) => {
     e.stopPropagation()
     try {
       await api.patch(`/quotes/${job._id}/approve`)
-      alert("✅ Approved — customer can now pay")
-      window.location.reload()
     } catch (err) {
       console.error("❌ APPROVE ERROR:", err)
-      alert("Error approving quote")
     }
   }
 
@@ -40,113 +46,80 @@ function JobCard({ job }) {
     const reason = prompt("Reason for denial?")
     if (!reason) return
 
-    const fee = prompt("Revision fee?", "15")
+    let fee = 0
+
+    if (reason.toLowerCase().includes("rework")) {
+      fee = Number(prompt("Rework fee?", "25")) || 0
+    }
 
     try {
       await api.patch(`/quotes/${job._id}/deny`, {
         reason,
-        fee: Number(fee) || 0
+        fee
       })
-
-      alert("❌ Denied")
-      window.location.reload()
-
     } catch (err) {
       console.error("❌ DENY ERROR:", err)
-      alert("Error denying quote")
     }
   }
 
   return (
     <>
-      <div
-        style={{
-          background: "#020617",
-          padding: 12,
-          borderRadius: 10,
-          marginBottom: 10,
-          border: "1px solid #1e293b"
-        }}
-      >
+      <div style={card}>
 
-        {/* ================= IMAGE ================= */}
+        {/* IMAGE */}
         <img
           src={displayImage}
-          alt="artwork"
-          style={{
-            width: "100%",
-            height: 120,
-            objectFit: "cover",
-            cursor: artworkUrl ? "pointer" : "default",
-            borderRadius: 6
-          }}
-          onClick={() => {
-            if (!artworkUrl) return
-            setZoom(1)
-            setShowModal(true)
-          }}
+          style={img}
+          onClick={() => artworkUrl && setShowModal(true)}
           onError={(e) => {
             e.target.src = "/placeholders/tshirt.png"
           }}
         />
 
-        {/* 🔥 Helpful UI hint */}
+        {/* DOWNLOAD */}
+        {artworkUrl && (
+          <a href={artworkUrl} target="_blank" rel="noreferrer" style={link}>
+            ⬇ Download Artwork
+          </a>
+        )}
+
         {!artworkUrl && (
-          <p style={{ color: "orange", fontSize: 12 }}>
-            ⚠️ No artwork uploaded
-          </p>
+          <p style={warning}>⚠️ No artwork uploaded</p>
         )}
 
         <p><b>{job.customerName || "Guest"}</b></p>
         <p>Qty: {job.quantity}</p>
-        <p>Status: {job.status}</p>
 
-        {/* ================= QUOTE ACTIONS ================= */}
-        {isQuote && (
+        {/* STATUS BADGE */}
+        <p>
+          Status:{" "}
+          <span style={{
+            background: getStatusColor(job.status),
+            padding: "2px 8px",
+            borderRadius: 6,
+            fontSize: 12
+          }}>
+            {job.status}
+          </span>
+        </p>
+
+        {/* QUOTE ACTIONS */}
+        {isQuote && job.approvalStatus !== "approved" && (
           <>
-            {job.approvalStatus !== "approved" && (
-              <>
-                <p style={{ color: "yellow" }}>
-                  Awaiting approval
-                </p>
+            <p style={{ color: "yellow" }}>Awaiting approval</p>
 
-                <button onClick={handleApprove}>Approve</button>
-                <button onClick={handleDeny}>Deny</button>
-              </>
-            )}
-
-            {job.approvalStatus === "approved" && (
-              <p style={{ color: "green" }}>
-                Approved — waiting for payment
-              </p>
-            )}
-
-            {job.approvalStatus === "denied" && (
-              <p style={{ color: "red" }}>
-                Denied — revision required
-              </p>
-            )}
+            <button onClick={handleApprove}>Approve</button>
+            <button onClick={handleDeny}>Deny</button>
           </>
         )}
+
       </div>
 
-      {/* ================= MODAL ================= */}
+      {/* MODAL */}
       {showModal && artworkUrl && (
-        <div
-          onClick={() => setShowModal(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.9)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 9999
-          }}
-        >
+        <div style={modal} onClick={() => setShowModal(false)}>
           <img
             src={artworkUrl}
-            alt="zoom"
             style={{
               maxHeight: "80vh",
               transform: `scale(${zoom})`,
@@ -161,6 +134,46 @@ function JobCard({ job }) {
       )}
     </>
   )
+}
+
+/* ================= STYLES ================= */
+
+const card = {
+  background: "#020617",
+  padding: 12,
+  borderRadius: 10,
+  marginBottom: 10,
+  border: "1px solid #1e293b"
+}
+
+const img = {
+  width: "100%",
+  height: 120,
+  objectFit: "cover",
+  borderRadius: 6,
+  cursor: "pointer"
+}
+
+const link = {
+  display: "block",
+  fontSize: 12,
+  color: "#38bdf8",
+  marginTop: 6
+}
+
+const warning = {
+  color: "orange",
+  fontSize: 12
+}
+
+const modal = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.9)",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  zIndex: 9999
 }
 
 export default JobCard
