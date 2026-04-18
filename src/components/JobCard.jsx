@@ -10,12 +10,15 @@ function JobCard({ job }) {
   const isQuote = job.source === "quote"
 
   /* ================= IMAGE FIX ================= */
-  const artworkUrl = job.artwork
-  ? job.artwork.startsWith("http")
-    ? job.artwork // ✅ Cloudinary
-    : `https://signavi-backend.onrender.com/uploads/${job.artwork}` // ✅ local
-  : null
-  
+  const artworkUrl = job?.artwork
+    ? job.artwork.startsWith("http")
+      ? job.artwork // ✅ Cloudinary
+      : `https://signavi-backend.onrender.com/uploads/${job.artwork}` // ✅ legacy/local
+    : null
+
+  // 🔥 ALWAYS have a valid image
+  const displayImage = artworkUrl || "/placeholders/tshirt.png"
+
   /* ================= APPROVE ================= */
   const handleApprove = async (e) => {
     e.stopPropagation()
@@ -56,7 +59,7 @@ function JobCard({ job }) {
 
         {/* ================= IMAGE ================= */}
         <img
-          src={artworkUrl}
+          src={displayImage}
           alt="artwork"
           style={{
             width: "100%",
@@ -122,7 +125,7 @@ function JobCard({ job }) {
           }}
         >
           <img
-            src={artworkUrl}
+            src={displayImage}
             alt="zoom"
             style={{
               maxHeight: "80vh",
