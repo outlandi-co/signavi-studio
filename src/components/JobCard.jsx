@@ -17,7 +17,7 @@ function JobCard({ job }) {
 
   const displayImage = artworkUrl || "/placeholders/tshirt.png"
 
-  /* ================= STATUS COLOR ================= */
+  /* ================= STATUS COLORS ================= */
   const getStatusColor = (status) => {
     switch (status) {
       case "quotes": return "#64748b"
@@ -66,9 +66,10 @@ function JobCard({ job }) {
     <>
       <div style={card}>
 
-        {/* IMAGE */}
+        {/* ================= IMAGE ================= */}
         <img
           src={displayImage}
+          alt="artwork"
           style={img}
           onClick={() => artworkUrl && setShowModal(true)}
           onError={(e) => {
@@ -76,11 +77,27 @@ function JobCard({ job }) {
           }}
         />
 
-        {/* DOWNLOAD */}
+        {/* ================= DOWNLOAD BUTTONS ================= */}
         {artworkUrl && (
-          <a href={artworkUrl} target="_blank" rel="noreferrer" style={link}>
-            ⬇ Download Artwork
-          </a>
+          <div style={{ marginTop: 6 }}>
+            <a
+              href={artworkUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={link}
+            >
+              🔍 View Full Image
+            </a>
+
+            <a
+              href={`${artworkUrl}?fl_attachment`}
+              target="_blank"
+              rel="noreferrer"
+              style={link}
+            >
+              ⬇ Download Original (Full Resolution)
+            </a>
+          </div>
         )}
 
         {!artworkUrl && (
@@ -90,7 +107,7 @@ function JobCard({ job }) {
         <p><b>{job.customerName || "Guest"}</b></p>
         <p>Qty: {job.quantity}</p>
 
-        {/* STATUS BADGE */}
+        {/* ================= STATUS ================= */}
         <p>
           Status:{" "}
           <span style={{
@@ -103,7 +120,7 @@ function JobCard({ job }) {
           </span>
         </p>
 
-        {/* QUOTE ACTIONS */}
+        {/* ================= QUOTE ACTIONS ================= */}
         {isQuote && job.approvalStatus !== "approved" && (
           <>
             <p style={{ color: "yellow" }}>Awaiting approval</p>
@@ -112,14 +129,14 @@ function JobCard({ job }) {
             <button onClick={handleDeny}>Deny</button>
           </>
         )}
-
       </div>
 
-      {/* MODAL */}
+      {/* ================= MODAL ================= */}
       {showModal && artworkUrl && (
         <div style={modal} onClick={() => setShowModal(false)}>
           <img
             src={artworkUrl}
+            alt="zoom"
             style={{
               maxHeight: "80vh",
               transform: `scale(${zoom})`,
@@ -158,7 +175,7 @@ const link = {
   display: "block",
   fontSize: 12,
   color: "#38bdf8",
-  marginTop: 6
+  marginTop: 4
 }
 
 const warning = {
