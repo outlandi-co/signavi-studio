@@ -12,16 +12,19 @@ export default function QuoteResponse() {
     const load = async () => {
       try {
         const res = await api.get(`/quotes/${id}`)
-        setQuote(res.data?.data || res.data)
+
+        const data = res?.data?.data || res.data
+        setQuote(data)
+
       } catch (err) {
-        console.error("❌ LOAD ERROR:", err)
+        console.error("❌ LOAD ERROR:", err.response?.data || err.message)
       }
     }
+
     load()
   }, [id])
 
   const handleCheckout = async () => {
-    /* 🔒 FRONTEND LOCK */
     if (quote?.approvalStatus !== "approved") {
       alert("⏳ Awaiting artwork approval")
       return
@@ -33,15 +36,14 @@ export default function QuoteResponse() {
       const res = await api.post(`/square/create-payment/${id}`)
 
       if (!res?.data?.url) {
-        throw new Error("No payment URL")
+        throw new Error("No payment URL returned")
       }
 
       window.location.href = res.data.url
 
     } catch (err) {
-      console.error("❌ CHECKOUT ERROR:", err?.response?.data || err.message)
+      console.error("❌ CHECKOUT ERROR:", err.response?.data || err.message)
       alert(err?.response?.data?.message || "Payment blocked")
-
     } finally {
       setLoading(false)
     }
@@ -66,18 +68,14 @@ export default function QuoteResponse() {
         <p><b>Email:</b> {quote.email}</p>
         <p><b>Quantity:</b> {quote.quantity}</p>
 
-        <h2 style={{ marginTop: 10 }}>
-          ${price.toFixed(2)}
-        </h2>
+        <h2>${price.toFixed(2)}</h2>
 
-        {/* 🔥 STATUS UI */}
         {quote.approvalStatus !== "approved" && (
           <div style={pendingBox}>
             ⏳ Awaiting artwork approval
           </div>
         )}
 
-        {/* 🔒 ONLY SHOW BUTTON IF APPROVED */}
         {quote.approvalStatus === "approved" && (
           <button
             onClick={handleCheckout}

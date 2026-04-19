@@ -3,6 +3,7 @@ import api from "../services/api"
 
 export default function QuotePage() {
   const [file, setFile] = useState(null)
+  const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -14,21 +15,34 @@ export default function QuotePage() {
       return
     }
 
-    const formData = new FormData()
-    formData.append("customerName", "Test User")
-    formData.append("email", "test@email.com")
-    formData.append("quantity", 1)
-    formData.append("price", 10)
-    formData.append("artwork", file)
+    setLoading(true)
 
     try {
-      /* ✅ NO HEADERS HERE */
+      const formData = new FormData()
+      formData.append("customerName", "Test User")
+      formData.append("email", "test@email.com")
+      formData.append("quantity", 1)
+      formData.append("price", 10)
+      formData.append("artwork", file)
+
+      // ✅ DO NOT SET HEADERS
       const res = await api.post("/quotes", formData)
 
       console.log("✅ SUCCESS:", res.data)
 
+      const id = res?.data?.data?._id || res?.data?._id
+
+      if (id) {
+        window.location.href = `/quote/${id}`
+      } else {
+        alert("Quote created but no ID returned")
+      }
+
     } catch (err) {
       console.error("❌ ERROR:", err.response?.data || err.message)
+      alert("Server error — check logs")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -42,8 +56,8 @@ export default function QuotePage() {
           onChange={(e) => setFile(e.target.files[0])}
         />
 
-        <button type="submit">
-          Submit
+        <button type="submit" disabled={loading}>
+          {loading ? "Uploading..." : "Submit"}
         </button>
       </form>
     </div>
