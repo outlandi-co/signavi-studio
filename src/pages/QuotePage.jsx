@@ -22,6 +22,7 @@ export default function QuotePage() {
     formData.append("artwork", file)
 
     try {
+      /* ✅ NO HEADERS HERE */
       const res = await api.post("/quotes", formData)
 
       console.log("✅ SUCCESS:", res.data)
