@@ -34,7 +34,7 @@ export default function CartDrawer({ isOpen, onClose }) {
     )
   }
 
-  /* ================= SUBTOTAL (🔥 FIXED) ================= */
+  /* ================= SUBTOTAL ================= */
   const subtotal = cart.reduce((acc, item) => {
     const price = Number(
       item?.variant?.price ??
@@ -149,16 +149,22 @@ export default function CartDrawer({ isOpen, onClose }) {
         <div style={{ padding: 20, flex: 1, overflowY: "auto" }}>
           {cart.length === 0 && <p>Your cart is empty</p>}
 
-          {cart.map(item => {
+          {cart.map((item, index) => {
             const price = Number(
               item?.variant?.price ??
               item?.price ??
               0
             )
 
+            /* 🔥 FIXED UNIQUE KEY */
+            const safeKey =
+              item.productId ||
+              item._id ||
+              `${item.name || "item"}-${index}`
+
             return (
               <div
-                key={`${item.productId}-${item.variant?.color}-${item.variant?.size}`}
+                key={safeKey}
                 style={{ display: "flex", gap: 10, marginBottom: 12 }}
               >
                 <SafeImage
@@ -171,7 +177,7 @@ export default function CartDrawer({ isOpen, onClose }) {
                   <strong>{item.name}</strong>
 
                   <p style={{ fontSize: 12, opacity: 0.7 }}>
-                    {item.variant?.color} / {item.variant?.size}
+                    {item.variant?.color || "N/A"} / {item.variant?.size || "N/A"}
                   </p>
 
                   <p>${price.toFixed(2)}</p>
