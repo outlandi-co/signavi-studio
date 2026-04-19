@@ -1,10 +1,9 @@
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import useCart from "../hooks/useCart"
 import api from "../services/api"
 
 export default function Success() {
-
   const { id } = useParams()
   const navigate = useNavigate()
   const { clearCart } = useCart()
@@ -12,47 +11,55 @@ export default function Success() {
   const [status, setStatus] = useState("loading")
   const [retrying, setRetrying] = useState(false)
 
-  /* 🔒 prevent double execution */
   const hasRun = useRef(false)
 
-  useEffect(() => {
+  /* ================= ERROR LOGGER ================= */
+  const logError = useCallback(async (context, error) => {
+    console.error(`❌ ${context}:`, error)
 
+    try {
+      await api.post("/logs", {
+        context,
+        message: error?.message || "Unknown error",
+        stack: error?.stack || null,
+        orderId: id
+      })
+    } catch (logErr) {
+      console.warn("⚠️ Failed to send log:", logErr)
+    }
+  }, [id])
+
+  /* ================= CONFIRM PAYMENT ================= */
+  useEffect(() => {
     const confirmPayment = async () => {
       if (hasRun.current) return
       hasRun.current = true
 
       try {
-        console.log("🔥 SUCCESS PAGE HIT")
-
         if (!id) {
-          console.warn("⚠️ Missing order ID")
-          setStatus("error")
-          return
+          throw new Error("Missing order ID")
         }
 
-        console.log("💳 Confirming payment for:", id)
+        console.log("💳 Confirming payment:", id)
 
-        /* ================= 🔥 CORRECT FLOW ================= */
         await api.post(`/square/confirm/${id}`)
 
         console.log("✅ Payment confirmed")
 
         setStatus("paid")
 
-        /* 🧹 cleanup */
         clearCart()
         localStorage.removeItem("cart")
 
       } catch (err) {
-        console.error("❌ CONFIRM ERROR:", err.response?.data || err.message)
-
+        await logError("CONFIRM PAYMENT", err)
         setStatus("error")
       }
     }
 
     confirmPayment()
 
-  }, [id, clearCart])
+  }, [id, clearCart, logError])
 
   /* ================= RETRY ================= */
   const handleRetry = async () => {
@@ -67,8 +74,8 @@ export default function Success() {
       localStorage.removeItem("cart")
 
     } catch (err) {
-      console.error("❌ RETRY FAILED:", err)
-      alert("Still failed. Please contact support.")
+      await logError("RETRY PAYMENT", err)
+      alert("Still failed. Contact support.")
     } finally {
       setRetrying(false)
     }
@@ -89,18 +96,15 @@ export default function Success() {
   if (status === "error") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-black text-white text-center p-6">
-
         <h2 className="text-red-400 text-xl mb-2">
           ⚠️ Payment received but confirmation failed
         </h2>
 
         <p className="text-gray-400 mb-6 max-w-md">
           Your payment likely went through, but we couldn’t finalize your order.
-          Tap retry or refresh.
         </p>
 
         <div className="flex gap-4">
-
           <button
             onClick={handleRetry}
             disabled={retrying}
@@ -115,7 +119,6 @@ export default function Success() {
           >
             Refresh
           </button>
-
         </div>
       </div>
     )
@@ -123,7 +126,6 @@ export default function Success() {
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center text-center p-6">
-
       <h1 className="text-4xl font-bold text-green-400 mb-4">
         ✅ Payment Successful
       </h1>
@@ -133,7 +135,6 @@ export default function Success() {
       </p>
 
       <div className="flex gap-4">
-
         <button
           onClick={() => navigate("/store")}
           className="bg-cyan-500 px-6 py-2 rounded text-black font-semibold"
@@ -147,9 +148,7 @@ export default function Success() {
         >
           Go Home
         </button>
-
       </div>
-
     </div>
   )
 }
