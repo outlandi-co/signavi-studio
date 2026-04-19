@@ -108,9 +108,7 @@ export default function CustomQuote() {
 
       if (file) data.append("artwork", file)
 
-      const res = await api.post("/quotes", data, {
-        headers: { "Content-Type": "multipart/form-data" }
-      })
+      const res = await api.post("/quotes", data)
 
       console.log("🔥 FULL RESPONSE:", res.data)
 
