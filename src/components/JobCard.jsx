@@ -1,9 +1,10 @@
 import React, { useState } from "react"
 import api from "../services/api"
 
-function JobCard({ job }) {
+function JobCard({ job, onUpdate }) {
   const [showModal, setShowModal] = useState(false)
   const [zoom, setZoom] = useState(1)
+  const [loading, setLoading] = useState(false)
 
   if (!job) return null
 
@@ -32,19 +33,34 @@ function JobCard({ job }) {
   /* ================= APPROVE ================= */
   const handleApprove = async (e) => {
     e.stopPropagation()
+    setLoading(true)
+
     try {
-      await api.patch(`/quotes/${job._id}/approve`)
+      const res = await api.patch(`/quotes/${job._id}/approve`)
+
+      console.log("✅ APPROVED RESPONSE:", res.data)
+
+      // 🔥 refresh board
+      if (onUpdate) onUpdate()
+
     } catch (err) {
-      console.error("❌ APPROVE ERROR:", err)
+      console.error("❌ APPROVE ERROR:", err.response?.data || err.message)
+      alert("Approve failed: " + (err.response?.data?.message || err.message))
+    } finally {
+      setLoading(false)
     }
   }
 
   /* ================= DENY ================= */
   const handleDeny = async (e) => {
     e.stopPropagation()
+    setLoading(true)
 
     const reason = prompt("Reason for denial?")
-    if (!reason) return
+    if (!reason) {
+      setLoading(false)
+      return
+    }
 
     let fee = 0
 
@@ -53,12 +69,20 @@ function JobCard({ job }) {
     }
 
     try {
-      await api.patch(`/quotes/${job._id}/deny`, {
+      const res = await api.patch(`/quotes/${job._id}/deny`, {
         reason,
         fee
       })
+
+      console.log("❌ DENIED RESPONSE:", res.data)
+
+      if (onUpdate) onUpdate()
+
     } catch (err) {
-      console.error("❌ DENY ERROR:", err)
+      console.error("❌ DENY ERROR:", err.response?.data || err.message)
+      alert("Deny failed: " + (err.response?.data?.message || err.message))
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -77,15 +101,10 @@ function JobCard({ job }) {
           }}
         />
 
-        {/* ================= DOWNLOAD BUTTONS ================= */}
+        {/* ================= DOWNLOAD ================= */}
         {artworkUrl && (
           <div style={{ marginTop: 6 }}>
-            <a
-              href={artworkUrl}
-              target="_blank"
-              rel="noreferrer"
-              style={link}
-            >
+            <a href={artworkUrl} target="_blank" rel="noreferrer" style={link}>
               🔍 View Full Image
             </a>
 
@@ -95,7 +114,7 @@ function JobCard({ job }) {
               rel="noreferrer"
               style={link}
             >
-              ⬇ Download Original (Full Resolution)
+              ⬇ Download Original
             </a>
           </div>
         )}
@@ -125,8 +144,13 @@ function JobCard({ job }) {
           <>
             <p style={{ color: "yellow" }}>Awaiting approval</p>
 
-            <button onClick={handleApprove}>Approve</button>
-            <button onClick={handleDeny}>Deny</button>
+            <button onClick={handleApprove} disabled={loading}>
+              {loading ? "Processing..." : "Approve"}
+            </button>
+
+            <button onClick={handleDeny} disabled={loading}>
+              {loading ? "..." : "Deny"}
+            </button>
           </>
         )}
       </div>
