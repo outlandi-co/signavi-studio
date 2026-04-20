@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { useLocation } from "react-router-dom"
-import api from "../services/api"
+import axios from "axios"
 
 export default function CustomQuote() {
 
@@ -85,7 +85,7 @@ export default function CustomQuote() {
     }
   }, [preview])
 
-  /* ================= SUBMIT (🔥 FIXED) ================= */
+  /* ================= SUBMIT (🔥 FINAL FIX) ================= */
   const handleSubmit = async (e) => {
     e.preventDefault()
 
@@ -97,34 +97,51 @@ export default function CustomQuote() {
     setLoading(true)
 
     try {
-      const data = new FormData()
+      const formData = new FormData()
 
-      data.append("customerName", form.name)
-      data.append("email", form.email)
-      data.append("quantity", form.quantity)
-      data.append("printType", form.printType)
-      data.append("notes", form.notes)
-      data.append("estimatedPrice", estimate)
+      /* 🔥 MATCH BACKEND EXACTLY */
+      formData.append("customerName", form.name)
+      formData.append("email", form.email)
+      formData.append("quantity", form.quantity)
+      formData.append("printType", form.printType)
 
-      if (file) data.append("artwork", file)
+      // 🔥 IMPORTANT: backend expects "price"
+      formData.append("price", estimate)
 
-      const res = await api.post("/quotes", data)
+      // 🔥 MUST BE STRINGIFIED
+      formData.append("items", JSON.stringify([
+        {
+          name: form.printType,
+          quantity: form.quantity,
+          price: estimate
+        }
+      ]))
 
-      console.log("🔥 FULL RESPONSE:", res.data)
+      formData.append("notes", form.notes)
 
-      /* 🔥 SAFE ID EXTRACTION */
+      // 🔥 MUST MATCH multer: upload.single("artwork")
+      if (file) {
+        formData.append("artwork", file)
+      }
+
+      const API =
+        import.meta.env.VITE_API_URL ||
+        "https://signavi-backend.onrender.com/api"
+
+      const res = await axios.post(`${API}/quotes`, formData)
+
+      console.log("✅ QUOTE CREATED:", res.data)
+
       const quoteId =
-        res?.data?._id ||
         res?.data?.data?._id ||
-        null
+        res?.data?._id
 
       if (!quoteId) {
-        console.error("❌ NO QUOTE ID RETURNED:", res.data)
-        alert("Quote created but failed to load page")
+        console.error("❌ NO QUOTE ID:", res.data)
+        alert("Quote created but failed to redirect")
         return
       }
 
-      /* ✅ SAFE REDIRECT */
       window.location.href = `/quote/${quoteId}`
 
     } catch (err) {
@@ -164,7 +181,6 @@ export default function CustomQuote() {
 
         <h1>Request a Custom Quote</h1>
 
-        {/* PRICE BOX */}
         <div style={{
           margin: "15px 0",
           padding: "12px",
