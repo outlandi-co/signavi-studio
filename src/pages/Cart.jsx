@@ -1,29 +1,48 @@
 import { useNavigate } from "react-router-dom"
+import { useState } from "react"
 
 export default function Cart() {
   const navigate = useNavigate()
+  const [loading, setLoading] = useState(false)
+
+  const handleCheckout = () => {
+    try {
+      setLoading(true)
+
+      const orderId = localStorage.getItem("lastOrderId")
+
+      if (!orderId) {
+        alert("No order found")
+        setLoading(false)
+        return
+      }
+
+      navigate(`/checkout/${orderId}`)
+
+    } catch (err) {
+      console.error(err)
+      setLoading(false)
+    }
+  }
 
   return (
-    <div
-      className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 text-center"
-    >
-      <h1 className="text-3xl font-bold mb-4">🛒 Cart</h1>
+    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center">
+      <h1>🛒 Cart</h1>
 
-      <p className="text-gray-400 mb-6 max-w-md">
-        Your cart has been upgraded to a drawer-based checkout experience.
-        Use the cart icon in the navigation bar to review your items and proceed to payment.
-      </p>
+      <button
+        onClick={handleCheckout}
+        disabled={loading}
+        className="bg-cyan-500 px-6 py-2 rounded text-black"
+      >
+        {loading ? "Processing..." : "💳 Checkout"}
+      </button>
 
       <button
         onClick={() => navigate("/store")}
-        className="bg-cyan-500 px-6 py-2 rounded text-black font-semibold"
+        className="mt-4 bg-gray-700 px-6 py-2 rounded text-white"
       >
         Continue Shopping
       </button>
-
-      <p className="text-gray-500 mt-6 text-sm">
-        💳 Checkout is now handled securely via Square
-      </p>
     </div>
   )
 }
