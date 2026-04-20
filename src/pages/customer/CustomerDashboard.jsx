@@ -27,7 +27,6 @@ export default function CustomerDashboard() {
         }
 
         const res = await api.get(`/customers/orders/${email}`)
-
         setOrders(res.data || [])
 
       } catch (err) {
@@ -72,6 +71,29 @@ export default function CustomerDashboard() {
     }
 
   }, [])
+
+  /* ================= PAYMENT ================= */
+  const handlePayment = async (e, orderId) => {
+    e.stopPropagation()
+
+    try {
+      console.log("💳 REQUEST PAYMENT:", orderId)
+
+      const res = await api.post(`/square/create-payment/${orderId}`)
+
+      if (!res?.data?.url) {
+        throw new Error("No payment URL returned")
+      }
+
+      console.log("✅ REDIRECT:", res.data.url)
+
+      window.location.href = res.data.url
+
+    } catch (err) {
+      console.error("❌ PAYMENT ERROR:", err.response?.data || err.message)
+      alert(err?.response?.data?.message || "Payment failed")
+    }
+  }
 
   /* ================= HELPERS ================= */
 
@@ -163,13 +185,10 @@ export default function CustomerDashboard() {
 
                 {order.status === "payment_required" && (
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      navigate(`/checkout/${order._id}`)
-                    }}
+                    onClick={(e) => handlePayment(e, order._id)}
                     style={payBtn}
                   >
-                    Pay Now
+                    💳 Pay Now
                   </button>
                 )}
               </div>
@@ -208,8 +227,7 @@ const card = {
   padding: 20,
   borderRadius: 12,
   border: "1px solid #1e293b",
-  cursor: "pointer",
-  transition: "0.2s"
+  cursor: "pointer"
 }
 
 const cardHeader = {

@@ -17,14 +17,16 @@ export default function OrderModal({ order, onClose, onUpdated }) {
     }
   }
 
-  /* 💳 STRIPE PAYMENT */
+  /* 💳 SQUARE PAYMENT */
   const handlePayment = async () => {
     try {
-      const res = await api.post(`/checkout/create-checkout/${order._id}`)
+      const res = await api.post(`/square/create-payment/${order._id}`)
 
-      if (res.data.url) {
-        window.location.href = res.data.url
+      if (!res?.data?.url) {
+        throw new Error("No payment URL")
       }
+
+      window.location.href = res.data.url
 
     } catch (err) {
       console.error(err)
@@ -36,7 +38,6 @@ export default function OrderModal({ order, onClose, onUpdated }) {
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-
       <div className="bg-gray-900 p-6 rounded-lg w-full max-w-lg">
 
         <h2 className="text-xl mb-4">📦 Order Detail</h2>
@@ -48,42 +49,26 @@ export default function OrderModal({ order, onClose, onUpdated }) {
         <p><strong>Qty:</strong> {order.quantity}</p>
         <p><strong>Price:</strong> ${order.finalPrice || order.price}</p>
 
-        {/* ACTIONS */}
         <div className="flex flex-wrap gap-2 mt-6">
 
-          <button
-            onClick={() => updateStatus("production")}
-            className="bg-blue-600 px-3 py-2 rounded"
-          >
+          <button onClick={() => updateStatus("production")} className="bg-blue-600 px-3 py-2 rounded">
             Send to Production
           </button>
 
-          <button
-            onClick={() => updateStatus("completed")}
-            className="bg-green-600 px-3 py-2 rounded"
-          >
+          <button onClick={() => updateStatus("completed")} className="bg-green-600 px-3 py-2 rounded">
             Complete
           </button>
 
-          {/* 💳 PAYMENT BUTTON */}
-          <button
-            onClick={handlePayment}
-            className="bg-purple-600 px-3 py-2 rounded"
-          >
+          <button onClick={handlePayment} className="bg-purple-600 px-3 py-2 rounded">
             💳 Pay Now
           </button>
 
-          <button
-            onClick={onClose}
-            className="bg-gray-700 px-3 py-2 rounded"
-          >
+          <button onClick={onClose} className="bg-gray-700 px-3 py-2 rounded">
             Close
           </button>
 
         </div>
-
       </div>
-
     </div>
   )
 }

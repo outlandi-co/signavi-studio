@@ -7,7 +7,9 @@ export default function QuoteResponse() {
 
   const [quote, setQuote] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
 
+  /* ================= LOAD QUOTE ================= */
   useEffect(() => {
     const load = async () => {
       try {
@@ -16,39 +18,60 @@ export default function QuoteResponse() {
         const data = res?.data?.data || res.data
         setQuote(data)
 
+        console.log("📄 LOADED QUOTE:", data)
+
       } catch (err) {
         console.error("❌ LOAD ERROR:", err.response?.data || err.message)
+        setError("Failed to load quote")
       }
     }
 
-    load()
+    if (id) load()
   }, [id])
 
+  /* ================= PAYMENT ================= */
   const handleCheckout = async () => {
-    if (quote?.approvalStatus !== "approved") {
+    if (!quote) return
+
+    if (quote.approvalStatus !== "approved") {
       alert("⏳ Awaiting artwork approval")
       return
     }
 
     try {
       setLoading(true)
+      setError("")
+
+      console.log("💳 REQUESTING PAYMENT LINK FOR:", id)
 
       const res = await api.post(`/square/create-payment/${id}`)
 
       if (!res?.data?.url) {
+        console.error("❌ NO URL RETURNED:", res.data)
         throw new Error("No payment URL returned")
       }
+
+      console.log("✅ REDIRECTING TO:", res.data.url)
 
       window.location.href = res.data.url
 
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err.response?.data || err.message)
-      alert(err?.response?.data?.message || "Payment blocked")
+
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Payment failed"
+
+      setError(msg)
+      alert(msg)
+
     } finally {
       setLoading(false)
     }
   }
 
+  /* ================= LOADING ================= */
   if (!quote) {
     return (
       <div style={center}>
@@ -59,6 +82,7 @@ export default function QuoteResponse() {
 
   const price = Number(quote.price || 0)
 
+  /* ================= UI ================= */
   return (
     <div style={container}>
       <h1 style={title}>📄 Review Your Quote</h1>
@@ -70,19 +94,28 @@ export default function QuoteResponse() {
 
         <h2>${price.toFixed(2)}</h2>
 
+        {error && (
+          <p style={{ color: "red", marginTop: 10 }}>
+            {error}
+          </p>
+        )}
+
+        {/* ⏳ NOT APPROVED */}
         {quote.approvalStatus !== "approved" && (
           <div style={pendingBox}>
             ⏳ Awaiting artwork approval
           </div>
         )}
 
+        {/* 💳 APPROVED */}
         {quote.approvalStatus === "approved" && (
           <button
             onClick={handleCheckout}
             disabled={loading}
             style={{
               ...button,
-              opacity: loading ? 0.6 : 1
+              opacity: loading ? 0.6 : 1,
+              cursor: loading ? "not-allowed" : "pointer"
             }}
           >
             {loading ? "Redirecting..." : "💳 Pay Now"}
@@ -103,7 +136,9 @@ const container = {
   textAlign: "center"
 }
 
-const title = { marginBottom: 20 }
+const title = {
+  marginBottom: 20
+}
 
 const card = {
   background: "#1e293b",
@@ -129,8 +164,7 @@ const button = {
   border: "none",
   background: "#06b6d4",
   color: "black",
-  fontWeight: "bold",
-  cursor: "pointer"
+  fontWeight: "bold"
 }
 
 const center = {
