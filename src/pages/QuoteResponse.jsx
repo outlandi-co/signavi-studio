@@ -11,22 +11,24 @@ export default function QuoteResponse() {
 
   /* ================= LOAD QUOTE ================= */
   useEffect(() => {
-    const load = async () => {
+    const loadQuote = async () => {
       try {
+        console.log("📡 Fetching quote:", id)
+
         const res = await api.get(`/quotes/${id}`)
 
         const data = res?.data?.data || res.data
+
+        console.log("📄 QUOTE LOADED:", data)
+
         setQuote(data)
-
-        console.log("📄 LOADED QUOTE:", data)
-
       } catch (err) {
         console.error("❌ LOAD ERROR:", err.response?.data || err.message)
         setError("Failed to load quote")
       }
     }
 
-    if (id) load()
+    if (id) loadQuote()
   }, [id])
 
   /* ================= PAYMENT ================= */
@@ -42,21 +44,27 @@ export default function QuoteResponse() {
       setLoading(true)
       setError("")
 
-      console.log("💳 REQUESTING PAYMENT LINK FOR:", id)
+      console.log("💳 REQUEST PAYMENT LINK:", id)
 
       const res = await api.post(`/square/create-payment/${id}`)
 
-      if (!res?.data?.url) {
-        console.error("❌ NO URL RETURNED:", res.data)
+      console.log("🧪 FULL RESPONSE:", res)
+
+      const url = res?.data?.url
+
+      if (!url) {
+        console.error("❌ Missing URL:", res.data)
         throw new Error("No payment URL returned")
       }
 
-      console.log("✅ REDIRECTING TO:", res.data.url)
+      console.log("➡️ REDIRECTING TO:", url)
 
-      window.location.href = res.data.url
+      // 🔥 Use assign (more reliable than href in some cases)
+      window.location.assign(url)
 
     } catch (err) {
-      console.error("❌ CHECKOUT ERROR:", err.response?.data || err.message)
+      console.error("❌ CHECKOUT ERROR FULL:", err)
+      console.error("❌ RESPONSE:", err.response?.data)
 
       const msg =
         err?.response?.data?.message ||
@@ -65,13 +73,12 @@ export default function QuoteResponse() {
 
       setError(msg)
       alert(msg)
-
     } finally {
       setLoading(false)
     }
   }
 
-  /* ================= LOADING ================= */
+  /* ================= LOADING STATE ================= */
   if (!quote) {
     return (
       <div style={center}>
@@ -94,6 +101,7 @@ export default function QuoteResponse() {
 
         <h2>${price.toFixed(2)}</h2>
 
+        {/* 🔴 ERROR DISPLAY */}
         {error && (
           <p style={{ color: "red", marginTop: 10 }}>
             {error}
