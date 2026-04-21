@@ -133,7 +133,7 @@ export default function CustomQuote() {
 
       console.log("🧪 RESPONSE DATA:", res.data)
 
-      const quoteId = res?.data?.debug?._id
+      const quoteId = res?.data?.data?._id
 
       console.log("🆔 EXTRACTED ID:", quoteId)
 
