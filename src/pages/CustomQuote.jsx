@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react"
-import { useLocation } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import axios from "axios"
 
 export default function CustomQuote() {
 
   const location = useLocation()
+  const navigate = useNavigate()
 
   const [form, setForm] = useState({
     name: "",
@@ -86,78 +87,74 @@ export default function CustomQuote() {
   }, [preview])
 
   /* ================= SUBMIT (🔥 FINAL FIX) ================= */
-/* ================= SUBMIT (🔥 FIXED) ================= */
-const handleSubmit = async (e) => {
-  e.preventDefault()
+  const handleSubmit = async (e) => {
+    e.preventDefault()
 
-  if (!form.name || !form.email) {
-    alert("Please fill out name and email")
-    return
-  }
-
-  setLoading(true)
-
-  try {
-    const formData = new FormData()
-
-    formData.append("customerName", form.name)
-    formData.append("email", form.email)
-    formData.append("quantity", form.quantity)
-    formData.append("printType", form.printType)
-    formData.append("price", estimate)
-
-    formData.append("items", JSON.stringify([
-      {
-        name: form.printType,
-        quantity: form.quantity,
-        price: estimate
-      }
-    ]))
-
-    formData.append("notes", form.notes)
-
-    if (file) {
-      formData.append("artwork", file)
-    }
-
-    /* 🔥 DEBUG FORM DATA */
-    for (let pair of formData.entries()) {
-      console.log("📤 FORM DATA:", pair[0], pair[1])
-    }
-
-    /* 🔥 USE LOCAL FIRST (VERY IMPORTANT) */
-    const API =
-      import.meta.env.VITE_API_URL ||
-      "http://localhost:5050/api"   // ✅ CHANGE THIS
-
-    const res = await axios.post(`${API}/quotes`, formData) // ❌ NO HEADERS
-
-    console.log("🧪 RAW RESPONSE:", res)
-    console.log("🧪 RESPONSE DATA:", res.data)
-
-    /* 🔥 FIX: USE DEBUG PATH */
-    const quoteId = res?.data?.debug?._id
-
-    console.log("🆔 EXTRACTED ID:", quoteId)
-
-    if (!quoteId) {
-      console.error("❌ NO QUOTE ID:", res.data)
-      alert("Quote created but failed to redirect")
+    if (!form.name || !form.email) {
+      alert("Please fill out name and email")
       return
     }
 
-    console.log("➡️ REDIRECTING TO:", `/quote/${quoteId}`)
+    setLoading(true)
 
-    window.location.assign(`/quote/${quoteId}`)
+    try {
+      const formData = new FormData()
 
-  } catch (err) {
-    console.error("❌ SUBMIT ERROR FULL:", err)
-    console.error("❌ RESPONSE:", err.response?.data)
-    alert("Server error")
-  } finally {
-    setLoading(false)
+      formData.append("customerName", form.name)
+      formData.append("email", form.email)
+      formData.append("quantity", form.quantity)
+      formData.append("printType", form.printType)
+      formData.append("price", estimate)
+
+      formData.append("items", JSON.stringify([
+        {
+          name: form.printType,
+          quantity: form.quantity,
+          price: estimate
+        }
+      ]))
+
+      formData.append("notes", form.notes)
+
+      if (file) {
+        formData.append("artwork", file)
+      }
+
+      /* 🔥 DEBUG FORM DATA */
+      for (let pair of formData.entries()) {
+        console.log("📤 FORM DATA:", pair[0], pair[1])
+      }
+
+      const API =
+        import.meta.env.VITE_API_URL ||
+        "http://localhost:5050/api"
+
+      const res = await axios.post(`${API}/quotes`, formData)
+
+      console.log("🧪 RESPONSE DATA:", res.data)
+
+      const quoteId = res?.data?.debug?._id
+
+      console.log("🆔 EXTRACTED ID:", quoteId)
+
+      if (!quoteId) {
+        alert("Quote created but failed to redirect")
+        return
+      }
+
+      console.log("➡️ NAVIGATING TO:", `/quote/${quoteId}`)
+
+      /* ✅ FIXED NAVIGATION */
+      navigate(`/quote/${quoteId}`)
+
+    } catch (err) {
+      console.error("❌ ERROR:", err.response?.data || err.message)
+      alert("Server error")
+    } finally {
+      setLoading(false)
+    }
   }
-}
+
   /* ================= UI ================= */
 
   const inputStyle = {
