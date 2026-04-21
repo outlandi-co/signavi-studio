@@ -86,72 +86,78 @@ export default function CustomQuote() {
   }, [preview])
 
   /* ================= SUBMIT (🔥 FINAL FIX) ================= */
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+/* ================= SUBMIT (🔥 FIXED) ================= */
+const handleSubmit = async (e) => {
+  e.preventDefault()
 
-    if (!form.name || !form.email) {
-      alert("Please fill out name and email")
+  if (!form.name || !form.email) {
+    alert("Please fill out name and email")
+    return
+  }
+
+  setLoading(true)
+
+  try {
+    const formData = new FormData()
+
+    formData.append("customerName", form.name)
+    formData.append("email", form.email)
+    formData.append("quantity", form.quantity)
+    formData.append("printType", form.printType)
+    formData.append("price", estimate)
+
+    formData.append("items", JSON.stringify([
+      {
+        name: form.printType,
+        quantity: form.quantity,
+        price: estimate
+      }
+    ]))
+
+    formData.append("notes", form.notes)
+
+    if (file) {
+      formData.append("artwork", file)
+    }
+
+    /* 🔥 DEBUG FORM DATA */
+    for (let pair of formData.entries()) {
+      console.log("📤 FORM DATA:", pair[0], pair[1])
+    }
+
+    /* 🔥 USE LOCAL FIRST (VERY IMPORTANT) */
+    const API =
+      import.meta.env.VITE_API_URL ||
+      "http://localhost:5050/api"   // ✅ CHANGE THIS
+
+    const res = await axios.post(`${API}/quotes`, formData) // ❌ NO HEADERS
+
+    console.log("🧪 RAW RESPONSE:", res)
+    console.log("🧪 RESPONSE DATA:", res.data)
+
+    /* 🔥 FIX: USE DEBUG PATH */
+    const quoteId = res?.data?.debug?._id
+
+    console.log("🆔 EXTRACTED ID:", quoteId)
+
+    if (!quoteId) {
+      console.error("❌ NO QUOTE ID:", res.data)
+      alert("Quote created but failed to redirect")
       return
     }
 
-    setLoading(true)
+    console.log("➡️ REDIRECTING TO:", `/quote/${quoteId}`)
 
-    try {
-      const formData = new FormData()
+    window.location.assign(`/quote/${quoteId}`)
 
-      /* 🔥 MATCH BACKEND EXACTLY */
-      formData.append("customerName", form.name)
-      formData.append("email", form.email)
-      formData.append("quantity", form.quantity)
-      formData.append("printType", form.printType)
-
-      // 🔥 IMPORTANT: backend expects "price"
-      formData.append("price", estimate)
-
-      // 🔥 MUST BE STRINGIFIED
-      formData.append("items", JSON.stringify([
-        {
-          name: form.printType,
-          quantity: form.quantity,
-          price: estimate
-        }
-      ]))
-
-      formData.append("notes", form.notes)
-
-      // 🔥 MUST MATCH multer: upload.single("artwork")
-      if (file) {
-        formData.append("artwork", file)
-      }
-
-      const API =
-        import.meta.env.VITE_API_URL ||
-        "https://signavi-backend.onrender.com/api"
-
-      const res = await axios.post(`${API}/quotes`, formData)
-
-      console.log("✅ QUOTE CREATED:", res.data)
-
-      const quoteId =
-        res?.data?.data?._id ||
-        res?.data?._id
-
-      if (!quoteId) {
-        console.error("❌ NO QUOTE ID:", res.data)
-        alert("Quote created but failed to redirect")
-        return
-      }
-
-      window.location.href = `/quote/${quoteId}`
-
-    } catch (err) {
-      console.error("❌ SUBMIT ERROR:", err)
-      alert("Server error")
-    } finally {
-      setLoading(false)
-    }
+  } catch (err) {
+    console.error("❌ SUBMIT ERROR FULL:", err)
+    console.error("❌ RESPONSE:", err.response?.data)
+    alert("Server error")
+  } finally {
+    setLoading(false)
   }
-
+}
   /* ================= UI ================= */
 
   const inputStyle = {

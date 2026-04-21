@@ -30,10 +30,23 @@ export default function QuotePage() {
 
       console.log("✅ SUCCESS:", res.data)
 
-      const id = res?.data?.data?._id || res?.data?._id
+      console.log("🧪 RAW RESPONSE:", res)
+console.log("🧪 RESPONSE DATA:", res.data)
+
+const id = res?.data?.debug?._id
+
+console.log("🆔 ID:", id)
+
+if (id) {
+  window.location.assign(`/quote/${id}`)
+} else {
+  alert("No ID returned")
+}
+
+console.log("🆔 FINAL ID:", id)
 
       if (id) {
-        window.location.href = `/quote/${id}`
+        window.location.assign(`/quote/${id}`)
       } else {
         alert("Quote created but no ID returned")
       }
