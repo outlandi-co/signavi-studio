@@ -1,154 +1,226 @@
-import { useEffect, useState, useRef, useCallback } from "react"
-import { useNavigate, useParams } from "react-router-dom"
+import Button from "../components/UI/Button"
+import SafeImage from "../components/SafeImage"
 import useCart from "../hooks/useCart"
 import api from "../services/api"
+import { useState } from "react"
 
-export default function Success() {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const { clearCart } = useCart()
+export default function CartDrawer({ isOpen, onClose }) {
 
-  const [status, setStatus] = useState("loading")
-  const [retrying, setRetrying] = useState(false)
+  const { cart, setCart, removeFromCart } = useCart()
+  const [isRedirecting, setIsRedirecting] = useState(false)
 
-  const hasRun = useRef(false)
+  const safeClose = () => {
+    if (typeof onClose === "function") onClose()
+  }
 
-  /* ================= ERROR LOGGER ================= */
-  const logError = useCallback(async (context, error) => {
-    console.error(`❌ ${context}:`, error)
+  /* ================= QTY ================= */
+  const increaseQty = (id) => {
+    setCart(prev =>
+      prev.map(item =>
+        item.productId === id
+          ? { ...item, quantity: (item.quantity || 1) + 1 }
+          : item
+      )
+    )
+  }
+
+  const decreaseQty = (id) => {
+    setCart(prev =>
+      prev.map(item =>
+        item.productId === id
+          ? { ...item, quantity: Math.max(1, (item.quantity || 1) - 1) }
+          : item
+      )
+    )
+  }
+
+  /* ================= TOTALS ================= */
+  const subtotal = cart.reduce((acc, item) => {
+    const price = Number(
+      item?.variant?.price ??
+      item?.price ??
+      0
+    )
+
+    const qty = Number(item?.quantity) || 1
+
+    return acc + price * qty
+  }, 0)
+
+  const TAX_RATE = 0.0825
+  const tax = subtotal * TAX_RATE
+  const total = subtotal + tax
+
+  /* ================= CHECKOUT ================= */
+  const handleCheckout = async () => {
+    if (isRedirecting) return
 
     try {
-      await api.post("/logs", {
-        context,
-        message: error?.message || "Unknown error",
-        stack: error?.stack || null,
-        orderId: id
-      })
-    } catch (logErr) {
-      console.warn("⚠️ Failed to send log:", logErr)
-    }
-  }, [id])
+      setIsRedirecting(true)
 
-  /* ================= CONFIRM PAYMENT ================= */
-  useEffect(() => {
-    const confirmPayment = async () => {
-      if (hasRun.current) return
-      hasRun.current = true
+      console.log("🛒 Creating order from cart...", cart)
 
-      try {
-        if (!id) {
-          throw new Error("Missing order ID")
-        }
+      const safeItems = cart.map(item => ({
+        name: item?.name || "Item",
+        quantity: Number(item?.quantity) || 1,
+        price: Number(
+          item?.variant?.price ??
+          item?.price ??
+          0
+        )
+      }))
 
-        console.log("💳 Confirming payment:", id)
-
-        await api.post(`/square/confirm/${id}`)
-
-        console.log("✅ Payment confirmed")
-
-        setStatus("paid")
-
-        clearCart()
-        localStorage.removeItem("cart")
-
-      } catch (err) {
-        await logError("CONFIRM PAYMENT", err)
-        setStatus("error")
+      if (!safeItems.length) {
+        throw new Error("Cart is empty")
       }
-    }
 
-    confirmPayment()
+      /* 🔥 CREATE ORDER WITH TAX */
+      const orderRes = await api.post("/orders", {
+        items: safeItems,
+        customerName: "Guest",
+        email: "",
+        source: "store",
+        subtotal,
+        tax,
+        price: total
+      })
 
-  }, [id, clearCart, logError])
+      const orderId = orderRes?.data?.data?._id
 
-  /* ================= RETRY ================= */
-  const handleRetry = async () => {
-    try {
-      setRetrying(true)
+      if (!orderId) {
+        throw new Error("Order creation failed")
+      }
 
-      await api.post(`/square/confirm/${id}`)
+      console.log("✅ Order created:", orderId)
 
-      setStatus("paid")
+      /* 🔥 CREATE PAYMENT LINK */
+      const paymentRes = await api.post(`/square/create-payment/${orderId}`)
 
-      clearCart()
-      localStorage.removeItem("cart")
+      const url = paymentRes?.data?.url
+
+      if (!url) {
+        throw new Error("No payment URL returned")
+      }
+
+      console.log("🚀 Redirecting to Square:", url)
+
+      window.location.assign(url)
 
     } catch (err) {
-      await logError("RETRY PAYMENT", err)
-      alert("Still failed. Contact support.")
-    } finally {
-      setRetrying(false)
+      console.error("❌ CHECKOUT ERROR:", err?.response?.data || err.message)
+      alert("Checkout failed — check console")
+      setIsRedirecting(false)
     }
-  }
-
-  /* ================= UI ================= */
-
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-black text-white">
-        <h2 className="animate-pulse text-lg">
-          Processing your payment...
-        </h2>
-      </div>
-    )
-  }
-
-  if (status === "error") {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-black text-white text-center p-6">
-        <h2 className="text-red-400 text-xl mb-2">
-          ⚠️ Payment received but confirmation failed
-        </h2>
-
-        <p className="text-gray-400 mb-6 max-w-md">
-          Your payment likely went through, but we couldn’t finalize your order.
-        </p>
-
-        <div className="flex gap-4">
-          <button
-            onClick={handleRetry}
-            disabled={retrying}
-            className="bg-yellow-500 px-6 py-2 rounded text-black font-semibold"
-          >
-            {retrying ? "Retrying..." : "Retry"}
-          </button>
-
-          <button
-            onClick={() => window.location.reload()}
-            className="bg-gray-700 px-6 py-2 rounded"
-          >
-            Refresh
-          </button>
-        </div>
-      </div>
-    )
   }
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center text-center p-6">
-      <h1 className="text-4xl font-bold text-green-400 mb-4">
-        ✅ Payment Successful
-      </h1>
+    <>
+      {/* BACKDROP */}
+      <div
+        onClick={safeClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.6)",
+          opacity: isOpen ? 1 : 0,
+          pointerEvents: isOpen ? "auto" : "none",
+          zIndex: 500
+        }}
+      />
 
-      <p className="mb-6 text-gray-300 max-w-md">
-        Your order is confirmed and has been moved into production.
-      </p>
+      {/* DRAWER */}
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          right: 0,
+          width: 360,
+          height: "100%",
+          background: "#020617",
+          transform: isOpen ? "translateX(0)" : "translateX(100%)",
+          transition: "0.3s",
+          display: "flex",
+          flexDirection: "column",
+          color: "white",
+          zIndex: 1000
+        }}
+      >
 
-      <div className="flex gap-4">
-        <button
-          onClick={() => navigate("/store")}
-          className="bg-cyan-500 px-6 py-2 rounded text-black font-semibold"
-        >
-          Continue Shopping
-        </button>
+        {/* HEADER */}
+        <div style={{ padding: 20, display: "flex", justifyContent: "space-between" }}>
+          <h2>🛒 Cart</h2>
+          <button onClick={safeClose}>✖</button>
+        </div>
 
-        <button
-          onClick={() => navigate("/")}
-          className="bg-gray-700 px-6 py-2 rounded"
-        >
-          Go Home
-        </button>
+        {/* ITEMS */}
+        <div style={{ padding: 20, flex: 1, overflowY: "auto" }}>
+          {cart.length === 0 && <p>Your cart is empty</p>}
+
+          {cart.map((item, index) => {
+            const price = Number(
+              item?.variant?.price ??
+              item?.price ??
+              0
+            )
+
+            const safeKey =
+              item.productId ||
+              item._id ||
+              `${item.name || "item"}-${index}`
+
+            return (
+              <div
+                key={safeKey}
+                style={{ display: "flex", gap: 10, marginBottom: 12 }}
+              >
+                <SafeImage
+                  src={item.image || "/placeholder.png"}
+                  alt={item.name}
+                  style={{ width: 60, height: 60 }}
+                />
+
+                <div style={{ flex: 1 }}>
+                  <strong>{item.name}</strong>
+
+                  <p style={{ fontSize: 12, opacity: 0.7 }}>
+                    {item.variant?.color || "N/A"} / {item.variant?.size || "N/A"}
+                  </p>
+
+                  <p>${price.toFixed(2)}</p>
+
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => decreaseQty(item.productId)}>−</button>
+                    <span>{item.quantity}</span>
+                    <button onClick={() => increaseQty(item.productId)}>+</button>
+                  </div>
+                </div>
+
+                <button onClick={() => removeFromCart(item.productId)}>✖</button>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* FOOTER */}
+        {cart.length > 0 && (
+          <div style={{ padding: 20 }}>
+            <p>Subtotal: ${subtotal.toFixed(2)}</p>
+            <p>Tax (8.25%): ${tax.toFixed(2)}</p>
+
+            <h3>Total: ${total.toFixed(2)}</h3>
+
+            <Button
+              onClick={handleCheckout}
+              fullWidth
+              style={{ marginTop: 10 }}
+            >
+              {isRedirecting
+                ? "🔐 Connecting to payment..."
+                : "💳 Checkout"}
+            </Button>
+          </div>
+        )}
       </div>
-    </div>
+    </>
   )
 }
