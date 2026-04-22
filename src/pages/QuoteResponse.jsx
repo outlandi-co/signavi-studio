@@ -13,14 +13,8 @@ export default function QuoteResponse() {
   useEffect(() => {
     const loadQuote = async () => {
       try {
-        console.log("📡 Fetching quote:", id)
-
         const res = await api.get(`/quotes/${id}`)
-
         const data = res?.data?.data || res.data
-
-        console.log("📄 QUOTE LOADED:", data)
-
         setQuote(data)
       } catch (err) {
         console.error("❌ LOAD ERROR:", err.response?.data || err.message)
@@ -44,41 +38,22 @@ export default function QuoteResponse() {
       setLoading(true)
       setError("")
 
-      console.log("💳 REQUEST PAYMENT LINK:", id)
-
       const res = await api.post(`/square/create-payment/${id}`)
-
-      console.log("🧪 FULL RESPONSE:", res)
-
       const url = res?.data?.url
 
-      if (!url) {
-        console.error("❌ Missing URL:", res.data)
-        throw new Error("No payment URL returned")
-      }
+      if (!url) throw new Error("No payment URL returned")
 
-      console.log("➡️ REDIRECTING TO:", url)
-
-      // 🔥 Use assign (more reliable than href in some cases)
       window.location.assign(url)
 
     } catch (err) {
-      console.error("❌ CHECKOUT ERROR FULL:", err)
-      console.error("❌ RESPONSE:", err.response?.data)
-
-      const msg =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Payment failed"
-
-      setError(msg)
-      alert(msg)
+      console.error("❌ CHECKOUT ERROR:", err)
+      setError("Payment failed")
     } finally {
       setLoading(false)
     }
   }
 
-  /* ================= LOADING STATE ================= */
+  /* ================= LOADING ================= */
   if (!quote) {
     return (
       <div style={center}>
@@ -87,7 +62,12 @@ export default function QuoteResponse() {
     )
   }
 
-  const price = Number(quote.price || 0)
+  /* ================= PRICE CALC ================= */
+  const subtotal = Number(quote.price || 0)
+
+  const TAX_RATE = 0.0825 // 🔥 CHANGE IF NEEDED
+  const tax = subtotal * TAX_RATE
+  const total = subtotal + tax
 
   /* ================= UI ================= */
   return (
@@ -99,9 +79,17 @@ export default function QuoteResponse() {
         <p><b>Email:</b> {quote.email}</p>
         <p><b>Quantity:</b> {quote.quantity}</p>
 
-        <h2>${price.toFixed(2)}</h2>
+        <hr style={{ margin: "20px 0", opacity: 0.2 }} />
 
-        {/* 🔴 ERROR DISPLAY */}
+        {/* 💰 PRICING BREAKDOWN */}
+        <p>Subtotal: ${subtotal.toFixed(2)}</p>
+        <p>Tax (8.25%): ${tax.toFixed(2)}</p>
+
+        <h2 style={{ marginTop: 10 }}>
+          Total: ${total.toFixed(2)}
+        </h2>
+
+        {/* 🔴 ERROR */}
         {error && (
           <p style={{ color: "red", marginTop: 10 }}>
             {error}
@@ -122,8 +110,7 @@ export default function QuoteResponse() {
             disabled={loading}
             style={{
               ...button,
-              opacity: loading ? 0.6 : 1,
-              cursor: loading ? "not-allowed" : "pointer"
+              opacity: loading ? 0.6 : 1
             }}
           >
             {loading ? "Redirecting..." : "💳 Pay Now"}
@@ -172,7 +159,8 @@ const button = {
   border: "none",
   background: "#06b6d4",
   color: "black",
-  fontWeight: "bold"
+  fontWeight: "bold",
+  cursor: "pointer"
 }
 
 const center = {
