@@ -8,7 +8,9 @@ export default function CustomerLogin() {
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
 
   /* ================= PREVENT LOOP ================= */
   useEffect(() => {
@@ -23,6 +25,13 @@ export default function CustomerLogin() {
   /* ================= LOGIN ================= */
   const handleLogin = async () => {
     if (loading) return
+
+    setError("")
+
+    if (!email || !password) {
+      setError("Please enter email and password")
+      return
+    }
 
     try {
       setLoading(true)
@@ -50,48 +59,63 @@ export default function CustomerLogin() {
 
       console.log("✅ CUSTOMER LOGGED IN:", user)
 
-      /* ================= NAVIGATE ================= */
       navigate("/store")
 
     } catch (err) {
       console.error("❌ CUSTOMER LOGIN ERROR:", err)
-
-      alert("Login failed. Please check your credentials.")
-
+      setError("Login failed. Check your credentials.")
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div style={wrap}>
+    <div style={container}>
       <div style={card}>
-        <h2>Customer Login</h2>
+        <h1 style={title}>Customer Login</h1>
 
+        <p style={subtitle}>
+          Enter your email and password to access your orders
+        </p>
+
+        {/* EMAIL */}
         <input
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          type="email"
           placeholder="Email"
+          value={email}
+          onChange={(e)=>setEmail(e.target.value)}
           style={input}
         />
 
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
-          style={input}
-        />
+        {/* PASSWORD */}
+        <div style={{ position: "relative" }}>
+          <input
+            type={showPassword ? "text" : "password"}
+            placeholder="Password"
+            value={password}
+            onChange={(e)=>setPassword(e.target.value)}
+            style={input}
+          />
+
+          <span
+            onClick={() => setShowPassword(!showPassword)}
+            style={eye}
+          >
+            {showPassword ? "🙈" : "👁"}
+          </span>
+        </div>
+
+        {error && <p style={errorText}>{error}</p>}
 
         <button
           onClick={handleLogin}
           disabled={loading}
           style={{
-            ...btn,
+            ...button,
             opacity: loading ? 0.6 : 1
           }}
         >
-          {loading ? "Logging in..." : "Login"}
+          {loading ? "Logging in..." : "Continue"}
         </button>
       </div>
     </div>
@@ -100,37 +124,65 @@ export default function CustomerLogin() {
 
 /* ================= STYLES ================= */
 
-const wrap = {
+const container = {
+  minHeight: "100vh",
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
-  height: "80vh",
+  background: "#020617",
   color: "white"
 }
 
 const card = {
-  background: "#020617",
-  padding: 30,
-  borderRadius: 12,
-  width: 300,
-  display: "flex",
-  flexDirection: "column",
-  gap: 10
+  background: "#0f172a",
+  padding: "40px",
+  borderRadius: "12px",
+  width: "100%",
+  maxWidth: "400px",
+  boxShadow: "0 10px 30px rgba(0,0,0,0.4)"
+}
+
+const title = {
+  marginBottom: "10px"
+}
+
+const subtitle = {
+  marginBottom: "20px",
+  fontSize: "14px",
+  opacity: 0.7
 }
 
 const input = {
-  padding: 10,
-  borderRadius: 6,
-  background: "#0f172a",
-  color: "white",
-  border: "1px solid #1e293b"
+  width: "100%",
+  padding: "12px",
+  marginBottom: "10px",
+  borderRadius: "6px",
+  border: "1px solid #334155",
+  background: "#020617",
+  color: "white"
 }
 
-const btn = {
-  padding: 10,
+const button = {
+  width: "100%",
+  padding: "12px",
   background: "#22c55e",
   border: "none",
-  borderRadius: 6,
-  color: "white",
+  borderRadius: "6px",
+  color: "#000",
+  fontWeight: "bold",
   cursor: "pointer"
+}
+
+const errorText = {
+  color: "#ef4444",
+  marginBottom: "10px",
+  fontSize: "14px"
+}
+
+const eye = {
+  position: "absolute",
+  right: 12,
+  top: 12,
+  cursor: "pointer",
+  color: "#94a3b8"
 }
