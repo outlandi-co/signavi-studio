@@ -47,11 +47,6 @@ export default function CartDrawer({ isOpen, onClose }) {
     return acc + price * qty
   }, 0)
 
-  /* ================= TAX ================= */
-  const TAX_RATE = 0.08
-  const tax = subtotal * TAX_RATE
-  const total = subtotal + tax
-
   /* ================= CHECKOUT ================= */
   const handleCheckout = async () => {
     if (isRedirecting) return
@@ -75,16 +70,12 @@ export default function CartDrawer({ isOpen, onClose }) {
         throw new Error("Cart is empty")
       }
 
-      /* 🔥 CREATE ORDER (NOW WITH TAX + TOTAL) */
+      /* 🔥 CREATE ORDER */
       const orderRes = await api.post("/orders", {
         items: safeItems,
         customerName: "Guest",
         email: "",
-        source: "store",
-
-        subtotal,
-        tax,
-        price: total // ✅ CRITICAL FIX
+        source: "store"
       })
 
       const orderId = orderRes?.data?.data?._id
@@ -165,6 +156,7 @@ export default function CartDrawer({ isOpen, onClose }) {
               0
             )
 
+            /* 🔥 FIXED UNIQUE KEY */
             const safeKey =
               item.productId ||
               item._id ||
@@ -207,9 +199,8 @@ export default function CartDrawer({ isOpen, onClose }) {
         {cart.length > 0 && (
           <div style={{ padding: 20 }}>
             <p>Subtotal: ${subtotal.toFixed(2)}</p>
-            <p>Tax (8%): ${tax.toFixed(2)}</p>
 
-            <h3>Total: ${total.toFixed(2)}</h3>
+            <h3>Total: ${subtotal.toFixed(2)}</h3>
 
             <Button
               onClick={handleCheckout}
