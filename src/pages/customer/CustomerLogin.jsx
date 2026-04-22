@@ -4,22 +4,24 @@ import { useNavigate } from "react-router-dom"
 export default function CustomerLogin() {
 
   const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("") // 🔥 ADDED
+  const [showPassword, setShowPassword] = useState(false) // 🔥 ADDED
   const [error, setError] = useState("")
   const navigate = useNavigate()
 
   /* 🔥 AUTO REDIRECT IF LOGGED IN */
-useEffect(() => {
-  const existing = localStorage.getItem("customerEmail")
-  if (existing) {
-    navigate("/dashboard")
-  }
-}, [navigate])
+  useEffect(() => {
+    const existing = localStorage.getItem("customerEmail")
+    if (existing) {
+      navigate("/dashboard")
+    }
+  }, [navigate])
 
   const handleLogin = () => {
     setError("")
 
-    if (!email) {
-      setError("Please enter your email")
+    if (!email || !password) {
+      setError("Please enter email and password")
       return
     }
 
@@ -45,9 +47,10 @@ useEffect(() => {
         <h1 style={title}>Customer Login</h1>
 
         <p style={subtitle}>
-          Enter your email to view your orders
+          Enter your email and password to view your orders
         </p>
 
+        {/* EMAIL */}
         <input
           type="email"
           placeholder="Enter your email"
@@ -55,6 +58,25 @@ useEffect(() => {
           onChange={(e)=>setEmail(e.target.value)}
           style={input}
         />
+
+        {/* PASSWORD */}
+        <div style={{ position: "relative" }}>
+          <input
+            type={showPassword ? "text" : "password"}
+            placeholder="Enter your password"
+            value={password}
+            onChange={(e)=>setPassword(e.target.value)}
+            style={input}
+          />
+
+          {/* 👁 TOGGLE */}
+          <span
+            onClick={() => setShowPassword(!showPassword)}
+            style={eye}
+          >
+            {showPassword ? "🙈" : "👁"}
+          </span>
+        </div>
 
         {error && <p style={errorText}>{error}</p>}
 
@@ -121,4 +143,12 @@ const errorText = {
   color: "#ef4444",
   marginBottom: "10px",
   fontSize: "14px"
+}
+
+const eye = {
+  position: "absolute",
+  right: 12,
+  top: 12,
+  cursor: "pointer",
+  color: "#94a3b8"
 }

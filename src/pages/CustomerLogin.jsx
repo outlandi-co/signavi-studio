@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import api from "../../services/api"
 
@@ -9,6 +9,16 @@ export default function CustomerLogin() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
+
+  /* ================= PREVENT LOOP ================= */
+  useEffect(() => {
+    const token = localStorage.getItem("customerToken")
+
+    if (token) {
+      console.log("✅ Already logged in → redirecting to store")
+      navigate("/store")
+    }
+  }, [navigate])
 
   /* ================= LOGIN ================= */
   const handleLogin = async () => {
@@ -24,32 +34,29 @@ export default function CustomerLogin() {
         password
       })
 
-      console.log("✅ LOGIN RESPONSE:", res.data)
-
       if (!res.data?.token || !res.data?.user) {
         throw new Error("Invalid login response")
       }
 
       const { token, user } = res.data
 
-      /* 🔥 FIXED STORAGE SYSTEM */
+      /* ================= STORE ================= */
       localStorage.setItem("customerToken", token)
       localStorage.setItem("customerUser", JSON.stringify(user))
 
-      /* OPTIONAL: clear admin session */
+      /* 🔥 Clear admin session */
       localStorage.removeItem("adminToken")
       localStorage.removeItem("adminUser")
 
       console.log("✅ CUSTOMER LOGGED IN:", user)
 
+      /* ================= NAVIGATE ================= */
       navigate("/store")
 
     } catch (err) {
       console.error("❌ CUSTOMER LOGIN ERROR:", err)
 
-      alert(
-        "Login failed. Server may be waking up — try again in a few seconds."
-      )
+      alert("Login failed. Please check your credentials.")
 
     } finally {
       setLoading(false)
@@ -58,7 +65,6 @@ export default function CustomerLogin() {
 
   return (
     <div style={wrap}>
-
       <div style={card}>
         <h2>Customer Login</h2>
 
@@ -80,13 +86,14 @@ export default function CustomerLogin() {
         <button
           onClick={handleLogin}
           disabled={loading}
-          style={btn}
+          style={{
+            ...btn,
+            opacity: loading ? 0.6 : 1
+          }}
         >
           {loading ? "Logging in..." : "Login"}
         </button>
-
       </div>
-
     </div>
   )
 }
