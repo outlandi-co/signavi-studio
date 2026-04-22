@@ -1,23 +1,26 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
+import api from "../../services/api" // 🔥 make sure path is correct
 
 export default function CustomerLogin() {
 
   const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("") // 🔥 ADDED
-  const [showPassword, setShowPassword] = useState(false) // 🔥 ADDED
+  const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const navigate = useNavigate()
 
-  /* 🔥 AUTO REDIRECT IF LOGGED IN */
+  /* 🔥 FIXED: SAFE REDIRECT (NO LOOP) */
   useEffect(() => {
-    const existing = localStorage.getItem("customerEmail")
-    if (existing) {
+    const token = localStorage.getItem("customerToken")
+
+    if (token && window.location.pathname !== "/dashboard") {
       navigate("/dashboard")
     }
   }, [navigate])
 
-  const handleLogin = () => {
+  /* 🔥 REAL LOGIN */
+  const handleLogin = async () => {
     setError("")
 
     if (!email || !password) {
@@ -26,18 +29,22 @@ export default function CustomerLogin() {
     }
 
     try {
-      const cleanEmail = email.toLowerCase().trim()
+      const res = await api.post("/auth/login", {
+        email,
+        password
+      })
 
-      /* 🔥 STORE SESSION */
-      localStorage.setItem("customerEmail", cleanEmail)
+      // 🔐 STORE REAL AUTH
+      localStorage.setItem("customerToken", res.data.token)
+      localStorage.setItem("customerUser", JSON.stringify(res.data.user))
 
-      console.log("✅ CUSTOMER LOGGED IN:", cleanEmail)
+      console.log("✅ CUSTOMER LOGGED IN:", res.data.user)
 
       navigate("/dashboard")
 
     } catch (err) {
       console.error(err)
-      setError("Login failed")
+      setError("Invalid email or password")
     }
   }
 
