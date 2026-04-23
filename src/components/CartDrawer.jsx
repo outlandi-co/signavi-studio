@@ -48,6 +48,9 @@ export default function CartDrawer({ isOpen, onClose }) {
     try {
       setIsRedirecting(true)
 
+      console.log("🛒 START CHECKOUT")
+
+      /* ================= SAFE ITEMS ================= */
       const safeItems = cart.map(item => ({
         name: item?.name || "Item",
         quantity: Number(item?.quantity) || 1,
@@ -58,21 +61,35 @@ export default function CartDrawer({ isOpen, onClose }) {
         throw new Error("Cart is empty")
       }
 
-      /* CREATE ORDER */
+      const totalQuantity = safeItems.reduce((a, i) => a + i.quantity, 0)
+
+      const computedTotal = safeItems.reduce(
+        (acc, i) => acc + i.price * i.quantity,
+        0
+      )
+
+      /* ================= USER (OPTIONAL) ================= */
+      const storedUser = JSON.parse(localStorage.getItem("customerUser") || "null")
+
+      /* ================= CREATE ORDER ================= */
       const orderRes = await api.post("/orders", {
+        customerName: storedUser?.name || "Guest",
+        email: storedUser?.email || "",
         items: safeItems,
-        customerName: "Guest",
-        email: "",
+        quantity: totalQuantity,
+        price: computedTotal,
         source: "store"
       })
 
-      const orderId = orderRes?.data?.data?._id
+      const orderId = orderRes?.data?._id // ✅ FIXED
 
       if (!orderId) {
         throw new Error("Order creation failed")
       }
 
-      /* CREATE PAYMENT */
+      console.log("✅ ORDER CREATED:", orderId)
+
+      /* ================= CREATE PAYMENT ================= */
       const paymentRes = await api.post(`/square/create-payment/${orderId}`)
       const url = paymentRes?.data?.url
 
@@ -80,11 +97,19 @@ export default function CartDrawer({ isOpen, onClose }) {
         throw new Error("No payment URL returned")
       }
 
+      console.log("💳 REDIRECTING TO PAYMENT:", url)
+
       window.location.assign(url)
 
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err?.response?.data || err.message)
-      alert("Checkout failed")
+
+      alert(
+        err?.response?.data?.message ||
+        err.message ||
+        "Checkout failed. Please try again."
+      )
+
       setIsRedirecting(false)
     }
   }
@@ -133,7 +158,7 @@ export default function CartDrawer({ isOpen, onClose }) {
           <button onClick={safeClose}>✖</button>
         </div>
 
-        {/* ITEMS (SCROLLABLE) */}
+        {/* ITEMS */}
         <div style={{
           flex: 1,
           overflowY: "auto",
@@ -190,14 +215,13 @@ export default function CartDrawer({ isOpen, onClose }) {
           })}
         </div>
 
-        {/* FOOTER (STICKY) */}
+        {/* FOOTER */}
         {cart.length > 0 && (
           <div style={{
             padding: 20,
             borderTop: "1px solid #1e293b"
           }}>
             <p>Subtotal: ${subtotal.toFixed(2)}</p>
-
             <h3>Total: ${subtotal.toFixed(2)}</h3>
 
             <Button
