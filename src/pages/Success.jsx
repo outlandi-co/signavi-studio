@@ -36,14 +36,8 @@ export default function CartDrawer({ isOpen, onClose }) {
 
   /* ================= TOTALS ================= */
   const subtotal = cart.reduce((acc, item) => {
-    const price = Number(
-      item?.variant?.price ??
-      item?.price ??
-      0
-    )
-
+    const price = Number(item?.variant?.price ?? item?.price ?? 0)
     const qty = Number(item?.quantity) || 1
-
     return acc + price * qty
   }, 0)
 
@@ -63,29 +57,29 @@ export default function CartDrawer({ isOpen, onClose }) {
       const safeItems = cart.map(item => ({
         name: item?.name || "Item",
         quantity: Number(item?.quantity) || 1,
-        price: Number(
-          item?.variant?.price ??
-          item?.price ??
-          0
-        )
+        price: Number(item?.variant?.price ?? item?.price ?? 0)
       }))
 
       if (!safeItems.length) {
         throw new Error("Cart is empty")
       }
 
-      /* 🔥 CREATE ORDER WITH TAX */
+      /* OPTIONAL: guest email hook */
+      const storedUser = JSON.parse(localStorage.getItem("customerUser") || "null")
+
+      /* 🔥 CREATE ORDER */
       const orderRes = await api.post("/orders", {
         items: safeItems,
-        customerName: "Guest",
-        email: "",
+        customerName: storedUser?.name || "Guest",
+        email: storedUser?.email || "",
         source: "store",
         subtotal,
         tax,
         price: total
       })
 
-      const orderId = orderRes?.data?.data?._id
+      // ✅ FIXED RESPONSE ACCESS
+      const orderId = orderRes?.data?._id
 
       if (!orderId) {
         throw new Error("Order creation failed")
@@ -102,13 +96,20 @@ export default function CartDrawer({ isOpen, onClose }) {
         throw new Error("No payment URL returned")
       }
 
-      console.log("🚀 Redirecting to Square:", url)
+      console.log("🚀 Redirecting to payment:", url)
 
+      /* 🔥 REDIRECT TO PAYMENT */
       window.location.assign(url)
 
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err?.response?.data || err.message)
-      alert("Checkout failed — check console")
+
+      alert(
+        err?.response?.data?.message ||
+        err.message ||
+        "Checkout failed"
+      )
+
       setIsRedirecting(false)
     }
   }
@@ -157,11 +158,7 @@ export default function CartDrawer({ isOpen, onClose }) {
           {cart.length === 0 && <p>Your cart is empty</p>}
 
           {cart.map((item, index) => {
-            const price = Number(
-              item?.variant?.price ??
-              item?.price ??
-              0
-            )
+            const price = Number(item?.variant?.price ?? item?.price ?? 0)
 
             const safeKey =
               item.productId ||
@@ -169,10 +166,7 @@ export default function CartDrawer({ isOpen, onClose }) {
               `${item.name || "item"}-${index}`
 
             return (
-              <div
-                key={safeKey}
-                style={{ display: "flex", gap: 10, marginBottom: 12 }}
-              >
+              <div key={safeKey} style={{ display: "flex", gap: 10, marginBottom: 12 }}>
                 <SafeImage
                   src={item.image || "/placeholder.png"}
                   alt={item.name}
@@ -213,6 +207,7 @@ export default function CartDrawer({ isOpen, onClose }) {
               onClick={handleCheckout}
               fullWidth
               style={{ marginTop: 10 }}
+              disabled={isRedirecting}
             >
               {isRedirecting
                 ? "🔐 Connecting to payment..."
