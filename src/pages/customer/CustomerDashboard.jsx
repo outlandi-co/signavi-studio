@@ -42,12 +42,8 @@ const getPasswordStrength = (password) => {
   }
 }
 
-/* 🔐 RULE UI */
 const Rule = ({ valid, text }) => (
-  <div style={{
-    fontSize: 12,
-    color: valid ? "#22c55e" : "#64748b"
-  }}>
+  <div style={{ fontSize: 12, color: valid ? "#22c55e" : "#64748b" }}>
     {valid ? "✔" : "•"} {text}
   </div>
 )
@@ -59,7 +55,6 @@ const OrderCard = ({ order }) => (
       <b>#{order._id.slice(-6)}</b>
       <span>{order.status}</span>
     </div>
-
     <div style={rowWrap}>
       <span>{formatMoney(order.finalPrice || order.price)}</span>
       <span>{formatDate(order.createdAt)}</span>
@@ -84,6 +79,7 @@ export default function CustomerDashboard() {
     newPass: "",
     confirm: ""
   })
+
   const [pwLoading, setPwLoading] = useState(false)
   const [pwMessage, setPwMessage] = useState("")
 
@@ -124,7 +120,7 @@ export default function CustomerDashboard() {
     }
   }, [])
 
-  /* 🔍 FILTER + SORT */
+  /* FILTER + SORT */
   const processedOrders = orders
     .filter(o => {
       const s = search.toLowerCase()
@@ -148,7 +144,6 @@ export default function CustomerDashboard() {
     strength.score >= 3 &&
     passwords.newPass === passwords.confirm
 
-  /* 🔐 PASSWORD */
   const handlePasswordChange = async () => {
     try {
       setPwMessage("")
@@ -179,13 +174,9 @@ export default function CustomerDashboard() {
         </button>
       </div>
 
+      {/* CONTROLS */}
       <div style={controls}>
-        <input
-          placeholder="Search..."
-          value={search}
-          onChange={(e)=>setSearch(e.target.value)}
-          style={input}
-        />
+        <input placeholder="Search..." value={search} onChange={(e)=>setSearch(e.target.value)} style={input} />
 
         <select value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value)} style={input}>
           <option value="all">All</option>
@@ -202,20 +193,27 @@ export default function CustomerDashboard() {
         </select>
       </div>
 
+      {/* ORDERS TAB */}
       {activeTab === "orders" && (
         <>
           {loading && <p>Loading...</p>}
-
-          {!loading && processedOrders.length === 0 && (
-            <p>No orders yet</p>
-          )}
-
+          {!loading && processedOrders.length === 0 && <p>No orders yet</p>}
           {!loading && processedOrders.map(o => (
             <OrderCard key={o._id} order={o} />
           ))}
         </>
       )}
 
+      {/* PROFILE TAB */}
+      {activeTab === "profile" && (
+        <div style={securityBox}>
+          <h2>Profile</h2>
+          <p><strong>Name:</strong> {storedUser?.name}</p>
+          <p><strong>Email:</strong> {storedUser?.email}</p>
+        </div>
+      )}
+
+      {/* SECURITY TAB */}
       {activeTab === "security" && (
         <div style={securityBox}>
           <h2>Security</h2>
@@ -232,7 +230,6 @@ export default function CustomerDashboard() {
             style={input}
           />
 
-          {/* 🔥 STRENGTH BAR */}
           {passwords.newPass && (
             <>
               <div style={bar}>
@@ -261,10 +258,7 @@ export default function CustomerDashboard() {
 
           <button
             disabled={!isValidPassword || pwLoading}
-            style={{
-              ...primaryBtn,
-              opacity: isValidPassword ? 1 : 0.5
-            }}
+            style={{ ...primaryBtn, opacity: isValidPassword ? 1 : 0.5 }}
             onClick={handlePasswordChange}
           >
             {pwLoading ? "Updating..." : "Update Password"}
@@ -274,9 +268,11 @@ export default function CustomerDashboard() {
         </div>
       )}
 
+      {/* DRAWER */}
       {drawerOpen && (
         <div style={drawer}>
           <button onClick={()=>{setActiveTab("orders");setDrawerOpen(false)}}>Orders</button>
+          <button onClick={()=>{setActiveTab("profile");setDrawerOpen(false)}}>Profile</button>
           <button onClick={()=>{setActiveTab("security");setDrawerOpen(false)}}>Security</button>
           <button onClick={()=>{localStorage.clear();navigate("/customer-login")}}>Logout</button>
         </div>
@@ -299,7 +295,7 @@ const rowWrap = { display: "flex", justifyContent: "space-between" }
 
 const accountBtn = { marginLeft: "auto" }
 
-const drawer = { position: "fixed", right: 0, top: 0, width: 200, height: "100%", background: "#020617", padding: 20 }
+const drawer = { position: "fixed", right: 0, top: 0, width: 220, height: "100%", background: "#020617", padding: 20 }
 
 const securityBox = { maxWidth: 400, margin: "20px auto", display: "flex", flexDirection: "column", gap: 10 }
 
