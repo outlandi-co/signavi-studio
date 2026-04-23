@@ -61,7 +61,7 @@ export default function CustomerDashboard() {
         if (!user?.email) return
 
         const res = await api.get("/orders/my-orders")
-setOrders(res.data || [])
+setOrders(res.data?.data || [])
         setOrders(res.data || [])
       } catch (err) {
         console.error(err)
