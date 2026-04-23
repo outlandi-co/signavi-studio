@@ -17,7 +17,6 @@ api.interceptors.request.use((config) => {
 
   const token = adminToken || customerToken
 
-  // ✅ Preserve existing headers safely
   config.headers = {
     ...(config.headers || {})
   }
@@ -26,7 +25,7 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`
   }
 
-  // 🔥 CRITICAL FIX: allow Axios to handle multipart boundaries
+  // ✅ Fix multipart uploads
   if (config.data instanceof FormData) {
     delete config.headers["Content-Type"]
   }
@@ -43,18 +42,27 @@ api.interceptors.response.use(
     return res
   },
   (err) => {
+    const status = err?.response?.status
+
     console.error(
       "❌ API ERROR:",
-      err?.response?.status,
+      status,
       err?.config?.baseURL + err?.config?.url
     )
 
-    // 🔥 AUTO CLEANUP ON AUTH FAIL
-    if (err?.response?.status === 401) {
+    // 🔥 ONLY redirect if it's NOT checkout flow
+    if (status === 401) {
+      const isCheckout = err?.config?.url?.includes("/square")
+
       localStorage.removeItem("adminToken")
       localStorage.removeItem("adminUser")
       localStorage.removeItem("customerToken")
       localStorage.removeItem("customerUser")
+
+      if (!isCheckout) {
+        console.warn("🔒 Redirecting to login")
+        window.location.href = "/customer-login"
+      }
     }
 
     return Promise.reject(err)
