@@ -15,7 +15,6 @@ export default function CustomerDashboard() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  /* 🔥 DRAWER STATE */
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("orders")
 
@@ -52,8 +51,6 @@ export default function CustomerDashboard() {
         const safeOrders = Array.isArray(res.data)
           ? res.data
           : []
-
-        console.log("🧪 DASHBOARD ORDERS:", safeOrders)
 
         setOrders(safeOrders)
 
@@ -159,8 +156,23 @@ export default function CustomerDashboard() {
       }}>
         <h2>SignaVi</h2>
 
-        <button onClick={() => setDrawerOpen(true)}>
-          {user?.name?.[0] || "U"}
+        {/* ✅ FIXED ACCOUNT BUTTON */}
+        <button
+          onClick={() => setDrawerOpen(true)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 14px",
+            borderRadius: 8,
+            background: "#020617",
+            border: "1px solid #1e293b",
+            color: "white",
+            cursor: "pointer",
+            fontWeight: 500
+          }}
+        >
+          👤 Account
         </button>
       </div>
 
@@ -179,7 +191,6 @@ export default function CustomerDashboard() {
       ))}
 
       {/* ================= DRAWER ================= */}
-
       {drawerOpen && (
         <>
           {/* OVERLAY */}
@@ -207,15 +218,52 @@ export default function CustomerDashboard() {
             overflowY: "auto"
           }}>
 
+            {/* CLOSE BUTTON */}
+            <button
+              onClick={() => setDrawerOpen(false)}
+              style={{
+                position: "absolute",
+                top: 10,
+                right: 10,
+                background: "transparent",
+                color: "white",
+                border: "none",
+                fontSize: 18,
+                cursor: "pointer"
+              }}
+            >
+              ✕
+            </button>
+
             <h2>Account</h2>
             <p>{user?.name}</p>
             <p style={{ opacity: 0.6 }}>{user?.email}</p>
 
-            {/* TABS */}
-            <div style={{ marginTop: 20 }}>
-              <button onClick={() => setActiveTab("orders")}>Orders</button>
-              <button onClick={() => setActiveTab("history")}>Reorders</button>
-              <button onClick={() => setActiveTab("security")}>Security</button>
+            {/* TABS FIXED */}
+            <div style={{
+              display: "flex",
+              gap: 10,
+              marginTop: 20
+            }}>
+              {["orders", "history", "security"].map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: 6,
+                    background:
+                      activeTab === tab ? "#1e293b" : "transparent",
+                    border: "1px solid #1e293b",
+                    color: "white",
+                    cursor: "pointer"
+                  }}
+                >
+                  {tab === "orders" && "Orders"}
+                  {tab === "history" && "Reorders"}
+                  {tab === "security" && "Security"}
+                </button>
+              ))}
             </div>
 
             {/* CONTENT */}
@@ -283,7 +331,6 @@ export default function CustomerDashboard() {
           </div>
         </>
       )}
-
     </div>
   )
 }
