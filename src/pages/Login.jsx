@@ -10,15 +10,42 @@ export default function Login() {
 
   const navigate = useNavigate()
 
-  /* 🔥 WAKE SERVER (Render cold start fix) */
+  /* =========================================================
+     🔥 WAKE SERVER + AUTO LOGIN CHECK
+  ========================================================= */
   useEffect(() => {
-    api.get("/ping").catch(() => {})
-  }, [])
+    const init = async () => {
+      try {
+        // Wake backend (Render cold start)
+        await api.get("/ping").catch(() => {})
 
+        // Check if already logged in
+        const res = await api.get("/auth/profile")
+
+        if (res?.data?.user) {
+          console.log("✅ Already logged in:", res.data.user)
+
+          localStorage.setItem(
+            "adminUser",
+            JSON.stringify(res.data.user)
+          )
+
+          navigate("/admin/production")
+        }
+      } catch {
+        console.log("ℹ️ Not logged in yet")
+      }
+    }
+
+    init()
+  }, [navigate])
+
+  /* =========================================================
+     🔐 LOGIN HANDLER
+  ========================================================= */
   const handleLogin = async () => {
     if (loading) return
 
-    /* ✅ BASIC VALIDATION */
     if (!email || !password) {
       setError("Please enter email and password")
       return
@@ -28,22 +55,21 @@ export default function Login() {
       setLoading(true)
       setError("")
 
-      console.log("📤 SENDING:", { email, password })
+      console.log("📤 SENDING:", { email })
 
       let attempts = 0
-      let success = false
       let res
 
-      /* 🔥 RETRY LOOP */
-      while (attempts < 3 && !success) {
+      /* 🔁 RETRY LOOP (Render wake fix) */
+      while (attempts < 3) {
         try {
           res = await api.post("/auth/login", { email, password })
-          success = true
+          break
         } catch (err) {
           attempts++
 
           if (attempts < 3 && err?.code === "ERR_NETWORK") {
-            console.log("⏳ Server waking up... retrying")
+            console.log("⏳ Server waking... retrying")
             await new Promise(r => setTimeout(r, 2500))
           } else {
             throw err
@@ -53,13 +79,13 @@ export default function Login() {
 
       console.log("✅ RESPONSE:", res.data)
 
-      if (!res?.data?.token) {
-        throw new Error("No token returned")
+      if (!res?.data?.token || !res?.data?.user) {
+        throw new Error("Invalid login response")
       }
 
       const { token, user } = res.data
 
-      /* 🔐 SAVE AUTH */
+      /* 🔐 SAVE SESSION */
       localStorage.setItem("adminToken", token)
       localStorage.setItem("adminUser", JSON.stringify(user))
 
@@ -68,9 +94,8 @@ export default function Login() {
       navigate("/admin/production")
 
     } catch (err) {
-      console.error("❌ LOGIN ERROR FULL:", err)
+      console.error("❌ LOGIN ERROR:", err)
 
-      /* 🔥 SAFE ERROR HANDLING (NO REACT CRASH) */
       let message = "Login failed"
 
       if (err?.response?.data) {
@@ -78,11 +103,8 @@ export default function Login() {
 
         if (typeof data === "string") {
           message = data
-        } else if (typeof data === "object") {
-          message =
-            data.message ||
-            data.error ||
-            JSON.stringify(data)
+        } else {
+          message = data.message || data.error || message
         }
       } else if (err.message) {
         message = err.message
@@ -94,15 +116,18 @@ export default function Login() {
     }
   }
 
+  /* =========================================================
+     UI
+  ========================================================= */
   return (
-    <div style={{ padding: 20 }}>
+    <div style={{ padding: 20, maxWidth: 400 }}>
       <h2>Admin Login</h2>
 
       <input
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder="Email"
-        style={{ display: "block", marginBottom: 10 }}
+        style={{ display: "block", marginBottom: 10, width: "100%" }}
       />
 
       <input
@@ -110,7 +135,7 @@ export default function Login() {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         placeholder="Password"
-        style={{ display: "block", marginBottom: 10 }}
+        style={{ display: "block", marginBottom: 10, width: "100%" }}
       />
 
       {error && (
@@ -119,7 +144,15 @@ export default function Login() {
         </p>
       )}
 
-      <button onClick={handleLogin} disabled={loading}>
+      <button
+        onClick={handleLogin}
+        disabled={loading}
+        style={{
+          width: "100%",
+          padding: "10px",
+          cursor: "pointer"
+        }}
+      >
         {loading ? "🔐 Connecting..." : "Login"}
       </button>
     </div>
