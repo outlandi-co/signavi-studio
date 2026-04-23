@@ -15,8 +15,8 @@ export default function CustomerDashboard() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const [accountOpen, setAccountOpen] = useState(false)
   const [activeView, setActiveView] = useState("orders")
+  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   const [passwords, setPasswords] = useState({
     current: "",
@@ -29,6 +29,7 @@ export default function CustomerDashboard() {
 
   const navigate = useNavigate()
   const socketRef = useRef(null)
+  const dropdownRef = useRef(null)
 
   /* ================= USER ================= */
   useEffect(() => {
@@ -41,6 +42,17 @@ export default function CustomerDashboard() {
 
     setUser(JSON.parse(stored))
   }, [navigate])
+
+  /* ================= CLOSE DROPDOWN ================= */
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClick)
+    return () => document.removeEventListener("mousedown", handleClick)
+  }, [])
 
   /* ================= ORDERS ================= */
   useEffect(() => {
@@ -132,20 +144,49 @@ export default function CustomerDashboard() {
     }
   }
 
+  const handleLogout = () => {
+    localStorage.clear()
+    navigate("/customer-login")
+  }
+
   if (loading) return <p style={{ padding: 40 }}>Loading...</p>
 
   return (
     <div style={container}>
 
-      {/* ACCOUNT BUTTON */}
-      <button
-        onClick={() => setAccountOpen(true)}
-        style={accountBtn}
-      >
-        ⚙️ Account
-      </button>
+      {/* ================= NAVBAR ================= */}
+      <div style={nav}>
+        <div style={brand}>SignaVi</div>
 
-      {/* ================= MAIN VIEW ================= */}
+        <div ref={dropdownRef} style={{ position: "relative" }}>
+          <button
+            onClick={() => setDropdownOpen(v => !v)}
+            style={avatar}
+          >
+            {user?.name?.[0]?.toUpperCase() || "U"}
+          </button>
+
+          {dropdownOpen && (
+            <div style={dropdown}>
+              <div style={dropdownItem} onClick={() => setActiveView("orders")}>
+                📦 My Orders
+              </div>
+              <div style={dropdownItem} onClick={() => setActiveView("history")}>
+                🔁 Reorders
+              </div>
+              <div style={dropdownItem} onClick={() => setActiveView("security")}>
+                🔐 Security
+              </div>
+              <div style={divider} />
+              <div style={dropdownItem} onClick={handleLogout}>
+                🚪 Logout
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ================= CONTENT ================= */}
 
       {activeView === "orders" && (
         <>
@@ -223,65 +264,52 @@ export default function CustomerDashboard() {
         </div>
       )}
 
-      {/* ================= DRAWER ================= */}
-
-      {accountOpen && (
-        <div style={overlay} onClick={() => setAccountOpen(false)} />
-      )}
-
-      <div style={{
-        ...drawer,
-        transform: accountOpen ? "translateX(0)" : "translateX(100%)"
-      }}>
-
-        <div style={menu}>
-
-          <h2>👤 Account</h2>
-
-          <div style={menuItem} onClick={() => {
-            setActiveView("orders")
-            setAccountOpen(false)
-          }}>
-            📦 My Orders
-          </div>
-
-          <div style={menuItem} onClick={() => {
-            setActiveView("history")
-            setAccountOpen(false)
-          }}>
-            🔁 Reorders
-          </div>
-
-          <div style={menuItem} onClick={() => {
-            setActiveView("security")
-            setAccountOpen(false)
-          }}>
-            🔐 Security
-          </div>
-
-        </div>
-
-        <div style={footer}>
-          <button
-            onClick={()=>{
-              localStorage.clear()
-              navigate("/customer-login")
-            }}
-            style={logoutBtn}
-          >
-            Logout
-          </button>
-        </div>
-
-      </div>
-
     </div>
   )
 }
 
 /* ================= STYLES ================= */
 
-const container = { padding: 40, color: "white" }
+const container = { padding: 20, color: "white" }
+
+const nav = {
+  display: "flex",
+  justifyContent: "space-between",
+  padding: 15,
+  borderBottom: "1px solid #1e293b"
+}
+
+const brand = { fontWeight: "bold" }
+
+const avatar = {
+  width: 36,
+  height: 36,
+  borderRadius: "50%",
+  background: "#3b82f6",
+  border: "none",
+  color: "white",
+  cursor: "pointer"
+}
+
+const dropdown = {
+  position: "absolute",
+  right: 0,
+  top: 40,
+  background: "#020617",
+  border: "1px solid #1e293b",
+  borderRadius: 8,
+  overflow: "hidden"
+}
+
+const dropdownItem = {
+  padding: 10,
+  cursor: "pointer"
+}
+
+const divider = {
+  height: 1,
+  background: "#1e293b"
+}
 
 const grid = { display: "grid", gap: 10 }
 
@@ -309,49 +337,6 @@ const centerCard = {
   borderRadius: 12
 }
 
-const accountBtn = {
-  position: "fixed",
-  top: 20,
-  right: 20,
-  zIndex: 1100,
-  background: "#3b82f6",
-  padding: 10,
-  borderRadius: 6,
-  color: "white",
-  border: "none"
-}
-
-const overlay = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(0,0,0,0.5)"
-}
-
-const drawer = {
-  position: "fixed",
-  top: 0,
-  right: 0,
-  width: 260,
-  height: "100vh",
-  background: "#020617",
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "space-between",
-  transition: "0.3s"
-}
-
-const menu = {
-  padding: 20
-}
-
-const menuItem = {
-  padding: 12,
-  marginTop: 10,
-  background: "#0f172a",
-  borderRadius: 6,
-  cursor: "pointer"
-}
-
 const input = {
   width: "100%",
   padding: 10,
@@ -367,17 +352,4 @@ const button = {
   padding: 10,
   background: "#22c55e",
   border: "none"
-}
-
-const footer = {
-  padding: 20,
-  borderTop: "1px solid #1e293b"
-}
-
-const logoutBtn = {
-  width: "100%",
-  padding: 12,
-  background: "#ef4444",
-  border: "none",
-  color: "white"
 }
