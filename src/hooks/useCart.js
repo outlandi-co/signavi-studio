@@ -20,18 +20,22 @@ export default function useCart() {
   /* ================= ADD ================= */
   const addToCart = (product) => {
     const variant = product.selectedVariant
-    if (!variant) return
+    if (!variant || !variant._id) {
+      console.warn("❌ Missing variant or variant._id")
+      return
+    }
 
     setCart(prev => {
+
       const existing = prev.find(item =>
         item.productId === product._id &&
-        item.variant.color === variant.color &&
-        item.variant.size === variant.size
+        item.selectedVariant?._id === variant._id
       )
 
       if (existing) {
         return prev.map(item =>
-          item === existing
+          item.productId === product._id &&
+          item.selectedVariant?._id === variant._id
             ? { ...item, quantity: item.quantity + 1 }
             : item
         )
@@ -43,7 +47,15 @@ export default function useCart() {
           productId: product._id,
           name: product.name,
           image: product.image,
-          variant,
+
+          /* 🔥 KEEP THIS NAME (BACKEND DEPENDS ON IT) */
+          selectedVariant: {
+            _id: variant._id,
+            color: variant.color,
+            size: variant.size,
+            price: variant.price
+          },
+
           quantity: 1
         }
       ]
@@ -66,25 +78,28 @@ export default function useCart() {
     )
   }
 
+  /* ================= CLEAR ================= */
+  const clearCart = () => setCart([])
+
   /* ================= TOTAL ================= */
   const total = cart.reduce((sum, item) => {
     const quantity = Number(item?.quantity) || 1
 
     const price = Number(
-      item?.variant?.price ??
-      item?.price ?? // fallback for old cart items
+      item?.selectedVariant?.price ??
       0
     )
 
     return sum + price * quantity
   }, 0)
 
-  /* ================= RETURN (🔥 MISSING BEFORE) ================= */
+  /* ================= RETURN ================= */
   return {
     cart,
     addToCart,
     removeFromCart,
     updateQty,
+    clearCart,
     total
   }
 }
