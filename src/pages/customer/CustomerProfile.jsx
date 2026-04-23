@@ -16,8 +16,13 @@ export default function CustomerProfile() {
         const storedUser = JSON.parse(localStorage.getItem("user") || "null")
         setUser(storedUser)
 
-        const res = await api.get("/orders/my-orders")
-        setOrders(res.data)
+       const res = await api.get("/orders/my-orders")
+
+const safeOrders = Array.isArray(res.data)
+  ? res.data
+  : res.data?.data || []
+
+setOrders(safeOrders)
 
       } catch (err) {
         console.error("❌ PROFILE ERROR:", err)

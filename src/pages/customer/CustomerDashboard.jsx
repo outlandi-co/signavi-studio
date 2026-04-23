@@ -58,11 +58,16 @@ export default function CustomerDashboard() {
   useEffect(() => {
     const load = async () => {
       try {
-        if (!user?.email) return
-
         const res = await api.get("/orders/my-orders")
-setOrders(res.data?.data || [])
-        setOrders(res.data || [])
+
+        const safeOrders = Array.isArray(res.data)
+          ? res.data
+          : res.data?.data || []
+
+        console.log("🧪 DASHBOARD ORDERS:", safeOrders)
+
+        setOrders(safeOrders)
+
       } catch (err) {
         console.error(err)
       } finally {
@@ -70,7 +75,7 @@ setOrders(res.data?.data || [])
       }
     }
 
-    load()
+    if (user) load()
   }, [user])
 
   /* ================= SOCKET ================= */
@@ -83,12 +88,16 @@ setOrders(res.data?.data || [])
 
     socket.on("jobUpdated", (updated) => {
       setOrders(prev =>
-        prev.map(o => o._id === updated._id ? updated : o)
+        (Array.isArray(prev) ? prev : []).map(o =>
+          o._id === updated._id ? updated : o
+        )
       )
     })
 
     socket.on("jobCreated", (newOrder) => {
-      setOrders(prev => [newOrder, ...prev])
+      setOrders(prev =>
+        Array.isArray(prev) ? [newOrder, ...prev] : [newOrder]
+      )
     })
 
     return () => {
@@ -135,8 +144,7 @@ setOrders(res.data?.data || [])
       await api.post("/orders", {
         items: order.items,
         customerName: user?.name,
-        email: user?.email,
-        status: "payment_required"
+        email: user?.email
       })
 
       alert("✅ Reorder created!")
@@ -153,35 +161,23 @@ setOrders(res.data?.data || [])
   if (loading) return <p style={{ padding: 40 }}>Loading...</p>
 
   return (
-    <div style={container}>
+    <div style={{ padding: 20, color: "white" }}>
 
-      {/* ================= NAVBAR ================= */}
-      <div style={nav}>
-        <div style={brand}>SignaVi</div>
+      {/* NAVBAR */}
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
+        <h2>SignaVi</h2>
 
-        <div ref={dropdownRef} style={{ position: "relative" }}>
-          <button
-            onClick={() => setDropdownOpen(v => !v)}
-            style={avatar}
-          >
-            {user?.name?.[0]?.toUpperCase() || "U"}
+        <div ref={dropdownRef}>
+          <button onClick={() => setDropdownOpen(v => !v)}>
+            {user?.name?.[0] || "U"}
           </button>
 
           {dropdownOpen && (
-            <div style={dropdown}>
-              <div style={dropdownItem} onClick={() => setActiveView("orders")}>
-                📦 My Orders
-              </div>
-              <div style={dropdownItem} onClick={() => setActiveView("history")}>
-                🔁 Reorders
-              </div>
-              <div style={dropdownItem} onClick={() => setActiveView("security")}>
-                🔐 Security
-              </div>
-              <div style={divider} />
-              <div style={dropdownItem} onClick={handleLogout}>
-                🚪 Logout
-              </div>
+            <div style={{ background: "#111", padding: 10 }}>
+              <div onClick={() => setActiveView("orders")}>Orders</div>
+              <div onClick={() => setActiveView("history")}>Reorders</div>
+              <div onClick={() => setActiveView("security")}>Security</div>
+              <div onClick={handleLogout}>Logout</div>
             </div>
           )}
         </div>
@@ -190,74 +186,39 @@ setOrders(res.data?.data || [])
       {/* ================= CONTENT ================= */}
 
       {activeView === "orders" && (
-        <>
-          <h1>📦 My Orders</h1>
-          <div style={grid}>
-            {orders.map(order => (
-              <div
-                key={order._id}
-                style={card}
-                onClick={() => navigate(`/order/${order._id}`)}
-              >
-                <p>#{order._id.slice(-6)}</p>
-                <p>{order.status}</p>
-                <p>${(order.finalPrice || order.price).toFixed(2)}</p>
-              </div>
-            ))}
-          </div>
-        </>
+        (Array.isArray(orders) ? orders : []).map(order => (
+          <div key={order._id}>{order.status}</div>
+        ))
       )}
 
       {activeView === "history" && (
-        <>
-          <h1>🔁 Reorder History</h1>
-          <div style={grid}>
-            {orders.map(order => (
-              <div key={order._id} style={card}>
-                <p>#{order._id.slice(-6)}</p>
-                <p>${(order.finalPrice || order.price).toFixed(2)}</p>
-
-                <button
-                  onClick={() => handleReorder(order)}
-                  style={reorderBtn}
-                >
-                  🔁 Reorder
-                </button>
-              </div>
-            ))}
+        (Array.isArray(orders) ? orders : []).map(order => (
+          <div key={order._id}>
+            {order.status}
+            <button onClick={() => handleReorder(order)}>Reorder</button>
           </div>
-        </>
+        ))
       )}
 
       {activeView === "security" && (
-        <div style={centerCard}>
-          <h2>🔐 Change Password</h2>
-
+        <div>
           <input
             placeholder="Current"
-            type="password"
             value={passwords.current}
             onChange={(e)=>setPasswords({...passwords, current:e.target.value})}
-            style={input}
           />
-
           <input
             placeholder="New"
-            type="password"
             value={passwords.newPass}
             onChange={(e)=>setPasswords({...passwords, newPass:e.target.value})}
-            style={input}
           />
-
           <input
             placeholder="Confirm"
-            type="password"
             value={passwords.confirm}
             onChange={(e)=>setPasswords({...passwords, confirm:e.target.value})}
-            style={input}
           />
 
-          <button onClick={handlePasswordChange} style={button}>
+          <button onClick={handlePasswordChange}>
             {pwLoading ? "Updating..." : "Update Password"}
           </button>
 
@@ -267,90 +228,4 @@ setOrders(res.data?.data || [])
 
     </div>
   )
-}
-
-/* ================= STYLES ================= */
-
-const container = { padding: 20, color: "white" }
-
-const nav = {
-  display: "flex",
-  justifyContent: "space-between",
-  padding: 15,
-  borderBottom: "1px solid #1e293b"
-}
-
-const brand = { fontWeight: "bold" }
-
-const avatar = {
-  width: 36,
-  height: 36,
-  borderRadius: "50%",
-  background: "#3b82f6",
-  border: "none",
-  color: "white",
-  cursor: "pointer"
-}
-
-const dropdown = {
-  position: "absolute",
-  right: 0,
-  top: 40,
-  background: "#020617",
-  border: "1px solid #1e293b",
-  borderRadius: 8,
-  overflow: "hidden"
-}
-
-const dropdownItem = {
-  padding: 10,
-  cursor: "pointer"
-}
-
-const divider = {
-  height: 1,
-  background: "#1e293b"
-}
-
-const grid = { display: "grid", gap: 10 }
-
-const card = {
-  background: "#020617",
-  padding: 15,
-  borderRadius: 10,
-  cursor: "pointer"
-}
-
-const reorderBtn = {
-  marginTop: 10,
-  background: "#3b82f6",
-  border: "none",
-  padding: 6,
-  borderRadius: 6,
-  color: "white"
-}
-
-const centerCard = {
-  maxWidth: 400,
-  margin: "80px auto",
-  padding: 30,
-  background: "#020617",
-  borderRadius: 12
-}
-
-const input = {
-  width: "100%",
-  padding: 10,
-  marginTop: 10,
-  background: "#0f172a",
-  border: "1px solid #334155",
-  color: "white"
-}
-
-const button = {
-  width: "100%",
-  marginTop: 10,
-  padding: 10,
-  background: "#22c55e",
-  border: "none"
 }
