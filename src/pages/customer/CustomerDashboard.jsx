@@ -15,7 +15,7 @@ export default function CustomerDashboard() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  /* 🔐 PASSWORD STATE */
+  /* 🔐 PASSWORD */
   const [passwords, setPasswords] = useState({
     current: "",
     newPass: "",
@@ -25,15 +25,16 @@ export default function CustomerDashboard() {
   const [pwLoading, setPwLoading] = useState(false)
   const [pwMessage, setPwMessage] = useState("")
 
+  const [accountOpen, setAccountOpen] = useState(false)
+
   const navigate = useNavigate()
   const socketRef = useRef(null)
 
-  /* ================= LOAD USER ================= */
+  /* ================= USER ================= */
   useEffect(() => {
     const stored = localStorage.getItem("customerUser")
 
     if (!stored) {
-      console.warn("🚫 No user → redirect")
       navigate("/customer-login")
       return
     }
@@ -41,7 +42,7 @@ export default function CustomerDashboard() {
     setUser(JSON.parse(stored))
   }, [navigate])
 
-  /* ================= LOAD ORDERS ================= */
+  /* ================= ORDERS ================= */
   useEffect(() => {
     const load = async () => {
       try {
@@ -49,9 +50,8 @@ export default function CustomerDashboard() {
 
         const res = await api.get(`/customers/orders/${user.email}`)
         setOrders(res.data || [])
-
       } catch (err) {
-        console.error("❌ LOAD ORDERS ERROR:", err)
+        console.error(err)
       } finally {
         setLoading(false)
       }
@@ -62,7 +62,6 @@ export default function CustomerDashboard() {
 
   /* ================= SOCKET ================= */
   useEffect(() => {
-
     if (!socketRef.current) {
       socketRef.current = io(SOCKET_URL, {
         transports: ["websocket"]
@@ -71,41 +70,30 @@ export default function CustomerDashboard() {
 
     const socket = socketRef.current
 
-    const handleUpdate = (updatedOrder) => {
+    socket.on("jobUpdated", (updated) => {
       setOrders(prev =>
-        prev.map(o =>
-          o._id === updatedOrder._id ? updatedOrder : o
-        )
+        prev.map(o => o._id === updated._id ? updated : o)
       )
-    }
+    })
 
-    const handleCreate = (newOrder) => {
+    socket.on("jobCreated", (newOrder) => {
       setOrders(prev => [newOrder, ...prev])
-    }
-
-    socket.on("jobUpdated", handleUpdate)
-    socket.on("jobCreated", handleCreate)
+    })
 
     return () => {
-      socket.off("jobUpdated", handleUpdate)
-      socket.off("jobCreated", handleCreate)
+      socket.off("jobUpdated")
+      socket.off("jobCreated")
     }
-
   }, [])
 
   /* ================= PAYMENT ================= */
-  const handlePayment = async (e, orderId) => {
+  const handlePayment = async (e, id) => {
     e.stopPropagation()
 
     try {
-      const res = await api.post(`/square/create-payment/${orderId}`)
-
-      if (!res?.data?.url) throw new Error("No payment URL")
-
+      const res = await api.post(`/square/create-payment/${id}`)
       window.location.href = res.data.url
-
-    } catch (err) {
-      console.error("❌ PAYMENT ERROR:", err)
+    } catch {
       alert("Payment failed")
     }
   }
@@ -117,16 +105,13 @@ export default function CustomerDashboard() {
         ...order,
         status: "payment_required"
       })
-
       alert("Reorder created!")
-
-    } catch (err) {
-      console.error(err)
-      alert("Reorder failed")
+    } catch {
+      alert("Failed")
     }
   }
 
-  /* ================= PASSWORD CHANGE ================= */
+  /* ================= PASSWORD ================= */
   const handlePasswordChange = async () => {
     try {
       setPwMessage("")
@@ -148,19 +133,11 @@ export default function CustomerDashboard() {
         newPassword: passwords.newPass
       })
 
-      setPwMessage("✅ Password updated!")
-
-      setPasswords({
-        current: "",
-        newPass: "",
-        confirm: ""
-      })
+      setPwMessage("✅ Password updated")
+      setPasswords({ current: "", newPass: "", confirm: "" })
 
     } catch (err) {
-      console.error(err)
-      setPwMessage(
-        err?.response?.data?.error || "❌ Failed to update password"
-      )
+      setPwMessage(err?.response?.data?.error || "❌ Failed")
     } finally {
       setPwLoading(false)
     }
@@ -174,23 +151,22 @@ export default function CustomerDashboard() {
     return i === -1 ? 0 : i
   }
 
-  /* ================= UI ================= */
-
-  if (loading) {
-    return <p style={{ padding: 40 }}>Loading your orders...</p>
-  }
+  if (loading) return <p style={{ padding: 40 }}>Loading...</p>
 
   return (
     <div style={container}>
 
-      {/* LEFT SIDE */}
-      <div style={left}>
+      {/* ACCOUNT BUTTON */}
+      <button
+        onClick={() => setAccountOpen(true)}
+        style={accountBtn}
+      >
+        ⚙️ Account
+      </button>
 
-        <h1 style={title}>📦 My Orders</h1>
-
-        {orders.length === 0 && (
-          <p style={{ opacity: 0.6 }}>No orders yet</p>
-        )}
+      {/* ORDERS */}
+      <div>
+        <h1>📦 My Orders</h1>
 
         <div style={grid}>
           {orders.map(order => {
@@ -199,13 +175,11 @@ export default function CustomerDashboard() {
             return (
               <div
                 key={order._id}
-                onClick={() => navigate(`/order/${order._id}`)}
                 style={card}
+                onClick={() => navigate(`/order/${order._id}`)}
               >
                 <div style={cardHeader}>
-                  <span style={orderId}>
-                    #{order._id.slice(-6)}
-                  </span>
+                  <span>#{order._id.slice(-6)}</span>
                   <span>{order.status}</span>
                 </div>
 
@@ -215,32 +189,23 @@ export default function CustomerDashboard() {
 
                 <div style={timeline}>
                   {steps.map((step, i) => (
-                    <div
-                      key={step}
-                      style={{
-                        flex: 1,
-                        height: 6,
-                        borderRadius: 4,
-                        background: i <= current ? "#22c55e" : "#1e293b"
-                      }}
-                    />
+                    <div key={i} style={{
+                      flex: 1,
+                      height: 6,
+                      background: i <= current ? "#22c55e" : "#1e293b"
+                    }} />
                   ))}
                 </div>
 
                 <div style={footer}>
-                  <span>Qty: {order.quantity}</span>
-
                   {order.status === "payment_required" && (
-                    <button
-                      onClick={(e) => handlePayment(e, order._id)}
-                      style={payBtn}
-                    >
+                    <button onClick={(e)=>handlePayment(e, order._id)} style={payBtn}>
                       💳 Pay
                     </button>
                   )}
 
                   <button
-                    onClick={(e) => {
+                    onClick={(e)=>{
                       e.stopPropagation()
                       handleReorder(order)
                     }}
@@ -255,71 +220,68 @@ export default function CustomerDashboard() {
         </div>
       </div>
 
-      {/* RIGHT SIDE */}
-      <div style={right}>
+      {/* OVERLAY */}
+      {accountOpen && <div style={overlay} onClick={()=>setAccountOpen(false)} />}
 
+      {/* DRAWER */}
+      <div style={{
+        ...drawer,
+        transform: accountOpen ? "translateX(0)" : "translateX(100%)"
+      }}>
         <h2>👤 Account</h2>
 
         {user && (
           <>
-            <p><b>Name:</b> {user.name}</p>
-            <p><b>Email:</b> {user.email}</p>
+            <p>{user.name}</p>
+            <p style={{ opacity: 0.6 }}>{user.email}</p>
           </>
         )}
 
-        {/* PASSWORD */}
-        <div style={{ marginTop: 20 }}>
-          <h3>🔐 Change Password</h3>
+        <h3 style={{ marginTop: 20 }}>🔐 Password</h3>
 
-          <input
-            type="password"
-            placeholder="Current password"
-            value={passwords.current}
-            onChange={(e) =>
-              setPasswords({ ...passwords, current: e.target.value })
-            }
-            style={input}
-          />
+        <input
+          type="password"
+          placeholder="Current"
+          value={passwords.current}
+          onChange={(e)=>setPasswords({...passwords, current:e.target.value})}
+          style={input}
+        />
 
-          <input
-            type="password"
-            placeholder="New password"
-            value={passwords.newPass}
-            onChange={(e) =>
-              setPasswords({ ...passwords, newPass: e.target.value })
-            }
-            style={input}
-          />
+        <input
+          type="password"
+          placeholder="New"
+          value={passwords.newPass}
+          onChange={(e)=>setPasswords({...passwords, newPass:e.target.value})}
+          style={input}
+        />
 
-          <input
-            type="password"
-            placeholder="Confirm new password"
-            value={passwords.confirm}
-            onChange={(e) =>
-              setPasswords({ ...passwords, confirm: e.target.value })
-            }
-            style={input}
-          />
+        <input
+          type="password"
+          placeholder="Confirm"
+          value={passwords.confirm}
+          onChange={(e)=>setPasswords({...passwords, confirm:e.target.value})}
+          style={input}
+        />
 
-          <button
-            onClick={handlePasswordChange}
-            disabled={pwLoading}
-            style={{
-              ...button,
-              opacity: pwLoading ? 0.6 : 1
-            }}
-          >
-            {pwLoading ? "Updating..." : "Update Password"}
-          </button>
-
-          {pwMessage && (
-            <p style={{ marginTop: 10 }}>{pwMessage}</p>
-          )}
-        </div>
-
-        {/* LOGOUT */}
         <button
-          onClick={() => {
+          onClick={handlePasswordChange}
+          disabled={pwLoading}
+          style={{
+            ...button,
+            opacity: pwLoading ? 0.6 : 1
+          }}
+        >
+          {pwLoading ? "Updating..." : "Update Password"}
+        </button>
+
+        {pwLoading && (
+          <p style={{ opacity: 0.6 }}>Updating password...</p>
+        )}
+
+        {pwMessage && <p>{pwMessage}</p>}
+
+        <button
+          onClick={()=>{
             localStorage.clear()
             navigate("/customer-login")
           }}
@@ -327,7 +289,6 @@ export default function CustomerDashboard() {
         >
           Logout
         </button>
-
       </div>
 
     </div>
@@ -336,98 +297,70 @@ export default function CustomerDashboard() {
 
 /* ================= STYLES ================= */
 
-const container = {
-  display: "flex",
-  gap: 30,
-  padding: 40,
-  color: "white"
+const container = { padding: 40, color: "white" }
+const grid = { display: "grid", gap: 20 }
+const card = { background:"#020617", padding:20, borderRadius:12, cursor:"pointer" }
+const cardHeader = { display:"flex", justifyContent:"space-between" }
+const price = { fontSize:20 }
+const timeline = { display:"flex", gap:4 }
+const footer = { marginTop:10, display:"flex", gap:10 }
+
+const payBtn = { background:"#22c55e", border:"none", padding:6 }
+const reorderBtn = { background:"#3b82f6", border:"none", padding:6 }
+
+const accountBtn = {
+  position:"fixed",
+  top:20,
+  right:20,
+  background:"#3b82f6",
+  padding:"10px",
+  border:"none",
+  borderRadius:6,
+  color:"white",
+  cursor:"pointer"
 }
 
-const left = { flex: 2 }
-
-const right = {
-  flex: 1,
-  background: "#0f172a",
-  padding: 20,
-  borderRadius: 12
+const overlay = {
+  position:"fixed",
+  top:0,
+  left:0,
+  width:"100%",
+  height:"100%",
+  background:"rgba(0,0,0,0.5)"
 }
 
-const title = { marginBottom: 20 }
-
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-  gap: 20
-}
-
-const card = {
-  background: "#020617",
-  padding: 20,
-  borderRadius: 12,
-  border: "1px solid #1e293b",
-  cursor: "pointer"
-}
-
-const cardHeader = {
-  display: "flex",
-  justifyContent: "space-between"
-}
-
-const orderId = { fontSize: 12, opacity: 0.6 }
-
-const price = { fontSize: 22, fontWeight: "bold" }
-
-const timeline = { display: "flex", gap: 4 }
-
-const footer = {
-  display: "flex",
-  justifyContent: "space-between",
-  marginTop: 10
-}
-
-const payBtn = {
-  background: "#22c55e",
-  border: "none",
-  padding: "6px 10px",
-  borderRadius: 6,
-  cursor: "pointer"
-}
-
-const reorderBtn = {
-  background: "#3b82f6",
-  border: "none",
-  padding: "6px 10px",
-  borderRadius: 6,
-  cursor: "pointer",
-  color: "white"
-}
-
-const logoutBtn = {
-  marginTop: 20,
-  padding: 10,
-  width: "100%",
-  background: "#ef4444",
-  border: "none",
-  borderRadius: 6,
-  cursor: "pointer"
+const drawer = {
+  position:"fixed",
+  top:0,
+  right:0,
+  width:320,
+  height:"100%",
+  background:"#020617",
+  padding:20,
+  transition:"0.3s"
 }
 
 const input = {
-  width: "100%",
-  padding: 10,
-  marginTop: 10,
-  borderRadius: 6,
-  border: "1px solid #334155",
-  background: "#020617",
-  color: "white"
+  width:"100%",
+  padding:10,
+  marginTop:10,
+  background:"#0f172a",
+  color:"white",
+  border:"1px solid #334155"
 }
 
 const button = {
-  marginTop: 10,
-  padding: 10,
-  width: "100%",
-  background: "#22c55e",
-  border: "none",
-  borderRadius: 6,
-  cursor: "pointer"
+  width:"100%",
+  marginTop:10,
+  padding:10,
+  background:"#22c55e",
+  border:"none"
+}
+
+const logoutBtn = {
+  marginTop:20,
+  width:"100%",
+  padding:10,
+  background:"#ef4444",
+  border:"none"
 }
