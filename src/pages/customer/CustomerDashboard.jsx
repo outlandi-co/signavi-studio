@@ -31,6 +31,7 @@ const OrderCard = ({ order }) => (
       <b>#{order._id.slice(-6)}</b>
       <span>{order.status}</span>
     </div>
+
     <div style={rowWrap}>
       <span>{formatMoney(order.finalPrice || order.price)}</span>
       <span>{formatDate(order.createdAt)}</span>
@@ -97,7 +98,7 @@ export default function CustomerDashboard() {
       {/* HEADER */}
       <div style={header}>
         <h2>Dashboard</h2>
-        <button style={accountBtn} onClick={()=>setDrawerOpen(true)}>
+        <button style={accountBtn} onClick={() => setDrawerOpen(true)}>
           Account
         </button>
       </div>
@@ -151,47 +152,67 @@ export default function CustomerDashboard() {
         </div>
       )}
 
-      {/* DRAWER FIXED */}
+      {/* DRAWER */}
       {drawerOpen && (
         <>
           <div style={overlay} onClick={()=>setDrawerOpen(false)} />
 
           <div style={drawer}>
-
             <h3 style={{ marginBottom: 20 }}>Account</h3>
 
-            <button style={drawerBtn} onClick={()=>{
-              setActiveTab("orders")
-              setDrawerOpen(false)
-            }}>
-              Orders
-            </button>
+            <div style={navStack}>
+              <button
+                style={{
+                  ...drawerBtn,
+                  ...(activeTab === "orders" ? activeStyle : {})
+                }}
+                onClick={()=>{
+                  setActiveTab("orders")
+                  setDrawerOpen(false)
+                }}
+              >
+                Orders
+              </button>
 
-            <button style={drawerBtn} onClick={()=>{
-              setActiveTab("profile")
-              setDrawerOpen(false)
-            }}>
-              Profile
-            </button>
+              <button
+                style={{
+                  ...drawerBtn,
+                  ...(activeTab === "profile" ? activeStyle : {})
+                }}
+                onClick={()=>{
+                  setActiveTab("profile")
+                  setDrawerOpen(false)
+                }}
+              >
+                Profile
+              </button>
 
-            <button style={drawerBtn} onClick={()=>{
-              setActiveTab("security")
-              setDrawerOpen(false)
-            }}>
-              Security
-            </button>
+              <button
+                style={{
+                  ...drawerBtn,
+                  ...(activeTab === "security" ? activeStyle : {})
+                }}
+                onClick={()=>{
+                  setActiveTab("security")
+                  setDrawerOpen(false)
+                }}
+              >
+                Security
+              </button>
+            </div>
 
-            <button style={logoutBtn} onClick={()=>{
-              localStorage.clear()
-              navigate("/customer-login")
-            }}>
+            <button
+              style={logoutBtn}
+              onClick={()=>{
+                localStorage.clear()
+                navigate("/customer-login")
+              }}
+            >
               Logout
             </button>
-
           </div>
         </>
       )}
-
     </div>
   )
 }
@@ -255,7 +276,7 @@ const accountBtn = {
   cursor: "pointer"
 }
 
-/* 🔥 FIXED DRAWER */
+/* DRAWER */
 const overlay = {
   position: "fixed",
   inset: 0,
@@ -273,19 +294,30 @@ const drawer = {
   padding: 20,
   display: "flex",
   flexDirection: "column",
-  gap: 12,
   borderLeft: "1px solid #1e293b",
   zIndex: 1000
 }
 
+const navStack = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 8
+}
+
 const drawerBtn = {
-  padding: "12px",
-  background: "#0f172a",
-  border: "1px solid #1e293b",
+  width: "100%",
+  padding: "12px 14px",
+  background: "transparent",
   borderRadius: 8,
-  color: "white",
-  cursor: "pointer",
-  textAlign: "left"
+  color: "#cbd5f5",
+  textAlign: "left",
+  cursor: "pointer"
+}
+
+const activeStyle = {
+  background: "#0f172a",
+  border: "1px solid #334155",
+  color: "white"
 }
 
 const logoutBtn = {
