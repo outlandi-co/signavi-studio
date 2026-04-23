@@ -19,7 +19,7 @@ export default function AccountDrawer({ open, onClose, user, setActiveTab }) {
 
   const handleTabChange = (tab) => {
     setLocalTab(tab)
-    if (setActiveTab) setActiveTab(tab) // 🔥 sync with dashboard
+    if (setActiveTab) setActiveTab(tab)
   }
 
   const handlePasswordChange = async () => {
@@ -83,24 +83,48 @@ export default function AccountDrawer({ open, onClose, user, setActiveTab }) {
           </>
         )}
 
-        {/* ================= TABS ================= */}
-        <div style={tabWrap}>
+        {/* ================= TABS (UPDATED) ================= */}
+        <div style={{
+          display: "flex",
+          gap: 20,
+          marginTop: 20,
+          position: "relative",
+          borderBottom: "1px solid #1e293b",
+          paddingBottom: 6
+        }}>
           {[
             { key: "orders", label: "Orders" },
             { key: "history", label: "Reorders" },
             { key: "security", label: "Security" }
           ].map(tab => (
-            <button
+            <div
               key={tab.key}
               onClick={() => handleTabChange(tab.key)}
               style={{
-                ...tabBtn,
-                background:
-                  activeTab === tab.key ? "#1e293b" : "transparent"
+                position: "relative",
+                padding: "6px 0",
+                cursor: "pointer",
+                color: activeTab === tab.key ? "#22c55e" : "#94a3b8",
+                fontWeight: activeTab === tab.key ? 600 : 400,
+                transition: "all 0.2s ease"
               }}
             >
               {tab.label}
-            </button>
+
+              {/* 🔥 UNDERLINE */}
+              {activeTab === tab.key && (
+                <div style={{
+                  position: "absolute",
+                  bottom: -7,
+                  left: 0,
+                  width: "100%",
+                  height: 2,
+                  background: "#22c55e",
+                  borderRadius: 2,
+                  transition: "all 0.3s ease"
+                }} />
+              )}
+            </div>
           ))}
         </div>
 
@@ -197,21 +221,6 @@ const closeBtn = {
   color: "white",
   fontSize: 18,
   cursor: "pointer"
-}
-
-const tabWrap = {
-  display: "flex",
-  gap: 10,
-  marginTop: 20
-}
-
-const tabBtn = {
-  padding: "6px 12px",
-  borderRadius: 6,
-  border: "1px solid #1e293b",
-  color: "white",
-  cursor: "pointer",
-  transition: "all 0.2s ease"
 }
 
 const input = {

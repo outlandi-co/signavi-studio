@@ -18,6 +18,9 @@ export default function CustomerDashboard() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("orders")
 
+  // 🔥 NEW ANIMATION STATE
+  const [fade, setFade] = useState(true)
+
   const [passwords, setPasswords] = useState({
     current: "",
     newPass: "",
@@ -82,6 +85,17 @@ export default function CustomerDashboard() {
       socket.off("jobCreated")
     }
   }, [])
+
+  /* ================= TAB ANIMATION ================= */
+  useEffect(() => {
+    setFade(false)
+
+    const timeout = setTimeout(() => {
+      setFade(true)
+    }, 120)
+
+    return () => clearTimeout(timeout)
+  }, [activeTab])
 
   /* ================= PASSWORD ================= */
   const handlePasswordChange = async () => {
@@ -172,14 +186,20 @@ export default function CustomerDashboard() {
         justifyContent: "center",
         minHeight: "60vh"
       }}>
-        <div style={{ width: "100%", maxWidth: 700 }}>
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 700,
+            transition: "all 0.25s ease",
+            opacity: fade ? 1 : 0,
+            transform: fade ? "translateY(0px)" : "translateY(10px)"
+          }}
+        >
 
           {activeTab === "orders" && (
             <>
               <h3>My Orders</h3>
-
               {orders.length === 0 && <p>No orders yet</p>}
-
               {orders.map(order => (
                 <div key={order._id} style={{
                   padding: 12,
@@ -194,13 +214,10 @@ export default function CustomerDashboard() {
           {activeTab === "history" && (
             <>
               <h3>Reorder Items</h3>
-
               {orders.length === 0 && <p>No previous orders</p>}
-
               {orders.map(order => (
                 <div key={order._id} style={{ marginBottom: 10 }}>
                   {order.status}
-
                   <button
                     onClick={() => handleReorder(order)}
                     style={{
