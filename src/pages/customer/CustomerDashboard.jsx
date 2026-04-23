@@ -15,7 +15,6 @@ export default function CustomerDashboard() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  /* 🔐 PASSWORD */
   const [passwords, setPasswords] = useState({
     current: "",
     newPass: "",
@@ -24,7 +23,6 @@ export default function CustomerDashboard() {
 
   const [pwLoading, setPwLoading] = useState(false)
   const [pwMessage, setPwMessage] = useState("")
-
   const [accountOpen, setAccountOpen] = useState(false)
 
   const navigate = useNavigate()
@@ -63,53 +61,29 @@ export default function CustomerDashboard() {
   /* ================= SOCKET ================= */
   useEffect(() => {
     if (!socketRef.current) {
-      socketRef.current = io(SOCKET_URL, {
-        transports: ["websocket"]
-      })
+      socketRef.current = io(SOCKET_URL)
     }
 
     const socket = socketRef.current
 
-    socket.on("jobUpdated", (updated) => {
+    const updateHandler = (updated) => {
       setOrders(prev =>
         prev.map(o => o._id === updated._id ? updated : o)
       )
-    })
+    }
 
-    socket.on("jobCreated", (newOrder) => {
+    const createHandler = (newOrder) => {
       setOrders(prev => [newOrder, ...prev])
-    })
+    }
+
+    socket.on("jobUpdated", updateHandler)
+    socket.on("jobCreated", createHandler)
 
     return () => {
-      socket.off("jobUpdated")
-      socket.off("jobCreated")
+      socket.off("jobUpdated", updateHandler)
+      socket.off("jobCreated", createHandler)
     }
   }, [])
-
-  /* ================= PAYMENT ================= */
-  const handlePayment = async (e, id) => {
-    e.stopPropagation()
-
-    try {
-      const res = await api.post(`/square/create-payment/${id}`)
-      window.location.href = res.data.url
-    } catch {
-      alert("Payment failed")
-    }
-  }
-
-  /* ================= REORDER ================= */
-  const handleReorder = async (order) => {
-    try {
-      await api.post("/orders", {
-        ...order,
-        status: "payment_required"
-      })
-      alert("Reorder created!")
-    } catch {
-      alert("Failed")
-    }
-  }
 
   /* ================= PASSWORD ================= */
   const handlePasswordChange = async () => {
@@ -143,12 +117,23 @@ export default function CustomerDashboard() {
     }
   }
 
-  /* ================= STATUS ================= */
-  const steps = ["payment_required","paid","production","shipping","delivered"]
+  /* ================= REORDER ================= */
+  const handleReorder = async (order, e) => {
+    e.stopPropagation()
 
-  const getIndex = (status) => {
-    const i = steps.indexOf(status)
-    return i === -1 ? 0 : i
+    try {
+      await api.post("/orders", {
+        items: order.items,
+        customerName: user?.name || "Customer",
+        email: user?.email,
+        source: "store",
+        status: "payment_required"
+      })
+
+      alert("✅ Reorder created!")
+    } catch {
+      alert("❌ Failed")
+    }
   }
 
   if (loading) return <p style={{ padding: 40 }}>Loading...</p>
@@ -157,138 +142,136 @@ export default function CustomerDashboard() {
     <div style={container}>
 
       {/* ACCOUNT BUTTON */}
-      <button
-        onClick={() => setAccountOpen(true)}
-        style={accountBtn}
-      >
+      <button onClick={() => setAccountOpen(true)} style={accountBtn}>
         ⚙️ Account
       </button>
 
       {/* ORDERS */}
-      <div>
-        <h1>📦 My Orders</h1>
+      <h1>📦 My Orders</h1>
 
-        <div style={grid}>
-          {orders.map(order => {
-            const current = getIndex(order.status)
+      <div style={grid}>
+        {orders.map(order => (
+          <div
+            key={order._id}
+            style={card}
+            onClick={() => navigate(`/order/${order._id}`)}
+          >
+            <p>#{order._id.slice(-6)}</p>
+            <p>{order.status}</p>
+            <p>${(order.finalPrice || order.price || 0).toFixed(2)}</p>
 
-            return (
-              <div
-                key={order._id}
-                style={card}
-                onClick={() => navigate(`/order/${order._id}`)}
-              >
-                <div style={cardHeader}>
-                  <span>#{order._id.slice(-6)}</span>
-                  <span>{order.status}</span>
-                </div>
-
-                <div style={price}>
-                  ${(order.finalPrice || order.price || 0).toFixed(2)}
-                </div>
-
-                <div style={timeline}>
-                  {steps.map((step, i) => (
-                    <div key={i} style={{
-                      flex: 1,
-                      height: 6,
-                      background: i <= current ? "#22c55e" : "#1e293b"
-                    }} />
-                  ))}
-                </div>
-
-                <div style={footer}>
-                  {order.status === "payment_required" && (
-                    <button onClick={(e)=>handlePayment(e, order._id)} style={payBtn}>
-                      💳 Pay
-                    </button>
-                  )}
-
-                  <button
-                    onClick={(e)=>{
-                      e.stopPropagation()
-                      handleReorder(order)
-                    }}
-                    style={reorderBtn}
-                  >
-                    🔁 Reorder
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
+            {/* 🔥 FIX: USE REORDER */}
+            <button
+              onClick={(e) => handleReorder(order, e)}
+              style={reorderBtn}
+            >
+              🔁 Reorder
+            </button>
+          </div>
+        ))}
       </div>
 
       {/* OVERLAY */}
-      {accountOpen && <div style={overlay} onClick={()=>setAccountOpen(false)} />}
+      {accountOpen && (
+        <div style={overlay} onClick={() => setAccountOpen(false)} />
+      )}
 
       {/* DRAWER */}
-      <div style={{
-        ...drawer,
-        transform: accountOpen ? "translateX(0)" : "translateX(100%)"
-      }}>
-        <h2>👤 Account</h2>
+      <div
+        style={{
+          ...drawer,
+          transform: accountOpen ? "translateX(0)" : "translateX(100%)"
+        }}
+        onClick={(e) => e.stopPropagation()} // 🔥 FIX
+      >
 
-        {user && (
-          <>
-            <p>{user.name}</p>
-            <p style={{ opacity: 0.6 }}>{user.email}</p>
-          </>
-        )}
+        <div style={scrollArea}>
 
-        <h3 style={{ marginTop: 20 }}>🔐 Password</h3>
+          <h2>👤 Account</h2>
 
-        <input
-          type="password"
-          placeholder="Current"
-          value={passwords.current}
-          onChange={(e)=>setPasswords({...passwords, current:e.target.value})}
-          style={input}
-        />
+          {user && (
+            <>
+              <p><b>{user.name}</b></p>
+              <p style={{ opacity: 0.6 }}>{user.email}</p>
+            </>
+          )}
 
-        <input
-          type="password"
-          placeholder="New"
-          value={passwords.newPass}
-          onChange={(e)=>setPasswords({...passwords, newPass:e.target.value})}
-          style={input}
-        />
+          <h3 style={{ marginTop: 20 }}>📦 Recent Orders</h3>
 
-        <input
-          type="password"
-          placeholder="Confirm"
-          value={passwords.confirm}
-          onChange={(e)=>setPasswords({...passwords, confirm:e.target.value})}
-          style={input}
-        />
+          {orders.slice(0, 5).map(order => (
+            <div
+              key={order._id}
+              style={historyCard}
+            >
+              <span
+                onClick={() => navigate(`/order/${order._id}`)}
+              >
+                #{order._id.slice(-6)}
+              </span>
 
-        <button
-          onClick={handlePasswordChange}
-          disabled={pwLoading}
-          style={{
-            ...button,
-            opacity: pwLoading ? 0.6 : 1
-          }}
-        >
-          {pwLoading ? "Updating..." : "Update Password"}
-        </button>
+              <span>
+                ${(order.finalPrice || order.price).toFixed(2)}
+              </span>
 
-        {pwLoading && (
-          <p style={{ opacity: 0.6 }}>Updating password...</p>
-        )}
+              <button
+                onClick={(e) => handleReorder(order, e)}
+                style={miniBtn}
+              >
+                🔁
+              </button>
+            </div>
+          ))}
 
-        {pwMessage && <p>{pwMessage}</p>}
+          <h3 style={{ marginTop: 20 }}>🔐 Password</h3>
 
-        <button
-          onClick={()=>{
-            localStorage.clear()
-            navigate("/customer-login")
-          }}
-          style={logoutBtn}
-        >
-          Logout
-        </button>
+          <input
+            placeholder="Current"
+            type="password"
+            value={passwords.current}
+            onChange={(e)=>setPasswords({...passwords, current:e.target.value})}
+            style={input}
+          />
+
+          <input
+            placeholder="New"
+            type="password"
+            value={passwords.newPass}
+            onChange={(e)=>setPasswords({...passwords, newPass:e.target.value})}
+            style={input}
+          />
+
+          <input
+            placeholder="Confirm"
+            type="password"
+            value={passwords.confirm}
+            onChange={(e)=>setPasswords({...passwords, confirm:e.target.value})}
+            style={input}
+          />
+
+          <button
+            onClick={handlePasswordChange}
+            disabled={pwLoading}
+            style={button}
+          >
+            {pwLoading ? "Updating..." : "Update Password"}
+          </button>
+
+          {pwMessage && <p>{pwMessage}</p>}
+        </div>
+
+        {/* FOOTER */}
+        <div style={footer}>
+          <button
+            onClick={()=>{
+              localStorage.clear()
+              navigate("/customer-login")
+            }}
+            style={logoutBtn}
+          >
+            Logout
+          </button>
+        </div>
+
       </div>
 
     </div>
@@ -298,69 +281,110 @@ export default function CustomerDashboard() {
 /* ================= STYLES ================= */
 
 const container = { padding: 40, color: "white" }
-const grid = { display: "grid", gap: 20 }
-const card = { background:"#020617", padding:20, borderRadius:12, cursor:"pointer" }
-const cardHeader = { display:"flex", justifyContent:"space-between" }
-const price = { fontSize:20 }
-const timeline = { display:"flex", gap:4 }
-const footer = { marginTop:10, display:"flex", gap:10 }
+const grid = { display: "grid", gap: 10 }
 
-const payBtn = { background:"#22c55e", border:"none", padding:6 }
-const reorderBtn = { background:"#3b82f6", border:"none", padding:6 }
+const card = {
+  background: "#020617",
+  padding: 15,
+  borderRadius: 10,
+  cursor: "pointer"
+}
+
+const reorderBtn = {
+  marginTop: 10,
+  background: "#3b82f6",
+  border: "none",
+  padding: 6,
+  borderRadius: 6,
+  color: "white",
+  cursor: "pointer"
+}
+
+const miniBtn = {
+  background: "#3b82f6",
+  border: "none",
+  padding: "2px 6px",
+  borderRadius: 4,
+  color: "white",
+  cursor: "pointer"
+}
 
 const accountBtn = {
-  position:"fixed",
-  top:20,
-  right:20,
-  background:"#3b82f6",
-  padding:"10px",
-  border:"none",
-  borderRadius:6,
-  color:"white",
-  cursor:"pointer"
+  position: "fixed",
+  top: 20,
+  right: 20,
+  zIndex: 1100,
+  background: "#3b82f6",
+  padding: 10,
+  borderRadius: 6,
+  color: "white",
+  border: "none",
+  cursor: "pointer"
 }
 
 const overlay = {
-  position:"fixed",
-  top:0,
-  left:0,
-  width:"100%",
-  height:"100%",
-  background:"rgba(0,0,0,0.5)"
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.5)",
+  zIndex: 999
 }
 
 const drawer = {
-  position:"fixed",
-  top:0,
-  right:0,
-  width:320,
-  height:"100%",
-  background:"#020617",
-  padding:20,
-  transition:"0.3s"
+  position: "fixed",
+  top: 0,
+  right: 0,
+  width: 320,
+  height: "100vh",
+  background: "#020617",
+  display: "flex",
+  flexDirection: "column",
+  zIndex: 1000,
+  transition: "transform 0.3s ease"
+}
+
+const scrollArea = {
+  flex: 1,
+  overflowY: "auto",
+  padding: 20
+}
+
+const historyCard = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: 10,
+  background: "#0f172a",
+  marginTop: 5,
+  borderRadius: 6
 }
 
 const input = {
-  width:"100%",
-  padding:10,
-  marginTop:10,
-  background:"#0f172a",
-  color:"white",
-  border:"1px solid #334155"
+  width: "100%",
+  padding: 10,
+  marginTop: 10,
+  background: "#0f172a",
+  border: "1px solid #334155",
+  color: "white"
 }
 
 const button = {
-  width:"100%",
-  marginTop:10,
-  padding:10,
-  background:"#22c55e",
-  border:"none"
+  width: "100%",
+  marginTop: 10,
+  padding: 10,
+  background: "#22c55e",
+  border: "none"
+}
+
+const footer = {
+  padding: 20,
+  borderTop: "1px solid #1e293b"
 }
 
 const logoutBtn = {
-  marginTop:20,
-  width:"100%",
-  padding:10,
-  background:"#ef4444",
-  border:"none"
+  width: "100%",
+  padding: 12,
+  background: "#ef4444",
+  border: "none",
+  color: "white",
+  cursor: "pointer"
 }
