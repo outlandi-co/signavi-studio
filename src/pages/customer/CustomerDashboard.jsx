@@ -15,6 +15,9 @@ export default function CustomerDashboard() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  const [accountOpen, setAccountOpen] = useState(false)
+  const [activeView, setActiveView] = useState("orders")
+
   const [passwords, setPasswords] = useState({
     current: "",
     newPass: "",
@@ -23,7 +26,6 @@ export default function CustomerDashboard() {
 
   const [pwLoading, setPwLoading] = useState(false)
   const [pwMessage, setPwMessage] = useState("")
-  const [accountOpen, setAccountOpen] = useState(false)
 
   const navigate = useNavigate()
   const socketRef = useRef(null)
@@ -66,22 +68,19 @@ export default function CustomerDashboard() {
 
     const socket = socketRef.current
 
-    const updateHandler = (updated) => {
+    socket.on("jobUpdated", (updated) => {
       setOrders(prev =>
         prev.map(o => o._id === updated._id ? updated : o)
       )
-    }
+    })
 
-    const createHandler = (newOrder) => {
+    socket.on("jobCreated", (newOrder) => {
       setOrders(prev => [newOrder, ...prev])
-    }
-
-    socket.on("jobUpdated", updateHandler)
-    socket.on("jobCreated", createHandler)
+    })
 
     return () => {
-      socket.off("jobUpdated", updateHandler)
-      socket.off("jobCreated", createHandler)
+      socket.off("jobUpdated")
+      socket.off("jobCreated")
     }
   }, [])
 
@@ -118,15 +117,12 @@ export default function CustomerDashboard() {
   }
 
   /* ================= REORDER ================= */
-  const handleReorder = async (order, e) => {
-    e.stopPropagation()
-
+  const handleReorder = async (order) => {
     try {
       await api.post("/orders", {
         items: order.items,
-        customerName: user?.name || "Customer",
+        customerName: user?.name,
         email: user?.email,
-        source: "store",
         status: "payment_required"
       })
 
@@ -142,87 +138,58 @@ export default function CustomerDashboard() {
     <div style={container}>
 
       {/* ACCOUNT BUTTON */}
-      <button onClick={() => setAccountOpen(true)} style={accountBtn}>
+      <button
+        onClick={() => setAccountOpen(true)}
+        style={accountBtn}
+      >
         ⚙️ Account
       </button>
 
-      {/* ORDERS */}
-      <h1>📦 My Orders</h1>
+      {/* ================= MAIN VIEW ================= */}
 
-      <div style={grid}>
-        {orders.map(order => (
-          <div
-            key={order._id}
-            style={card}
-            onClick={() => navigate(`/order/${order._id}`)}
-          >
-            <p>#{order._id.slice(-6)}</p>
-            <p>{order.status}</p>
-            <p>${(order.finalPrice || order.price || 0).toFixed(2)}</p>
-
-            {/* 🔥 FIX: USE REORDER */}
-            <button
-              onClick={(e) => handleReorder(order, e)}
-              style={reorderBtn}
-            >
-              🔁 Reorder
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {/* OVERLAY */}
-      {accountOpen && (
-        <div style={overlay} onClick={() => setAccountOpen(false)} />
-      )}
-
-      {/* DRAWER */}
-      <div
-        style={{
-          ...drawer,
-          transform: accountOpen ? "translateX(0)" : "translateX(100%)"
-        }}
-        onClick={(e) => e.stopPropagation()} // 🔥 FIX
-      >
-
-        <div style={scrollArea}>
-
-          <h2>👤 Account</h2>
-
-          {user && (
-            <>
-              <p><b>{user.name}</b></p>
-              <p style={{ opacity: 0.6 }}>{user.email}</p>
-            </>
-          )}
-
-          <h3 style={{ marginTop: 20 }}>📦 Recent Orders</h3>
-
-          {orders.slice(0, 5).map(order => (
-            <div
-              key={order._id}
-              style={historyCard}
-            >
-              <span
+      {activeView === "orders" && (
+        <>
+          <h1>📦 My Orders</h1>
+          <div style={grid}>
+            {orders.map(order => (
+              <div
+                key={order._id}
+                style={card}
                 onClick={() => navigate(`/order/${order._id}`)}
               >
-                #{order._id.slice(-6)}
-              </span>
+                <p>#{order._id.slice(-6)}</p>
+                <p>{order.status}</p>
+                <p>${(order.finalPrice || order.price).toFixed(2)}</p>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
-              <span>
-                ${(order.finalPrice || order.price).toFixed(2)}
-              </span>
+      {activeView === "history" && (
+        <>
+          <h1>🔁 Reorder History</h1>
+          <div style={grid}>
+            {orders.map(order => (
+              <div key={order._id} style={card}>
+                <p>#{order._id.slice(-6)}</p>
+                <p>${(order.finalPrice || order.price).toFixed(2)}</p>
 
-              <button
-                onClick={(e) => handleReorder(order, e)}
-                style={miniBtn}
-              >
-                🔁
-              </button>
-            </div>
-          ))}
+                <button
+                  onClick={() => handleReorder(order)}
+                  style={reorderBtn}
+                >
+                  🔁 Reorder
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
-          <h3 style={{ marginTop: 20 }}>🔐 Password</h3>
+      {activeView === "security" && (
+        <div style={centerCard}>
+          <h2>🔐 Change Password</h2>
 
           <input
             placeholder="Current"
@@ -248,18 +215,52 @@ export default function CustomerDashboard() {
             style={input}
           />
 
-          <button
-            onClick={handlePasswordChange}
-            disabled={pwLoading}
-            style={button}
-          >
+          <button onClick={handlePasswordChange} style={button}>
             {pwLoading ? "Updating..." : "Update Password"}
           </button>
 
           {pwMessage && <p>{pwMessage}</p>}
         </div>
+      )}
 
-        {/* FOOTER */}
+      {/* ================= DRAWER ================= */}
+
+      {accountOpen && (
+        <div style={overlay} onClick={() => setAccountOpen(false)} />
+      )}
+
+      <div style={{
+        ...drawer,
+        transform: accountOpen ? "translateX(0)" : "translateX(100%)"
+      }}>
+
+        <div style={menu}>
+
+          <h2>👤 Account</h2>
+
+          <div style={menuItem} onClick={() => {
+            setActiveView("orders")
+            setAccountOpen(false)
+          }}>
+            📦 My Orders
+          </div>
+
+          <div style={menuItem} onClick={() => {
+            setActiveView("history")
+            setAccountOpen(false)
+          }}>
+            🔁 Reorders
+          </div>
+
+          <div style={menuItem} onClick={() => {
+            setActiveView("security")
+            setAccountOpen(false)
+          }}>
+            🔐 Security
+          </div>
+
+        </div>
+
         <div style={footer}>
           <button
             onClick={()=>{
@@ -281,6 +282,7 @@ export default function CustomerDashboard() {
 /* ================= STYLES ================= */
 
 const container = { padding: 40, color: "white" }
+
 const grid = { display: "grid", gap: 10 }
 
 const card = {
@@ -296,17 +298,15 @@ const reorderBtn = {
   border: "none",
   padding: 6,
   borderRadius: 6,
-  color: "white",
-  cursor: "pointer"
+  color: "white"
 }
 
-const miniBtn = {
-  background: "#3b82f6",
-  border: "none",
-  padding: "2px 6px",
-  borderRadius: 4,
-  color: "white",
-  cursor: "pointer"
+const centerCard = {
+  maxWidth: 400,
+  margin: "80px auto",
+  padding: 30,
+  background: "#020617",
+  borderRadius: 12
 }
 
 const accountBtn = {
@@ -318,44 +318,38 @@ const accountBtn = {
   padding: 10,
   borderRadius: 6,
   color: "white",
-  border: "none",
-  cursor: "pointer"
+  border: "none"
 }
 
 const overlay = {
   position: "fixed",
   inset: 0,
-  background: "rgba(0,0,0,0.5)",
-  zIndex: 999
+  background: "rgba(0,0,0,0.5)"
 }
 
 const drawer = {
   position: "fixed",
   top: 0,
   right: 0,
-  width: 320,
+  width: 260,
   height: "100vh",
   background: "#020617",
   display: "flex",
   flexDirection: "column",
-  zIndex: 1000,
-  transition: "transform 0.3s ease"
+  justifyContent: "space-between",
+  transition: "0.3s"
 }
 
-const scrollArea = {
-  flex: 1,
-  overflowY: "auto",
+const menu = {
   padding: 20
 }
 
-const historyCard = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  padding: 10,
+const menuItem = {
+  padding: 12,
+  marginTop: 10,
   background: "#0f172a",
-  marginTop: 5,
-  borderRadius: 6
+  borderRadius: 6,
+  cursor: "pointer"
 }
 
 const input = {
@@ -385,6 +379,5 @@ const logoutBtn = {
   padding: 12,
   background: "#ef4444",
   border: "none",
-  color: "white",
-  cursor: "pointer"
+  color: "white"
 }
