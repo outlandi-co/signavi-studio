@@ -41,6 +41,11 @@ export default function CartDrawer({ isOpen, onClose }) {
     return acc + price * qty
   }, 0)
 
+  /* ================= TAX ================= */
+  const TAX_RATE = 0.0825
+  const tax = subtotal * TAX_RATE
+  const total = subtotal + tax
+
   /* ================= CHECKOUT ================= */
   const handleCheckout = async () => {
     if (isRedirecting) return
@@ -50,7 +55,6 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       console.log("🛒 START CHECKOUT")
 
-      /* ================= SAFE ITEMS ================= */
       const safeItems = cart.map(item => ({
         name: item?.name || "Item",
         quantity: Number(item?.quantity) || 1,
@@ -63,25 +67,30 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       const totalQuantity = safeItems.reduce((a, i) => a + i.quantity, 0)
 
-      const computedTotal = safeItems.reduce(
-        (acc, i) => acc + i.price * i.quantity,
-        0
-      )
-
-      /* ================= USER (OPTIONAL) ================= */
       const storedUser = JSON.parse(localStorage.getItem("customerUser") || "null")
+
+      /* 🔥 FALLBACK EMAIL (IMPORTANT FIX) */
+      const email =
+        storedUser?.email ||
+        prompt("Enter your email for receipt & tracking:")
+
+      if (!email) {
+        throw new Error("Email is required for checkout")
+      }
 
       /* ================= CREATE ORDER ================= */
       const orderRes = await api.post("/orders", {
         customerName: storedUser?.name || "Guest",
-        email: storedUser?.email || "",
+        email,
         items: safeItems,
         quantity: totalQuantity,
-        price: computedTotal,
+        subtotal,
+        tax,
+        price: total,
         source: "store"
       })
 
-      const orderId = orderRes?.data?._id // ✅ FIXED
+      const orderId = orderRes?.data?._id
 
       if (!orderId) {
         throw new Error("Order creation failed")
@@ -222,7 +231,8 @@ export default function CartDrawer({ isOpen, onClose }) {
             borderTop: "1px solid #1e293b"
           }}>
             <p>Subtotal: ${subtotal.toFixed(2)}</p>
-            <h3>Total: ${subtotal.toFixed(2)}</h3>
+            <p>Tax (8.25%): ${tax.toFixed(2)}</p>
+            <h3>Total: ${total.toFixed(2)}</h3>
 
             <Button
               onClick={handleCheckout}
@@ -231,7 +241,7 @@ export default function CartDrawer({ isOpen, onClose }) {
               disabled={isRedirecting}
             >
               {isRedirecting
-                ? "🔐 Connecting..."
+                ? "🔐 Connecting to payment..."
                 : "💳 Checkout"}
             </Button>
           </div>
