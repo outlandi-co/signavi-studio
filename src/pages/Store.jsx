@@ -169,7 +169,7 @@ export default function Store() {
                     return
                   }
 
-                  /* 🔥 FINAL SAFE CART STRUCTURE */
+                  /* 🔥 FIXED: NO _id USED */
                   addToCart({
                     _id: product._id,
                     productId: product._id,
@@ -177,7 +177,6 @@ export default function Store() {
                     image: product.image,
 
                     selectedVariant: {
-                      _id: variant._id,
                       color: variant.color,
                       size: variant.size,
                       price: variant.price
@@ -187,22 +186,6 @@ export default function Store() {
                   })
 
                   toast.success("Added to cart")
-
-                  /* OPTIONAL UI STOCK UPDATE */
-                  setProducts(prev =>
-                    prev.map(p => {
-                      if (p._id !== product._id) return p
-
-                      return {
-                        ...p,
-                        variants: p.variants.map(v =>
-                          String(v._id) === String(variant._id)
-                            ? { ...v, stock: Math.max(0, v.stock - 1) }
-                            : v
-                        )
-                      }
-                    })
-                  )
                 }}
                 style={{
                   ...button,
