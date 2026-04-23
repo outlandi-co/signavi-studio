@@ -11,118 +11,66 @@ const SOCKET_URL = API_URL.replace("/api", "")
 
 /* ================= STATUS ================= */
 const STATUS_META = {
-  pending: { color: "#f59e0b", label: "Pending" },
-  payment_required: { color: "#f97316", label: "Payment Required" },
-  paid: { color: "#22c55e", label: "Paid" },
-  production: { color: "#3b82f6", label: "Production" },
-  shipping: { color: "#06b6d4", label: "Shipping" },
-  shipped: { color: "#0ea5e9", label: "Shipped" },
-  delivered: { color: "#10b981", label: "Delivered" }
-}
-
-const STATUS_FLOW = [
-  "pending","payment_required","paid","production","shipping","shipped","delivered"
-]
-
-const STATUS_LABELS = {
-  pending: "Pending",
-  payment_required: "Payment",
-  paid: "Paid",
-  production: "Production",
-  shipping: "Shipping",
-  shipped: "Shipped",
-  delivered: "Delivered"
+  pending: { label: "Pending" },
+  payment_required: { label: "Payment Required" },
+  paid: { label: "Paid" },
+  production: { label: "Production" },
+  shipping: { label: "Shipping" },
+  shipped: { label: "Shipped" },
+  delivered: { label: "Delivered" }
 }
 
 /* ================= HELPERS ================= */
 const formatMoney = (n = 0) => `$${Number(n).toFixed(2)}`
 const formatDate = (d) => d ? new Date(d).toLocaleDateString() : "—"
 
-/* ================= SKELETON ================= */
-const SkeletonCard = () => (
-  <div style={skeletonCard}>
-    <div style={skeletonHeader} />
-    <div style={skeletonRow} />
-    <div style={skeletonRow} />
-    <div style={skeletonBar} />
+/* 🔐 PASSWORD STRENGTH */
+const getPasswordStrength = (password) => {
+  let score = 0
+  if (password.length >= 8) score++
+  if (/[A-Z]/.test(password)) score++
+  if (/[0-9]/.test(password)) score++
+  if (/[^A-Za-z0-9]/.test(password)) score++
+
+  const levels = ["Weak", "Fair", "Good", "Strong"]
+  const colors = ["#ef4444", "#f97316", "#eab308", "#22c55e"]
+
+  return {
+    label: levels[score - 1] || "Weak",
+    color: colors[score - 1] || "#ef4444",
+    score
+  }
+}
+
+/* 🔐 RULE UI */
+const Rule = ({ valid, text }) => (
+  <div style={{
+    fontSize: 12,
+    color: valid ? "#22c55e" : "#64748b"
+  }}>
+    {valid ? "✔" : "•"} {text}
   </div>
 )
 
-/* ================= PROGRESS ================= */
-const StatusProgress = ({ status }) => {
-  const index = STATUS_FLOW.indexOf(status)
-
-  return (
-    <div style={{ marginTop: 10 }}>
-      <div style={progressLabels}>
-        {STATUS_FLOW.map((s, i) => (
-          <span key={i}>{STATUS_LABELS[s]}</span>
-        ))}
-      </div>
-
-      <div style={progressBar}>
-        <div
-          style={{
-            ...progressFill,
-            width: `${((index + 1) / STATUS_FLOW.length) * 100}%`
-          }}
-        />
-      </div>
-    </div>
-  )
-}
-
 /* ================= CARD ================= */
-const OrderCard = ({ order, highlight }) => {
-  const meta = STATUS_META[order.status] || {}
-
-  return (
-    <div
-      style={{
-        ...card,
-        animation: highlight ? "pulse 0.6s ease" : "none",
-        transition: "transform 0.2s ease",
-      }}
-    >
-      <div style={cardHeader}>
-        <div>
-          <div style={muted}>Order</div>
-          <b>#{order._id.slice(-6)}</b>
-        </div>
-
-        <div style={{ ...badge, background: meta.color }}>
-          {meta.label}
-        </div>
-      </div>
-
-      <div style={rowWrap}>
-        <div>
-          <div style={muted}>Items</div>
-          <div>{order.items?.length || 0}</div>
-        </div>
-
-        <div>
-          <div style={muted}>Total</div>
-          <div>{formatMoney(order.finalPrice || order.price)}</div>
-        </div>
-
-        <div>
-          <div style={muted}>Date</div>
-          <div>{formatDate(order.createdAt)}</div>
-        </div>
-      </div>
-
-      <StatusProgress status={order.status} />
+const OrderCard = ({ order }) => (
+  <div style={card}>
+    <div style={cardHeader}>
+      <b>#{order._id.slice(-6)}</b>
+      <span>{order.status}</span>
     </div>
-  )
-}
 
-/* ================= MAIN ================= */
+    <div style={rowWrap}>
+      <span>{formatMoney(order.finalPrice || order.price)}</span>
+      <span>{formatDate(order.createdAt)}</span>
+    </div>
+  </div>
+)
+
 export default function CustomerDashboard() {
 
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
-  const [highlightId, setHighlightId] = useState(null)
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -130,7 +78,14 @@ export default function CustomerDashboard() {
 
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("orders")
-  const [viewKey, setViewKey] = useState(0)
+
+  const [passwords, setPasswords] = useState({
+    current: "",
+    newPass: "",
+    confirm: ""
+  })
+  const [pwLoading, setPwLoading] = useState(false)
+  const [pwMessage, setPwMessage] = useState("")
 
   const socketRef = useRef(null)
   const navigate = useNavigate()
@@ -142,8 +97,6 @@ export default function CustomerDashboard() {
   }, [storedUser, navigate])
 
   useEffect(() => {
-    if (!storedUser) return
-
     api.get("/orders/my-orders").then(res => {
       const safe = Array.isArray(res.data)
         ? res.data
@@ -151,25 +104,18 @@ export default function CustomerDashboard() {
       setOrders(safe)
       setLoading(false)
     })
-  }, [storedUser])
+  }, [])
 
   useEffect(() => {
-    if (!socketRef.current) {
-      socketRef.current = io(SOCKET_URL)
-    }
-
+    if (!socketRef.current) socketRef.current = io(SOCKET_URL)
     const socket = socketRef.current
 
     socket.on("jobUpdated", (updated) => {
       setOrders(prev => prev.map(o => o._id === updated._id ? updated : o))
-      setHighlightId(updated._id)
-      setTimeout(() => setHighlightId(null), 600)
     })
 
     socket.on("jobCreated", (newOrder) => {
       setOrders(prev => [newOrder, ...prev])
-      setHighlightId(newOrder._id)
-      setTimeout(() => setHighlightId(null), 600)
     })
 
     return () => {
@@ -178,6 +124,7 @@ export default function CustomerDashboard() {
     }
   }, [])
 
+  /* 🔍 FILTER + SORT */
   const processedOrders = orders
     .filter(o => {
       const s = search.toLowerCase()
@@ -190,128 +137,175 @@ export default function CustomerDashboard() {
     .sort((a, b) => {
       if (sortBy === "newest") return new Date(b.createdAt) - new Date(a.createdAt)
       if (sortBy === "oldest") return new Date(a.createdAt) - new Date(b.createdAt)
-      if (sortBy === "price-high") return (b.finalPrice || b.price) - (a.finalPrice || a.price)
-      if (sortBy === "price-low") return (a.finalPrice || a.price) - (b.finalPrice || b.price)
+      if (sortBy === "price-high") return (b.price || 0) - (a.price || 0)
+      if (sortBy === "price-low") return (a.price || 0) - (b.price || 0)
       return 0
     })
 
-  return (
-    <div style={{ padding: 20, color: "white" }}>
+  const strength = getPasswordStrength(passwords.newPass)
 
-      <div style={{ display: "flex", alignItems: "center" }}>
+  const isValidPassword =
+    strength.score >= 3 &&
+    passwords.newPass === passwords.confirm
+
+  /* 🔐 PASSWORD */
+  const handlePasswordChange = async () => {
+    try {
+      setPwMessage("")
+      setPwLoading(true)
+
+      await api.post("/auth/change-password", {
+        currentPassword: passwords.current,
+        newPassword: passwords.newPass
+      })
+
+      setPwMessage("✅ Password updated")
+      setPasswords({ current: "", newPass: "", confirm: "" })
+
+    } catch (err) {
+      setPwMessage(err?.response?.data?.error || "❌ Failed")
+    } finally {
+      setPwLoading(false)
+    }
+  }
+
+  return (
+    <div style={container}>
+
+      <div style={header}>
         <h2>Dashboard</h2>
-        <button onClick={() => setDrawerOpen(true)} style={accountBtn}>
+        <button style={accountBtn} onClick={()=>setDrawerOpen(true)}>
           Account
         </button>
       </div>
 
-      <div key={viewKey} style={animatedView}>
+      <div style={controls}>
+        <input
+          placeholder="Search..."
+          value={search}
+          onChange={(e)=>setSearch(e.target.value)}
+          style={input}
+        />
 
-        {activeTab === "orders" && (
-          <>
-            <div style={controls}>
-              <input value={search} onChange={(e)=>setSearch(e.target.value)} style={input} placeholder="Search..." />
-              <select value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value)} style={select}>
-                <option value="all">All</option>
-                {Object.keys(STATUS_META).map(s => (
-                  <option key={s} value={s}>{STATUS_META[s].label}</option>
-                ))}
-              </select>
-              <select value={sortBy} onChange={(e)=>setSortBy(e.target.value)} style={select}>
-                <option value="newest">Newest</option>
-                <option value="oldest">Oldest</option>
-                <option value="price-high">Price High</option>
-                <option value="price-low">Price Low</option>
-              </select>
-            </div>
+        <select value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value)} style={input}>
+          <option value="all">All</option>
+          {Object.keys(STATUS_META).map(s => (
+            <option key={s} value={s}>{STATUS_META[s].label}</option>
+          ))}
+        </select>
 
-            {loading && [...Array(4)].map((_,i)=><SkeletonCard key={i}/>)}
-
-            {!loading && processedOrders.length === 0 && (
-              <div style={emptyState}>
-                <h3>No Orders Yet</h3>
-                <p>Your orders will appear here.</p>
-              </div>
-            )}
-
-            {!loading && processedOrders.map(o => (
-              <OrderCard key={o._id} order={o} highlight={highlightId === o._id} />
-            ))}
-          </>
-        )}
-
-        {activeTab === "profile" && (
-          <div>
-            <h2>Profile</h2>
-            <p>{storedUser?.name}</p>
-            <p>{storedUser?.email}</p>
-          </div>
-        )}
-
-        {activeTab === "security" && (
-          <div>
-            <h2>Security</h2>
-            <p>Password tools coming 🔐</p>
-          </div>
-        )}
-
+        <select value={sortBy} onChange={(e)=>setSortBy(e.target.value)} style={input}>
+          <option value="newest">Newest</option>
+          <option value="oldest">Oldest</option>
+          <option value="price-high">Price High</option>
+          <option value="price-low">Price Low</option>
+        </select>
       </div>
 
-      {drawerOpen && (
+      {activeTab === "orders" && (
         <>
-          <div style={overlay} onClick={()=>setDrawerOpen(false)} />
-          <div style={drawer}>
-            <button style={drawerBtn} onClick={()=>{setActiveTab("orders");setViewKey(v=>v+1);setDrawerOpen(false)}}>Orders</button>
-            <button style={drawerBtn} onClick={()=>{setActiveTab("profile");setViewKey(v=>v+1);setDrawerOpen(false)}}>Profile</button>
-            <button style={drawerBtn} onClick={()=>{setActiveTab("security");setViewKey(v=>v+1);setDrawerOpen(false)}}>Security</button>
-            <button style={logout} onClick={()=>{localStorage.clear();navigate("/customer-login")}}>Logout</button>
-          </div>
+          {loading && <p>Loading...</p>}
+
+          {!loading && processedOrders.length === 0 && (
+            <p>No orders yet</p>
+          )}
+
+          {!loading && processedOrders.map(o => (
+            <OrderCard key={o._id} order={o} />
+          ))}
         </>
       )}
 
-      <style>{`
-        @keyframes pulse {
-          0% { box-shadow: 0 0 0 rgba(34,197,94,0); }
-          50% { box-shadow: 0 0 10px rgba(34,197,94,0.25); }
-          100% { box-shadow: 0 0 0 rgba(34,197,94,0); }
-        }
-        @keyframes fadeSlide {
-          0% { opacity: 0; transform: translateY(10px); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
+      {activeTab === "security" && (
+        <div style={securityBox}>
+          <h2>Security</h2>
+
+          <input type="password" placeholder="Current Password"
+            value={passwords.current}
+            onChange={(e)=>setPasswords({...passwords,current:e.target.value})}
+            style={input}
+          />
+
+          <input type="password" placeholder="New Password"
+            value={passwords.newPass}
+            onChange={(e)=>setPasswords({...passwords,newPass:e.target.value})}
+            style={input}
+          />
+
+          {/* 🔥 STRENGTH BAR */}
+          {passwords.newPass && (
+            <>
+              <div style={bar}>
+                <div style={{
+                  ...fill,
+                  width: `${strength.score * 25}%`,
+                  background: strength.color
+                }} />
+              </div>
+              <p style={{ color: strength.color }}>{strength.label}</p>
+
+              <div style={rulesBox}>
+                <Rule valid={passwords.newPass.length >= 8} text="8+ characters" />
+                <Rule valid={/[A-Z]/.test(passwords.newPass)} text="Uppercase" />
+                <Rule valid={/[0-9]/.test(passwords.newPass)} text="Number" />
+                <Rule valid={/[^A-Za-z0-9]/.test(passwords.newPass)} text="Symbol" />
+              </div>
+            </>
+          )}
+
+          <input type="password" placeholder="Confirm Password"
+            value={passwords.confirm}
+            onChange={(e)=>setPasswords({...passwords,confirm:e.target.value})}
+            style={input}
+          />
+
+          <button
+            disabled={!isValidPassword || pwLoading}
+            style={{
+              ...primaryBtn,
+              opacity: isValidPassword ? 1 : 0.5
+            }}
+            onClick={handlePasswordChange}
+          >
+            {pwLoading ? "Updating..." : "Update Password"}
+          </button>
+
+          {pwMessage && <p>{pwMessage}</p>}
+        </div>
+      )}
+
+      {drawerOpen && (
+        <div style={drawer}>
+          <button onClick={()=>{setActiveTab("orders");setDrawerOpen(false)}}>Orders</button>
+          <button onClick={()=>{setActiveTab("security");setDrawerOpen(false)}}>Security</button>
+          <button onClick={()=>{localStorage.clear();navigate("/customer-login")}}>Logout</button>
+        </div>
+      )}
     </div>
   )
 }
 
 /* ================= STYLES ================= */
 
-const animatedView = { maxWidth:800, margin:"40px auto", animation:"fadeSlide 0.35s ease" }
+const container = { padding: 30, background: "#020617", minHeight: "100vh", color: "white" }
+const header = { display: "flex", marginBottom: 20 }
+const controls = { display: "flex", gap: 10, marginBottom: 20 }
 
-const skeletonCard = { background:"#020617", border:"1px solid #1e293b", borderRadius:10, padding:14, marginBottom:12 }
-const skeletonHeader = { height:14, width:"40%", background:"#1e293b", marginBottom:10 }
-const skeletonRow = { height:12, background:"#1e293b", marginBottom:8 }
-const skeletonBar = { height:6, background:"#1e293b" }
+const input = { padding: 10, background: "#0f172a", color: "white", borderRadius: 6 }
 
-const emptyState = { textAlign:"center", marginTop:60 }
+const card = { padding: 15, background: "#0f172a", marginBottom: 10 }
+const cardHeader = { display: "flex", justifyContent: "space-between" }
+const rowWrap = { display: "flex", justifyContent: "space-between" }
 
-const controls = { display:"flex", gap:10, marginBottom:20 }
-const input = { padding:8, background:"#0f172a", color:"white", borderRadius:6 }
-const select = { padding:8, background:"#0f172a", color:"white", borderRadius:6 }
+const accountBtn = { marginLeft: "auto" }
 
-const card = { background:"#020617", border:"1px solid #1e293b", borderRadius:10, padding:14, marginBottom:12 }
-const cardHeader = { display:"flex", justifyContent:"space-between" }
-const muted = { fontSize:12, opacity:0.6 }
-const badge = { padding:"4px 10px", borderRadius:20, color:"#020617" }
-const rowWrap = { display:"flex", justifyContent:"space-between", marginTop:10 }
+const drawer = { position: "fixed", right: 0, top: 0, width: 200, height: "100%", background: "#020617", padding: 20 }
 
-const progressLabels = { display:"flex", justifyContent:"space-between", fontSize:10 }
-const progressBar = { height:6, background:"#1e293b", borderRadius:6 }
-const progressFill = { height:"100%", background:"#22c55e" }
+const securityBox = { maxWidth: 400, margin: "20px auto", display: "flex", flexDirection: "column", gap: 10 }
 
-const overlay = { position:"fixed", inset:0, background:"rgba(0,0,0,0.6)" }
-const drawer = { position:"fixed", right:0, top:0, width:260, height:"100%", background:"#020617", padding:20 }
-const drawerBtn = { width:"100%", padding:10, marginBottom:10, background:"#0f172a", color:"white", borderRadius:6 }
-const logout = { marginTop:20, background:"#ef4444", padding:10, width:"100%" }
+const primaryBtn = { padding: 10, background: "#22c55e", borderRadius: 6 }
 
-const accountBtn = { marginLeft:"auto", padding:"6px 12px", background:"#020617", border:"1px solid #1e293b", color:"white", borderRadius:6 }
+const bar = { height: 6, background: "#1e293b", borderRadius: 6 }
+const fill = { height: "100%", borderRadius: 6 }
+
+const rulesBox = { display: "flex", flexDirection: "column", gap: 2 }
