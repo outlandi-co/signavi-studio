@@ -2,9 +2,11 @@ import { useState } from "react"
 import api from "../services/api"
 import { useNavigate } from "react-router-dom"
 
-export default function AccountDrawer({ open, onClose, user }) {
+export default function AccountDrawer({ open, onClose, user, setActiveTab }) {
 
   const navigate = useNavigate()
+
+  const [activeTab, setLocalTab] = useState("orders")
 
   const [passwords, setPasswords] = useState({
     current: "",
@@ -14,6 +16,11 @@ export default function AccountDrawer({ open, onClose, user }) {
 
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
+
+  const handleTabChange = (tab) => {
+    setLocalTab(tab)
+    if (setActiveTab) setActiveTab(tab) // 🔥 sync with dashboard
+  }
 
   const handlePasswordChange = async () => {
     try {
@@ -55,10 +62,7 @@ export default function AccountDrawer({ open, onClose, user }) {
     <>
       {/* OVERLAY */}
       {open && (
-        <div
-          onClick={onClose}
-          style={overlay}
-        />
+        <div onClick={onClose} style={overlay} />
       )}
 
       {/* DRAWER */}
@@ -66,6 +70,9 @@ export default function AccountDrawer({ open, onClose, user }) {
         ...drawer,
         transform: open ? "translateX(0)" : "translateX(100%)"
       }}>
+
+        {/* CLOSE */}
+        <button onClick={onClose} style={closeBtn}>✕</button>
 
         <h2>👤 Account</h2>
 
@@ -76,50 +83,73 @@ export default function AccountDrawer({ open, onClose, user }) {
           </>
         )}
 
-        {/* PASSWORD */}
-        <div style={{ marginTop: 20 }}>
-          <h3>🔐 Change Password</h3>
-
-          <input
-            placeholder="Current password"
-            type="password"
-            value={passwords.current}
-            onChange={(e) =>
-              setPasswords({ ...passwords, current: e.target.value })
-            }
-            style={input}
-          />
-
-          <input
-            placeholder="New password"
-            type="password"
-            value={passwords.newPass}
-            onChange={(e) =>
-              setPasswords({ ...passwords, newPass: e.target.value })
-            }
-            style={input}
-          />
-
-          <input
-            placeholder="Confirm password"
-            type="password"
-            value={passwords.confirm}
-            onChange={(e) =>
-              setPasswords({ ...passwords, confirm: e.target.value })
-            }
-            style={input}
-          />
-
-          <button
-            onClick={handlePasswordChange}
-            disabled={loading}
-            style={btn}
-          >
-            {loading ? "Updating..." : "Update Password"}
-          </button>
-
-          {message && <p style={{ marginTop: 10 }}>{message}</p>}
+        {/* ================= TABS ================= */}
+        <div style={tabWrap}>
+          {[
+            { key: "orders", label: "Orders" },
+            { key: "history", label: "Reorders" },
+            { key: "security", label: "Security" }
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => handleTabChange(tab.key)}
+              style={{
+                ...tabBtn,
+                background:
+                  activeTab === tab.key ? "#1e293b" : "transparent"
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
+
+        {/* ================= SECURITY ================= */}
+        {activeTab === "security" && (
+          <div style={{ marginTop: 20 }}>
+            <h3>🔐 Change Password</h3>
+
+            <input
+              placeholder="Current password"
+              type="password"
+              value={passwords.current}
+              onChange={(e) =>
+                setPasswords({ ...passwords, current: e.target.value })
+              }
+              style={input}
+            />
+
+            <input
+              placeholder="New password"
+              type="password"
+              value={passwords.newPass}
+              onChange={(e) =>
+                setPasswords({ ...passwords, newPass: e.target.value })
+              }
+              style={input}
+            />
+
+            <input
+              placeholder="Confirm password"
+              type="password"
+              value={passwords.confirm}
+              onChange={(e) =>
+                setPasswords({ ...passwords, confirm: e.target.value })
+              }
+              style={input}
+            />
+
+            <button
+              onClick={handlePasswordChange}
+              disabled={loading}
+              style={btn}
+            >
+              {loading ? "Updating..." : "Update Password"}
+            </button>
+
+            {message && <p style={{ marginTop: 10 }}>{message}</p>}
+          </div>
+        )}
 
         {/* LOGOUT */}
         <button
@@ -141,10 +171,7 @@ export default function AccountDrawer({ open, onClose, user }) {
 
 const overlay = {
   position: "fixed",
-  top: 0,
-  left: 0,
-  width: "100%",
-  height: "100%",
+  inset: 0,
   background: "rgba(0,0,0,0.5)",
   zIndex: 999
 }
@@ -153,12 +180,38 @@ const drawer = {
   position: "fixed",
   top: 0,
   right: 0,
-  width: "320px",
+  width: "340px",
   height: "100%",
   background: "#020617",
   padding: "20px",
   zIndex: 1000,
-  transition: "transform 0.3s ease"
+  transition: "transform 0.35s ease"
+}
+
+const closeBtn = {
+  position: "absolute",
+  top: 10,
+  right: 10,
+  background: "transparent",
+  border: "none",
+  color: "white",
+  fontSize: 18,
+  cursor: "pointer"
+}
+
+const tabWrap = {
+  display: "flex",
+  gap: 10,
+  marginTop: 20
+}
+
+const tabBtn = {
+  padding: "6px 12px",
+  borderRadius: 6,
+  border: "1px solid #1e293b",
+  color: "white",
+  cursor: "pointer",
+  transition: "all 0.2s ease"
 }
 
 const input = {
@@ -182,7 +235,7 @@ const btn = {
 }
 
 const logout = {
-  marginTop: 20,
+  marginTop: 30,
   width: "100%",
   padding: 10,
   background: "#ef4444",
