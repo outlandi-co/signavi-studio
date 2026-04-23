@@ -94,7 +94,7 @@ export default function Store() {
                           ...prev,
                           [product._id]: {
                             color,
-                            size: null // 🔥 reset size when color changes
+                            size: null
                           }
                         }))
                       }
@@ -140,7 +140,7 @@ export default function Store() {
 
               {/* 💰 PRICE */}
               <p style={priceStyle}>
-                {price !== null ? `$${price}` : "Select options"}
+                {price ? `$${price.toFixed(2)}` : "Select options"}
               </p>
 
               {/* 📦 STOCK */}
@@ -169,16 +169,26 @@ export default function Store() {
                     return
                   }
 
+                  /* 🔥 FINAL SAFE CART STRUCTURE */
                   addToCart({
                     _id: product._id,
+                    productId: product._id,
                     name: product.name,
-                    selectedVariant: variant,
+                    image: product.image,
+
+                    selectedVariant: {
+                      _id: variant._id,
+                      color: variant.color,
+                      size: variant.size,
+                      price: variant.price
+                    },
+
                     quantity: 1
                   })
 
                   toast.success("Added to cart")
 
-                  /* 🔥 SAFE FRONTEND STOCK UPDATE */
+                  /* OPTIONAL UI STOCK UPDATE */
                   setProducts(prev =>
                     prev.map(p => {
                       if (p._id !== product._id) return p
