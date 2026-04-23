@@ -54,22 +54,22 @@ export default function CustomerDashboard() {
     return () => document.removeEventListener("mousedown", handleClick)
   }, [])
 
-  /* ================= ORDERS ================= */
+  /* ================= LOAD ORDERS ================= */
   useEffect(() => {
     const load = async () => {
       try {
         const res = await api.get("/orders/my-orders")
 
-        const safeOrders = Array.isArray(res.data)
-          ? res.data
-          : res.data?.data || []
+        // 🔥 FINAL FIX: ALWAYS ARRAY
+        const safeOrders = Array.isArray(res.data) ? res.data : []
 
         console.log("🧪 DASHBOARD ORDERS:", safeOrders)
 
         setOrders(safeOrders)
 
       } catch (err) {
-        console.error(err)
+        console.error("❌ LOAD ORDERS ERROR:", err)
+        setOrders([])
       } finally {
         setLoading(false)
       }
@@ -88,16 +88,14 @@ export default function CustomerDashboard() {
 
     socket.on("jobUpdated", (updated) => {
       setOrders(prev =>
-        (Array.isArray(prev) ? prev : []).map(o =>
+        prev.map(o =>
           o._id === updated._id ? updated : o
         )
       )
     })
 
     socket.on("jobCreated", (newOrder) => {
-      setOrders(prev =>
-        Array.isArray(prev) ? [newOrder, ...prev] : [newOrder]
-      )
+      setOrders(prev => [newOrder, ...prev])
     })
 
     return () => {
@@ -185,35 +183,48 @@ export default function CustomerDashboard() {
 
       {/* ================= CONTENT ================= */}
 
+      {/* ORDERS */}
       {activeView === "orders" && (
-        (Array.isArray(orders) ? orders : []).map(order => (
-          <div key={order._id}>{order.status}</div>
-        ))
+        <>
+          {orders.length === 0 && <p>No orders yet</p>}
+
+          {orders.map(order => (
+            <div key={order._id}>{order.status}</div>
+          ))}
+        </>
       )}
 
+      {/* REORDERS */}
       {activeView === "history" && (
-        (Array.isArray(orders) ? orders : []).map(order => (
-          <div key={order._id}>
-            {order.status}
-            <button onClick={() => handleReorder(order)}>Reorder</button>
-          </div>
-        ))
+        <>
+          {orders.length === 0 && <p>No previous orders</p>}
+
+          {orders.map(order => (
+            <div key={order._id}>
+              {order.status}
+              <button onClick={() => handleReorder(order)}>
+                Reorder
+              </button>
+            </div>
+          ))}
+        </>
       )}
 
+      {/* SECURITY */}
       {activeView === "security" && (
         <div>
           <input
-            placeholder="Current"
+            placeholder="Current Password"
             value={passwords.current}
             onChange={(e)=>setPasswords({...passwords, current:e.target.value})}
           />
           <input
-            placeholder="New"
+            placeholder="New Password"
             value={passwords.newPass}
             onChange={(e)=>setPasswords({...passwords, newPass:e.target.value})}
           />
           <input
-            placeholder="Confirm"
+            placeholder="Confirm Password"
             value={passwords.confirm}
             onChange={(e)=>setPasswords({...passwords, confirm:e.target.value})}
           />

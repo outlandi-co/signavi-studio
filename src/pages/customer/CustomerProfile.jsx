@@ -8,40 +8,54 @@ export default function CustomerProfile() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
 
-  const navigate = useNavigate() // 🔥 ADD THIS
+  const navigate = useNavigate()
 
   useEffect(() => {
     const load = async () => {
       try {
-        const storedUser = JSON.parse(localStorage.getItem("user") || "null")
-        setUser(storedUser)
+        /* ================= USER ================= */
+        const stored = localStorage.getItem("customerUser")
 
-       const res = await api.get("/orders/my-orders")
+        if (!stored) {
+          navigate("/customer-login")
+          return
+        }
 
-const safeOrders = Array.isArray(res.data)
-  ? res.data
-  : res.data?.data || []
+        const parsedUser = JSON.parse(stored)
+        setUser(parsedUser)
 
-setOrders(safeOrders)
+        /* ================= ORDERS ================= */
+        const res = await api.get("/orders/my-orders")
+
+        const safeOrders = Array.isArray(res.data)
+          ? res.data
+          : []
+
+        console.log("🧪 PROFILE ORDERS:", safeOrders)
+
+        setOrders(safeOrders)
 
       } catch (err) {
         console.error("❌ PROFILE ERROR:", err)
+        setOrders([])
       } finally {
         setLoading(false)
       }
     }
 
     load()
-  }, [])
+  }, [navigate])
 
   if (loading) {
     return <p style={{ padding: 40 }}>Loading profile...</p>
   }
 
-  /* ================= STATS ================= */
-  const totalOrders = orders.length
+  /* ================= SAFE DATA ================= */
+  const safeOrders = Array.isArray(orders) ? orders : []
 
-  const totalSpent = orders.reduce((sum, o) => {
+  const totalOrders = safeOrders.length
+
+  const totalSpent = safeOrders.reduce((sum, o) => {
     return sum + (o.finalPrice || o.price || 0)
   }, 0)
 
@@ -86,7 +100,7 @@ setOrders(safeOrders)
 
       </div>
 
-      {/* QUICK ORDERS */}
+      {/* RECENT ORDERS */}
       <div style={{
         marginTop: 30,
         background: "#020617",
@@ -97,14 +111,14 @@ setOrders(safeOrders)
 
         <h2 style={{ marginBottom: 15 }}>Recent Orders</h2>
 
-        {orders.length === 0 && (
+        {safeOrders.length === 0 && (
           <p>No orders yet</p>
         )}
 
-        {orders.slice(0, 5).map(order => (
+        {safeOrders.slice(0, 5).map(order => (
           <div
             key={order._id}
-            onClick={() => navigate(`/order/${order._id}`)} // 🔥 FIXED
+            onClick={() => navigate(`/order/${order._id}`)}
             style={{
               padding: 12,
               borderBottom: "1px solid #1e293b",
