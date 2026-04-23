@@ -152,27 +152,26 @@ export default function CustomerDashboard() {
       <div style={{
         display: "flex",
         justifyContent: "space-between",
+        alignItems: "center",
         marginBottom: 20
       }}>
         <h2>SignaVi</h2>
 
-        {/* ✅ FIXED ACCOUNT BUTTON */}
+        {/* 🔥 CLEAN ACCOUNT BUTTON */}
         <button
           onClick={() => setDrawerOpen(true)}
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "8px 14px",
+            padding: "8px 18px",
             borderRadius: 8,
             background: "#020617",
             border: "1px solid #1e293b",
             color: "white",
             cursor: "pointer",
-            fontWeight: 500
+            fontWeight: 600,
+            letterSpacing: 0.5
           }}
         >
-          👤 Account
+          Account
         </button>
       </div>
 
@@ -218,7 +217,7 @@ export default function CustomerDashboard() {
             overflowY: "auto"
           }}>
 
-            {/* CLOSE BUTTON */}
+            {/* CLOSE */}
             <button
               onClick={() => setDrawerOpen(false)}
               style={{
@@ -239,7 +238,7 @@ export default function CustomerDashboard() {
             <p>{user?.name}</p>
             <p style={{ opacity: 0.6 }}>{user?.email}</p>
 
-            {/* TABS FIXED */}
+            {/* TABS */}
             <div style={{
               display: "flex",
               gap: 10,
