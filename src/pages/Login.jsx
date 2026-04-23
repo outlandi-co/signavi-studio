@@ -11,7 +11,7 @@ export default function Login() {
   const navigate = useNavigate()
 
   /* =========================================================
-     🔥 WAKE SERVER + AUTO LOGIN CHECK
+     🔥 WAKE SERVER + CHECK EXISTING SESSION
   ========================================================= */
   useEffect(() => {
     const init = async () => {
@@ -19,21 +19,16 @@ export default function Login() {
         // Wake backend (Render cold start)
         await api.get("/ping").catch(() => {})
 
-        // Check if already logged in
-        const res = await api.get("/auth/profile")
+        const token = localStorage.getItem("adminToken")
 
-        if (res?.data?.user) {
-          console.log("✅ Already logged in:", res.data.user)
-
-          localStorage.setItem(
-            "adminUser",
-            JSON.stringify(res.data.user)
-          )
-
-          navigate("/admin/production")
+        if (token) {
+          console.log("✅ Existing session found → redirecting")
+          navigate("/admin/production", { replace: true })
+        } else {
+          console.log("ℹ️ No session found")
         }
       } catch {
-        console.log("ℹ️ Not logged in yet")
+        console.log("⚠️ Init check failed")
       }
     }
 
@@ -91,7 +86,7 @@ export default function Login() {
 
       console.log("✅ ADMIN LOGGED IN:", user)
 
-      navigate("/admin/production")
+      navigate("/admin/production", { replace: true })
 
     } catch (err) {
       console.error("❌ LOGIN ERROR:", err)
@@ -117,25 +112,46 @@ export default function Login() {
   }
 
   /* =========================================================
+     ⌨️ ENTER KEY SUPPORT
+  ========================================================= */
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter") {
+      handleLogin()
+    }
+  }
+
+  /* =========================================================
      UI
   ========================================================= */
   return (
-    <div style={{ padding: 20, maxWidth: 400 }}>
+    <div style={{ padding: 20, maxWidth: 400, margin: "0 auto" }}>
       <h2>Admin Login</h2>
 
       <input
         value={email}
         onChange={(e) => setEmail(e.target.value)}
+        onKeyDown={handleKeyPress}
         placeholder="Email"
-        style={{ display: "block", marginBottom: 10, width: "100%" }}
+        style={{
+          display: "block",
+          marginBottom: 10,
+          width: "100%",
+          padding: "10px"
+        }}
       />
 
       <input
         type="password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
+        onKeyDown={handleKeyPress}
         placeholder="Password"
-        style={{ display: "block", marginBottom: 10, width: "100%" }}
+        style={{
+          display: "block",
+          marginBottom: 10,
+          width: "100%",
+          padding: "10px"
+        }}
       />
 
       {error && (
@@ -149,8 +165,13 @@ export default function Login() {
         disabled={loading}
         style={{
           width: "100%",
-          padding: "10px",
-          cursor: "pointer"
+          padding: "12px",
+          cursor: "pointer",
+          background: "#06b6d4",
+          border: "none",
+          borderRadius: "6px",
+          color: "#000",
+          fontWeight: "bold"
         }}
       >
         {loading ? "🔐 Connecting..." : "Login"}
