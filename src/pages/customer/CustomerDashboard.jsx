@@ -144,33 +144,34 @@ export default function CustomerDashboard() {
 
       {/* NAVBAR */}
       <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 20
-      }}>
-        <h2>SignaVi</h2>
+  display: "flex",
+  alignItems: "center",
+  marginBottom: 20
+}}>
+  <h2>SignaVi</h2>
 
-        {/* Account Button */}
-        <button
-          onClick={() => setDrawerOpen(true)}
-          style={{
-            padding: "8px 18px",
-            borderRadius: 8,
-            background: "#020617",
-            border: "1px solid #1e293b",
-            color: "white",
-            cursor: "pointer",
-            fontWeight: 600,
-            letterSpacing: 0.5,
-            transition: "all 0.2s ease"
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.background = "#1e293b"}
-          onMouseLeave={(e) => e.currentTarget.style.background = "#020617"}
-        >
-          Account
-        </button>
-      </div>
+  {/* 🔥 PUSH RIGHT */}
+  <div style={{ marginLeft: "auto" }}>
+    <button
+      onClick={() => setDrawerOpen(true)}
+      style={{
+        padding: "8px 18px",
+        borderRadius: 8,
+        background: "#020617",
+        border: "1px solid #1e293b",
+        color: "white",
+        cursor: "pointer",
+        fontWeight: 600,
+        letterSpacing: 0.5,
+        transition: "all 0.2s ease"
+      }}
+      onMouseEnter={(e) => e.currentTarget.style.background = "#1e293b"}
+      onMouseLeave={(e) => e.currentTarget.style.background = "#020617"}
+    >
+      Account
+    </button>
+  </div>
+</div>
 
       {/* MAIN CONTENT */}
       <h3>My Orders</h3>
