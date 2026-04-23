@@ -45,7 +45,9 @@ export default function CustomerDashboard() {
     const load = async () => {
       try {
         const res = await api.get("/orders/my-orders")
-        const safeOrders = Array.isArray(res.data) ? res.data : []
+        const safeOrders = Array.isArray(res.data)
+          ? res.data
+          : res.data?.data || []
         setOrders(safeOrders)
       } catch (err) {
         console.error(err)
@@ -62,6 +64,7 @@ export default function CustomerDashboard() {
     if (!socketRef.current) {
       socketRef.current = io(SOCKET_URL)
     }
+
     const socket = socketRef.current
 
     socket.on("jobUpdated", (updated) => {
@@ -80,23 +83,16 @@ export default function CustomerDashboard() {
     }
   }, [])
 
-  /* ================= ESC TO CLOSE ================= */
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Escape") setDrawerOpen(false)
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [])
-
   /* ================= PASSWORD ================= */
   const handlePasswordChange = async () => {
     try {
       setPwMessage("")
+
       if (!passwords.current || !passwords.newPass) {
         setPwMessage("❌ Fill all fields")
         return
       }
+
       if (passwords.newPass !== passwords.confirm) {
         setPwMessage("❌ Passwords do not match")
         return
@@ -111,6 +107,7 @@ export default function CustomerDashboard() {
 
       setPwMessage("✅ Password updated")
       setPasswords({ current: "", newPass: "", confirm: "" })
+
     } catch (err) {
       setPwMessage(err?.response?.data?.error || "❌ Failed")
     } finally {
@@ -144,197 +141,179 @@ export default function CustomerDashboard() {
 
       {/* NAVBAR */}
       <div style={{
-  display: "flex",
-  alignItems: "center",
-  marginBottom: 20
-}}>
-  <h2>SignaVi</h2>
-
-  {/* 🔥 PUSH RIGHT */}
-  <div style={{ marginLeft: "auto" }}>
-    <button
-      onClick={() => setDrawerOpen(true)}
-      style={{
-        padding: "8px 18px",
-        borderRadius: 8,
-        background: "#020617",
-        border: "1px solid #1e293b",
-        color: "white",
-        cursor: "pointer",
-        fontWeight: 600,
-        letterSpacing: 0.5,
-        transition: "all 0.2s ease"
-      }}
-      onMouseEnter={(e) => e.currentTarget.style.background = "#1e293b"}
-      onMouseLeave={(e) => e.currentTarget.style.background = "#020617"}
-    >
-      Account
-    </button>
-  </div>
-</div>
-
-      {/* MAIN CONTENT */}
-      <h3>My Orders</h3>
-
-      {orders.length === 0 && <p>No orders yet</p>}
-
-      {orders.map(order => (
-        <div
-          key={order._id}
-          style={{
-            padding: 12,
-            borderBottom: "1px solid #1e293b",
-            transition: "background 0.2s ease"
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.background = "#0f172a"}
-          onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-        >
-          {order.status}
-        </div>
-      ))}
-
-      {/* ================= DRAWER ================= */}
-
-      {/* OVERLAY (always mounted for smooth fade) */}
-      <div
-        onClick={() => setDrawerOpen(false)}
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.6)",
-          opacity: drawerOpen ? 1 : 0,
-          pointerEvents: drawerOpen ? "auto" : "none",
-          transition: "opacity 0.3s ease",
-          zIndex: 1000
-        }}
-      />
-
-      {/* PANEL (always mounted, animated with transform) */}
-      <div style={{
-        position: "fixed",
-        top: 0,
-        right: 0,
-        height: "100%",
-        width: 360,
-        background: "#020617",
-        borderLeft: "1px solid #1e293b",
-        padding: 20,
-        zIndex: 1001,
-        overflowY: "auto",
-        transform: drawerOpen ? "translateX(0)" : "translateX(100%)",
-        transition: "transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)"
+        display: "flex",
+        alignItems: "center",
+        width: "100%",
+        marginBottom: 20
       }}>
+        <h2>SignaVi</h2>
 
-        {/* CLOSE */}
-        <button
-          onClick={() => setDrawerOpen(false)}
-          style={{
-            position: "absolute",
-            top: 12,
-            right: 12,
-            background: "transparent",
-            color: "white",
-            border: "none",
-            fontSize: 18,
-            cursor: "pointer"
-          }}
-        >
-          ✕
-        </button>
-
-        <h2 style={{ marginBottom: 6 }}>Account</h2>
-        <p>{user?.name}</p>
-        <p style={{ opacity: 0.6 }}>{user?.email}</p>
-
-        {/* TABS */}
-        <div style={{
-          display: "flex",
-          gap: 8,
-          marginTop: 20
-        }}>
-          {["orders", "history", "security"].map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 6,
-                background:
-                  activeTab === tab ? "#1e293b" : "transparent",
-                border: "1px solid #1e293b",
-                color: "white",
-                cursor: "pointer",
-                transition: "all 0.2s ease"
-              }}
-            >
-              {tab === "orders" && "Orders"}
-              {tab === "history" && "Reorders"}
-              {tab === "security" && "Security"}
-            </button>
-          ))}
+        <div style={{ marginLeft: "auto" }}>
+          <button
+            onClick={() => setDrawerOpen(true)}
+            style={{
+              padding: "8px 18px",
+              borderRadius: 8,
+              background: "#020617",
+              border: "1px solid #1e293b",
+              color: "white",
+              cursor: "pointer",
+              fontWeight: 600
+            }}
+          >
+            Account
+          </button>
         </div>
+      </div>
 
-        {/* CONTENT */}
-        <div style={{ marginTop: 20 }}>
+      {/* ================= CENTER CONTENT ================= */}
+      <div style={{
+        display: "flex",
+        justifyContent: "center",
+        minHeight: "60vh"
+      }}>
+        <div style={{ width: "100%", maxWidth: 700 }}>
 
           {activeTab === "orders" && (
-            orders.map(o => (
-              <div key={o._id}>{o.status}</div>
-            ))
+            <>
+              <h3>My Orders</h3>
+
+              {orders.length === 0 && <p>No orders yet</p>}
+
+              {orders.map(order => (
+                <div key={order._id} style={{
+                  padding: 12,
+                  borderBottom: "1px solid #1e293b"
+                }}>
+                  {order.status}
+                </div>
+              ))}
+            </>
           )}
 
           {activeTab === "history" && (
-            orders.map(o => (
-              <div key={o._id}>
-                {o.status}
-                <button onClick={() => handleReorder(o)}>
-                  Reorder
-                </button>
-              </div>
-            ))
+            <>
+              <h3>Reorder Items</h3>
+
+              {orders.length === 0 && <p>No previous orders</p>}
+
+              {orders.map(order => (
+                <div key={order._id} style={{ marginBottom: 10 }}>
+                  {order.status}
+
+                  <button
+                    onClick={() => handleReorder(order)}
+                    style={{
+                      marginLeft: 10,
+                      padding: "4px 10px",
+                      background: "#22c55e",
+                      border: "none",
+                      color: "black",
+                      cursor: "pointer"
+                    }}
+                  >
+                    Reorder
+                  </button>
+                </div>
+              ))}
+            </>
           )}
 
           {activeTab === "security" && (
-            <div>
-              <input
-                placeholder="Current"
-                value={passwords.current}
-                onChange={(e)=>setPasswords({...passwords, current:e.target.value})}
-              />
-              <input
-                placeholder="New"
-                value={passwords.newPass}
-                onChange={(e)=>setPasswords({...passwords, newPass:e.target.value})}
-              />
-              <input
-                placeholder="Confirm"
-                value={passwords.confirm}
-                onChange={(e)=>setPasswords({...passwords, confirm:e.target.value})}
-              />
+            <>
+              <h3>Security Settings</h3>
 
-              <button onClick={handlePasswordChange}>
-                {pwLoading ? "Updating..." : "Update Password"}
-              </button>
+              <div style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 10
+              }}>
+                <input
+                  placeholder="Current Password"
+                  value={passwords.current}
+                  onChange={(e)=>setPasswords({...passwords, current:e.target.value})}
+                />
 
-              {pwMessage && <p>{pwMessage}</p>}
-            </div>
+                <input
+                  placeholder="New Password"
+                  value={passwords.newPass}
+                  onChange={(e)=>setPasswords({...passwords, newPass:e.target.value})}
+                />
+
+                <input
+                  placeholder="Confirm Password"
+                  value={passwords.confirm}
+                  onChange={(e)=>setPasswords({...passwords, confirm:e.target.value})}
+                />
+
+                <button onClick={handlePasswordChange}>
+                  {pwLoading ? "Updating..." : "Update Password"}
+                </button>
+
+                {pwMessage && <p>{pwMessage}</p>}
+              </div>
+            </>
           )}
-        </div>
 
-        {/* LOGOUT */}
-        <button
-          onClick={handleLogout}
-          style={{
-            marginTop: 30,
-            background: "#ef4444",
-            color: "white",
-            padding: 10,
-            width: "100%"
-          }}
-        >
-          Logout
-        </button>
+        </div>
       </div>
+
+      {/* ================= DRAWER ================= */}
+      {drawerOpen && (
+        <>
+          <div
+            onClick={() => setDrawerOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.6)",
+              zIndex: 1000
+            }}
+          />
+
+          <div style={{
+            position: "fixed",
+            top: 0,
+            right: 0,
+            height: "100%",
+            width: 340,
+            background: "#020617",
+            padding: 20,
+            zIndex: 1001
+          }}>
+
+            <button onClick={() => setDrawerOpen(false)}>✕</button>
+
+            <h2>Account</h2>
+            <p>{user?.name}</p>
+            <p>{user?.email}</p>
+
+            <div style={{
+              marginTop: 20,
+              display: "flex",
+              gap: 10
+            }}>
+              <button onClick={() => setActiveTab("orders")}>Orders</button>
+              <button onClick={() => setActiveTab("history")}>Reorders</button>
+              <button onClick={() => setActiveTab("security")}>Security</button>
+            </div>
+
+            <button
+              onClick={handleLogout}
+              style={{
+                marginTop: 30,
+                background: "#ef4444",
+                color: "white",
+                padding: 10,
+                width: "100%"
+              }}
+            >
+              Logout
+            </button>
+
+          </div>
+        </>
+      )}
 
     </div>
   )
