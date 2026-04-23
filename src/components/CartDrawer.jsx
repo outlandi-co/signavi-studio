@@ -33,7 +33,7 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       console.log("🛒 START CHECKOUT")
 
-      /* 🔥 FIXED: SEND FULL DATA */
+      /* ✅ CORRECT PAYLOAD */
       const safeItems = cart.map(item => ({
         productId: item.productId,
         selectedVariant: item.selectedVariant,
@@ -46,13 +46,8 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       const storedUser = JSON.parse(localStorage.getItem("customerUser") || "null")
 
-      const email =
-        storedUser?.email ||
-        prompt("Enter your email for receipt & tracking:")
-
-      if (!email) {
-        throw new Error("Email is required for checkout")
-      }
+      /* 🔥 REMOVE PROMPT → LET SQUARE HANDLE EMAIL */
+      const email = storedUser?.email || ""
 
       /* ================= CREATE ORDER ================= */
       const orderRes = await api.post("/orders", {
@@ -79,7 +74,7 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       console.log("💳 REDIRECTING TO PAYMENT:", url)
 
-      /* 🔥 FORCE REDIRECT */
+      /* 🔥 FORCE REDIRECT TO SQUARE */
       window.location.href = url
 
     } catch (err) {
