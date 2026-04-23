@@ -6,42 +6,20 @@ import { useState } from "react"
 
 export default function CartDrawer({ isOpen, onClose }) {
 
-  const { cart, setCart, removeFromCart } = useCart()
+  const { cart, removeFromCart } = useCart()
   const [isRedirecting, setIsRedirecting] = useState(false)
 
   const safeClose = () => {
     if (typeof onClose === "function") onClose()
   }
 
-  /* ================= QTY ================= */
-  const increaseQty = (id) => {
-    setCart(prev =>
-      prev.map(item =>
-        item.productId === id
-          ? { ...item, quantity: (item.quantity || 1) + 1 }
-          : item
-      )
-    )
-  }
-
-  const decreaseQty = (id) => {
-    setCart(prev =>
-      prev.map(item =>
-        item.productId === id
-          ? { ...item, quantity: Math.max(1, (item.quantity || 1) - 1) }
-          : item
-      )
-    )
-  }
-
   /* ================= SUBTOTAL ================= */
   const subtotal = cart.reduce((acc, item) => {
-    const price = Number(item?.variant?.price ?? item?.price ?? 0)
+    const price = Number(item?.selectedVariant?.price ?? 0)
     const qty = Number(item?.quantity) || 1
     return acc + price * qty
   }, 0)
 
-  /* ================= TAX ================= */
   const TAX_RATE = 0.0825
   const tax = subtotal * TAX_RATE
   const total = subtotal + tax
@@ -55,21 +33,19 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       console.log("🛒 START CHECKOUT")
 
+      /* 🔥 FIXED: SEND FULL DATA */
       const safeItems = cart.map(item => ({
-        name: item?.name || "Item",
-        quantity: Number(item?.quantity) || 1,
-        price: Number(item?.variant?.price ?? item?.price ?? 0)
+        productId: item.productId,
+        selectedVariant: item.selectedVariant,
+        quantity: Number(item.quantity) || 1
       }))
 
       if (!safeItems.length) {
         throw new Error("Cart is empty")
       }
 
-      const totalQuantity = safeItems.reduce((a, i) => a + i.quantity, 0)
-
       const storedUser = JSON.parse(localStorage.getItem("customerUser") || "null")
 
-      /* 🔥 FALLBACK EMAIL (IMPORTANT FIX) */
       const email =
         storedUser?.email ||
         prompt("Enter your email for receipt & tracking:")
@@ -82,12 +58,7 @@ export default function CartDrawer({ isOpen, onClose }) {
       const orderRes = await api.post("/orders", {
         customerName: storedUser?.name || "Guest",
         email,
-        items: safeItems,
-        quantity: totalQuantity,
-        subtotal,
-        tax,
-        price: total,
-        source: "store"
+        items: safeItems
       })
 
       const orderId = orderRes?.data?._id
@@ -108,7 +79,8 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       console.log("💳 REDIRECTING TO PAYMENT:", url)
 
-      window.location.assign(url)
+      /* 🔥 FORCE REDIRECT */
+      window.location.href = url
 
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err?.response?.data || err.message)
@@ -176,26 +148,16 @@ export default function CartDrawer({ isOpen, onClose }) {
           {cart.length === 0 && <p>Your cart is empty</p>}
 
           {cart.map((item, index) => {
-            const price = Number(item?.variant?.price ?? item?.price ?? 0)
-
-            const safeKey =
-              item.productId ||
-              item._id ||
-              `${item.name || "item"}-${index}`
-
-            const id = item.productId || item._id
+            const price = Number(item?.selectedVariant?.price ?? 0)
 
             return (
-              <div
-                key={safeKey}
-                style={{
-                  display: "flex",
-                  gap: 10,
-                  marginBottom: 16,
-                  borderBottom: "1px solid #1e293b",
-                  paddingBottom: 10
-                }}
-              >
+              <div key={index} style={{
+                display: "flex",
+                gap: 10,
+                marginBottom: 16,
+                borderBottom: "1px solid #1e293b",
+                paddingBottom: 10
+              }}>
                 <SafeImage
                   src={item.image || "/placeholder.png"}
                   alt={item.name}
@@ -206,19 +168,15 @@ export default function CartDrawer({ isOpen, onClose }) {
                   <strong>{item.name}</strong>
 
                   <p style={{ fontSize: 12, opacity: 0.7 }}>
-                    {item.variant?.color || "N/A"} / {item.variant?.size || "N/A"}
+                    {item.selectedVariant?.color} / {item.selectedVariant?.size}
                   </p>
 
                   <p>${price.toFixed(2)}</p>
 
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => decreaseQty(id)}>−</button>
-                    <span>{item.quantity}</span>
-                    <button onClick={() => increaseQty(id)}>+</button>
-                  </div>
+                  <p>Qty: {item.quantity}</p>
                 </div>
 
-                <button onClick={() => removeFromCart(id)}>✖</button>
+                <button onClick={() => removeFromCart(index)}>✖</button>
               </div>
             )
           })}
@@ -231,17 +189,16 @@ export default function CartDrawer({ isOpen, onClose }) {
             borderTop: "1px solid #1e293b"
           }}>
             <p>Subtotal: ${subtotal.toFixed(2)}</p>
-            <p>Tax (8.25%): ${tax.toFixed(2)}</p>
+            <p>Tax: ${tax.toFixed(2)}</p>
             <h3>Total: ${total.toFixed(2)}</h3>
 
             <Button
               onClick={handleCheckout}
               fullWidth
-              style={{ marginTop: 10 }}
               disabled={isRedirecting}
             >
               {isRedirecting
-                ? "🔐 Connecting to payment..."
+                ? "🔐 Connecting..."
                 : "💳 Checkout"}
             </Button>
           </div>
