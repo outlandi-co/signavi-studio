@@ -24,30 +24,6 @@ const STATUS_META = {
 const formatMoney = (n = 0) => `$${Number(n).toFixed(2)}`
 const formatDate = (d) => d ? new Date(d).toLocaleDateString() : "—"
 
-/* 🔐 PASSWORD STRENGTH */
-const getPasswordStrength = (password) => {
-  let score = 0
-  if (password.length >= 8) score++
-  if (/[A-Z]/.test(password)) score++
-  if (/[0-9]/.test(password)) score++
-  if (/[^A-Za-z0-9]/.test(password)) score++
-
-  const levels = ["Weak", "Fair", "Good", "Strong"]
-  const colors = ["#ef4444", "#f97316", "#eab308", "#22c55e"]
-
-  return {
-    label: levels[score - 1] || "Weak",
-    color: colors[score - 1] || "#ef4444",
-    score
-  }
-}
-
-const Rule = ({ valid, text }) => (
-  <div style={{ fontSize: 12, color: valid ? "#22c55e" : "#64748b" }}>
-    {valid ? "✔" : "•"} {text}
-  </div>
-)
-
 /* ================= CARD ================= */
 const OrderCard = ({ order }) => (
   <div style={card}>
@@ -69,19 +45,9 @@ export default function CustomerDashboard() {
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [sortBy, setSortBy] = useState("newest")
 
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("orders")
-
-  const [passwords, setPasswords] = useState({
-    current: "",
-    newPass: "",
-    confirm: ""
-  })
-
-  const [pwLoading, setPwLoading] = useState(false)
-  const [pwMessage, setPwMessage] = useState("")
 
   const socketRef = useRef(null)
   const navigate = useNavigate()
@@ -120,53 +86,15 @@ export default function CustomerDashboard() {
     }
   }, [])
 
-  /* FILTER + SORT */
-  const processedOrders = orders
-    .filter(o => {
-      const s = search.toLowerCase()
-      return (
-        o._id.toLowerCase().includes(s) ||
-        o.status.toLowerCase().includes(s)
-      ) &&
-      (statusFilter === "all" || o.status === statusFilter)
-    })
-    .sort((a, b) => {
-      if (sortBy === "newest") return new Date(b.createdAt) - new Date(a.createdAt)
-      if (sortBy === "oldest") return new Date(a.createdAt) - new Date(b.createdAt)
-      if (sortBy === "price-high") return (b.price || 0) - (a.price || 0)
-      if (sortBy === "price-low") return (a.price || 0) - (b.price || 0)
-      return 0
-    })
-
-  const strength = getPasswordStrength(passwords.newPass)
-
-  const isValidPassword =
-    strength.score >= 3 &&
-    passwords.newPass === passwords.confirm
-
-  const handlePasswordChange = async () => {
-    try {
-      setPwMessage("")
-      setPwLoading(true)
-
-      await api.post("/auth/change-password", {
-        currentPassword: passwords.current,
-        newPassword: passwords.newPass
-      })
-
-      setPwMessage("✅ Password updated")
-      setPasswords({ current: "", newPass: "", confirm: "" })
-
-    } catch (err) {
-      setPwMessage(err?.response?.data?.error || "❌ Failed")
-    } finally {
-      setPwLoading(false)
-    }
-  }
+  const processedOrders = orders.filter(o =>
+    o._id.toLowerCase().includes(search.toLowerCase()) &&
+    (statusFilter === "all" || o.status === statusFilter)
+  )
 
   return (
     <div style={container}>
 
+      {/* HEADER */}
       <div style={header}>
         <h2>Dashboard</h2>
         <button style={accountBtn} onClick={()=>setDrawerOpen(true)}>
@@ -176,24 +104,26 @@ export default function CustomerDashboard() {
 
       {/* CONTROLS */}
       <div style={controls}>
-        <input placeholder="Search..." value={search} onChange={(e)=>setSearch(e.target.value)} style={input} />
+        <input
+          placeholder="Search..."
+          value={search}
+          onChange={(e)=>setSearch(e.target.value)}
+          style={input}
+        />
 
-        <select value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value)} style={input}>
+        <select
+          value={statusFilter}
+          onChange={(e)=>setStatusFilter(e.target.value)}
+          style={input}
+        >
           <option value="all">All</option>
           {Object.keys(STATUS_META).map(s => (
             <option key={s} value={s}>{STATUS_META[s].label}</option>
           ))}
         </select>
-
-        <select value={sortBy} onChange={(e)=>setSortBy(e.target.value)} style={input}>
-          <option value="newest">Newest</option>
-          <option value="oldest">Oldest</option>
-          <option value="price-high">Price High</option>
-          <option value="price-low">Price Low</option>
-        </select>
       </div>
 
-      {/* ORDERS TAB */}
+      {/* ORDERS */}
       {activeTab === "orders" && (
         <>
           {loading && <p>Loading...</p>}
@@ -204,104 +134,166 @@ export default function CustomerDashboard() {
         </>
       )}
 
-      {/* PROFILE TAB */}
+      {/* PROFILE */}
       {activeTab === "profile" && (
-        <div style={securityBox}>
+        <div style={panel}>
           <h2>Profile</h2>
-          <p><strong>Name:</strong> {storedUser?.name}</p>
-          <p><strong>Email:</strong> {storedUser?.email}</p>
+          <p><b>Name:</b> {storedUser?.name}</p>
+          <p><b>Email:</b> {storedUser?.email}</p>
         </div>
       )}
 
-      {/* SECURITY TAB */}
+      {/* SECURITY */}
       {activeTab === "security" && (
-        <div style={securityBox}>
+        <div style={panel}>
           <h2>Security</h2>
-
-          <input type="password" placeholder="Current Password"
-            value={passwords.current}
-            onChange={(e)=>setPasswords({...passwords,current:e.target.value})}
-            style={input}
-          />
-
-          <input type="password" placeholder="New Password"
-            value={passwords.newPass}
-            onChange={(e)=>setPasswords({...passwords,newPass:e.target.value})}
-            style={input}
-          />
-
-          {passwords.newPass && (
-            <>
-              <div style={bar}>
-                <div style={{
-                  ...fill,
-                  width: `${strength.score * 25}%`,
-                  background: strength.color
-                }} />
-              </div>
-              <p style={{ color: strength.color }}>{strength.label}</p>
-
-              <div style={rulesBox}>
-                <Rule valid={passwords.newPass.length >= 8} text="8+ characters" />
-                <Rule valid={/[A-Z]/.test(passwords.newPass)} text="Uppercase" />
-                <Rule valid={/[0-9]/.test(passwords.newPass)} text="Number" />
-                <Rule valid={/[^A-Za-z0-9]/.test(passwords.newPass)} text="Symbol" />
-              </div>
-            </>
-          )}
-
-          <input type="password" placeholder="Confirm Password"
-            value={passwords.confirm}
-            onChange={(e)=>setPasswords({...passwords,confirm:e.target.value})}
-            style={input}
-          />
-
-          <button
-            disabled={!isValidPassword || pwLoading}
-            style={{ ...primaryBtn, opacity: isValidPassword ? 1 : 0.5 }}
-            onClick={handlePasswordChange}
-          >
-            {pwLoading ? "Updating..." : "Update Password"}
-          </button>
-
-          {pwMessage && <p>{pwMessage}</p>}
+          <p>Password tools coming 🔐</p>
         </div>
       )}
 
-      {/* DRAWER */}
+      {/* DRAWER FIXED */}
       {drawerOpen && (
-        <div style={drawer}>
-          <button onClick={()=>{setActiveTab("orders");setDrawerOpen(false)}}>Orders</button>
-          <button onClick={()=>{setActiveTab("profile");setDrawerOpen(false)}}>Profile</button>
-          <button onClick={()=>{setActiveTab("security");setDrawerOpen(false)}}>Security</button>
-          <button onClick={()=>{localStorage.clear();navigate("/customer-login")}}>Logout</button>
-        </div>
+        <>
+          <div style={overlay} onClick={()=>setDrawerOpen(false)} />
+
+          <div style={drawer}>
+
+            <h3 style={{ marginBottom: 20 }}>Account</h3>
+
+            <button style={drawerBtn} onClick={()=>{
+              setActiveTab("orders")
+              setDrawerOpen(false)
+            }}>
+              Orders
+            </button>
+
+            <button style={drawerBtn} onClick={()=>{
+              setActiveTab("profile")
+              setDrawerOpen(false)
+            }}>
+              Profile
+            </button>
+
+            <button style={drawerBtn} onClick={()=>{
+              setActiveTab("security")
+              setDrawerOpen(false)
+            }}>
+              Security
+            </button>
+
+            <button style={logoutBtn} onClick={()=>{
+              localStorage.clear()
+              navigate("/customer-login")
+            }}>
+              Logout
+            </button>
+
+          </div>
+        </>
       )}
+
     </div>
   )
 }
 
 /* ================= STYLES ================= */
 
-const container = { padding: 30, background: "#020617", minHeight: "100vh", color: "white" }
-const header = { display: "flex", marginBottom: 20 }
-const controls = { display: "flex", gap: 10, marginBottom: 20 }
+const container = {
+  padding: 30,
+  background: "#020617",
+  minHeight: "100vh",
+  color: "white"
+}
 
-const input = { padding: 10, background: "#0f172a", color: "white", borderRadius: 6 }
+const header = {
+  display: "flex",
+  marginBottom: 20
+}
 
-const card = { padding: 15, background: "#0f172a", marginBottom: 10 }
-const cardHeader = { display: "flex", justifyContent: "space-between" }
-const rowWrap = { display: "flex", justifyContent: "space-between" }
+const controls = {
+  display: "flex",
+  gap: 10,
+  marginBottom: 20
+}
 
-const accountBtn = { marginLeft: "auto" }
+const input = {
+  padding: 10,
+  background: "#0f172a",
+  color: "white",
+  borderRadius: 6,
+  border: "1px solid #1e293b"
+}
 
-const drawer = { position: "fixed", right: 0, top: 0, width: 220, height: "100%", background: "#020617", padding: 20 }
+const card = {
+  padding: 15,
+  background: "#0f172a",
+  marginBottom: 10,
+  borderRadius: 8
+}
 
-const securityBox = { maxWidth: 400, margin: "20px auto", display: "flex", flexDirection: "column", gap: 10 }
+const cardHeader = {
+  display: "flex",
+  justifyContent: "space-between"
+}
 
-const primaryBtn = { padding: 10, background: "#22c55e", borderRadius: 6 }
+const rowWrap = {
+  display: "flex",
+  justifyContent: "space-between"
+}
 
-const bar = { height: 6, background: "#1e293b", borderRadius: 6 }
-const fill = { height: "100%", borderRadius: 6 }
+const panel = {
+  maxWidth: 400,
+  margin: "40px auto"
+}
 
-const rulesBox = { display: "flex", flexDirection: "column", gap: 2 }
+const accountBtn = {
+  marginLeft: "auto",
+  padding: "8px 16px",
+  borderRadius: 6,
+  background: "#22c55e",
+  border: "none",
+  cursor: "pointer"
+}
+
+/* 🔥 FIXED DRAWER */
+const overlay = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.5)",
+  zIndex: 999
+}
+
+const drawer = {
+  position: "fixed",
+  right: 0,
+  top: 0,
+  width: 260,
+  height: "100%",
+  background: "#020617",
+  padding: 20,
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+  borderLeft: "1px solid #1e293b",
+  zIndex: 1000
+}
+
+const drawerBtn = {
+  padding: "12px",
+  background: "#0f172a",
+  border: "1px solid #1e293b",
+  borderRadius: 8,
+  color: "white",
+  cursor: "pointer",
+  textAlign: "left"
+}
+
+const logoutBtn = {
+  marginTop: "auto",
+  padding: "12px",
+  background: "#ef4444",
+  borderRadius: 8,
+  border: "none",
+  color: "white",
+  cursor: "pointer"
+}
