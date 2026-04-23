@@ -15,8 +15,9 @@ export default function CustomerDashboard() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const [activeView, setActiveView] = useState("orders")
-  const [dropdownOpen, setDropdownOpen] = useState(false)
+  /* 🔥 DRAWER STATE */
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState("orders")
 
   const [passwords, setPasswords] = useState({
     current: "",
@@ -29,7 +30,6 @@ export default function CustomerDashboard() {
 
   const navigate = useNavigate()
   const socketRef = useRef(null)
-  const dropdownRef = useRef(null)
 
   /* ================= USER ================= */
   useEffect(() => {
@@ -43,32 +43,22 @@ export default function CustomerDashboard() {
     setUser(JSON.parse(stored))
   }, [navigate])
 
-  /* ================= CLOSE DROPDOWN ================= */
-  useEffect(() => {
-    const handleClick = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setDropdownOpen(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClick)
-    return () => document.removeEventListener("mousedown", handleClick)
-  }, [])
-
-  /* ================= LOAD ORDERS ================= */
+  /* ================= ORDERS ================= */
   useEffect(() => {
     const load = async () => {
       try {
         const res = await api.get("/orders/my-orders")
 
-        // 🔥 FINAL FIX: ALWAYS ARRAY
-        const safeOrders = Array.isArray(res.data) ? res.data : []
+        const safeOrders = Array.isArray(res.data)
+          ? res.data
+          : []
 
         console.log("🧪 DASHBOARD ORDERS:", safeOrders)
 
         setOrders(safeOrders)
 
       } catch (err) {
-        console.error("❌ LOAD ORDERS ERROR:", err)
+        console.error(err)
         setOrders([])
       } finally {
         setLoading(false)
@@ -162,79 +152,136 @@ export default function CustomerDashboard() {
     <div style={{ padding: 20, color: "white" }}>
 
       {/* NAVBAR */}
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        marginBottom: 20
+      }}>
         <h2>SignaVi</h2>
 
-        <div ref={dropdownRef}>
-          <button onClick={() => setDropdownOpen(v => !v)}>
-            {user?.name?.[0] || "U"}
-          </button>
-
-          {dropdownOpen && (
-            <div style={{ background: "#111", padding: 10 }}>
-              <div onClick={() => setActiveView("orders")}>Orders</div>
-              <div onClick={() => setActiveView("history")}>Reorders</div>
-              <div onClick={() => setActiveView("security")}>Security</div>
-              <div onClick={handleLogout}>Logout</div>
-            </div>
-          )}
-        </div>
+        <button onClick={() => setDrawerOpen(true)}>
+          {user?.name?.[0] || "U"}
+        </button>
       </div>
 
-      {/* ================= CONTENT ================= */}
+      {/* MAIN CONTENT */}
+      <h3>My Orders</h3>
 
-      {/* ORDERS */}
-      {activeView === "orders" && (
-        <>
-          {orders.length === 0 && <p>No orders yet</p>}
+      {orders.length === 0 && <p>No orders yet</p>}
 
-          {orders.map(order => (
-            <div key={order._id}>{order.status}</div>
-          ))}
-        </>
-      )}
-
-      {/* REORDERS */}
-      {activeView === "history" && (
-        <>
-          {orders.length === 0 && <p>No previous orders</p>}
-
-          {orders.map(order => (
-            <div key={order._id}>
-              {order.status}
-              <button onClick={() => handleReorder(order)}>
-                Reorder
-              </button>
-            </div>
-          ))}
-        </>
-      )}
-
-      {/* SECURITY */}
-      {activeView === "security" && (
-        <div>
-          <input
-            placeholder="Current Password"
-            value={passwords.current}
-            onChange={(e)=>setPasswords({...passwords, current:e.target.value})}
-          />
-          <input
-            placeholder="New Password"
-            value={passwords.newPass}
-            onChange={(e)=>setPasswords({...passwords, newPass:e.target.value})}
-          />
-          <input
-            placeholder="Confirm Password"
-            value={passwords.confirm}
-            onChange={(e)=>setPasswords({...passwords, confirm:e.target.value})}
-          />
-
-          <button onClick={handlePasswordChange}>
-            {pwLoading ? "Updating..." : "Update Password"}
-          </button>
-
-          {pwMessage && <p>{pwMessage}</p>}
+      {orders.map(order => (
+        <div
+          key={order._id}
+          style={{ padding: 10, borderBottom: "1px solid #1e293b" }}
+        >
+          {order.status}
         </div>
+      ))}
+
+      {/* ================= DRAWER ================= */}
+
+      {drawerOpen && (
+        <>
+          {/* OVERLAY */}
+          <div
+            onClick={() => setDrawerOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.6)",
+              zIndex: 1000
+            }}
+          />
+
+          {/* PANEL */}
+          <div style={{
+            position: "fixed",
+            top: 0,
+            right: 0,
+            height: "100%",
+            width: 340,
+            background: "#020617",
+            borderLeft: "1px solid #1e293b",
+            padding: 20,
+            zIndex: 1001,
+            overflowY: "auto"
+          }}>
+
+            <h2>Account</h2>
+            <p>{user?.name}</p>
+            <p style={{ opacity: 0.6 }}>{user?.email}</p>
+
+            {/* TABS */}
+            <div style={{ marginTop: 20 }}>
+              <button onClick={() => setActiveTab("orders")}>Orders</button>
+              <button onClick={() => setActiveTab("history")}>Reorders</button>
+              <button onClick={() => setActiveTab("security")}>Security</button>
+            </div>
+
+            {/* CONTENT */}
+            <div style={{ marginTop: 20 }}>
+
+              {activeTab === "orders" && (
+                orders.map(o => (
+                  <div key={o._id}>{o.status}</div>
+                ))
+              )}
+
+              {activeTab === "history" && (
+                orders.map(o => (
+                  <div key={o._id}>
+                    {o.status}
+                    <button onClick={() => handleReorder(o)}>
+                      Reorder
+                    </button>
+                  </div>
+                ))
+              )}
+
+              {activeTab === "security" && (
+                <div>
+                  <input
+                    placeholder="Current"
+                    value={passwords.current}
+                    onChange={(e)=>setPasswords({...passwords, current:e.target.value})}
+                  />
+                  <input
+                    placeholder="New"
+                    value={passwords.newPass}
+                    onChange={(e)=>setPasswords({...passwords, newPass:e.target.value})}
+                  />
+                  <input
+                    placeholder="Confirm"
+                    value={passwords.confirm}
+                    onChange={(e)=>setPasswords({...passwords, confirm:e.target.value})}
+                  />
+
+                  <button onClick={handlePasswordChange}>
+                    {pwLoading ? "Updating..." : "Update Password"}
+                  </button>
+
+                  {pwMessage && <p>{pwMessage}</p>}
+                </div>
+              )}
+
+            </div>
+
+            {/* LOGOUT */}
+            <button
+              onClick={handleLogout}
+              style={{
+                marginTop: 30,
+                background: "#ef4444",
+                color: "white",
+                padding: 10,
+                width: "100%"
+              }}
+            >
+              Logout
+            </button>
+
+          </div>
+        </>
       )}
 
     </div>
