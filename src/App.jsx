@@ -17,20 +17,18 @@ import AdminLayout from "./components/admin/AdminLayout"
 import CustomerRoute from "./components/guards/CustomerRoute"
 import AdminRoute from "./components/admin/AdminRoute"
 
-/* 🔥 ADD THIS */
+/* 🔥 IMPORTANT: make sure file exists EXACTLY here */
 import CustomerLayout from "./pages/customer/CustomerLayout"
 
 /* PAGES */
 import Home from "./pages/Home"
 import Store from "./pages/Store"
 import ProductDetail from "./pages/ProductDetail"
-import Cart from "./pages/Cart"
 import ProductionBoard from "./pages/ProductionBoard"
 import CustomQuote from "./pages/CustomQuote"
 import Login from "./pages/Login"
 import QuoteResponse from "./pages/QuoteResponse"
 import Success from "./pages/Success"
-import AdminQuotes from "./pages/AdminQuotes"
 import TrackOrder from "./pages/TrackOrder"
 import ClientOrder from "./pages/ClientOrder"
 
@@ -44,7 +42,6 @@ import Security from "./pages/customer/Security"
 
 /* ADMIN */
 import Dashboard from "./pages/Dashboard"
-import AnalyticsPanel from "./pages/AnalyticsPanel"
 import AdminRevenue from "./pages/admin/AdminRevenue"
 import Orders from "./pages/admin/Orders"
 import AdminCustomers from "./pages/admin/AdminCustomers"
@@ -165,22 +162,19 @@ function AppContent() {
           {/* ================= AUTH ================= */}
           <Route path="/login" element={<Login />} />
 
-          {/* ================= CUSTOMER ================= */}
+          {/* ================= CUSTOMER AUTH ================= */}
           <Route path="/customer-login" element={<CustomerLogin />} />
           <Route path="/customer-register" element={<CustomerRegister />} />
 
-          {/* 🔥 FULL FIX STARTS HERE */}
+          {/* ================= CUSTOMER APP ================= */}
           <Route element={<CustomerRoute />}>
             <Route element={<CustomerLayout />}>
-
               <Route path="/dashboard" element={<CustomerDashboard />} />
               <Route path="/my-orders" element={<CustomerOrders />} />
               <Route path="/order/:id" element={<OrderDetail />} />
               <Route path="/security" element={<Security />} />
-
             </Route>
           </Route>
-          {/* 🔥 FIX ENDS HERE */}
 
           {/* ================= FLOW ================= */}
           <Route path="/track/:id" element={<TrackOrder />} />
@@ -193,17 +187,14 @@ function AppContent() {
           {/* ================= ADMIN ================= */}
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminLayout />}>
-
               <Route index element={<Dashboard />} />
               <Route path="production" element={<ProductionBoard />} />
               <Route path="orders" element={<Orders />} />
               <Route path="customers" element={<AdminCustomers />} />
               <Route path="revenue" element={<AdminRevenue />} />
-
               <Route path="products" element={<Products />} />
               <Route path="products/new" element={<CreateProduct />} />
               <Route path="products/edit/:id" element={<EditProduct />} />
-
             </Route>
           </Route>
 

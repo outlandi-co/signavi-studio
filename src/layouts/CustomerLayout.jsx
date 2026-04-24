@@ -2,7 +2,6 @@ import { useState } from "react"
 import { useNavigate, Outlet } from "react-router-dom"
 
 export default function CustomerLayout() {
-
   const [drawerOpen, setDrawerOpen] = useState(false)
   const navigate = useNavigate()
 
@@ -19,7 +18,6 @@ export default function CustomerLayout() {
 
   return (
     <div style={container}>
-
       {/* HEADER */}
       <div style={header}>
         <h2>Dashboard</h2>
@@ -32,18 +30,15 @@ export default function CustomerLayout() {
         </button>
       </div>
 
-      {/* 🔥 THIS IS THE FIX */}
+      {/* 🔥 nested routes render here */}
       <div>
         <Outlet />
       </div>
 
-      {/* ACCOUNT DRAWER */}
+      {/* DRAWER */}
       {drawerOpen && (
         <>
-          <div
-            style={overlay}
-            onClick={() => setDrawerOpen(false)}
-          />
+          <div style={overlay} onClick={() => setDrawerOpen(false)} />
 
           <div style={drawer}>
             <h3 style={{ marginBottom: 20 }}>Account</h3>
@@ -62,17 +57,11 @@ export default function CustomerLayout() {
               </button>
             </div>
 
-            <button
-              style={drawerBtn}
-              onClick={() => setDrawerOpen(false)}
-            >
+            <button style={drawerBtn} onClick={() => setDrawerOpen(false)}>
               Close
             </button>
 
-            <button
-              style={logoutBtn}
-              onClick={logout}
-            >
+            <button style={logoutBtn} onClick={logout}>
               Logout
             </button>
           </div>
