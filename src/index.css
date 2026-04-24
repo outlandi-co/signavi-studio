@@ -185,3 +185,14 @@ code {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
 }
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0px);
+  }
+}
