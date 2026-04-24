@@ -27,7 +27,6 @@ export default function CustomerDashboard() {
 
         console.log("📦 DASHBOARD ORDERS:", res.data)
 
-        // 🔥 Support multiple backend formats
         const data =
           res.data?.data ||
           res.data?.orders ||
@@ -50,20 +49,13 @@ export default function CustomerDashboard() {
     <div className="min-h-screen bg-[#020617] text-white p-6">
       <h1 className="text-2xl font-semibold mb-6">👤 Dashboard</h1>
 
-      {/* NAV ACTIONS */}
+      {/* ✅ ONLY KEEP ORDERS BUTTON */}
       <div className="flex gap-3 mb-6">
         <button
           onClick={() => navigate("/my-orders")}
-          className="bg-blue-600 px-4 py-2 rounded"
+          className="bg-blue-600 px-4 py-2 rounded hover:bg-blue-500 transition"
         >
           📦 View All Orders
-        </button>
-
-        <button
-          onClick={() => navigate("/security")}
-          className="bg-gray-700 px-4 py-2 rounded"
-        >
-          🔐 Security
         </button>
       </div>
 
@@ -117,7 +109,7 @@ export default function CustomerDashboard() {
                   e.stopPropagation()
                   navigate(`/track/${order._id}`)
                 }}
-                className="mt-2 text-xs bg-blue-600 px-3 py-1 rounded"
+                className="mt-2 text-xs bg-blue-600 px-3 py-1 rounded hover:bg-blue-500"
               >
                 Track
               </button>

@@ -18,7 +18,7 @@ import CustomerRoute from "./components/guards/CustomerRoute"
 import AdminRoute from "./components/admin/AdminRoute"
 
 /* 🔥 IMPORTANT: make sure file exists EXACTLY here */
-import CustomerLayout from "./pages/customer/CustomerLayout"
+import CustomerLayout from "./layouts/CustomerLayout"
 
 /* PAGES */
 import Home from "./pages/Home"
