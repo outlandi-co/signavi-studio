@@ -3,8 +3,11 @@ import SafeImage from "../components/SafeImage"
 import useCart from "../hooks/useCart"
 import api from "../services/api"
 import { useState, useMemo } from "react"
+import { useNavigate } from "react-router-dom" // 🔥 ADDED
 
 export default function CartDrawer({ isOpen, onClose }) {
+
+  const navigate = useNavigate() // 🔥 ADDED
 
   const { cart, removeFromCart, updateQuantity, clearCart } = useCart()
   const [isRedirecting, setIsRedirecting] = useState(false)
@@ -43,21 +46,16 @@ export default function CartDrawer({ isOpen, onClose }) {
     try {
       setIsRedirecting(true)
 
-      console.log("🛒 CHECKOUT CART:", cart)
-
       const safeItems = cart.map(item => ({
         productId: item.productId || item._id,
         selectedVariant: item.selectedVariant || item.variant,
         quantity: Number(item.quantity) || 1
       }))
 
-      console.log("🧪 PAYLOAD:", safeItems)
-
       if (!safeItems.length) {
         throw new Error("Cart is empty")
       }
 
-      /* 🔥 USER */
       const storedUser = JSON.parse(localStorage.getItem("customerUser") || "null")
 
       if (!storedUser?.email) {
@@ -66,9 +64,6 @@ export default function CartDrawer({ isOpen, onClose }) {
         return
       }
 
-      console.log("👤 USER:", storedUser)
-
-      /* 🔥 CREATE ORDER */
       const orderRes = await api.post("/orders", {
         customerName: storedUser?.name || "Guest",
         email: storedUser.email,
@@ -81,9 +76,6 @@ export default function CartDrawer({ isOpen, onClose }) {
         throw new Error("Order creation failed")
       }
 
-      console.log("✅ ORDER CREATED:", orderId)
-
-      /* 🔥 CREATE PAYMENT LINK */
       const paymentRes = await api.post(`/square/create-payment/${orderId}`)
       const url = paymentRes?.data?.url
 
@@ -91,15 +83,10 @@ export default function CartDrawer({ isOpen, onClose }) {
         throw new Error("No payment URL")
       }
 
-      console.log("🚀 REDIRECT:", url)
-
-      /* 🔥 CLEAR CART (SYNC) */
       clearCart()
       localStorage.removeItem("cart")
 
-      /* 🔥 HARD STOP → REDIRECT */
       window.location.href = url
-      return
 
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err?.response?.data || err.message)
@@ -156,6 +143,29 @@ export default function CartDrawer({ isOpen, onClose }) {
         }}>
           <h2>🛒 Cart</h2>
           <button onClick={safeClose}>✖</button>
+        </div>
+
+        {/* 🔥 NEW NAV SECTION */}
+        <div style={{
+          padding: "10px 20px",
+          borderBottom: "1px solid #1e293b"
+        }}>
+          <button
+            onClick={() => {
+              safeClose()
+              navigate("/my-orders")
+            }}
+            style={{
+              width: "100%",
+              textAlign: "left",
+              padding: "10px",
+              background: "#0f172a",
+              borderRadius: "8px",
+              cursor: "pointer"
+            }}
+          >
+            📦 View Orders
+          </button>
         </div>
 
         {/* ITEMS */}
