@@ -68,6 +68,8 @@ export default function CustomerDashboard() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
 
+  const [drawerOpen, setDrawerOpen] = useState(false)
+
   const socketRef = useRef(null)
   const navigate = useNavigate()
 
@@ -78,7 +80,7 @@ export default function CustomerDashboard() {
     if (!storedUser) navigate("/customer-login")
   }, [storedUser, navigate])
 
-  /* 📦 LOAD ORDERS (🔥 FIXED) */
+  /* 📦 LOAD ORDERS */
   useEffect(() => {
     const loadOrders = async () => {
       try {
@@ -98,7 +100,7 @@ export default function CustomerDashboard() {
         console.error("❌ LOAD ORDERS ERROR:", err)
         setOrders([])
       } finally {
-        setLoading(false) // 🔥 prevents infinite loading
+        setLoading(false)
       }
     }
 
@@ -136,8 +138,19 @@ export default function CustomerDashboard() {
   return (
     <div style={container}>
 
-      <h2>Customer Dashboard</h2>
+      {/* HEADER */}
+      <div style={header}>
+        <h2>Dashboard</h2>
 
+        <button
+          style={accountBtn}
+          onClick={() => setDrawerOpen(true)}
+        >
+          Account
+        </button>
+      </div>
+
+      {/* FILTERS */}
       <div style={controls}>
         <input
           placeholder="Search..."
@@ -159,7 +172,7 @@ export default function CustomerDashboard() {
         </select>
       </div>
 
-      {/* 🔥 LOADING FIX */}
+      {/* UI STATES */}
       {loading && <p>Loading...</p>}
 
       {!loading && processedOrders.length === 0 && (
@@ -170,14 +183,85 @@ export default function CustomerDashboard() {
         <OrderCard key={o._id} order={o} />
       ))}
 
+      {/* ACCOUNT DRAWER */}
+      {drawerOpen && (
+        <>
+          <div style={overlay} onClick={()=>setDrawerOpen(false)} />
+
+          <div style={drawer}>
+            <h3>Account</h3>
+
+            <button
+              style={drawerBtn}
+              onClick={()=>setDrawerOpen(false)}
+            >
+              Close
+            </button>
+
+            <button
+              style={logoutBtn}
+              onClick={()=>{
+                localStorage.clear()
+                navigate("/customer-login")
+              }}
+            >
+              Logout
+            </button>
+          </div>
+        </>
+      )}
+
     </div>
   )
 }
 
 /* ================= STYLES ================= */
 const container = { padding: 30, background: "#020617", minHeight: "100vh", color: "white" }
+const header = { display: "flex", marginBottom: 20 }
 const controls = { display: "flex", gap: 10, marginBottom: 20 }
 const input = { padding: 10, background: "#0f172a", color: "white", borderRadius: 6 }
 const card = { padding: 15, background: "#0f172a", marginBottom: 10, borderRadius: 8 }
 const cardHeader = { display: "flex", justifyContent: "space-between" }
 const rowWrap = { display: "flex", justifyContent: "space-between" }
+
+const accountBtn = {
+  marginLeft: "auto",
+  padding: "8px 16px",
+  background: "#22c55e",
+  color: "black",
+  borderRadius: 6,
+  cursor: "pointer"
+}
+
+const overlay = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.5)"
+}
+
+const drawer = {
+  position: "fixed",
+  right: 0,
+  top: 0,
+  width: 260,
+  height: "100%",
+  background: "#020617",
+  padding: 20,
+  display: "flex",
+  flexDirection: "column",
+  gap: 10
+}
+
+const drawerBtn = {
+  padding: 12,
+  background: "#0f172a",
+  color: "white",
+  borderRadius: 6
+}
+
+const logoutBtn = {
+  marginTop: "auto",
+  background: "#ef4444",
+  padding: 12,
+  borderRadius: 6
+}
