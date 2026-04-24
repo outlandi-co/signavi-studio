@@ -36,6 +36,7 @@ import CustomerLogin from "./pages/customer/CustomerLogin"
 import CustomerRegister from "./pages/CustomerRegister"
 import CustomerDashboard from "./pages/customer/CustomerDashboard"
 import OrderDetail from "./pages/customer/OrderDetail"
+import Security from "./pages/customer/Security" // 🔥 ADDED
 
 /* ADMIN */
 import Dashboard from "./pages/Dashboard"
@@ -166,6 +167,7 @@ function AppContent() {
           <Route element={<CustomerRoute />}>
             <Route path="/dashboard" element={<CustomerDashboard />} />
             <Route path="/order/:id" element={<OrderDetail />} />
+            <Route path="/security" element={<Security />} /> {/* 🔥 ADDED */}
           </Route>
 
           {/* ================= FLOW ================= */}
