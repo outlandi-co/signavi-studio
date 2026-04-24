@@ -20,22 +20,27 @@ export default function useCart() {
   /* ================= ADD ================= */
   const addToCart = (product) => {
     const variant = product.selectedVariant
-    if (!variant || !variant._id) {
-      console.warn("❌ Missing variant or variant._id")
+
+    // ✅ FIXED: remove _id check
+    if (!variant || !variant.color || !variant.size) {
+      console.warn("❌ Missing variant (color/size)")
       return
     }
 
     setCart(prev => {
 
+      // ✅ FIXED: match by color + size
       const existing = prev.find(item =>
         item.productId === product._id &&
-        item.selectedVariant?._id === variant._id
+        item.selectedVariant?.color === variant.color &&
+        item.selectedVariant?.size === variant.size
       )
 
       if (existing) {
         return prev.map(item =>
           item.productId === product._id &&
-          item.selectedVariant?._id === variant._id
+          item.selectedVariant?.color === variant.color &&
+          item.selectedVariant?.size === variant.size
             ? { ...item, quantity: item.quantity + 1 }
             : item
         )
@@ -48,9 +53,8 @@ export default function useCart() {
           name: product.name,
           image: product.image,
 
-          /* 🔥 KEEP THIS NAME (BACKEND DEPENDS ON IT) */
+          /* 🔥 NO _id */
           selectedVariant: {
-            _id: variant._id,
             color: variant.color,
             size: variant.size,
             price: variant.price
@@ -86,8 +90,7 @@ export default function useCart() {
     const quantity = Number(item?.quantity) || 1
 
     const price = Number(
-      item?.selectedVariant?.price ??
-      0
+      item?.selectedVariant?.price ?? 0
     )
 
     return sum + price * quantity

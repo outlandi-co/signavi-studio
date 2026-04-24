@@ -22,16 +22,11 @@ function Orders() {
       try {
         const res = await api.get("/orders")
 
-        console.log("🔥 RAW ORDERS:", res.data)
-
-        // ✅ FIX: normalize backend response
         const safeOrders = Array.isArray(res.data)
           ? res.data
           : Array.isArray(res.data?.data)
           ? res.data.data
           : []
-
-        console.log("✅ SAFE ORDERS:", safeOrders)
 
         setOrders(safeOrders)
 
@@ -46,7 +41,6 @@ function Orders() {
     load()
   }, [])
 
-  /* ================= SAFE ================= */
   const safeOrders = Array.isArray(orders) ? orders : []
 
   /* ================= UPDATE STATUS ================= */
@@ -57,11 +51,8 @@ function Orders() {
       const updatedOrder = res.data?.data || res.data?.order
 
       setOrders(prev =>
-        (Array.isArray(prev) ? prev : []).map(o =>
-          o._id === id ? updatedOrder : o
-        )
+        prev.map(o => (o._id === id ? updatedOrder : o))
       )
-
     } catch (err) {
       console.error("❌ STATUS ERROR:", err)
     }
@@ -70,10 +61,7 @@ function Orders() {
   /* ================= BULK LABELS ================= */
   const handleBulkPrint = async () => {
     try {
-      if (!selected.length) {
-        alert("Select orders first")
-        return
-      }
+      if (!selected.length) return alert("Select orders first")
 
       const res = await api.post(
         "/orders/bulk-labels",
@@ -83,64 +71,51 @@ function Orders() {
 
       const url = window.URL.createObjectURL(res.data)
       window.open(url)
-
     } catch (err) {
       console.error("❌ BULK PRINT ERROR:", err)
-      alert("Failed to generate labels")
     }
   }
 
-  /* ================= PRINT ALL ================= */
+  /* ================= PRINT ================= */
   const printAll = async (id) => {
     try {
       const res = await api.get(`/orders/${id}/print-all`)
 
-      if (res.data?.label) {
-        window.open(res.data.label, "_blank")
-      }
-
-      if (res.data?.packingSlip) {
-        window.open(res.data.packingSlip, "_blank")
-      }
+      if (res.data?.label) window.open(res.data.label)
+      if (res.data?.packingSlip) window.open(res.data.packingSlip)
 
     } catch (err) {
-      console.error("❌ PRINT ALL ERROR:", err)
+      console.error("❌ PRINT ERROR:", err)
     }
   }
 
-  /* ================= INVOICE ================= */
   const printInvoice = (id) => {
     window.open(`/api/orders/${id}/invoice`, "_blank")
   }
 
-  /* ================= LOADING ================= */
+  /* ================= UI ================= */
+
   if (loading) {
     return (
       <div style={center}>
-        <h2 style={{ color: "white" }}>⏳ Loading orders...</h2>
+        <h2>⏳ Loading orders...</h2>
       </div>
     )
   }
 
-  /* ================= UI ================= */
   return (
     <div style={container}>
 
       <h1>📦 Orders</h1>
 
-      <p style={{ opacity: 0.6 }}>
-        DEBUG: {safeOrders.length} orders loaded
-      </p>
-
-      {/* BULK ACTION BAR */}
+      {/* BULK BAR */}
       <div style={toolbar}>
         <button
           onClick={handleBulkPrint}
           style={{
             ...button,
             background: selected.length ? "#22c55e" : "#374151",
-            color: selected.length ? "#000" : "#9ca3af",
-            cursor: selected.length ? "pointer" : "not-allowed"
+            color: selected.length ? "#000" : "#9ca3af"
           }}
         >
           🧾 Bulk Labels ({selected.length})
@@ -149,7 +124,7 @@ function Orders() {
         {selected.length > 0 && (
           <button
             onClick={() => setSelected([])}
-            style={{ ...button, background: "#ef4444", color: "#fff" }}
+            style={{ ...button, background: "#ef4444" }}
           >
             ❌ Clear
           </button>
@@ -160,12 +135,12 @@ function Orders() {
       {safeOrders.length === 0 ? (
         <p>No orders found.</p>
       ) : (
-        <table style={{ width: "100%" }}>
+        <table style={table}>
           <thead>
             <tr>
               <th></th>
               <th>ID</th>
-              <th>Customer</th>
+              <th>Customer / Items</th>
               <th>Status</th>
               <th>Tracking</th>
               <th>Actions</th>
@@ -176,23 +151,44 @@ function Orders() {
             {safeOrders.map(o => (
               <tr key={o._id}>
 
+                {/* SELECT */}
                 <td>
                   <input
                     type="checkbox"
                     checked={selected.includes(o._id)}
-                    onChange={() => {
+                    onChange={() =>
                       setSelected(prev =>
                         prev.includes(o._id)
                           ? prev.filter(id => id !== o._id)
                           : [...prev, o._id]
                       )
-                    }}
+                    }
                   />
                 </td>
 
+                {/* ID */}
                 <td>{o._id?.slice(-6)}</td>
-                <td>{o.customerName || "Unknown"}</td>
 
+                {/* CUSTOMER + ITEMS */}
+                <td>
+                  <strong>{o.customerName || "Unknown"}</strong>
+
+                  <div style={items}>
+                    {(o.items || []).map((item, i) => (
+                      <div key={i}>
+                        {item.name} × {item.quantity}
+
+                        {item.variant && (
+                          <span style={variantTag}>
+                            {item.variant.color} / {item.variant.size}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </td>
+
+                {/* STATUS */}
                 <td>
                   {STATUS_LIST.map(s => (
                     <button
@@ -208,8 +204,10 @@ function Orders() {
                   ))}
                 </td>
 
+                {/* TRACKING */}
                 <td>{o.trackingNumber || "Not shipped"}</td>
 
+                {/* ACTIONS */}
                 <td>
                   {o.status === "production" && (
                     <button onClick={() => updateStatus(o._id, "shipping")}>
@@ -220,7 +218,7 @@ function Orders() {
                   {o.status === "shipping" && (
                     <>
                       <button onClick={() => printAll(o._id)}>
-                        🚀 Print All
+                        🚀 Print
                       </button>
 
                       <button onClick={() => printInvoice(o._id)}>
@@ -249,6 +247,11 @@ const container = {
   color: "white"
 }
 
+const table = {
+  width: "100%",
+  borderCollapse: "collapse"
+}
+
 const toolbar = {
   display: "flex",
   gap: 10,
@@ -259,7 +262,19 @@ const button = {
   padding: "8px 14px",
   border: "none",
   borderRadius: 6,
-  fontWeight: "bold"
+  fontWeight: "bold",
+  cursor: "pointer"
+}
+
+const items = {
+  fontSize: "12px",
+  opacity: 0.7,
+  marginTop: 4
+}
+
+const variantTag = {
+  marginLeft: 6,
+  color: "#38bdf8"
 }
 
 const center = {
@@ -267,7 +282,8 @@ const center = {
   justifyContent: "center",
   alignItems: "center",
   height: "100vh",
-  background: "#020617"
+  background: "#020617",
+  color: "white"
 }
 
 export default Orders
