@@ -6,54 +6,34 @@ import { useState, useMemo } from "react"
 
 export default function CartDrawer({ isOpen, onClose }) {
 
-  const { cart, setCart, removeFromCart } = useCart()
+  const { cart, removeFromCart, updateQuantity, clearCart } = useCart()
   const [isRedirecting, setIsRedirecting] = useState(false)
 
   const safeClose = () => {
     if (typeof onClose === "function") onClose()
   }
 
-  /* ================= QTY ================= */
-  const increaseQty = (id) => {
-    setCart(prev =>
-      prev.map(item =>
-        (item.productId || item._id) === id
-          ? { ...item, quantity: (item.quantity || 1) + 1 }
-          : item
-      )
-    )
-  }
-
-  const decreaseQty = (id) => {
-    setCart(prev =>
-      prev.map(item =>
-        (item.productId || item._id) === id
-          ? { ...item, quantity: Math.max(1, (item.quantity || 1) - 1) }
-          : item
-      )
-    )
-  }
-
   /* ================= TOTALS ================= */
   const { subtotal, tax, total } = useMemo(() => {
+
     const sub = cart.reduce((acc, item) => {
       const price = Number(
         item?.selectedVariant?.price ??
         item?.variant?.price ??
-        item?.price ??
         0
       )
-      const qty = Number(item?.quantity) || 1
+      const qty = Number(item?.quantity || 1)
       return acc + price * qty
     }, 0)
 
-    const TAX_RATE = 0.0825
+    const taxRate = 0.0825
 
     return {
       subtotal: sub,
-      tax: sub * TAX_RATE,
-      total: sub + sub * TAX_RATE
+      tax: sub * taxRate,
+      total: sub + (sub * taxRate)
     }
+
   }, [cart])
 
   /* ================= CHECKOUT ================= */
@@ -77,16 +57,22 @@ export default function CartDrawer({ isOpen, onClose }) {
         throw new Error("Cart is empty")
       }
 
-      /* 🔥 GET USER */
+      /* 🔥 USER */
       const storedUser = JSON.parse(localStorage.getItem("customerUser") || "null")
+
+      if (!storedUser?.email) {
+        alert("Please log in before checking out")
+        window.location.href = "/customer-login"
+        return
+      }
 
       console.log("👤 USER:", storedUser)
 
       /* 🔥 CREATE ORDER */
       const orderRes = await api.post("/orders", {
-        items: safeItems,
         customerName: storedUser?.name || "Guest",
-        email: storedUser?.email || ""   // ✅ CRITICAL FIX
+        email: storedUser.email,
+        items: safeItems
       })
 
       const orderId = orderRes?.data?._id
@@ -102,16 +88,18 @@ export default function CartDrawer({ isOpen, onClose }) {
       const url = paymentRes?.data?.url
 
       if (!url) {
-        throw new Error("No payment URL returned")
+        throw new Error("No payment URL")
       }
 
       console.log("🚀 REDIRECT:", url)
 
-      /* 🔥 CLEAR CART */
-      setCart([])
+      /* 🔥 CLEAR CART (SYNC) */
+      clearCart()
       localStorage.removeItem("cart")
 
+      /* 🔥 HARD STOP → REDIRECT */
       window.location.href = url
+      return
 
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err?.response?.data || err.message)
@@ -137,7 +125,7 @@ export default function CartDrawer({ isOpen, onClose }) {
           background: "rgba(0,0,0,0.6)",
           opacity: isOpen ? 1 : 0,
           pointerEvents: isOpen ? "auto" : "none",
-          zIndex: 500
+          zIndex: 900
         }}
       />
 
@@ -148,10 +136,10 @@ export default function CartDrawer({ isOpen, onClose }) {
           top: 0,
           right: 0,
           width: 360,
-          height: "100%",
+          height: "100vh",
           background: "#020617",
           transform: isOpen ? "translateX(0)" : "translateX(100%)",
-          transition: "0.3s",
+          transition: "0.3s ease",
           display: "flex",
           flexDirection: "column",
           color: "white",
@@ -160,27 +148,45 @@ export default function CartDrawer({ isOpen, onClose }) {
       >
 
         {/* HEADER */}
-        <div style={{ padding: 20, display: "flex", justifyContent: "space-between" }}>
+        <div style={{
+          padding: 20,
+          display: "flex",
+          justifyContent: "space-between",
+          borderBottom: "1px solid #1e293b"
+        }}>
           <h2>🛒 Cart</h2>
           <button onClick={safeClose}>✖</button>
         </div>
 
         {/* ITEMS */}
-        <div style={{ padding: 20, flex: 1, overflowY: "auto" }}>
+        <div style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: 20
+        }}>
           {cart.length === 0 && <p>Your cart is empty</p>}
 
           {cart.map((item, index) => {
+
             const price = Number(
               item?.selectedVariant?.price ??
               item?.variant?.price ??
-              item?.price ??
               0
             )
+
+            const qty = Number(item?.quantity || 1)
+            const lineTotal = price * qty
 
             const id = item.productId || item._id
 
             return (
-              <div key={index} style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+              <div key={index} style={{
+                display: "flex",
+                gap: 10,
+                marginBottom: 16,
+                borderBottom: "1px solid #1e293b",
+                paddingBottom: 10
+              }}>
                 <SafeImage
                   src={item.image || "/placeholder.png"}
                   alt={item.name}
@@ -195,12 +201,16 @@ export default function CartDrawer({ isOpen, onClose }) {
                     {(item.selectedVariant || item.variant)?.size || "N/A"}
                   </p>
 
-                  <p>${price.toFixed(2)}</p>
+                  <p>${price.toFixed(2)} × {qty}</p>
 
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => decreaseQty(id)}>−</button>
-                    <span>{item.quantity}</span>
-                    <button onClick={() => increaseQty(id)}>+</button>
+                  <p style={{ color: "#22c55e", fontWeight: "bold" }}>
+                    ${lineTotal.toFixed(2)}
+                  </p>
+
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => updateQuantity(id, qty - 1)}>-</button>
+                    <span>{qty}</span>
+                    <button onClick={() => updateQuantity(id, qty + 1)}>+</button>
                   </div>
                 </div>
 
@@ -212,20 +222,24 @@ export default function CartDrawer({ isOpen, onClose }) {
 
         {/* FOOTER */}
         {cart.length > 0 && (
-          <div style={{ padding: 20 }}>
+          <div style={{
+            padding: 20,
+            borderTop: "1px solid #1e293b"
+          }}>
             <p>Subtotal: ${subtotal.toFixed(2)}</p>
-            <p>Tax (8.25%): ${tax.toFixed(2)}</p>
+            <p>Tax: ${tax.toFixed(2)}</p>
 
-            <h3>Total: ${total.toFixed(2)}</h3>
+            <h3 style={{ color: "#22c55e" }}>
+              Total: ${total.toFixed(2)}
+            </h3>
 
             <Button
               onClick={handleCheckout}
               fullWidth
-              style={{ marginTop: 10 }}
               disabled={isRedirecting}
             >
               {isRedirecting
-                ? "🔐 Connecting to payment..."
+                ? "🔐 Connecting..."
                 : "💳 Checkout"}
             </Button>
           </div>

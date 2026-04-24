@@ -1,227 +1,111 @@
-import Button from "../components/UI/Button"
-import SafeImage from "../components/SafeImage"
-import useCart from "../hooks/useCart"
+import { useEffect, useState } from "react"
+import { useSearchParams, useNavigate } from "react-router-dom"
 import api from "../services/api"
-import { useState } from "react"
 
-export default function CartDrawer({ isOpen, onClose }) {
+export default function Success() {
 
-  const { cart, setCart, removeFromCart } = useCart()
-  const [isRedirecting, setIsRedirecting] = useState(false)
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
 
-  const safeClose = () => {
-    if (typeof onClose === "function") onClose()
-  }
+  const [order, setOrder] = useState(null)
+  const [loading, setLoading] = useState(true)
 
-  /* ================= QTY ================= */
-  const increaseQty = (id) => {
-    setCart(prev =>
-      prev.map(item =>
-        (item.productId || item._id) === id
-          ? { ...item, quantity: (item.quantity || 1) + 1 }
-          : item
-      )
-    )
-  }
+  const orderId = searchParams.get("orderId")
 
-  const decreaseQty = (id) => {
-    setCart(prev =>
-      prev.map(item =>
-        (item.productId || item._id) === id
-          ? { ...item, quantity: Math.max(1, (item.quantity || 1) - 1) }
-          : item
-      )
-    )
-  }
+  useEffect(() => {
 
-  /* ================= TOTALS ================= */
-  const subtotal = cart.reduce((acc, item) => {
-    const price = Number(
-      item?.selectedVariant?.price ??
-      item?.variant?.price ??
-      item?.price ??
-      0
-    )
-    const qty = Number(item?.quantity) || 1
-    return acc + price * qty
-  }, 0)
-
-  const TAX_RATE = 0.0825
-  const tax = subtotal * TAX_RATE
-  const total = subtotal + tax
-
-  /* ================= CHECKOUT ================= */
-  const handleCheckout = async () => {
-    if (isRedirecting) return
-
-    try {
-      setIsRedirecting(true)
-
-      console.log("🛒 Creating order from cart...", cart)
-
-      /* 🔥 FIXED PAYLOAD */
-      const safeItems = cart.map(item => ({
-        productId: item.productId || item._id,
-        selectedVariant: item.selectedVariant || item.variant,
-        quantity: Number(item.quantity) || 1
-      }))
-
-      console.log("🧪 PAYLOAD:", safeItems)
-
-      if (!safeItems.length) {
-        throw new Error("Cart is empty")
-      }
-
-      const storedUser = JSON.parse(localStorage.getItem("customerUser") || "null")
-
-      /* 🔥 CREATE ORDER */
-      const orderRes = await api.post("/orders", {
-        items: safeItems,
-        customerName: storedUser?.name || "Guest",
-        email: storedUser?.email || ""
-      })
-
-      const orderId = orderRes?.data?._id
-
-      if (!orderId) {
-        throw new Error("Order creation failed")
-      }
-
-      console.log("✅ Order created:", orderId)
-
-      /* 🔥 CREATE PAYMENT LINK */
-      const paymentRes = await api.post(`/square/create-payment/${orderId}`)
-      const url = paymentRes?.data?.url
-
-      if (!url) {
-        throw new Error("No payment URL returned")
-      }
-
-      console.log("🚀 Redirecting to payment:", url)
-
-      /* 🔥 CLEAR CART BEFORE REDIRECT */
-      localStorage.removeItem("cart")
-
-      window.location.assign(url)
-
-    } catch (err) {
-      console.error("❌ CHECKOUT ERROR:", err?.response?.data || err.message)
-
-      alert(
-        err?.response?.data?.message ||
-        err.message ||
-        "Checkout failed"
-      )
-
-      setIsRedirecting(false)
+    if (!orderId) {
+      setLoading(false)
+      return
     }
-  }
+
+    const loadOrder = async () => {
+      try {
+        const res = await api.get(`/orders/${orderId}`)
+        setOrder(res.data)
+      } catch (err) {
+        console.error("❌ Failed to load order:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadOrder()
+
+  }, [orderId])
 
   return (
-    <>
-      {/* BACKDROP */}
-      <div
-        onClick={safeClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.6)",
-          opacity: isOpen ? 1 : 0,
-          pointerEvents: isOpen ? "auto" : "none",
-          zIndex: 500
-        }}
-      />
+    <div style={{
+      minHeight: "100vh",
+      background: "#020617",
+      color: "white",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 20
+    }}>
 
-      {/* DRAWER */}
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          right: 0,
-          width: 360,
-          height: "100%",
-          background: "#020617",
-          transform: isOpen ? "translateX(0)" : "translateX(100%)",
-          transition: "0.3s",
-          display: "flex",
-          flexDirection: "column",
-          color: "white",
-          zIndex: 1000
-        }}
-      >
+      <div style={{
+        maxWidth: 500,
+        width: "100%",
+        textAlign: "center"
+      }}>
 
-        {/* HEADER */}
-        <div style={{ padding: 20, display: "flex", justifyContent: "space-between" }}>
-          <h2>🛒 Cart</h2>
-          <button onClick={safeClose}>✖</button>
-        </div>
+        {loading && <p>Loading...</p>}
 
-        {/* ITEMS */}
-        <div style={{ padding: 20, flex: 1, overflowY: "auto" }}>
-          {cart.length === 0 && <p>Your cart is empty</p>}
+        {!loading && (
+          <>
+            <h1 style={{ fontSize: 28 }}>🎉 Payment Successful</h1>
 
-          {cart.map((item, index) => {
-            const price = Number(
-              item?.selectedVariant?.price ??
-              item?.variant?.price ??
-              item?.price ??
-              0
-            )
+            <p style={{ marginTop: 10, opacity: 0.7 }}>
+              Your order has been received and is now being processed.
+            </p>
 
-            const id = item.productId || item._id
-
-            return (
-              <div key={index} style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-                <SafeImage
-                  src={item.image || "/placeholder.png"}
-                  alt={item.name}
-                  style={{ width: 60, height: 60 }}
-                />
-
-                <div style={{ flex: 1 }}>
-                  <strong>{item.name}</strong>
-
-                  <p style={{ fontSize: 12, opacity: 0.7 }}>
-                    {(item.selectedVariant || item.variant)?.color || "N/A"} /
-                    {(item.selectedVariant || item.variant)?.size || "N/A"}
-                  </p>
-
-                  <p>${price.toFixed(2)}</p>
-
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => decreaseQty(id)}>−</button>
-                    <span>{item.quantity}</span>
-                    <button onClick={() => increaseQty(id)}>+</button>
-                  </div>
-                </div>
-
-                <button onClick={() => removeFromCart(id)}>✖</button>
+            {order && (
+              <div style={{
+                marginTop: 20,
+                background: "#111",
+                padding: 20,
+                borderRadius: 10
+              }}>
+                <p><strong>Order ID:</strong> {order._id}</p>
+                <p><strong>Status:</strong> {order.status}</p>
+                <p><strong>Total:</strong> ${order.finalPrice?.toFixed(2)}</p>
               </div>
-            )
-          })}
-        </div>
+            )}
 
-        {/* FOOTER */}
-        {cart.length > 0 && (
-          <div style={{ padding: 20 }}>
-            <p>Subtotal: ${subtotal.toFixed(2)}</p>
-            <p>Tax (8.25%): ${tax.toFixed(2)}</p>
-
-            <h3>Total: ${total.toFixed(2)}</h3>
-
-            <Button
-              onClick={handleCheckout}
-              fullWidth
-              style={{ marginTop: 10 }}
-              disabled={isRedirecting}
+            <button
+              onClick={() => navigate(`/track/${orderId}`)}
+              style={{
+                marginTop: 20,
+                padding: "10px 20px",
+                background: "#22c55e",
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer"
+              }}
             >
-              {isRedirecting
-                ? "🔐 Connecting to payment..."
-                : "💳 Checkout"}
-            </Button>
-          </div>
+              📦 Track Order
+            </button>
+
+            <button
+              onClick={() => navigate("/")}
+              style={{
+                marginTop: 10,
+                display: "block",
+                width: "100%",
+                padding: 10,
+                background: "#1e293b",
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer"
+              }}
+            >
+              🏠 Back to Home
+            </button>
+          </>
         )}
       </div>
-    </>
+    </div>
   )
 }
