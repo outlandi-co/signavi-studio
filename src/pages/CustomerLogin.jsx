@@ -43,17 +43,11 @@ export default function CustomerLogin() {
         password
       })
 
-      if (!res.data?.token || !res.data?.user) {
-        throw new Error("Invalid login response")
-      }
-
       const { token, user } = res.data
 
-      /* ================= STORE ================= */
       localStorage.setItem("customerToken", token)
       localStorage.setItem("customerUser", JSON.stringify(user))
 
-      /* 🔥 Clear admin session */
       localStorage.removeItem("adminToken")
       localStorage.removeItem("adminUser")
 
@@ -63,9 +57,20 @@ export default function CustomerLogin() {
 
     } catch (err) {
       console.error("❌ CUSTOMER LOGIN ERROR:", err)
-      setError("Login failed. Check your credentials.")
+
+      setError(
+        err?.response?.data?.message ||
+        "Login failed. Check your credentials."
+      )
     } finally {
       setLoading(false)
+    }
+  }
+
+  /* 🔥 ENTER KEY SUBMIT */
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      handleLogin()
     }
   }
 
@@ -84,6 +89,7 @@ export default function CustomerLogin() {
           placeholder="Email"
           value={email}
           onChange={(e)=>setEmail(e.target.value)}
+          onKeyDown={handleKeyDown}
           style={input}
         />
 
@@ -94,6 +100,7 @@ export default function CustomerLogin() {
             placeholder="Password"
             value={password}
             onChange={(e)=>setPassword(e.target.value)}
+            onKeyDown={handleKeyDown}
             style={input}
           />
 
@@ -104,6 +111,14 @@ export default function CustomerLogin() {
             {showPassword ? "🙈" : "👁"}
           </span>
         </div>
+
+        {/* 🔥 FORGOT PASSWORD */}
+        <p
+          style={forgot}
+          onClick={() => navigate("/forgot-password")}
+        >
+          Forgot Password?
+        </p>
 
         {error && <p style={errorText}>{error}</p>}
 
@@ -185,4 +200,13 @@ const eye = {
   top: 12,
   cursor: "pointer",
   color: "#94a3b8"
+}
+
+/* 🔥 NEW STYLE */
+const forgot = {
+  textAlign: "right",
+  fontSize: "12px",
+  color: "#22c55e",
+  cursor: "pointer",
+  marginBottom: "10px"
 }
