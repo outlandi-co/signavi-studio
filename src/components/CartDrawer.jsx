@@ -19,20 +19,18 @@ export default function CartDrawer({ isOpen, onClose }) {
     const sub = cart.reduce((acc, item) => {
       const price = Number(item?.selectedVariant?.price || 0)
       const qty = Number(item?.quantity || 1)
-
       return acc + (price * qty)
     }, 0)
 
     const taxRate = 0.0825
-    const taxVal = sub * taxRate
 
     return {
       subtotal: sub,
-      tax: taxVal,
-      total: sub + taxVal
+      tax: sub * taxRate,
+      total: sub + (sub * taxRate)
     }
 
-  }, [cart]) // 🔥 ensures recalculation on every cart update
+  }, [cart])
 
   /* ================= CHECKOUT ================= */
   const handleCheckout = async () => {
@@ -41,11 +39,16 @@ export default function CartDrawer({ isOpen, onClose }) {
     try {
       setIsRedirecting(true)
 
+      console.log("🛒 CHECKOUT CART:", cart)
+
+      /* 🔥 FIXED PAYLOAD */
       const safeItems = cart.map(item => ({
-        _id: item.productId,
+        productId: item.productId || item._id, // ✅ FIX
         selectedVariant: item.selectedVariant,
         quantity: Number(item.quantity) || 1
       }))
+
+      console.log("🧪 PAYLOAD:", safeItems)
 
       const orderRes = await api.post("/orders", {
         customerName: "Guest",
@@ -55,13 +58,21 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       const orderId = orderRes?.data?._id
 
+      if (!orderId) throw new Error("Order creation failed")
+
       const paymentRes = await api.post(`/square/create-payment/${orderId}`)
       const url = paymentRes?.data?.url
+
+      if (!url) throw new Error("No payment URL")
+
+      /* 🔥 CLEAR CART */
+      localStorage.removeItem("cart")
 
       window.location.href = url
 
     } catch (err) {
-      console.error(err)
+      console.error("❌ CHECKOUT ERROR:", err?.response?.data || err.message)
+      alert(err?.response?.data?.message || err.message || "Checkout failed")
       setIsRedirecting(false)
     }
   }
@@ -125,6 +136,8 @@ export default function CartDrawer({ isOpen, onClose }) {
             const qty = Number(item?.quantity || 1)
             const lineTotal = price * qty
 
+            const id = item.productId || item._id
+
             return (
               <div key={index} style={{
                 display: "flex",
@@ -148,22 +161,20 @@ export default function CartDrawer({ isOpen, onClose }) {
 
                   <p>${price.toFixed(2)} × {qty}</p>
 
-                  <p style={{
-                    color: "#22c55e",
-                    fontWeight: "bold"
-                  }}>
+                  <p style={{ color: "#22c55e", fontWeight: "bold" }}>
                     ${lineTotal.toFixed(2)}
                   </p>
 
-                  {/* QTY CONTROLS */}
+                  {/* 🔥 FIXED QTY CONTROLS */}
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => updateQuantity(index, qty - 1)}>-</button>
+                    <button onClick={() => updateQuantity(id, qty - 1)}>-</button>
                     <span>{qty}</span>
-                    <button onClick={() => updateQuantity(index, qty + 1)}>+</button>
+                    <button onClick={() => updateQuantity(id, qty + 1)}>+</button>
                   </div>
                 </div>
 
-                <button onClick={() => removeFromCart(index)}>✖</button>
+                {/* 🔥 FIXED REMOVE */}
+                <button onClick={() => removeFromCart(id)}>✖</button>
               </div>
             )
           })}
