@@ -39,7 +39,6 @@ const OrderCard = ({ order }) => (
       <span>{formatDate(order.createdAt)}</span>
     </div>
 
-    {/* 📦 SHIPPING */}
     {order.trackingNumber && (
       <div style={{ marginTop: 10 }}>
         <p style={{ fontSize: 12 }}>
@@ -58,20 +57,6 @@ const OrderCard = ({ order }) => (
         )}
       </div>
     )}
-
-    {/* 📄 INVOICE */}
-    {order.invoice && (
-      <div style={{ marginTop: 10 }}>
-        <a
-          href={`${API_URL.replace("/api","")}/${order.invoice}`}
-          target="_blank"
-          rel="noreferrer"
-          style={{ fontSize: 12, color: "#3b82f6" }}
-        >
-          Download Invoice 📄
-        </a>
-      </div>
-    )}
   </div>
 )
 
@@ -83,21 +68,6 @@ export default function CustomerDashboard() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
 
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState("orders")
-
-  /* 🔐 PASSWORD STATE */
-  const [passwords, setPasswords] = useState({
-    current: "",
-    newPass: "",
-    confirm: ""
-  })
-
-  const [pwMessage, setPwMessage] = useState("")
-  const [pwLoading, setPwLoading] = useState(false)
-
-  const [toast, setToast] = useState("")
-
   const socketRef = useRef(null)
   const navigate = useNavigate()
 
@@ -108,20 +78,37 @@ export default function CustomerDashboard() {
     if (!storedUser) navigate("/customer-login")
   }, [storedUser, navigate])
 
-  /* 📦 LOAD ORDERS */
+  /* 📦 LOAD ORDERS (🔥 FIXED) */
   useEffect(() => {
-    api.get("/orders/my-orders").then(res => {
-      const safe = Array.isArray(res.data)
-        ? res.data
-        : res.data?.data || []
-      setOrders(safe)
-      setLoading(false)
-    })
+    const loadOrders = async () => {
+      try {
+        setLoading(true)
+
+        const res = await api.get("/orders/my-orders")
+
+        console.log("📦 MY ORDERS:", res.data)
+
+        const safe = Array.isArray(res.data)
+          ? res.data
+          : res.data?.data || []
+
+        setOrders(safe)
+
+      } catch (err) {
+        console.error("❌ LOAD ORDERS ERROR:", err)
+        setOrders([])
+      } finally {
+        setLoading(false) // 🔥 prevents infinite loading
+      }
+    }
+
+    loadOrders()
   }, [])
 
-  /* 📡 SOCKET */
+  /* 📡 SOCKET LIVE UPDATES */
   useEffect(() => {
     if (!socketRef.current) socketRef.current = io(SOCKET_URL)
+
     const socket = socketRef.current
 
     socket.on("jobUpdated", (updated) => {
@@ -146,39 +133,10 @@ export default function CustomerDashboard() {
     (statusFilter === "all" || o.status === statusFilter)
   )
 
-  /* 🔐 PASSWORD UPDATE */
-  const handlePasswordChange = async () => {
-    try {
-      setPwLoading(true)
-      setPwMessage("")
-
-      await api.post("/auth/change-password", {
-        currentPassword: passwords.current,
-        newPassword: passwords.newPass
-      })
-
-      setPwMessage("✅ Password updated")
-      setToast("Password updated 🎉")
-      setTimeout(() => setToast(""), 3000)
-
-      setPasswords({ current: "", newPass: "", confirm: "" })
-
-    } catch (err) {
-      setPwMessage(err?.response?.data?.error || "❌ Failed")
-    } finally {
-      setPwLoading(false)
-    }
-  }
-
   return (
     <div style={container}>
 
-      <div style={header}>
-        <h2>Dashboard</h2>
-        <button style={accountBtn} onClick={() => setDrawerOpen(true)}>
-          Account
-        </button>
-      </div>
+      <h2>Customer Dashboard</h2>
 
       <div style={controls}>
         <input
@@ -201,97 +159,25 @@ export default function CustomerDashboard() {
         </select>
       </div>
 
-      {activeTab === "orders" && (
-        <>
-          {loading && <p>Loading...</p>}
-          {!loading && processedOrders.map(o => (
-            <OrderCard key={o._id} order={o} />
-          ))}
-        </>
+      {/* 🔥 LOADING FIX */}
+      {loading && <p>Loading...</p>}
+
+      {!loading && processedOrders.length === 0 && (
+        <p>No orders found</p>
       )}
 
-      {activeTab === "security" && (
-        <div style={panel}>
-          <h2>Change Password</h2>
+      {!loading && processedOrders.map(o => (
+        <OrderCard key={o._id} order={o} />
+      ))}
 
-          <input
-            type="password"
-            placeholder="Current Password"
-            value={passwords.current}
-            onChange={(e)=>setPasswords({...passwords,current:e.target.value})}
-            style={input}
-          />
-
-          <input
-            type="password"
-            placeholder="New Password"
-            value={passwords.newPass}
-            onChange={(e)=>setPasswords({...passwords,newPass:e.target.value})}
-            style={input}
-          />
-
-          <input
-            type="password"
-            placeholder="Confirm Password"
-            value={passwords.confirm}
-            onChange={(e)=>setPasswords({...passwords,confirm:e.target.value})}
-            style={input}
-          />
-
-          <button
-            onClick={handlePasswordChange}
-            disabled={pwLoading}
-            style={btn}
-          >
-            {pwLoading ? "Updating..." : "Update Password"}
-          </button>
-
-          {pwMessage && <p>{pwMessage}</p>}
-        </div>
-      )}
-
-      {/* DRAWER */}
-      {drawerOpen && (
-        <>
-          <div style={overlay} onClick={()=>setDrawerOpen(false)} />
-          <div style={drawer}>
-            <h3>Account</h3>
-
-            <div style={navStack}>
-              <button style={drawerBtn} onClick={()=>{setActiveTab("orders");setDrawerOpen(false)}}>Orders</button>
-              <button style={drawerBtn} onClick={()=>{setActiveTab("security");setDrawerOpen(false)}}>Security</button>
-            </div>
-
-            <button style={logoutBtn} onClick={()=>{
-              localStorage.clear()
-              navigate("/customer-login")
-            }}>
-              Logout
-            </button>
-          </div>
-        </>
-      )}
-
-      {toast && <div style={toastStyle}>{toast}</div>}
     </div>
   )
 }
 
 /* ================= STYLES ================= */
-
 const container = { padding: 30, background: "#020617", minHeight: "100vh", color: "white" }
-const header = { display: "flex", marginBottom: 20 }
 const controls = { display: "flex", gap: 10, marginBottom: 20 }
 const input = { padding: 10, background: "#0f172a", color: "white", borderRadius: 6 }
 const card = { padding: 15, background: "#0f172a", marginBottom: 10, borderRadius: 8 }
 const cardHeader = { display: "flex", justifyContent: "space-between" }
 const rowWrap = { display: "flex", justifyContent: "space-between" }
-const accountBtn = { marginLeft: "auto", padding: "8px 16px", background: "#22c55e" }
-const overlay = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)" }
-const drawer = { position: "fixed", right: 0, top: 0, width: 260, height: "100%", background: "#020617", padding: 20, display: "flex", flexDirection: "column" }
-const navStack = { display: "flex", flexDirection: "column", gap: 10 }
-const drawerBtn = { padding: 12, background: "#0f172a", color: "white" }
-const logoutBtn = { marginTop: "auto", background: "#ef4444", padding: 12 }
-const toastStyle = { position: "fixed", bottom: 20, right: 20, background: "#22c55e", padding: 12, borderRadius: 8 }
-const panel = { padding: 20, background: "#0f172a", borderRadius: 8 }
-const btn = { padding: 12, background: "#22c55e", marginTop: 10 }
