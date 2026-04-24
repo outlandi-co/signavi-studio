@@ -107,7 +107,7 @@ export default function CustomerDashboard() {
     loadOrders()
   }, [])
 
-  /* 📡 SOCKET LIVE UPDATES */
+  /* 📡 SOCKET */
   useEffect(() => {
     if (!socketRef.current) socketRef.current = io(SOCKET_URL)
 
@@ -172,7 +172,7 @@ export default function CustomerDashboard() {
         </select>
       </div>
 
-      {/* UI STATES */}
+      {/* STATES */}
       {loading && <p>Loading...</p>}
 
       {!loading && processedOrders.length === 0 && (
@@ -190,6 +190,30 @@ export default function CustomerDashboard() {
 
           <div style={drawer}>
             <h3>Account</h3>
+
+            <div style={navStack}>
+
+              <button
+                style={drawerBtn}
+                onClick={()=>{
+                  setDrawerOpen(false)
+                  navigate("/dashboard")
+                }}
+              >
+                📦 Orders
+              </button>
+
+              <button
+                style={drawerBtn}
+                onClick={()=>{
+                  setDrawerOpen(false)
+                  navigate("/security")
+                }}
+              >
+                🔐 Security
+              </button>
+
+            </div>
 
             <button
               style={drawerBtn}
@@ -210,7 +234,6 @@ export default function CustomerDashboard() {
           </div>
         </>
       )}
-
     </div>
   )
 }
@@ -248,20 +271,28 @@ const drawer = {
   background: "#020617",
   padding: 20,
   display: "flex",
+  flexDirection: "column"
+}
+
+const navStack = {
+  display: "flex",
   flexDirection: "column",
-  gap: 10
+  gap: 10,
+  marginBottom: 20
 }
 
 const drawerBtn = {
   padding: 12,
   background: "#0f172a",
   color: "white",
-  borderRadius: 6
+  borderRadius: 6,
+  cursor: "pointer"
 }
 
 const logoutBtn = {
   marginTop: "auto",
   background: "#ef4444",
   padding: 12,
-  borderRadius: 6
+  borderRadius: 6,
+  cursor: "pointer"
 }
