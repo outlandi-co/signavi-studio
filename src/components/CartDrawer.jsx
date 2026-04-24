@@ -12,7 +12,7 @@ export default function CartDrawer({ isOpen, onClose }) {
 
   const [isRedirecting, setIsRedirecting] = useState(false)
 
-  /* 🔥 PASSWORD MODAL STATE */
+  /* PASSWORD MODAL */
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -22,7 +22,7 @@ export default function CartDrawer({ isOpen, onClose }) {
     if (typeof onClose === "function") onClose()
   }
 
-  /* ================= TOTALS ================= */
+  /* TOTALS */
   const { subtotal, tax, total } = useMemo(() => {
 
     const sub = cart.reduce((acc, item) => {
@@ -45,7 +45,7 @@ export default function CartDrawer({ isOpen, onClose }) {
 
   }, [cart])
 
-  /* ================= PASSWORD UPDATE ================= */
+  /* PASSWORD UPDATE */
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword) {
       alert("Fill out both fields")
@@ -68,9 +68,6 @@ export default function CartDrawer({ isOpen, onClose }) {
       )
 
       alert("✅ Password updated")
-
-      setCurrentPassword("")
-      setNewPassword("")
       setShowPasswordModal(false)
 
     } catch (err) {
@@ -81,7 +78,7 @@ export default function CartDrawer({ isOpen, onClose }) {
     }
   }
 
-  /* ================= CHECKOUT ================= */
+  /* 🔥 CHECKOUT (FIXED) */
   const handleCheckout = async () => {
     if (isRedirecting) return
 
@@ -96,30 +93,46 @@ export default function CartDrawer({ isOpen, onClose }) {
         return
       }
 
+      /* CREATE ORDER */
       const orderRes = await api.post("/orders", {
         customerName: storedUser?.name || "Guest",
         email: storedUser.email,
         items: cart
       })
 
-      const orderId = orderRes?.data?._id
+      console.log("🧾 ORDER RESPONSE:", orderRes.data)
 
+      /* 🔥 FIX HERE */
+      const orderId = orderRes?.data?.data?._id
+
+      console.log("🧾 ORDER ID:", orderId)
+
+      if (!orderId) {
+        throw new Error("Order ID missing from backend response")
+      }
+
+      /* CREATE PAYMENT */
       const paymentRes = await api.post(`/square/create-payment/${orderId}`)
       const url = paymentRes?.data?.url
 
       if (!url) {
-        throw new Error("No payment URL")
+        throw new Error("No payment URL returned")
       }
 
-      /* 🔥 CLEAR CART ONLY AFTER SUCCESS */
+      /* CLEAR CART ONLY AFTER SUCCESS */
       clearCart()
       localStorage.removeItem("cart")
 
+      /* REDIRECT */
       window.location.href = url
 
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err)
-      alert("Checkout failed")
+      alert(
+        err?.response?.data?.message ||
+        err.message ||
+        "Checkout failed"
+      )
       setIsRedirecting(false)
     }
   }
@@ -166,7 +179,7 @@ export default function CartDrawer({ isOpen, onClose }) {
           <button onClick={safeClose}>✖</button>
         </div>
 
-        {/* ACCOUNT ACTIONS */}
+        {/* ACCOUNT */}
         <div style={{
           padding: "10px 20px",
           borderBottom: "1px solid #1e293b",
@@ -174,34 +187,20 @@ export default function CartDrawer({ isOpen, onClose }) {
           flexDirection: "column",
           gap: 8
         }}>
-          <button
-            onClick={() => {
-              safeClose()
-              navigate("/my-orders")
-            }}
-            style={navBtn}
-          >
+          <button onClick={() => { safeClose(); navigate("/my-orders") }} style={navBtn}>
             📦 Orders
           </button>
 
-          <button
-            onClick={() => setShowPasswordModal(true)}
-            style={navBtn}
-          >
+          <button onClick={() => setShowPasswordModal(true)} style={navBtn}>
             🔐 Change Password
           </button>
         </div>
 
         {/* CART ITEMS */}
-        <div style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: 20
-        }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
           {cart.length === 0 && <p>Cart is empty</p>}
 
           {cart.map((item, index) => {
-
             const price = Number(
               item?.selectedVariant?.price ??
               item?.variant?.price ??
@@ -253,12 +252,9 @@ export default function CartDrawer({ isOpen, onClose }) {
           })}
         </div>
 
-        {/* TOTALS + CHECKOUT */}
+        {/* TOTALS */}
         {cart.length > 0 && (
-          <div style={{
-            padding: 20,
-            borderTop: "1px solid #1e293b"
-          }}>
+          <div style={{ padding: 20, borderTop: "1px solid #1e293b" }}>
             <p>Subtotal: ${subtotal.toFixed(2)}</p>
             <p>Tax: ${tax.toFixed(2)}</p>
 
@@ -271,9 +267,7 @@ export default function CartDrawer({ isOpen, onClose }) {
               fullWidth
               disabled={isRedirecting}
             >
-              {isRedirecting
-                ? "🔐 Connecting..."
-                : "💳 Checkout"}
+              {isRedirecting ? "🔐 Connecting..." : "💳 Checkout"}
             </Button>
           </div>
         )}
@@ -325,7 +319,6 @@ const navBtn = {
   padding: "10px",
   background: "#0f172a",
   borderRadius: "8px",
-  cursor: "pointer",
   color: "white",
   border: "1px solid #1e293b"
 }
