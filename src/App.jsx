@@ -35,8 +35,9 @@ import ClientOrder from "./pages/ClientOrder"
 import CustomerLogin from "./pages/customer/CustomerLogin"
 import CustomerRegister from "./pages/CustomerRegister"
 import CustomerDashboard from "./pages/customer/CustomerDashboard"
+import CustomerOrders from "./pages/customer/CustomerOrders" // 🔥 ADDED
 import OrderDetail from "./pages/customer/OrderDetail"
-import Security from "./pages/customer/Security" // 🔥 ADDED
+import Security from "./pages/customer/Security"
 
 /* ADMIN */
 import Dashboard from "./pages/Dashboard"
@@ -63,10 +64,13 @@ function LayoutWrapper({ children }) {
   const isAdminPage = location.pathname.startsWith("/admin")
 
   return (
-    <div className={isAdminPage
-      ? "w-full min-h-screen p-0 m-0"
-      : "max-w-6xl mx-auto p-6"
-    }>
+    <div
+      className={
+        isAdminPage
+          ? "w-full min-h-screen p-0 m-0"
+          : "max-w-6xl mx-auto p-6"
+      }
+    >
       {children}
     </div>
   )
@@ -153,8 +157,6 @@ function AppContent() {
           <Route path="/" element={<Home />} />
           <Route path="/store" element={<Store setCartOpen={setCartOpen} />} />
           <Route path="/product/:id" element={<ProductDetail />} />
-
-          {/* 🔥 FIX: SUBMIT ROUTE */}
           <Route path="/submit" element={<CustomQuote />} />
 
           {/* ================= AUTH ================= */}
@@ -166,8 +168,12 @@ function AppContent() {
 
           <Route element={<CustomerRoute />}>
             <Route path="/dashboard" element={<CustomerDashboard />} />
+
+            {/* 🔥 NEW ORDERS PAGE */}
+            <Route path="/my-orders" element={<CustomerOrders />} />
+
             <Route path="/order/:id" element={<OrderDetail />} />
-            <Route path="/security" element={<Security />} /> {/* 🔥 ADDED */}
+            <Route path="/security" element={<Security />} />
           </Route>
 
           {/* ================= FLOW ================= */}
