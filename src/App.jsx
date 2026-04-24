@@ -17,6 +17,9 @@ import AdminLayout from "./components/admin/AdminLayout"
 import CustomerRoute from "./components/guards/CustomerRoute"
 import AdminRoute from "./components/admin/AdminRoute"
 
+/* 🔥 ADD THIS */
+import CustomerLayout from "./pages/customer/CustomerLayout"
+
 /* PAGES */
 import Home from "./pages/Home"
 import Store from "./pages/Store"
@@ -35,7 +38,7 @@ import ClientOrder from "./pages/ClientOrder"
 import CustomerLogin from "./pages/customer/CustomerLogin"
 import CustomerRegister from "./pages/CustomerRegister"
 import CustomerDashboard from "./pages/customer/CustomerDashboard"
-import CustomerOrders from "./pages/customer/CustomerOrders" // 🔥 ADDED
+import CustomerOrders from "./pages/customer/CustomerOrders"
 import OrderDetail from "./pages/customer/OrderDetail"
 import Security from "./pages/customer/Security"
 
@@ -166,15 +169,18 @@ function AppContent() {
           <Route path="/customer-login" element={<CustomerLogin />} />
           <Route path="/customer-register" element={<CustomerRegister />} />
 
+          {/* 🔥 FULL FIX STARTS HERE */}
           <Route element={<CustomerRoute />}>
-            <Route path="/dashboard" element={<CustomerDashboard />} />
+            <Route element={<CustomerLayout />}>
 
-            {/* 🔥 NEW ORDERS PAGE */}
-            <Route path="/my-orders" element={<CustomerOrders />} />
+              <Route path="/dashboard" element={<CustomerDashboard />} />
+              <Route path="/my-orders" element={<CustomerOrders />} />
+              <Route path="/order/:id" element={<OrderDetail />} />
+              <Route path="/security" element={<Security />} />
 
-            <Route path="/order/:id" element={<OrderDetail />} />
-            <Route path="/security" element={<Security />} />
+            </Route>
           </Route>
+          {/* 🔥 FIX ENDS HERE */}
 
           {/* ================= FLOW ================= */}
           <Route path="/track/:id" element={<TrackOrder />} />

@@ -1,7 +1,7 @@
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, Outlet } from "react-router-dom"
 
-export default function CustomerLayout({ children }) {
+export default function CustomerLayout() {
 
   const [drawerOpen, setDrawerOpen] = useState(false)
   const navigate = useNavigate()
@@ -32,9 +32,9 @@ export default function CustomerLayout({ children }) {
         </button>
       </div>
 
-      {/* PAGE CONTENT */}
+      {/* 🔥 THIS IS THE FIX */}
       <div>
-        {children}
+        <Outlet />
       </div>
 
       {/* ACCOUNT DRAWER */}
@@ -49,29 +49,17 @@ export default function CustomerLayout({ children }) {
             <h3 style={{ marginBottom: 20 }}>Account</h3>
 
             <div style={navStack}>
-
-              {/* 🔥 FIXED: THIS WAS WRONG */}
-              <button
-                style={drawerBtn}
-                onClick={() => go("/my-orders")}
-              >
+              <button style={drawerBtn} onClick={() => go("/my-orders")}>
                 📦 Orders
               </button>
 
-              <button
-                style={drawerBtn}
-                onClick={() => go("/dashboard")}
-              >
+              <button style={drawerBtn} onClick={() => go("/dashboard")}>
                 🏠 Dashboard
               </button>
 
-              <button
-                style={drawerBtn}
-                onClick={() => go("/security")}
-              >
+              <button style={drawerBtn} onClick={() => go("/security")}>
                 🔐 Security
               </button>
-
             </div>
 
             <button
@@ -94,71 +82,14 @@ export default function CustomerLayout({ children }) {
   )
 }
 
-/* ================= STYLES ================= */
+/* STYLES */
+const container = { padding: 30, background: "#020617", minHeight: "100vh", color: "white" }
+const header = { display: "flex", marginBottom: 20, alignItems: "center" }
+const accountBtn = { marginLeft: "auto", padding: "8px 16px", background: "#22c55e", color: "black", borderRadius: 6, cursor: "pointer" }
 
-const container = {
-  padding: 30,
-  background: "#020617",
-  minHeight: "100vh",
-  color: "white"
-}
+const overlay = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 900 }
+const drawer = { position: "fixed", right: 0, top: 0, width: 260, height: "100%", background: "#020617", padding: 20, borderLeft: "1px solid #1e293b", zIndex: 1000 }
 
-const header = {
-  display: "flex",
-  marginBottom: 20,
-  alignItems: "center"
-}
-
-const accountBtn = {
-  marginLeft: "auto",
-  padding: "8px 16px",
-  background: "#22c55e",
-  color: "black",
-  borderRadius: 6,
-  cursor: "pointer"
-}
-
-const overlay = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(0,0,0,0.5)",
-  zIndex: 900
-}
-
-const drawer = {
-  position: "fixed",
-  right: 0,
-  top: 0,
-  width: 260,
-  height: "100%",
-  background: "#020617",
-  padding: 20,
-  borderLeft: "1px solid #1e293b",
-  zIndex: 1000
-}
-
-const navStack = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 10,
-  marginBottom: 20
-}
-
-const drawerBtn = {
-  padding: 12,
-  background: "#0f172a",
-  color: "white",
-  borderRadius: 6,
-  cursor: "pointer",
-  border: "1px solid #1e293b"
-}
-
-const logoutBtn = {
-  marginTop: 20,
-  background: "#ef4444",
-  padding: 12,
-  borderRadius: 6,
-  cursor: "pointer",
-  color: "white",
-  border: "none"
-}
+const navStack = { display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }
+const drawerBtn = { padding: 12, background: "#0f172a", color: "white", borderRadius: 6, cursor: "pointer", border: "1px solid #1e293b" }
+const logoutBtn = { marginTop: 20, background: "#ef4444", padding: 12, borderRadius: 6, cursor: "pointer", color: "white", border: "none" }
