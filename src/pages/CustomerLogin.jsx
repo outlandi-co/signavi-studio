@@ -9,23 +9,16 @@ export default function CustomerLogin() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [remember, setRemember] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
-  /* ================= AUTO LOGIN ================= */
   useEffect(() => {
     const token = localStorage.getItem("customerToken")
-
-    if (token) {
-      navigate("/store")
-    }
+    if (token) navigate("/store")
   }, [navigate])
 
-  /* ================= LOGIN ================= */
   const handleLogin = async () => {
     if (loading) return
-
     setError("")
 
     if (!email || !password) {
@@ -36,16 +29,10 @@ export default function CustomerLogin() {
       setLoading(true)
 
       const res = await api.post("/auth/login", { email, password })
-
       const { token, user } = res.data
 
-      if (remember) {
-        localStorage.setItem("customerToken", token)
-        localStorage.setItem("customerUser", JSON.stringify(user))
-      } else {
-        sessionStorage.setItem("customerToken", token)
-        sessionStorage.setItem("customerUser", JSON.stringify(user))
-      }
+      localStorage.setItem("customerToken", token)
+      localStorage.setItem("customerUser", JSON.stringify(user))
 
       navigate("/store")
 
@@ -56,18 +43,18 @@ export default function CustomerLogin() {
     }
   }
 
-  const handleKey = (e) => {
-    if (e.key === "Enter") handleLogin()
-  }
-
   return (
-    <div style={container}>
+    <div className="min-h-screen flex items-center justify-center bg-[#020617] text-white">
 
-      {/* GLASS CARD */}
-      <div style={card}>
+      <div className="w-full max-w-md p-8 rounded-xl bg-[#0f172a] border border-white/10 shadow-xl">
 
-        <h1 style={title}>Welcome Back</h1>
-        <p style={subtitle}>Sign in to continue</p>
+        <h1 className="text-2xl font-semibold text-center mb-2">
+          Customer Login
+        </h1>
+
+        <p className="text-sm text-gray-400 text-center mb-6">
+          Access your orders
+        </p>
 
         {/* EMAIL */}
         <input
@@ -75,153 +62,53 @@ export default function CustomerLogin() {
           placeholder="Email"
           value={email}
           onChange={(e)=>setEmail(e.target.value)}
-          onKeyDown={handleKey}
-          style={input}
+          className="w-full p-3 mb-3 rounded-md bg-[#020617] border border-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500"
         />
 
         {/* PASSWORD */}
-        <div style={{ position: "relative" }}>
+        <div className="relative mb-2">
           <input
             type={showPassword ? "text" : "password"}
             placeholder="Password"
             value={password}
             onChange={(e)=>setPassword(e.target.value)}
-            onKeyDown={handleKey}
-            style={input}
+            className="w-full p-3 rounded-md bg-[#020617] border border-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500"
           />
 
-          <span onClick={()=>setShowPassword(!showPassword)} style={eye}>
+          <span
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-3 cursor-pointer text-gray-400"
+          >
             {showPassword ? "🙈" : "👁"}
           </span>
         </div>
 
-        {/* OPTIONS ROW */}
-        <div style={optionsRow}>
-          <label style={checkboxWrap}>
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={()=>setRemember(!remember)}
-            />
-            Remember me
-          </label>
-
-          <span
-            style={forgot}
-            onClick={()=>navigate("/forgot-password")}
-          >
-            Forgot?
-          </span>
-        </div>
+        {/* FORGOT */}
+        <p
+          onClick={() => navigate("/forgot-password")}
+          className="text-right text-sm text-cyan-400 cursor-pointer mb-4"
+        >
+          Forgot Password?
+        </p>
 
         {/* ERROR */}
-        {error && <p style={errorText}>{error}</p>}
+        {error && (
+          <p className="text-red-400 text-sm text-center mb-3">
+            {error}
+          </p>
+        )}
 
         {/* BUTTON */}
         <button
           onClick={handleLogin}
           disabled={loading}
-          style={{
-            ...button,
-            transform: loading ? "scale(0.98)" : "scale(1)"
-          }}
+          className="w-full py-3 rounded-lg font-semibold bg-gradient-to-r from-cyan-500 to-blue-600 hover:opacity-90 transition"
         >
-          {loading ? "⏳ Signing in..." : "Sign In"}
+          {loading ? "Signing in..." : "Sign In"}
         </button>
 
       </div>
+
     </div>
   )
-}
-
-/* ================= STYLES ================= */
-
-const container = {
-  minHeight: "100vh",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  background: "linear-gradient(135deg, #020617, #0f172a)",
-  color: "white"
-}
-
-const card = {
-  background: "rgba(15, 23, 42, 0.7)",
-  backdropFilter: "blur(12px)",
-  padding: "40px",
-  borderRadius: "16px",
-  width: "100%",
-  maxWidth: "400px",
-  boxShadow: "0 20px 50px rgba(0,0,0,0.6)",
-  border: "1px solid rgba(255,255,255,0.05)",
-  display: "flex",
-  flexDirection: "column",
-  gap: "12px",
-  transition: "all 0.3s ease"
-}
-
-const title = {
-  fontSize: "26px",
-  fontWeight: "600",
-  textAlign: "center"
-}
-
-const subtitle = {
-  textAlign: "center",
-  fontSize: "14px",
-  opacity: 0.6,
-  marginBottom: "10px"
-}
-
-const input = {
-  padding: "12px",
-  borderRadius: "8px",
-  border: "1px solid #334155",
-  background: "#020617",
-  color: "white",
-  outline: "none",
-  transition: "0.2s",
-}
-
-const button = {
-  padding: "12px",
-  background: "#22c55e",
-  border: "none",
-  borderRadius: "8px",
-  color: "#000",
-  fontWeight: "bold",
-  cursor: "pointer",
-  transition: "all 0.2s ease"
-}
-
-const errorText = {
-  color: "#ef4444",
-  textAlign: "center",
-  fontSize: "13px"
-}
-
-const eye = {
-  position: "absolute",
-  right: 12,
-  top: 12,
-  cursor: "pointer",
-  opacity: 0.7
-}
-
-const optionsRow = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  fontSize: "12px"
-}
-
-const checkboxWrap = {
-  display: "flex",
-  gap: "6px",
-  alignItems: "center"
-}
-
-const forgot = {
-  color: "#22c55e",
-  cursor: "pointer"
 }
