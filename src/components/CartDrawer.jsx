@@ -105,10 +105,20 @@ export default function CartDrawer({ isOpen, onClose }) {
       const orderId = orderRes?.data?._id
 
       const paymentRes = await api.post(`/square/create-payment/${orderId}`)
-      window.location.href = paymentRes.data.url
+      const url = paymentRes?.data?.url
+
+      if (!url) {
+        throw new Error("No payment URL")
+      }
+
+      /* 🔥 CLEAR CART ONLY AFTER SUCCESS */
+      clearCart()
+      localStorage.removeItem("cart")
+
+      window.location.href = url
 
     } catch (err) {
-      console.error(err)
+      console.error("❌ CHECKOUT ERROR:", err)
       alert("Checkout failed")
       setIsRedirecting(false)
     }
@@ -124,7 +134,8 @@ export default function CartDrawer({ isOpen, onClose }) {
           inset: 0,
           background: "rgba(0,0,0,0.6)",
           opacity: isOpen ? 1 : 0,
-          pointerEvents: isOpen ? "auto" : "none"
+          pointerEvents: isOpen ? "auto" : "none",
+          zIndex: 900
         }}
       />
 
@@ -137,50 +148,140 @@ export default function CartDrawer({ isOpen, onClose }) {
         height: "100%",
         background: "#020617",
         transform: isOpen ? "translateX(0)" : "translateX(100%)",
-        transition: "0.3s",
-        padding: 20,
-        color: "white"
+        transition: "0.3s ease",
+        display: "flex",
+        flexDirection: "column",
+        color: "white",
+        zIndex: 1000
       }}>
 
-        <h2>🛒 Cart</h2>
+        {/* HEADER */}
+        <div style={{
+          padding: 20,
+          display: "flex",
+          justifyContent: "space-between",
+          borderBottom: "1px solid #1e293b"
+        }}>
+          <h2>🛒 Cart</h2>
+          <button onClick={safeClose}>✖</button>
+        </div>
 
-        {/* 🔥 ACCOUNT ACTIONS */}
-        <div style={{ marginBottom: 20 }}>
-          <button onClick={() => {
-            safeClose()
-            navigate("/my-orders")
-          }} style={btn}>
+        {/* ACCOUNT ACTIONS */}
+        <div style={{
+          padding: "10px 20px",
+          borderBottom: "1px solid #1e293b",
+          display: "flex",
+          flexDirection: "column",
+          gap: 8
+        }}>
+          <button
+            onClick={() => {
+              safeClose()
+              navigate("/my-orders")
+            }}
+            style={navBtn}
+          >
             📦 Orders
           </button>
 
-          <button onClick={() => {
-            setShowPasswordModal(true)
-          }} style={btn}>
+          <button
+            onClick={() => setShowPasswordModal(true)}
+            style={navBtn}
+          >
             🔐 Change Password
           </button>
         </div>
 
-        {/* CART */}
-        {cart.length === 0 && <p>Cart is empty</p>}
+        {/* CART ITEMS */}
+        <div style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: 20
+        }}>
+          {cart.length === 0 && <p>Cart is empty</p>}
 
-        {cart.map((item, i) => (
-          <div key={i}>
-            <p>{item.name}</p>
-          </div>
-        ))}
+          {cart.map((item, index) => {
 
-        {/* CHECKOUT */}
+            const price = Number(
+              item?.selectedVariant?.price ??
+              item?.variant?.price ??
+              0
+            )
+
+            const qty = Number(item?.quantity || 1)
+            const lineTotal = price * qty
+            const id = item.productId || item._id
+
+            return (
+              <div key={index} style={{
+                display: "flex",
+                gap: 10,
+                marginBottom: 16,
+                borderBottom: "1px solid #1e293b",
+                paddingBottom: 10
+              }}>
+                <SafeImage
+                  src={item.image || "/placeholder.png"}
+                  alt={item.name}
+                  style={{ width: 60, height: 60 }}
+                />
+
+                <div style={{ flex: 1 }}>
+                  <strong>{item.name}</strong>
+
+                  <p style={{ fontSize: 12, opacity: 0.7 }}>
+                    {(item.selectedVariant || item.variant)?.color || "N/A"} /
+                    {(item.selectedVariant || item.variant)?.size || "N/A"}
+                  </p>
+
+                  <p>${price.toFixed(2)} × {qty}</p>
+
+                  <p style={{ color: "#22c55e", fontWeight: "bold" }}>
+                    ${lineTotal.toFixed(2)}
+                  </p>
+
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => updateQuantity(id, qty - 1)}>-</button>
+                    <span>{qty}</span>
+                    <button onClick={() => updateQuantity(id, qty + 1)}>+</button>
+                  </div>
+                </div>
+
+                <button onClick={() => removeFromCart(id)}>✖</button>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* TOTALS + CHECKOUT */}
         {cart.length > 0 && (
-          <Button onClick={handleCheckout} fullWidth>
-            Checkout
-          </Button>
+          <div style={{
+            padding: 20,
+            borderTop: "1px solid #1e293b"
+          }}>
+            <p>Subtotal: ${subtotal.toFixed(2)}</p>
+            <p>Tax: ${tax.toFixed(2)}</p>
+
+            <h3 style={{ color: "#22c55e" }}>
+              Total: ${total.toFixed(2)}
+            </h3>
+
+            <Button
+              onClick={handleCheckout}
+              fullWidth
+              disabled={isRedirecting}
+            >
+              {isRedirecting
+                ? "🔐 Connecting..."
+                : "💳 Checkout"}
+            </Button>
+          </div>
         )}
 
-        {/* 🔥 PASSWORD MODAL */}
+        {/* PASSWORD MODAL */}
         {showPasswordModal && (
           <div style={modalOverlay}>
             <div style={modal}>
-
               <h3>Change Password</h3>
 
               <input
@@ -204,14 +305,10 @@ export default function CartDrawer({ isOpen, onClose }) {
                   Update
                 </Button>
 
-                <Button
-                  variant="dark"
-                  onClick={()=>setShowPasswordModal(false)}
-                >
+                <Button variant="dark" onClick={()=>setShowPasswordModal(false)}>
                   Cancel
                 </Button>
               </div>
-
             </div>
           </div>
         )}
@@ -222,12 +319,15 @@ export default function CartDrawer({ isOpen, onClose }) {
 }
 
 /* STYLES */
-const btn = {
+const navBtn = {
   width: "100%",
-  padding: 10,
-  marginBottom: 10,
+  textAlign: "left",
+  padding: "10px",
   background: "#0f172a",
-  borderRadius: 6
+  borderRadius: "8px",
+  cursor: "pointer",
+  color: "white",
+  border: "1px solid #1e293b"
 }
 
 const modalOverlay = {
