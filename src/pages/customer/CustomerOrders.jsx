@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import api from "../../services/api"
 
 const statusStyles = {
@@ -17,10 +18,15 @@ export default function CustomerOrders() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
 
+  const navigate = useNavigate()
+
   useEffect(() => {
     const loadOrders = async () => {
       try {
         const res = await api.get("/orders/my-orders")
+
+        console.log("📦 ORDERS RESPONSE:", res.data)
+
         setOrders(res.data?.data || [])
       } catch (err) {
         console.error("❌ LOAD ORDERS ERROR:", err)
@@ -32,6 +38,7 @@ export default function CustomerOrders() {
     loadOrders()
   }, [])
 
+  /* ================= LOADING ================= */
   if (loading) {
     return (
       <div className="text-white text-center mt-10">
@@ -40,14 +47,20 @@ export default function CustomerOrders() {
     )
   }
 
+  /* ================= EMPTY ================= */
   if (!orders.length) {
     return (
       <div className="text-white text-center mt-10">
-        No orders yet
+        No orders found
+
+        <div className="text-xs mt-2 text-gray-500">
+          (Check console → make sure backend is returning data)
+        </div>
       </div>
     )
   }
 
+  /* ================= UI ================= */
   return (
     <div className="min-h-screen bg-[#020617] text-white p-6">
       <h1 className="text-2xl font-semibold mb-6">📦 My Orders</h1>
@@ -56,7 +69,8 @@ export default function CustomerOrders() {
         {orders.map((order) => (
           <div
             key={order._id}
-            className="bg-[#0f172a] border border-white/10 rounded-xl p-5 shadow-lg"
+            className="bg-[#0f172a] border border-white/10 rounded-xl p-5 shadow-lg hover:scale-[1.01] transition cursor-pointer"
+            onClick={() => navigate(`/order/${order._id}`)} // 🔥 CLICKABLE CARD
           >
             {/* HEADER */}
             <div className="flex justify-between items-center mb-3">
@@ -70,7 +84,7 @@ export default function CustomerOrders() {
                   statusStyles[order.status] || "bg-gray-700"
                 }`}
               >
-                {order.status}
+                {order.status?.replace("_", " ")}
               </span>
             </div>
 
@@ -94,18 +108,22 @@ export default function CustomerOrders() {
               </span>
             </div>
 
-            {/* ACTION */}
+            {/* ACTIONS */}
             <div className="mt-3 flex gap-2">
-              <a
-                href={`/track/${order._id}`}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  navigate(`/track/${order._id}`)
+                }}
                 className="text-xs bg-blue-600 px-3 py-1 rounded hover:bg-blue-500"
               >
                 Track
-              </a>
+              </button>
 
               {order.paymentUrl && order.status === "payment_required" && (
                 <a
                   href={order.paymentUrl}
+                  onClick={(e) => e.stopPropagation()}
                   className="text-xs bg-yellow-500 text-black px-3 py-1 rounded"
                 >
                   Pay Now

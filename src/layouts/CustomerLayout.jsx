@@ -6,6 +6,17 @@ export default function CustomerLayout({ children }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const navigate = useNavigate()
 
+  const go = (path) => {
+    setDrawerOpen(false)
+    navigate(path)
+  }
+
+  const logout = () => {
+    localStorage.removeItem("customerToken")
+    localStorage.removeItem("customerUser")
+    navigate("/customer-login")
+  }
+
   return (
     <div style={container}>
 
@@ -22,51 +33,57 @@ export default function CustomerLayout({ children }) {
       </div>
 
       {/* PAGE CONTENT */}
-      {children}
+      <div>
+        {children}
+      </div>
 
       {/* ACCOUNT DRAWER */}
       {drawerOpen && (
         <>
-          <div style={overlay} onClick={()=>setDrawerOpen(false)} />
+          <div
+            style={overlay}
+            onClick={() => setDrawerOpen(false)}
+          />
 
           <div style={drawer}>
-            <h3>Account</h3>
+            <h3 style={{ marginBottom: 20 }}>Account</h3>
 
             <div style={navStack}>
+
+              {/* 🔥 FIXED: THIS WAS WRONG */}
               <button
                 style={drawerBtn}
-                onClick={()=>{
-                  setDrawerOpen(false)
-                  navigate("/dashboard")
-                }}
+                onClick={() => go("/my-orders")}
               >
                 📦 Orders
               </button>
 
               <button
                 style={drawerBtn}
-                onClick={()=>{
-                  setDrawerOpen(false)
-                  navigate("/security")
-                }}
+                onClick={() => go("/dashboard")}
+              >
+                🏠 Dashboard
+              </button>
+
+              <button
+                style={drawerBtn}
+                onClick={() => go("/security")}
               >
                 🔐 Security
               </button>
+
             </div>
 
             <button
               style={drawerBtn}
-              onClick={()=>setDrawerOpen(false)}
+              onClick={() => setDrawerOpen(false)}
             >
               Close
             </button>
 
             <button
               style={logoutBtn}
-              onClick={()=>{
-                localStorage.clear()
-                navigate("/customer-login")
-              }}
+              onClick={logout}
             >
               Logout
             </button>
@@ -77,7 +94,8 @@ export default function CustomerLayout({ children }) {
   )
 }
 
-/* STYLES */
+/* ================= STYLES ================= */
+
 const container = {
   padding: 30,
   background: "#020617",
@@ -87,7 +105,8 @@ const container = {
 
 const header = {
   display: "flex",
-  marginBottom: 20
+  marginBottom: 20,
+  alignItems: "center"
 }
 
 const accountBtn = {
@@ -102,7 +121,8 @@ const accountBtn = {
 const overlay = {
   position: "fixed",
   inset: 0,
-  background: "rgba(0,0,0,0.5)"
+  background: "rgba(0,0,0,0.5)",
+  zIndex: 900
 }
 
 const drawer = {
@@ -112,7 +132,9 @@ const drawer = {
   width: 260,
   height: "100%",
   background: "#020617",
-  padding: 20
+  padding: 20,
+  borderLeft: "1px solid #1e293b",
+  zIndex: 1000
 }
 
 const navStack = {
@@ -127,7 +149,8 @@ const drawerBtn = {
   background: "#0f172a",
   color: "white",
   borderRadius: 6,
-  cursor: "pointer"
+  cursor: "pointer",
+  border: "1px solid #1e293b"
 }
 
 const logoutBtn = {
@@ -135,5 +158,7 @@ const logoutBtn = {
   background: "#ef4444",
   padding: 12,
   borderRadius: 6,
-  cursor: "pointer"
+  cursor: "pointer",
+  color: "white",
+  border: "none"
 }
