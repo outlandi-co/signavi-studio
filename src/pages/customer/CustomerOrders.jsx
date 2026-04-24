@@ -27,9 +27,17 @@ export default function CustomerOrders() {
 
         console.log("📦 ORDERS RESPONSE:", res.data)
 
-        setOrders(res.data?.data || [])
+        // 🔥 CRITICAL: SUPPORT BOTH BACKEND FORMATS
+        const data =
+          res.data?.data ||
+          res.data?.orders ||
+          res.data ||
+          []
+
+        setOrders(Array.isArray(data) ? data : [])
       } catch (err) {
         console.error("❌ LOAD ORDERS ERROR:", err)
+        setOrders([])
       } finally {
         setLoading(false)
       }
@@ -54,7 +62,7 @@ export default function CustomerOrders() {
         No orders found
 
         <div className="text-xs mt-2 text-gray-500">
-          (Check console → make sure backend is returning data)
+          (Check console → confirm API returned orders)
         </div>
       </div>
     )
@@ -70,13 +78,13 @@ export default function CustomerOrders() {
           <div
             key={order._id}
             className="bg-[#0f172a] border border-white/10 rounded-xl p-5 shadow-lg hover:scale-[1.01] transition cursor-pointer"
-            onClick={() => navigate(`/order/${order._id}`)} // 🔥 CLICKABLE CARD
+            onClick={() => navigate(`/order/${order._id}`)}
           >
             {/* HEADER */}
             <div className="flex justify-between items-center mb-3">
               <div>
                 <p className="text-sm text-gray-400">Order ID</p>
-                <p className="font-mono text-xs">{order._id}</p>
+                <p className="font-mono text-xs break-all">{order._id}</p>
               </div>
 
               <span
@@ -84,27 +92,37 @@ export default function CustomerOrders() {
                   statusStyles[order.status] || "bg-gray-700"
                 }`}
               >
-                {order.status?.replace("_", " ")}
+                {(order.status || "unknown").replace("_", " ")}
               </span>
             </div>
 
             {/* ITEMS */}
             <div className="mb-3">
-              {order.items?.map((item, i) => (
-                <div key={i} className="text-sm text-gray-300">
-                  {item.name} ({item.variant?.color} / {item.variant?.size}) × {item.quantity}
+              {order.items?.length ? (
+                order.items.map((item, i) => (
+                  <div key={i} className="text-sm text-gray-300">
+                    {item.name || "Item"} (
+                    {item.variant?.color || "N/A"} /{" "}
+                    {item.variant?.size || "N/A"}) × {item.quantity || 1}
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-gray-500">
+                  No items found
                 </div>
-              ))}
+              )}
             </div>
 
             {/* TOTAL */}
             <div className="flex justify-between items-center text-sm">
               <span className="text-gray-400">
-                {new Date(order.createdAt).toLocaleDateString()}
+                {order.createdAt
+                  ? new Date(order.createdAt).toLocaleDateString()
+                  : "No date"}
               </span>
 
               <span className="font-semibold text-green-400">
-                ${order.finalPrice?.toFixed(2)}
+                ${Number(order.finalPrice || 0).toFixed(2)}
               </span>
             </div>
 
@@ -120,15 +138,16 @@ export default function CustomerOrders() {
                 Track
               </button>
 
-              {order.paymentUrl && order.status === "payment_required" && (
-                <a
-                  href={order.paymentUrl}
-                  onClick={(e) => e.stopPropagation()}
-                  className="text-xs bg-yellow-500 text-black px-3 py-1 rounded"
-                >
-                  Pay Now
-                </a>
-              )}
+              {order.paymentUrl &&
+                order.status === "payment_required" && (
+                  <a
+                    href={order.paymentUrl}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-xs bg-yellow-500 text-black px-3 py-1 rounded"
+                  >
+                    Pay Now
+                  </a>
+                )}
             </div>
           </div>
         ))}
