@@ -13,12 +13,13 @@ export default function CartDrawer({ isOpen, onClose }) {
     if (typeof onClose === "function") onClose()
   }
 
-  /* ================= CALCULATIONS ================= */
+  /* ================= SAFE CALCULATIONS ================= */
   const { subtotal, tax, total } = useMemo(() => {
 
     const sub = cart.reduce((acc, item) => {
       const price = Number(item?.selectedVariant?.price || 0)
       const qty = Number(item?.quantity || 1)
+
       return acc + (price * qty)
     }, 0)
 
@@ -31,7 +32,7 @@ export default function CartDrawer({ isOpen, onClose }) {
       total: sub + taxVal
     }
 
-  }, [cart])
+  }, [cart]) // 🔥 ensures recalculation on every cart update
 
   /* ================= CHECKOUT ================= */
   const handleCheckout = async () => {
@@ -40,22 +41,12 @@ export default function CartDrawer({ isOpen, onClose }) {
     try {
       setIsRedirecting(true)
 
-      console.log("🛒 START CHECKOUT")
-
-      /* 🔥 FIXED PAYLOAD */
       const safeItems = cart.map(item => ({
-        productId: item.productId, // ✅ FIXED
+        _id: item.productId,
         selectedVariant: item.selectedVariant,
         quantity: Number(item.quantity) || 1
       }))
 
-      console.log("🧪 SENDING ITEMS:", safeItems)
-
-      if (!safeItems.length) {
-        throw new Error("Cart is empty")
-      }
-
-      /* ================= CREATE ORDER ================= */
       const orderRes = await api.post("/orders", {
         customerName: "Guest",
         email: "",
@@ -64,33 +55,13 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       const orderId = orderRes?.data?._id
 
-      if (!orderId) {
-        throw new Error("Order creation failed")
-      }
-
-      console.log("✅ ORDER CREATED:", orderId)
-
-      /* ================= CREATE PAYMENT ================= */
       const paymentRes = await api.post(`/square/create-payment/${orderId}`)
       const url = paymentRes?.data?.url
-
-      if (!url) {
-        throw new Error("No payment URL returned")
-      }
-
-      console.log("💳 REDIRECT:", url)
 
       window.location.href = url
 
     } catch (err) {
-      console.error("❌ CHECKOUT ERROR:", err?.response?.data || err.message)
-
-      alert(
-        err?.response?.data?.message ||
-        err.message ||
-        "Checkout failed"
-      )
-
+      console.error(err)
       setIsRedirecting(false)
     }
   }
@@ -184,6 +155,7 @@ export default function CartDrawer({ isOpen, onClose }) {
                     ${lineTotal.toFixed(2)}
                   </p>
 
+                  {/* QTY CONTROLS */}
                   <div style={{ display: "flex", gap: 6 }}>
                     <button onClick={() => updateQuantity(index, qty - 1)}>-</button>
                     <span>{qty}</span>

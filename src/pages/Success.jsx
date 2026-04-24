@@ -17,7 +17,7 @@ export default function CartDrawer({ isOpen, onClose }) {
   const increaseQty = (id) => {
     setCart(prev =>
       prev.map(item =>
-        item.productId === id
+        (item.productId || item._id) === id
           ? { ...item, quantity: (item.quantity || 1) + 1 }
           : item
       )
@@ -27,7 +27,7 @@ export default function CartDrawer({ isOpen, onClose }) {
   const decreaseQty = (id) => {
     setCart(prev =>
       prev.map(item =>
-        item.productId === id
+        (item.productId || item._id) === id
           ? { ...item, quantity: Math.max(1, (item.quantity || 1) - 1) }
           : item
       )
@@ -36,7 +36,12 @@ export default function CartDrawer({ isOpen, onClose }) {
 
   /* ================= TOTALS ================= */
   const subtotal = cart.reduce((acc, item) => {
-    const price = Number(item?.variant?.price ?? item?.price ?? 0)
+    const price = Number(
+      item?.selectedVariant?.price ??
+      item?.variant?.price ??
+      item?.price ??
+      0
+    )
     const qty = Number(item?.quantity) || 1
     return acc + price * qty
   }, 0)
@@ -54,31 +59,28 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       console.log("🛒 Creating order from cart...", cart)
 
+      /* 🔥 FIXED PAYLOAD */
       const safeItems = cart.map(item => ({
-        name: item?.name || "Item",
-        quantity: Number(item?.quantity) || 1,
-        price: Number(item?.variant?.price ?? item?.price ?? 0)
+        productId: item.productId || item._id,
+        selectedVariant: item.selectedVariant || item.variant,
+        quantity: Number(item.quantity) || 1
       }))
+
+      console.log("🧪 PAYLOAD:", safeItems)
 
       if (!safeItems.length) {
         throw new Error("Cart is empty")
       }
 
-      /* OPTIONAL: guest email hook */
       const storedUser = JSON.parse(localStorage.getItem("customerUser") || "null")
 
       /* 🔥 CREATE ORDER */
       const orderRes = await api.post("/orders", {
         items: safeItems,
         customerName: storedUser?.name || "Guest",
-        email: storedUser?.email || "",
-        source: "store",
-        subtotal,
-        tax,
-        price: total
+        email: storedUser?.email || ""
       })
 
-      // ✅ FIXED RESPONSE ACCESS
       const orderId = orderRes?.data?._id
 
       if (!orderId) {
@@ -89,7 +91,6 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       /* 🔥 CREATE PAYMENT LINK */
       const paymentRes = await api.post(`/square/create-payment/${orderId}`)
-
       const url = paymentRes?.data?.url
 
       if (!url) {
@@ -98,7 +99,9 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       console.log("🚀 Redirecting to payment:", url)
 
-      /* 🔥 REDIRECT TO PAYMENT */
+      /* 🔥 CLEAR CART BEFORE REDIRECT */
+      localStorage.removeItem("cart")
+
       window.location.assign(url)
 
     } catch (err) {
@@ -158,15 +161,17 @@ export default function CartDrawer({ isOpen, onClose }) {
           {cart.length === 0 && <p>Your cart is empty</p>}
 
           {cart.map((item, index) => {
-            const price = Number(item?.variant?.price ?? item?.price ?? 0)
+            const price = Number(
+              item?.selectedVariant?.price ??
+              item?.variant?.price ??
+              item?.price ??
+              0
+            )
 
-            const safeKey =
-              item.productId ||
-              item._id ||
-              `${item.name || "item"}-${index}`
+            const id = item.productId || item._id
 
             return (
-              <div key={safeKey} style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+              <div key={index} style={{ display: "flex", gap: 10, marginBottom: 12 }}>
                 <SafeImage
                   src={item.image || "/placeholder.png"}
                   alt={item.name}
@@ -177,19 +182,20 @@ export default function CartDrawer({ isOpen, onClose }) {
                   <strong>{item.name}</strong>
 
                   <p style={{ fontSize: 12, opacity: 0.7 }}>
-                    {item.variant?.color || "N/A"} / {item.variant?.size || "N/A"}
+                    {(item.selectedVariant || item.variant)?.color || "N/A"} /
+                    {(item.selectedVariant || item.variant)?.size || "N/A"}
                   </p>
 
                   <p>${price.toFixed(2)}</p>
 
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => decreaseQty(item.productId)}>−</button>
+                    <button onClick={() => decreaseQty(id)}>−</button>
                     <span>{item.quantity}</span>
-                    <button onClick={() => increaseQty(item.productId)}>+</button>
+                    <button onClick={() => increaseQty(id)}>+</button>
                   </div>
                 </div>
 
-                <button onClick={() => removeFromCart(item.productId)}>✖</button>
+                <button onClick={() => removeFromCart(id)}>✖</button>
               </div>
             )
           })}
