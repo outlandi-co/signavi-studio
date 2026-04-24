@@ -4,6 +4,7 @@ const CartContext = createContext()
 
 export function CartProvider({ children }) {
 
+  /* ================= INIT ================= */
   const [cart, setCart] = useState(() => {
     try {
       const saved = localStorage.getItem("cart")
@@ -20,40 +21,67 @@ export function CartProvider({ children }) {
 
   /* ================= ADD ================= */
   const addToCart = (product) => {
-    console.log("🛒 ADD TO CART:", product)
+    const variant = product.selectedVariant
+
+    if (!variant || !variant.color || !variant.size) {
+      console.warn("❌ Missing variant")
+      return
+    }
+
+    console.log("🛒 ADD:", product.name, variant)
 
     setCart(prev => {
-      const exists = prev.find(item => item._id === product._id)
 
-      if (exists) {
+      const existing = prev.find(item =>
+        item.productId === product._id &&
+        item.selectedVariant?.color === variant.color &&
+        item.selectedVariant?.size === variant.size
+      )
+
+      if (existing) {
         return prev.map(item =>
-          item._id === product._id
+          item.productId === product._id &&
+          item.selectedVariant?.color === variant.color &&
+          item.selectedVariant?.size === variant.size
             ? { ...item, quantity: item.quantity + 1 }
             : item
         )
       }
 
-      return [...prev, { ...product, quantity: 1 }]
+      return [
+        ...prev,
+        {
+          productId: product._id,
+          name: product.name,
+          image: product.image,
+
+          selectedVariant: {
+            color: variant.color,
+            size: variant.size,
+            price: variant.price
+          },
+
+          quantity: 1
+        }
+      ]
     })
   }
 
   /* ================= REMOVE ================= */
-  const removeFromCart = (id) => {
-    setCart(prev =>
-      prev.filter(item => item._id !== id)
-    )
+  const removeFromCart = (index) => {
+    setCart(prev => prev.filter((_, i) => i !== index))
   }
 
   /* ================= UPDATE QTY ================= */
-  const updateQuantity = (id, qty) => {
+  const updateQuantity = (index, qty) => {
     if (qty <= 0) {
-      removeFromCart(id)
+      removeFromCart(index)
       return
     }
 
     setCart(prev =>
-      prev.map(item =>
-        item._id === id
+      prev.map((item, i) =>
+        i === index
           ? { ...item, quantity: qty }
           : item
       )
@@ -73,8 +101,10 @@ export function CartProvider({ children }) {
 
   /* ================= TOTAL ================= */
   const cartTotal = cart.reduce(
-    (sum, item) =>
-      sum + (item.price || item.basePrice || 0) * item.quantity,
+    (sum, item) => {
+      const price = Number(item?.selectedVariant?.price || 0)
+      return sum + price * item.quantity
+    },
     0
   )
 

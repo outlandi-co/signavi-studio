@@ -6,14 +6,14 @@ import { useState } from "react"
 
 export default function CartDrawer({ isOpen, onClose }) {
 
-  const { cart, removeFromCart } = useCart()
+  const { cart, removeFromCart, updateQuantity } = useCart()
   const [isRedirecting, setIsRedirecting] = useState(false)
 
   const safeClose = () => {
     if (typeof onClose === "function") onClose()
   }
 
-  /* ================= SUBTOTAL ================= */
+  /* ================= CALCULATIONS ================= */
   const subtotal = cart.reduce((acc, item) => {
     const price = Number(item?.selectedVariant?.price ?? 0)
     const qty = Number(item?.quantity) || 1
@@ -33,9 +33,8 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       console.log("🛒 START CHECKOUT")
 
-      /* ✅ CORRECT PAYLOAD */
       const safeItems = cart.map(item => ({
-        productId: item.productId,
+        _id: item.productId,
         selectedVariant: item.selectedVariant,
         quantity: Number(item.quantity) || 1
       }))
@@ -46,13 +45,9 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       const storedUser = JSON.parse(localStorage.getItem("customerUser") || "null")
 
-      /* 🔥 REMOVE PROMPT → LET SQUARE HANDLE EMAIL */
-      const email = storedUser?.email || ""
-
-      /* ================= CREATE ORDER ================= */
       const orderRes = await api.post("/orders", {
         customerName: storedUser?.name || "Guest",
-        email,
+        email: storedUser?.email || "",
         items: safeItems
       })
 
@@ -64,7 +59,6 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       console.log("✅ ORDER CREATED:", orderId)
 
-      /* ================= CREATE PAYMENT ================= */
       const paymentRes = await api.post(`/square/create-payment/${orderId}`)
       const url = paymentRes?.data?.url
 
@@ -72,9 +66,8 @@ export default function CartDrawer({ isOpen, onClose }) {
         throw new Error("No payment URL returned")
       }
 
-      console.log("💳 REDIRECTING TO PAYMENT:", url)
+      console.log("💳 REDIRECT:", url)
 
-      /* 🔥 FORCE REDIRECT TO SQUARE */
       window.location.href = url
 
     } catch (err) {
@@ -143,7 +136,10 @@ export default function CartDrawer({ isOpen, onClose }) {
           {cart.length === 0 && <p>Your cart is empty</p>}
 
           {cart.map((item, index) => {
+
             const price = Number(item?.selectedVariant?.price ?? 0)
+            const qty = Number(item.quantity) || 1
+            const lineTotal = price * qty
 
             return (
               <div key={index} style={{
@@ -166,12 +162,35 @@ export default function CartDrawer({ isOpen, onClose }) {
                     {item.selectedVariant?.color} / {item.selectedVariant?.size}
                   </p>
 
-                  <p>${price.toFixed(2)}</p>
+                  {/* PRICE DISPLAY */}
+                  <p style={{ fontSize: 13 }}>
+                    ${price.toFixed(2)} × {qty}
+                  </p>
 
-                  <p>Qty: {item.quantity}</p>
+                  <p style={{
+                    color: "#22c55e",
+                    fontWeight: "bold"
+                  }}>
+                    ${lineTotal.toFixed(2)}
+                  </p>
+
+                  {/* QTY CONTROLS */}
+                  <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                    <button onClick={() => updateQuantity(index, qty - 1)}>
+                      -
+                    </button>
+
+                    <span>{qty}</span>
+
+                    <button onClick={() => updateQuantity(index, qty + 1)}>
+                      +
+                    </button>
+                  </div>
                 </div>
 
-                <button onClick={() => removeFromCart(index)}>✖</button>
+                <button onClick={() => removeFromCart(index)}>
+                  ✖
+                </button>
               </div>
             )
           })}
@@ -185,7 +204,10 @@ export default function CartDrawer({ isOpen, onClose }) {
           }}>
             <p>Subtotal: ${subtotal.toFixed(2)}</p>
             <p>Tax: ${tax.toFixed(2)}</p>
-            <h3>Total: ${total.toFixed(2)}</h3>
+
+            <h3 style={{ color: "#22c55e" }}>
+              Total: ${total.toFixed(2)}
+            </h3>
 
             <Button
               onClick={handleCheckout}
