@@ -9,15 +9,15 @@ export default function CustomerLogin() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+  const [remember, setRemember] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
-  /* ================= PREVENT LOOP ================= */
+  /* ================= AUTO LOGIN ================= */
   useEffect(() => {
     const token = localStorage.getItem("customerToken")
 
     if (token) {
-      console.log("✅ Already logged in → redirecting to store")
       navigate("/store")
     }
   }, [navigate])
@@ -29,59 +29,45 @@ export default function CustomerLogin() {
     setError("")
 
     if (!email || !password) {
-      setError("Please enter email and password")
-      return
+      return setError("Please enter email and password")
     }
 
     try {
       setLoading(true)
 
-      console.log("🔥 CUSTOMER LOGIN REQUEST")
-
-      const res = await api.post("/auth/login", {
-        email,
-        password
-      })
+      const res = await api.post("/auth/login", { email, password })
 
       const { token, user } = res.data
 
-      localStorage.setItem("customerToken", token)
-      localStorage.setItem("customerUser", JSON.stringify(user))
-
-      localStorage.removeItem("adminToken")
-      localStorage.removeItem("adminUser")
-
-      console.log("✅ CUSTOMER LOGGED IN:", user)
+      if (remember) {
+        localStorage.setItem("customerToken", token)
+        localStorage.setItem("customerUser", JSON.stringify(user))
+      } else {
+        sessionStorage.setItem("customerToken", token)
+        sessionStorage.setItem("customerUser", JSON.stringify(user))
+      }
 
       navigate("/store")
 
     } catch (err) {
-      console.error("❌ CUSTOMER LOGIN ERROR:", err)
-
-      setError(
-        err?.response?.data?.message ||
-        "Login failed. Check your credentials."
-      )
+      setError(err?.response?.data?.message || "Login failed")
     } finally {
       setLoading(false)
     }
   }
 
-  /* 🔥 ENTER KEY SUBMIT */
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter") {
-      handleLogin()
-    }
+  const handleKey = (e) => {
+    if (e.key === "Enter") handleLogin()
   }
 
   return (
     <div style={container}>
-      <div style={card}>
-        <h1 style={title}>Customer Login</h1>
 
-        <p style={subtitle}>
-          Enter your email and password to access your orders
-        </p>
+      {/* GLASS CARD */}
+      <div style={card}>
+
+        <h1 style={title}>Welcome Back</h1>
+        <p style={subtitle}>Sign in to continue</p>
 
         {/* EMAIL */}
         <input
@@ -89,7 +75,7 @@ export default function CustomerLogin() {
           placeholder="Email"
           value={email}
           onChange={(e)=>setEmail(e.target.value)}
-          onKeyDown={handleKeyDown}
+          onKeyDown={handleKey}
           style={input}
         />
 
@@ -100,38 +86,49 @@ export default function CustomerLogin() {
             placeholder="Password"
             value={password}
             onChange={(e)=>setPassword(e.target.value)}
-            onKeyDown={handleKeyDown}
+            onKeyDown={handleKey}
             style={input}
           />
 
-          <span
-            onClick={() => setShowPassword(!showPassword)}
-            style={eye}
-          >
+          <span onClick={()=>setShowPassword(!showPassword)} style={eye}>
             {showPassword ? "🙈" : "👁"}
           </span>
         </div>
 
-        {/* 🔥 FORGOT PASSWORD */}
-        <p
-          style={forgot}
-          onClick={() => navigate("/forgot-password")}
-        >
-          Forgot Password?
-        </p>
+        {/* OPTIONS ROW */}
+        <div style={optionsRow}>
+          <label style={checkboxWrap}>
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={()=>setRemember(!remember)}
+            />
+            Remember me
+          </label>
 
+          <span
+            style={forgot}
+            onClick={()=>navigate("/forgot-password")}
+          >
+            Forgot?
+          </span>
+        </div>
+
+        {/* ERROR */}
         {error && <p style={errorText}>{error}</p>}
 
+        {/* BUTTON */}
         <button
           onClick={handleLogin}
           disabled={loading}
           style={{
             ...button,
-            opacity: loading ? 0.6 : 1
+            transform: loading ? "scale(0.98)" : "scale(1)"
           }}
         >
-          {loading ? "Logging in..." : "Continue"}
+          {loading ? "⏳ Signing in..." : "Sign In"}
         </button>
+
       </div>
     </div>
   )
@@ -144,54 +141,63 @@ const container = {
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
-  background: "#020617",
+  background: "linear-gradient(135deg, #020617, #0f172a)",
   color: "white"
 }
 
 const card = {
-  background: "#0f172a",
+  background: "rgba(15, 23, 42, 0.7)",
+  backdropFilter: "blur(12px)",
   padding: "40px",
-  borderRadius: "12px",
+  borderRadius: "16px",
   width: "100%",
   maxWidth: "400px",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.4)"
+  boxShadow: "0 20px 50px rgba(0,0,0,0.6)",
+  border: "1px solid rgba(255,255,255,0.05)",
+  display: "flex",
+  flexDirection: "column",
+  gap: "12px",
+  transition: "all 0.3s ease"
 }
 
 const title = {
-  marginBottom: "10px"
+  fontSize: "26px",
+  fontWeight: "600",
+  textAlign: "center"
 }
 
 const subtitle = {
-  marginBottom: "20px",
+  textAlign: "center",
   fontSize: "14px",
-  opacity: 0.7
+  opacity: 0.6,
+  marginBottom: "10px"
 }
 
 const input = {
-  width: "100%",
   padding: "12px",
-  marginBottom: "10px",
-  borderRadius: "6px",
+  borderRadius: "8px",
   border: "1px solid #334155",
   background: "#020617",
-  color: "white"
+  color: "white",
+  outline: "none",
+  transition: "0.2s",
 }
 
 const button = {
-  width: "100%",
   padding: "12px",
   background: "#22c55e",
   border: "none",
-  borderRadius: "6px",
+  borderRadius: "8px",
   color: "#000",
   fontWeight: "bold",
-  cursor: "pointer"
+  cursor: "pointer",
+  transition: "all 0.2s ease"
 }
 
 const errorText = {
   color: "#ef4444",
-  marginBottom: "10px",
-  fontSize: "14px"
+  textAlign: "center",
+  fontSize: "13px"
 }
 
 const eye = {
@@ -199,14 +205,23 @@ const eye = {
   right: 12,
   top: 12,
   cursor: "pointer",
-  color: "#94a3b8"
+  opacity: 0.7
 }
 
-/* 🔥 NEW STYLE */
+const optionsRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  fontSize: "12px"
+}
+
+const checkboxWrap = {
+  display: "flex",
+  gap: "6px",
+  alignItems: "center"
+}
+
 const forgot = {
-  textAlign: "right",
-  fontSize: "12px",
   color: "#22c55e",
-  cursor: "pointer",
-  marginBottom: "10px"
+  cursor: "pointer"
 }
