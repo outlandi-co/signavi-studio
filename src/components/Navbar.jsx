@@ -3,6 +3,7 @@ import logo from "../assets/SignaVi_Logo.jpg"
 import NotificationBell from "./NotificationBell"
 import useCart from "../hooks/useCart"
 import { useState } from "react"
+import AccountDrawer from "./AccountDrawer"
 
 function Navbar({ setCartOpen }) {
 
@@ -44,7 +45,6 @@ function Navbar({ setCartOpen }) {
         <NavLink to="/" active={isActive("/")}>Home</NavLink>
         <NavLink to="/store" active={isActive("/store")}>Store</NavLink>
 
-        {/* CART */}
         <button onClick={() => setCartOpen(true)} style={cartBtn}>
           🛒 Cart
           {cartCount > 0 && <span style={badge}>{cartCount}</span>}
@@ -56,7 +56,6 @@ function Navbar({ setCartOpen }) {
           </NavLink>
         )}
 
-        {/* ADMIN NAV */}
         {isAdmin && (
           <div style={adminGroup}>
             <NavLink to="/admin/production" active={isActive("/admin/production")}>Production</NavLink>
@@ -71,7 +70,7 @@ function Navbar({ setCartOpen }) {
       <div style={right}>
         <NotificationBell />
 
-        {/* 🔥 GLOBAL ACCOUNT BUTTON */}
+        {/* ✅ CUSTOMER ACCOUNT BUTTON */}
         {isCustomer && (
           <button
             onClick={() => setAccountOpen(true)}
@@ -94,32 +93,13 @@ function Navbar({ setCartOpen }) {
         )}
       </div>
 
-      {/* 🔥 ACCOUNT DRAWER */}
-      {accountOpen && (
-        <>
-          <div style={overlay} onClick={() => setAccountOpen(false)} />
+      {/* ✅ GLOBAL ACCOUNT DRAWER */}
+      <AccountDrawer
+        open={accountOpen}
+        onClose={() => setAccountOpen(false)}
+        user={customerUser}
+      />
 
-          <div style={drawer}>
-            <h3>Account</h3>
-
-            <button style={drawerBtn} onClick={() => navigate("/dashboard")}>
-              🏠 Dashboard
-            </button>
-
-            <button style={drawerBtn} onClick={() => navigate("/my-orders")}>
-              📦 Orders
-            </button>
-
-            <button style={drawerBtn} onClick={() => navigate("/security")}>
-              🔐 Security
-            </button>
-
-            <button style={drawerBtn} onClick={() => setAccountOpen(false)}>
-              Close
-            </button>
-          </div>
-        </>
-      )}
     </div>
   )
 }
@@ -181,29 +161,6 @@ const accountBtn = {
   borderRadius: "6px",
   border: "none",
   cursor: "pointer"
-}
-
-const overlay = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(0,0,0,0.5)"
-}
-
-const drawer = {
-  position: "fixed",
-  right: 0,
-  top: 0,
-  width: 260,
-  height: "100%",
-  background: "#020617",
-  padding: 20
-}
-
-const drawerBtn = {
-  display: "block",
-  width: "100%",
-  marginBottom: 10,
-  padding: 10
 }
 
 const logoutBtn = {

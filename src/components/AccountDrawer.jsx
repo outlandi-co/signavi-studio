@@ -1,254 +1,175 @@
+import { Link, useNavigate, useLocation } from "react-router-dom"
+import logo from "../assets/SignaVi_Logo.jpg"
+import NotificationBell from "./NotificationBell"
+import useCart from "../hooks/useCart"
 import { useState } from "react"
-import api from "../services/api"
-import { useNavigate } from "react-router-dom"
+import AccountDrawer from "./AccountDrawer"
 
-export default function AccountDrawer({ open, onClose, user, setActiveTab }) {
+function Navbar({ setCartOpen }) {
 
   const navigate = useNavigate()
+  const location = useLocation()
 
-  const [activeTab, setLocalTab] = useState("orders")
+  const { cartCount } = useCart()
 
-  const [passwords, setPasswords] = useState({
-    current: "",
-    newPass: "",
-    confirm: ""
-  })
+  const [accountOpen, setAccountOpen] = useState(false)
 
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState("")
+  const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null")
+  const customerUser = JSON.parse(localStorage.getItem("customerUser") || "null")
 
-  const handleTabChange = (tab) => {
-    setLocalTab(tab)
-    if (setActiveTab) setActiveTab(tab)
+  const isAdmin = adminUser?.role === "admin"
+  const isCustomer = !!customerUser
+
+  const handleLogout = () => {
+    localStorage.removeItem("adminUser")
+    localStorage.removeItem("adminToken")
+    localStorage.removeItem("customerUser")
+    localStorage.removeItem("customerToken")
+    navigate("/")
   }
 
-  const handlePasswordChange = async () => {
-    try {
-      setMessage("")
-
-      if (!passwords.current || !passwords.newPass) {
-        setMessage("❌ Fill all fields")
-        return
-      }
-
-      if (passwords.newPass !== passwords.confirm) {
-        setMessage("❌ Passwords do not match")
-        return
-      }
-
-      setLoading(true)
-
-      await api.post("/auth/change-password", {
-        currentPassword: passwords.current,
-        newPassword: passwords.newPass
-      })
-
-      setMessage("✅ Password updated")
-
-      setPasswords({
-        current: "",
-        newPass: "",
-        confirm: ""
-      })
-
-    } catch (err) {
-      setMessage(err?.response?.data?.error || "❌ Failed")
-    } finally {
-      setLoading(false)
-    }
+  const isActive = (path) => {
+    if (path === "/") return location.pathname === "/"
+    return location.pathname.startsWith(path)
   }
 
   return (
-    <>
-      {/* OVERLAY */}
-      {open && (
-        <div onClick={onClose} style={overlay} />
-      )}
+    <div style={nav}>
 
-      {/* DRAWER */}
-      <div style={{
-        ...drawer,
-        transform: open ? "translateX(0)" : "translateX(100%)"
-      }}>
+      {/* LEFT */}
+      <div style={left}>
+        <Link to="/">
+          <img src={logo} style={logoStyle} />
+        </Link>
 
-        {/* CLOSE */}
-        <button onClick={onClose} style={closeBtn}>✕</button>
+        <NavLink to="/" active={isActive("/")}>Home</NavLink>
+        <NavLink to="/store" active={isActive("/store")}>Store</NavLink>
 
-        <h2>👤 Account</h2>
-
-        {user && (
-          <>
-            <p><b>{user.name}</b></p>
-            <p style={{ opacity: 0.6 }}>{user.email}</p>
-          </>
-        )}
-
-        {/* ================= TABS (UPDATED) ================= */}
-        <div style={{
-          display: "flex",
-          gap: 20,
-          marginTop: 20,
-          position: "relative",
-          borderBottom: "1px solid #1e293b",
-          paddingBottom: 6
-        }}>
-          {[
-            { key: "orders", label: "Orders" },
-            { key: "history", label: "Reorders" },
-            { key: "security", label: "Security" }
-          ].map(tab => (
-            <div
-              key={tab.key}
-              onClick={() => handleTabChange(tab.key)}
-              style={{
-                position: "relative",
-                padding: "6px 0",
-                cursor: "pointer",
-                color: activeTab === tab.key ? "#22c55e" : "#94a3b8",
-                fontWeight: activeTab === tab.key ? 600 : 400,
-                transition: "all 0.2s ease"
-              }}
-            >
-              {tab.label}
-
-              {/* 🔥 UNDERLINE */}
-              {activeTab === tab.key && (
-                <div style={{
-                  position: "absolute",
-                  bottom: -7,
-                  left: 0,
-                  width: "100%",
-                  height: 2,
-                  background: "#22c55e",
-                  borderRadius: 2,
-                  transition: "all 0.3s ease"
-                }} />
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* ================= SECURITY ================= */}
-        {activeTab === "security" && (
-          <div style={{ marginTop: 20 }}>
-            <h3>🔐 Change Password</h3>
-
-            <input
-              placeholder="Current password"
-              type="password"
-              value={passwords.current}
-              onChange={(e) =>
-                setPasswords({ ...passwords, current: e.target.value })
-              }
-              style={input}
-            />
-
-            <input
-              placeholder="New password"
-              type="password"
-              value={passwords.newPass}
-              onChange={(e) =>
-                setPasswords({ ...passwords, newPass: e.target.value })
-              }
-              style={input}
-            />
-
-            <input
-              placeholder="Confirm password"
-              type="password"
-              value={passwords.confirm}
-              onChange={(e) =>
-                setPasswords({ ...passwords, confirm: e.target.value })
-              }
-              style={input}
-            />
-
-            <button
-              onClick={handlePasswordChange}
-              disabled={loading}
-              style={btn}
-            >
-              {loading ? "Updating..." : "Update Password"}
-            </button>
-
-            {message && <p style={{ marginTop: 10 }}>{message}</p>}
-          </div>
-        )}
-
-        {/* LOGOUT */}
-        <button
-          onClick={() => {
-            localStorage.clear()
-            navigate("/customer-login")
-          }}
-          style={logout}
-        >
-          Logout
+        <button onClick={() => setCartOpen(true)} style={cartBtn}>
+          🛒 Cart
+          {cartCount > 0 && <span style={badge}>{cartCount}</span>}
         </button>
 
+        {(isCustomer || isAdmin) && (
+          <NavLink to="/notifications" active={isActive("/notifications")}>
+            🔔 Alerts
+          </NavLink>
+        )}
+
+        {isAdmin && (
+          <div style={adminGroup}>
+            <NavLink to="/admin/production" active={isActive("/admin/production")}>Production</NavLink>
+            <NavLink to="/admin/orders" active={isActive("/admin/orders")}>Orders</NavLink>
+            <NavLink to="/admin/customers" active={isActive("/admin/customers")}>Customers</NavLink>
+            <NavLink to="/admin/revenue" active={isActive("/admin/revenue")}>Revenue</NavLink>
+          </div>
+        )}
       </div>
-    </>
+
+      {/* RIGHT */}
+      <div style={right}>
+        <NotificationBell />
+
+        {/* ✅ CUSTOMER ACCOUNT BUTTON */}
+        {isCustomer && (
+          <button
+            onClick={() => setAccountOpen(true)}
+            style={accountBtn}
+          >
+            Account
+          </button>
+        )}
+
+        {(isCustomer || isAdmin) ? (
+          <button onClick={handleLogout} style={logoutBtn}>
+            Logout
+          </button>
+        ) : (
+          <div style={authLinks}>
+            <Link to="/customer-register">Register</Link>
+            <Link to="/customer-login">Customer</Link>
+            <Link to="/login">Admin</Link>
+          </div>
+        )}
+      </div>
+
+      {/* ✅ GLOBAL ACCOUNT DRAWER */}
+      <AccountDrawer
+        open={accountOpen}
+        onClose={() => setAccountOpen(false)}
+        user={customerUser}
+      />
+
+    </div>
   )
 }
 
-/* ================= STYLES ================= */
-
-const overlay = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(0,0,0,0.5)",
-  zIndex: 999
+/* NAV LINK */
+function NavLink({ to, children, active }) {
+  return (
+    <Link
+      to={to}
+      style={{
+        color: active ? "#22d3ee" : "#cbd5f5",
+        fontWeight: active ? "600" : "400"
+      }}
+    >
+      {children}
+    </Link>
+  )
 }
 
-const drawer = {
-  position: "fixed",
-  top: 0,
-  right: 0,
-  width: "340px",
-  height: "100%",
+/* STYLES */
+const nav = {
+  display: "flex",
+  justifyContent: "space-between",
+  padding: "16px 24px",
   background: "#020617",
-  padding: "20px",
-  zIndex: 1000,
-  transition: "transform 0.35s ease"
+  borderBottom: "1px solid #1e293b"
 }
 
-const closeBtn = {
+const left = { display: "flex", gap: 20, alignItems: "center" }
+const right = { display: "flex", gap: 16, alignItems: "center" }
+const authLinks = { display: "flex", gap: 12 }
+
+const logoStyle = { height: 40 }
+const adminGroup = { display: "flex", gap: 10, marginLeft: 20 }
+
+const cartBtn = {
+  background: "none",
+  border: "none",
+  color: "#cbd5f5",
+  cursor: "pointer",
+  position: "relative"
+}
+
+const badge = {
   position: "absolute",
-  top: 10,
-  right: 10,
-  background: "transparent",
-  border: "none",
-  color: "white",
-  fontSize: 18,
-  cursor: "pointer"
-}
-
-const input = {
-  width: "100%",
-  padding: 10,
-  marginTop: 10,
-  background: "#0f172a",
-  border: "1px solid #334155",
-  borderRadius: 6,
-  color: "white"
-}
-
-const btn = {
-  width: "100%",
-  marginTop: 10,
-  padding: 10,
-  background: "#22c55e",
-  border: "none",
-  borderRadius: 6,
-  cursor: "pointer"
-}
-
-const logout = {
-  marginTop: 30,
-  width: "100%",
-  padding: 10,
+  top: "-6px",
+  right: "-10px",
   background: "#ef4444",
+  color: "#fff",
+  padding: "2px 6px",
+  borderRadius: "999px",
+  fontSize: "11px"
+}
+
+const accountBtn = {
+  background: "#22c55e",
+  color: "#000",
+  padding: "6px 12px",
+  borderRadius: "6px",
   border: "none",
-  borderRadius: 6,
   cursor: "pointer"
 }
+
+const logoutBtn = {
+  background: "#ef4444",
+  color: "#fff",
+  border: "none",
+  padding: "6px 12px",
+  borderRadius: "6px",
+  cursor: "pointer"
+}
+
+export default Navbar
