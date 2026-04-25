@@ -4,6 +4,7 @@ import api from "../../services/api"
 import { io } from "socket.io-client"
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
+import ShippingEditor from "../../components/admin/ShippingEditor"
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
@@ -24,7 +25,10 @@ export default function OrderDetail() {
     const load = async () => {
       try {
         const res = await api.get(`/orders/${id}`)
-        setOrder(res.data)
+
+        const data = res.data?.data || res.data
+        setOrder(data)
+
       } catch (err) {
         console.error("❌ ORDER LOAD ERROR:", err)
       } finally {
@@ -74,6 +78,11 @@ export default function OrderDetail() {
     pdf.save(`invoice-${order._id}.pdf`)
   }
 
+  /* ================= UPDATE FROM SHIPPING EDITOR ================= */
+  const handleUpdate = (updatedOrder) => {
+    setOrder(updatedOrder)
+  }
+
   if (loading) return <p style={{ padding: 20 }}>Loading...</p>
   if (!order) return <p style={{ padding: 20 }}>Order not found</p>
 
@@ -81,7 +90,7 @@ export default function OrderDetail() {
     <div style={{ padding: 20, color: "white" }}>
       <h1>📦 Order Detail</h1>
 
-      {/* 🔥 THIS IS WHAT PDF CAPTURES */}
+      {/* ================= INVOICE ================= */}
       <div
         id="invoice"
         style={{
@@ -93,7 +102,7 @@ export default function OrderDetail() {
         }}
       >
 
-        {/* 🔥 COMPANY HEADER (NOW INCLUDED IN PDF) */}
+        {/* COMPANY HEADER */}
         <div
           style={{
             marginBottom: 25,
@@ -122,6 +131,14 @@ export default function OrderDetail() {
         <p><strong>Customer:</strong> {order.customerName}</p>
         <p><strong>Status:</strong> {order.status}</p>
 
+        {/* SHIPPING INFO */}
+        {order.trackingNumber && (
+          <div style={{ marginTop: 10 }}>
+            <p><strong>Carrier:</strong> {order.carrier}</p>
+            <p><strong>Tracking:</strong> {order.trackingNumber}</p>
+          </div>
+        )}
+
         <hr />
 
         {/* ITEMS */}
@@ -130,7 +147,7 @@ export default function OrderDetail() {
             <p><strong>{item.name}</strong></p>
 
             <p>
-              {item.variant?.color} / {item.variant?.size}
+              {item.variant?.color || "N/A"} / {item.variant?.size || "N/A"}
             </p>
 
             <p>
@@ -148,13 +165,13 @@ export default function OrderDetail() {
         {/* TOTALS */}
         <p>Subtotal: ${Number(order.subtotal || 0).toFixed(2)}</p>
         <p>Tax: ${Number(order.tax || 0).toFixed(2)}</p>
-        <p>Shipping: ${Number(order.shipping || 0).toFixed(2)}</p>
+        <p>Shipping: ${Number(order.shippingCost || 0).toFixed(2)}</p>
 
         <h3>Total: ${Number(order.finalPrice || 0).toFixed(2)}</h3>
 
       </div>
 
-      {/* DOWNLOAD BUTTON */}
+      {/* DOWNLOAD */}
       <button
         onClick={handleDownloadInvoice}
         style={{
@@ -169,6 +186,10 @@ export default function OrderDetail() {
       >
         📄 Download Invoice
       </button>
+
+      {/* 🔥 ADMIN SHIPPING EDITOR */}
+      <ShippingEditor order={order} onUpdate={handleUpdate} />
+
     </div>
   )
 }
