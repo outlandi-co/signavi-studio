@@ -1,175 +1,211 @@
-import { Link, useNavigate, useLocation } from "react-router-dom"
-import logo from "../assets/SignaVi_Logo.jpg"
-import NotificationBell from "./NotificationBell"
-import useCart from "../hooks/useCart"
 import { useState } from "react"
-import AccountDrawer from "./AccountDrawer"
+import api from "../services/api"
+import { useNavigate } from "react-router-dom"
 
-function Navbar({ setCartOpen }) {
+export default function AccountDrawer({ open, onClose, user }) {
 
   const navigate = useNavigate()
-  const location = useLocation()
 
-  const { cartCount } = useCart()
+  const [tab, setTab] = useState("orders")
 
-  const [accountOpen, setAccountOpen] = useState(false)
+  const [passwords, setPasswords] = useState({
+    current: "",
+    newPass: "",
+    confirm: ""
+  })
 
-  const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null")
-  const customerUser = JSON.parse(localStorage.getItem("customerUser") || "null")
+  const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState("")
 
-  const isAdmin = adminUser?.role === "admin"
-  const isCustomer = !!customerUser
+  const handlePasswordChange = async () => {
+    try {
+      setMessage("")
 
-  const handleLogout = () => {
-    localStorage.removeItem("adminUser")
-    localStorage.removeItem("adminToken")
-    localStorage.removeItem("customerUser")
-    localStorage.removeItem("customerToken")
-    navigate("/")
-  }
+      if (!passwords.current || !passwords.newPass) {
+        return setMessage("❌ Fill all fields")
+      }
 
-  const isActive = (path) => {
-    if (path === "/") return location.pathname === "/"
-    return location.pathname.startsWith(path)
+      if (passwords.newPass !== passwords.confirm) {
+        return setMessage("❌ Passwords do not match")
+      }
+
+      setLoading(true)
+
+      await api.post("/auth/change-password", {
+        currentPassword: passwords.current,
+        newPassword: passwords.newPass
+      })
+
+      setMessage("✅ Password updated")
+
+      setPasswords({
+        current: "",
+        newPass: "",
+        confirm: ""
+      })
+
+    } catch (err) {
+      setMessage(err?.response?.data?.error || "❌ Failed")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div style={nav}>
+    <>
+      {open && <div onClick={onClose} style={overlay} />}
 
-      {/* LEFT */}
-      <div style={left}>
-        <Link to="/">
-          <img src={logo} style={logoStyle} />
-        </Link>
+      <div
+        style={{
+          ...drawer,
+          transform: open ? "translateX(0)" : "translateX(100%)"
+        }}
+      >
 
-        <NavLink to="/" active={isActive("/")}>Home</NavLink>
-        <NavLink to="/store" active={isActive("/store")}>Store</NavLink>
+        <button onClick={onClose} style={closeBtn}>✕</button>
 
-        <button onClick={() => setCartOpen(true)} style={cartBtn}>
-          🛒 Cart
-          {cartCount > 0 && <span style={badge}>{cartCount}</span>}
+        <h2>👤 Account</h2>
+
+        {user && (
+          <>
+            <p><b>{user.name}</b></p>
+            <p style={{ opacity: 0.6 }}>{user.email}</p>
+          </>
+        )}
+
+        {/* TABS */}
+        <div style={tabs}>
+          <span onClick={() => setTab("orders")} style={tabStyle(tab === "orders")}>
+            Orders
+          </span>
+
+          <span onClick={() => setTab("security")} style={tabStyle(tab === "security")}>
+            Security
+          </span>
+        </div>
+
+        {/* SECURITY */}
+        {tab === "security" && (
+          <>
+            <input
+              placeholder="Current password"
+              type="password"
+              value={passwords.current}
+              onChange={(e) =>
+                setPasswords({ ...passwords, current: e.target.value })
+              }
+              style={input}
+            />
+
+            <input
+              placeholder="New password"
+              type="password"
+              value={passwords.newPass}
+              onChange={(e) =>
+                setPasswords({ ...passwords, newPass: e.target.value })
+              }
+              style={input}
+            />
+
+            <input
+              placeholder="Confirm password"
+              type="password"
+              value={passwords.confirm}
+              onChange={(e) =>
+                setPasswords({ ...passwords, confirm: e.target.value })
+              }
+              style={input}
+            />
+
+            <button onClick={handlePasswordChange} style={btn}>
+              {loading ? "Updating..." : "Update Password"}
+            </button>
+
+            {message && <p>{message}</p>}
+          </>
+        )}
+
+        {/* LOGOUT */}
+        <button
+          onClick={() => {
+            localStorage.clear()
+            navigate("/customer-login")
+          }}
+          style={logout}
+        >
+          Logout
         </button>
 
-        {(isCustomer || isAdmin) && (
-          <NavLink to="/notifications" active={isActive("/notifications")}>
-            🔔 Alerts
-          </NavLink>
-        )}
-
-        {isAdmin && (
-          <div style={adminGroup}>
-            <NavLink to="/admin/production" active={isActive("/admin/production")}>Production</NavLink>
-            <NavLink to="/admin/orders" active={isActive("/admin/orders")}>Orders</NavLink>
-            <NavLink to="/admin/customers" active={isActive("/admin/customers")}>Customers</NavLink>
-            <NavLink to="/admin/revenue" active={isActive("/admin/revenue")}>Revenue</NavLink>
-          </div>
-        )}
       </div>
-
-      {/* RIGHT */}
-      <div style={right}>
-        <NotificationBell />
-
-        {/* ✅ CUSTOMER ACCOUNT BUTTON */}
-        {isCustomer && (
-          <button
-            onClick={() => setAccountOpen(true)}
-            style={accountBtn}
-          >
-            Account
-          </button>
-        )}
-
-        {(isCustomer || isAdmin) ? (
-          <button onClick={handleLogout} style={logoutBtn}>
-            Logout
-          </button>
-        ) : (
-          <div style={authLinks}>
-            <Link to="/customer-register">Register</Link>
-            <Link to="/customer-login">Customer</Link>
-            <Link to="/login">Admin</Link>
-          </div>
-        )}
-      </div>
-
-      {/* ✅ GLOBAL ACCOUNT DRAWER */}
-      <AccountDrawer
-        open={accountOpen}
-        onClose={() => setAccountOpen(false)}
-        user={customerUser}
-      />
-
-    </div>
-  )
-}
-
-/* NAV LINK */
-function NavLink({ to, children, active }) {
-  return (
-    <Link
-      to={to}
-      style={{
-        color: active ? "#22d3ee" : "#cbd5f5",
-        fontWeight: active ? "600" : "400"
-      }}
-    >
-      {children}
-    </Link>
+    </>
   )
 }
 
 /* STYLES */
-const nav = {
-  display: "flex",
-  justifyContent: "space-between",
-  padding: "16px 24px",
+const overlay = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.5)",
+  zIndex: 999
+}
+
+const drawer = {
+  position: "fixed",
+  top: 0,
+  right: 0,
+  width: "340px",
+  height: "100%",
   background: "#020617",
-  borderBottom: "1px solid #1e293b"
+  padding: "20px",
+  zIndex: 1000,
+  transition: "transform 0.35s ease"
 }
 
-const left = { display: "flex", gap: 20, alignItems: "center" }
-const right = { display: "flex", gap: 16, alignItems: "center" }
-const authLinks = { display: "flex", gap: 12 }
-
-const logoStyle = { height: 40 }
-const adminGroup = { display: "flex", gap: 10, marginLeft: 20 }
-
-const cartBtn = {
-  background: "none",
-  border: "none",
-  color: "#cbd5f5",
-  cursor: "pointer",
-  position: "relative"
-}
-
-const badge = {
+const closeBtn = {
   position: "absolute",
-  top: "-6px",
-  right: "-10px",
-  background: "#ef4444",
-  color: "#fff",
-  padding: "2px 6px",
-  borderRadius: "999px",
-  fontSize: "11px"
+  top: 10,
+  right: 10,
+  background: "transparent",
+  border: "none",
+  color: "white",
+  cursor: "pointer"
 }
 
-const accountBtn = {
+const tabs = {
+  display: "flex",
+  gap: 20,
+  marginTop: 20
+}
+
+const tabStyle = (active) => ({
+  cursor: "pointer",
+  color: active ? "#22c55e" : "#94a3b8"
+})
+
+const input = {
+  width: "100%",
+  padding: 10,
+  marginTop: 10,
+  background: "#0f172a",
+  border: "1px solid #334155",
+  borderRadius: 6,
+  color: "white"
+}
+
+const btn = {
+  width: "100%",
+  marginTop: 10,
+  padding: 10,
   background: "#22c55e",
-  color: "#000",
-  padding: "6px 12px",
-  borderRadius: "6px",
   border: "none",
-  cursor: "pointer"
+  borderRadius: 6
 }
 
-const logoutBtn = {
+const logout = {
+  marginTop: 30,
+  width: "100%",
+  padding: 10,
   background: "#ef4444",
-  color: "#fff",
   border: "none",
-  padding: "6px 12px",
-  borderRadius: "6px",
-  cursor: "pointer"
+  borderRadius: 6
 }
-
-export default Navbar
