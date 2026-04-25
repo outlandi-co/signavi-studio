@@ -5,6 +5,7 @@ import { getSocket } from "../services/socket"
 function AdminDashboard() {
 
   const [data, setData] = useState(null)
+  const [rates, setRates] = useState([])
   const loadingRef = useRef(false)
 
   /* ================= LOAD ================= */
@@ -22,7 +23,6 @@ function AdminDashboard() {
     }
   }, [])
 
-  /* ================= INITIAL LOAD ================= */
   useEffect(() => {
     load()
   }, [load])
@@ -52,10 +52,34 @@ function AdminDashboard() {
     }
   }, [load])
 
+  /* ================= GET SHIPPING RATES ================= */
+  const getRates = async () => {
+    try {
+      console.log("📦 Getting shipping rates...")
+
+      const res = await api.post("/shipping/get-rates", {
+        address_to: {
+          name: "Adam",
+          street1: "456 Test St",
+          city: "Merced",
+          state: "CA",
+          zip: "95340",
+          country: "US"
+        }
+      })
+
+      console.log("🚚 RATES:", res.data)
+      setRates(res.data.rates || [])
+
+    } catch (err) {
+      console.error("❌ RATE ERROR:", err.response?.data || err.message)
+    }
+  }
+
   /* ================= TEST SHIPPING ================= */
   const testShipping = async () => {
     try {
-      console.log("🚚 Sending test shipment...")
+      console.log("🚚 Creating shipment...")
 
       const res = await api.post("/shipping/create-shipment", {
         address_to: {
@@ -69,21 +93,16 @@ function AdminDashboard() {
       })
 
       console.log("📦 SHIPPING SUCCESS:", res.data)
-
       alert("Shipment created! Check console.")
 
     } catch (err) {
       console.error("❌ SHIPPING ERROR:", err.response?.data || err.message)
-      alert("Shipping failed. Check console.")
+      alert("Shipping failed.")
     }
   }
 
   if (!data) {
-    return (
-      <p style={{ color: "white", padding: 20 }}>
-        Loading dashboard...
-      </p>
-    )
+    return <p style={{ color: "white", padding: 20 }}>Loading dashboard...</p>
   }
 
   return (
@@ -103,9 +122,25 @@ function AdminDashboard() {
       {/* 🚚 SHIPPING TEST */}
       <div style={card}>
         <h2>Shipping Test</h2>
-        <button onClick={testShipping} style={button}>
-          🚚 Test Shipping
+
+        <button onClick={getRates} style={button}>
+          📦 Get Shipping Rates
         </button>
+
+        <button onClick={testShipping} style={{ ...button, marginLeft: 10 }}>
+          🚚 Create Shipment
+        </button>
+
+        {/* SHOW RATES */}
+        {rates.length > 0 && (
+          <div style={{ marginTop: 10 }}>
+            {rates.map((rate) => (
+              <div key={rate.object_id} style={{ fontSize: 12 }}>
+                {rate.provider} - {rate.servicelevel?.name} - ${rate.amount}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
