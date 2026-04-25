@@ -6,7 +6,7 @@ export default function AccountDrawer({ open, onClose, user }) {
 
   const navigate = useNavigate()
 
-  const [tab, setTab] = useState("orders")
+  const [tab, setTab] = useState("security")
 
   const [passwords, setPasswords] = useState({
     current: "",
@@ -75,13 +75,26 @@ export default function AccountDrawer({ open, onClose, user }) {
 
         {/* TABS */}
         <div style={tabs}>
-          <span onClick={() => setTab("orders")} style={tabStyle(tab === "orders")}>
+
+          {/* 🔥 ORDERS → NAVIGATE */}
+          <span
+            onClick={() => {
+              onClose()
+              navigate("/my-orders")
+            }}
+            style={tabStyle(false)}
+          >
             Orders
           </span>
 
-          <span onClick={() => setTab("security")} style={tabStyle(tab === "security")}>
+          {/* 🔥 SECURITY → STAY IN DRAWER */}
+          <span
+            onClick={() => setTab("security")}
+            style={tabStyle(tab === "security")}
+          >
             Security
           </span>
+
         </div>
 
         {/* SECURITY */}
