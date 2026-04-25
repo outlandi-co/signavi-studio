@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import api from "../services/api"
 
-/* 🔥 COMPANY INFO (CENTRALIZED) */
+/* 🔥 COMPANY INFO */
 const COMPANY = {
   name: "SignaVi Studio",
   website: "www.signavistudio.store",
@@ -12,13 +12,12 @@ export default function InvoiceEditor({ order = {}, onSave }) {
 
   const [items, setItems] = useState(order.items || [])
   const [shipping, setShipping] = useState(order.shipping || 0)
-  const [taxRate, setTaxRate] = useState(0.0825) // 8.25%
+  const [taxRate, setTaxRate] = useState(0.0825)
   const [loading, setLoading] = useState(false)
 
-  /* 🔒 LOCK IF PAID */
   const isLocked = order.status === "paid"
 
-  /* 🔄 SYNC */
+  /* 🔄 SYNC ORDER */
   useEffect(() => {
     setItems(order.items || [])
     setShipping(order.shipping || 0)
@@ -53,6 +52,7 @@ export default function InvoiceEditor({ order = {}, onSave }) {
   const tax = subtotal * taxRate
   const total = subtotal + tax + Number(shipping || 0)
 
+  /* 💾 SAVE */
   const handleSave = async () => {
     if (isLocked) {
       alert("Invoice is locked after payment")
@@ -66,14 +66,6 @@ export default function InvoiceEditor({ order = {}, onSave }) {
 
     try {
       setLoading(true)
-
-      console.log("🧾 Saving invoice:", {
-        items,
-        subtotal,
-        tax,
-        shipping,
-        total
-      })
 
       await api.patch(`/orders/${order._id}/invoice`, {
         items,
@@ -105,11 +97,56 @@ export default function InvoiceEditor({ order = {}, onSave }) {
   return (
     <div style={{ marginTop: 20 }}>
 
-      {/* 🔥 HEADER */}
-      <div style={{ marginBottom: 20 }}>
-        <h2>{COMPANY.name}</h2>
-        <p style={{ margin: 0 }}>{COMPANY.website}</p>
-        <p style={{ margin: 0 }}>{COMPANY.email}</p>
+      {/* 🔥 INVOICE HEADER */}
+      <div
+        style={{
+          marginBottom: 25,
+          borderBottom: "2px solid #000",
+          paddingBottom: 12,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start"
+        }}
+      >
+
+        {/* LEFT: COMPANY */}
+        <div>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: 28,
+              letterSpacing: 1
+            }}
+          >
+            {COMPANY.name}
+          </h1>
+
+          <p style={{ margin: 0 }}>
+            {COMPANY.website}
+          </p>
+
+          <p style={{ margin: 0 }}>
+            {COMPANY.email}
+          </p>
+        </div>
+
+        {/* RIGHT: INVOICE INFO */}
+        <div style={{ textAlign: "right" }}>
+          <h2 style={{ margin: 0 }}>INVOICE</h2>
+
+          {order?._id && (
+            <p style={{ margin: 0 }}>
+              #{order._id.slice(-6)}
+            </p>
+          )}
+
+          {order?.createdAt && (
+            <p style={{ margin: 0 }}>
+              {new Date(order.createdAt).toLocaleDateString()}
+            </p>
+          )}
+        </div>
+
       </div>
 
       <h3>🧾 Edit Invoice</h3>
@@ -184,7 +221,7 @@ export default function InvoiceEditor({ order = {}, onSave }) {
         />
       </div>
 
-      {/* 🔥 TAX RATE */}
+      {/* 🔥 TAX */}
       <div style={{ marginTop: 10 }}>
         <label>Tax Rate:</label>
         <input
