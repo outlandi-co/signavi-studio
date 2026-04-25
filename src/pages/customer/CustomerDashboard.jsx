@@ -23,7 +23,19 @@ export default function CustomerDashboard() {
   useEffect(() => {
     const loadOrders = async () => {
       try {
-        const res = await api.get("/orders/my-orders")
+        /* 🔥 GET CUSTOMER EMAIL FROM LOCAL STORAGE */
+        const user = JSON.parse(localStorage.getItem("customerUser") || "null")
+        const email = user?.email
+
+        if (!email) {
+          console.warn("⚠️ No customer email found")
+          setOrders([])
+          setLoading(false)
+          return
+        }
+
+        /* 🔥 FIXED API CALL */
+        const res = await api.get(`/orders/my-orders?email=${email}`)
 
         console.log("📦 DASHBOARD ORDERS:", res.data)
 
@@ -34,6 +46,7 @@ export default function CustomerDashboard() {
           []
 
         setOrders(Array.isArray(data) ? data : [])
+
       } catch (err) {
         console.error("❌ DASHBOARD LOAD ERROR:", err)
         setOrders([])
@@ -49,7 +62,7 @@ export default function CustomerDashboard() {
     <div className="min-h-screen bg-[#020617] text-white p-6">
       <h1 className="text-2xl font-semibold mb-6">👤 Dashboard</h1>
 
-      {/* ✅ ONLY KEEP ORDERS BUTTON */}
+      {/* NAV */}
       <div className="flex gap-3 mb-6">
         <button
           onClick={() => navigate("/my-orders")}
@@ -71,7 +84,7 @@ export default function CustomerDashboard() {
         </p>
       )}
 
-      {/* ORDERS PREVIEW */}
+      {/* ORDERS */}
       {!loading && orders.length > 0 && (
         <div className="grid gap-4">
           {orders.slice(0, 5).map((order) => (
