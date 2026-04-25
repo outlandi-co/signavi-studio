@@ -2,6 +2,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom"
 import logo from "../assets/SignaVi_Logo.jpg"
 import NotificationBell from "./NotificationBell"
 import useCart from "../hooks/useCart"
+import { useState } from "react"
 
 function Navbar({ setCartOpen }) {
 
@@ -10,11 +11,11 @@ function Navbar({ setCartOpen }) {
 
   const { cartCount } = useCart()
 
-  /* 🔥 SAFE PARSE */
+  const [accountOpen, setAccountOpen] = useState(false)
+
   const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null")
   const customerUser = JSON.parse(localStorage.getItem("customerUser") || "null")
 
-  /* 🔥 ROLE CONTROL */
   const isAdmin = adminUser?.role === "admin"
   const isCustomer = !!customerUser
 
@@ -31,12 +32,6 @@ function Navbar({ setCartOpen }) {
     return location.pathname.startsWith(path)
   }
 
-  const handleCartClick = () => {
-    if (typeof setCartOpen === "function") {
-      setCartOpen(true)
-    }
-  }
-
   return (
     <div style={nav}>
 
@@ -46,11 +41,11 @@ function Navbar({ setCartOpen }) {
           <img src={logo} style={logoStyle} />
         </Link>
 
-        {/* 🔥 CUSTOMER NAV */}
         <NavLink to="/" active={isActive("/")}>Home</NavLink>
         <NavLink to="/store" active={isActive("/store")}>Store</NavLink>
 
-        <button onClick={handleCartClick} style={cartBtn}>
+        {/* CART */}
+        <button onClick={() => setCartOpen(true)} style={cartBtn}>
           🛒 Cart
           {cartCount > 0 && <span style={badge}>{cartCount}</span>}
         </button>
@@ -61,32 +56,13 @@ function Navbar({ setCartOpen }) {
           </NavLink>
         )}
 
-        {/* 🔐 ADMIN NAV ONLY */}
+        {/* ADMIN NAV */}
         {isAdmin && (
           <div style={adminGroup}>
-            <NavLink to="/admin/production" active={isActive("/admin/production")}>
-              Production
-            </NavLink>
-
-            <NavLink to="/admin/orders" active={isActive("/admin/orders")}>
-              Orders
-            </NavLink>
-
-            <NavLink to="/admin/customers" active={isActive("/admin/customers")}>
-              Customers
-            </NavLink>
-
-            <NavLink to="/admin/revenue" active={isActive("/admin/revenue")}>
-              Revenue
-            </NavLink>
-
-            <NavLink to="/admin/products" active={isActive("/admin/products")}>
-              📦 Products
-            </NavLink>
-
-            <NavLink to="/admin/products/new" active={isActive("/admin/products/new")}>
-              ➕ Add Product
-            </NavLink>
+            <NavLink to="/admin/production" active={isActive("/admin/production")}>Production</NavLink>
+            <NavLink to="/admin/orders" active={isActive("/admin/orders")}>Orders</NavLink>
+            <NavLink to="/admin/customers" active={isActive("/admin/customers")}>Customers</NavLink>
+            <NavLink to="/admin/revenue" active={isActive("/admin/revenue")}>Revenue</NavLink>
           </div>
         )}
       </div>
@@ -94,6 +70,16 @@ function Navbar({ setCartOpen }) {
       {/* RIGHT */}
       <div style={right}>
         <NotificationBell />
+
+        {/* 🔥 GLOBAL ACCOUNT BUTTON */}
+        {isCustomer && (
+          <button
+            onClick={() => setAccountOpen(true)}
+            style={accountBtn}
+          >
+            Account
+          </button>
+        )}
 
         {(isCustomer || isAdmin) ? (
           <button onClick={handleLogout} style={logoutBtn}>
@@ -107,6 +93,33 @@ function Navbar({ setCartOpen }) {
           </div>
         )}
       </div>
+
+      {/* 🔥 ACCOUNT DRAWER */}
+      {accountOpen && (
+        <>
+          <div style={overlay} onClick={() => setAccountOpen(false)} />
+
+          <div style={drawer}>
+            <h3>Account</h3>
+
+            <button style={drawerBtn} onClick={() => navigate("/dashboard")}>
+              🏠 Dashboard
+            </button>
+
+            <button style={drawerBtn} onClick={() => navigate("/my-orders")}>
+              📦 Orders
+            </button>
+
+            <button style={drawerBtn} onClick={() => navigate("/security")}>
+              🔐 Security
+            </button>
+
+            <button style={drawerBtn} onClick={() => setAccountOpen(false)}>
+              Close
+            </button>
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -159,6 +172,38 @@ const badge = {
   padding: "2px 6px",
   borderRadius: "999px",
   fontSize: "11px"
+}
+
+const accountBtn = {
+  background: "#22c55e",
+  color: "#000",
+  padding: "6px 12px",
+  borderRadius: "6px",
+  border: "none",
+  cursor: "pointer"
+}
+
+const overlay = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.5)"
+}
+
+const drawer = {
+  position: "fixed",
+  right: 0,
+  top: 0,
+  width: 260,
+  height: "100%",
+  background: "#020617",
+  padding: 20
+}
+
+const drawerBtn = {
+  display: "block",
+  width: "100%",
+  marginBottom: 10,
+  padding: 10
 }
 
 const logoutBtn = {
