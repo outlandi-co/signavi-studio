@@ -52,6 +52,32 @@ function AdminDashboard() {
     }
   }, [load])
 
+  /* ================= TEST SHIPPING ================= */
+  const testShipping = async () => {
+    try {
+      console.log("🚚 Sending test shipment...")
+
+      const res = await api.post("/shipping/create-shipment", {
+        address_to: {
+          name: "Adam",
+          street1: "456 Test St",
+          city: "Merced",
+          state: "CA",
+          zip: "95340",
+          country: "US"
+        }
+      })
+
+      console.log("📦 SHIPPING SUCCESS:", res.data)
+
+      alert("Shipment created! Check console.")
+
+    } catch (err) {
+      console.error("❌ SHIPPING ERROR:", err.response?.data || err.message)
+      alert("Shipping failed. Check console.")
+    }
+  }
+
   if (!data) {
     return (
       <p style={{ color: "white", padding: 20 }}>
@@ -73,15 +99,33 @@ function AdminDashboard() {
         <h2>Profit</h2>
         <p>${Number(data.totalProfit || 0).toFixed(2)}</p>
       </div>
+
+      {/* 🚚 SHIPPING TEST */}
+      <div style={card}>
+        <h2>Shipping Test</h2>
+        <button onClick={testShipping} style={button}>
+          🚚 Test Shipping
+        </button>
+      </div>
     </div>
   )
 }
 
+/* ================= STYLES ================= */
 const card = {
   background: "#1e293b",
   padding: 15,
   marginTop: 10,
   borderRadius: 10
+}
+
+const button = {
+  padding: "10px 15px",
+  background: "#06b6d4",
+  border: "none",
+  borderRadius: "6px",
+  cursor: "pointer",
+  fontWeight: "bold"
 }
 
 export default AdminDashboard

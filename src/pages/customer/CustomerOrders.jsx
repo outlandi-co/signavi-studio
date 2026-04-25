@@ -23,11 +23,18 @@ export default function CustomerOrders() {
   useEffect(() => {
     const loadOrders = async () => {
       try {
-        const res = await api.get("/orders/my-orders")
+        const email = localStorage.getItem("customerEmail")
+
+        if (!email) {
+          console.error("❌ No email found in localStorage")
+          setOrders([])
+          return
+        }
+
+        const res = await api.get(`/orders/my-orders?email=${email}`)
 
         console.log("📦 ORDERS RESPONSE:", res.data)
 
-        // 🔥 CRITICAL: SUPPORT BOTH BACKEND FORMATS
         const data =
           res.data?.data ||
           res.data?.orders ||
@@ -36,7 +43,7 @@ export default function CustomerOrders() {
 
         setOrders(Array.isArray(data) ? data : [])
       } catch (err) {
-        console.error("❌ LOAD ORDERS ERROR:", err)
+        console.error("❌ LOAD ORDERS ERROR:", err.response?.data || err.message)
         setOrders([])
       } finally {
         setLoading(false)
@@ -46,7 +53,6 @@ export default function CustomerOrders() {
     loadOrders()
   }, [])
 
-  /* ================= LOADING ================= */
   if (loading) {
     return (
       <div className="text-white text-center mt-10">
@@ -55,20 +61,14 @@ export default function CustomerOrders() {
     )
   }
 
-  /* ================= EMPTY ================= */
   if (!orders.length) {
     return (
       <div className="text-white text-center mt-10">
         No orders found
-
-        <div className="text-xs mt-2 text-gray-500">
-          (Check console → confirm API returned orders)
-        </div>
       </div>
     )
   }
 
-  /* ================= UI ================= */
   return (
     <div className="min-h-screen bg-[#020617] text-white p-6">
       <h1 className="text-2xl font-semibold mb-6">📦 My Orders</h1>
@@ -80,7 +80,6 @@ export default function CustomerOrders() {
             className="bg-[#0f172a] border border-white/10 rounded-xl p-5 shadow-lg hover:scale-[1.01] transition cursor-pointer"
             onClick={() => navigate(`/order/${order._id}`)}
           >
-            {/* HEADER */}
             <div className="flex justify-between items-center mb-3">
               <div>
                 <p className="text-sm text-gray-400">Order ID</p>
@@ -96,29 +95,17 @@ export default function CustomerOrders() {
               </span>
             </div>
 
-            {/* ITEMS */}
             <div className="mb-3">
-              {order.items?.length ? (
-                order.items.map((item, i) => (
-                  <div key={i} className="text-sm text-gray-300">
-                    {item.name || "Item"} (
-                    {item.variant?.color || "N/A"} /{" "}
-                    {item.variant?.size || "N/A"}) × {item.quantity || 1}
-                  </div>
-                ))
-              ) : (
-                <div className="text-sm text-gray-500">
-                  No items found
+              {order.items?.map((item, i) => (
+                <div key={i} className="text-sm text-gray-300">
+                  {item.name} ({item.variant?.color} / {item.variant?.size}) × {item.quantity}
                 </div>
-              )}
+              ))}
             </div>
 
-            {/* TOTAL */}
             <div className="flex justify-between items-center text-sm">
               <span className="text-gray-400">
-                {order.createdAt
-                  ? new Date(order.createdAt).toLocaleDateString()
-                  : "No date"}
+                {new Date(order.createdAt).toLocaleDateString()}
               </span>
 
               <span className="font-semibold text-green-400">
@@ -126,28 +113,26 @@ export default function CustomerOrders() {
               </span>
             </div>
 
-            {/* ACTIONS */}
             <div className="mt-3 flex gap-2">
               <button
                 onClick={(e) => {
                   e.stopPropagation()
                   navigate(`/track/${order._id}`)
                 }}
-                className="text-xs bg-blue-600 px-3 py-1 rounded hover:bg-blue-500"
+                className="text-xs bg-blue-600 px-3 py-1 rounded"
               >
                 Track
               </button>
 
-              {order.paymentUrl &&
-                order.status === "payment_required" && (
-                  <a
-                    href={order.paymentUrl}
-                    onClick={(e) => e.stopPropagation()}
-                    className="text-xs bg-yellow-500 text-black px-3 py-1 rounded"
-                  >
-                    Pay Now
-                  </a>
-                )}
+              {order.paymentUrl && order.status === "payment_required" && (
+                <a
+                  href={order.paymentUrl}
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-xs bg-yellow-500 text-black px-3 py-1 rounded"
+                >
+                  Pay Now
+                </a>
+              )}
             </div>
           </div>
         ))}
