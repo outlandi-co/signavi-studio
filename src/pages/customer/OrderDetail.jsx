@@ -5,7 +5,10 @@ import { io } from "socket.io-client"
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
 
-const API_URL = import.meta.env.VITE_API_URL || "https://signavi-backend.onrender.com/api"
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://signavi-backend.onrender.com/api"
+
 const SOCKET_URL = API_URL.replace("/api", "")
 
 export default function OrderDetail() {
@@ -34,7 +37,6 @@ export default function OrderDetail() {
 
   /* ================= SOCKET ================= */
   useEffect(() => {
-
     if (!socketRef.current) {
       socketRef.current = io(SOCKET_URL, {
         transports: ["websocket"]
@@ -54,10 +56,9 @@ export default function OrderDetail() {
     return () => {
       socket.off("jobUpdated", handleUpdate)
     }
-
   }, [id])
 
-  /* ================= PDF DOWNLOAD ================= */
+  /* ================= PDF ================= */
   const handleDownloadInvoice = async () => {
     const input = document.getElementById("invoice")
 
@@ -70,7 +71,6 @@ export default function OrderDetail() {
     const height = (canvas.height * width) / canvas.width
 
     pdf.addImage(imgData, "PNG", 0, 0, width, height)
-
     pdf.save(`invoice-${order._id}.pdf`)
   }
 
@@ -79,31 +79,52 @@ export default function OrderDetail() {
 
   return (
     <div style={{ padding: 20, color: "white" }}>
-
       <h1>📦 Order Detail</h1>
 
-      {/* 🔥 INVOICE SECTION */}
+      {/* 🔥 THIS IS WHAT PDF CAPTURES */}
       <div
         id="invoice"
         style={{
           background: "white",
           color: "black",
-          padding: 20,
+          padding: 30,
           borderRadius: 10,
           marginTop: 20
         }}
       >
 
-        <h2>Invoice</h2>
+        {/* 🔥 COMPANY HEADER (NOW INCLUDED IN PDF) */}
+        <div
+          style={{
+            marginBottom: 25,
+            borderBottom: "2px solid #000",
+            paddingBottom: 12,
+            display: "flex",
+            justifyContent: "space-between"
+          }}
+        >
+          <div>
+            <h1 style={{ margin: 0 }}>SignaVi Studio</h1>
+            <p style={{ margin: 0 }}>www.signavistudio.store</p>
+            <p style={{ margin: 0 }}>support@signavistudio.store</p>
+          </div>
 
-        <p><strong>Order ID:</strong> {order._id}</p>
-        <p><strong>Date:</strong> {new Date(order.createdAt).toLocaleDateString()}</p>
+          <div style={{ textAlign: "right" }}>
+            <h2 style={{ margin: 0 }}>INVOICE</h2>
+            <p style={{ margin: 0 }}>#{order._id.slice(-6)}</p>
+            <p style={{ margin: 0 }}>
+              {new Date(order.createdAt).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+
+        {/* ORDER INFO */}
         <p><strong>Customer:</strong> {order.customerName}</p>
         <p><strong>Status:</strong> {order.status}</p>
 
         <hr />
 
-        {/* 🔥 ITEMS */}
+        {/* ITEMS */}
         {order.items?.map((item, i) => (
           <div key={i} style={{ marginBottom: 10 }}>
             <p><strong>{item.name}</strong></p>
@@ -124,18 +145,16 @@ export default function OrderDetail() {
 
         <hr />
 
-        {/* 🔥 TOTALS */}
+        {/* TOTALS */}
         <p>Subtotal: ${Number(order.subtotal || 0).toFixed(2)}</p>
         <p>Tax: ${Number(order.tax || 0).toFixed(2)}</p>
-
-        {/* optional shipping */}
         <p>Shipping: ${Number(order.shipping || 0).toFixed(2)}</p>
 
         <h3>Total: ${Number(order.finalPrice || 0).toFixed(2)}</h3>
 
       </div>
 
-      {/* 🔥 DOWNLOAD BUTTON */}
+      {/* DOWNLOAD BUTTON */}
       <button
         onClick={handleDownloadInvoice}
         style={{
@@ -150,7 +169,6 @@ export default function OrderDetail() {
       >
         📄 Download Invoice
       </button>
-
     </div>
   )
 }
