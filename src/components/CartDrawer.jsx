@@ -21,6 +21,7 @@ export default function CartDrawer({ isOpen, onClose }) {
       const price = Number(
         item?.selectedVariant?.price ??
         item?.variant?.price ??
+        item?.price ??
         0
       )
       const qty = Number(item?.quantity || 1)
@@ -52,25 +53,67 @@ export default function CartDrawer({ isOpen, onClose }) {
         return
       }
 
-      const orderRes = await api.post("/orders", {
-        customerName: storedUser?.name || "Guest",
-        email: storedUser.email,
-        items: cart
+      if (!cart.length) {
+        alert("Cart is empty")
+        setIsRedirecting(false)
+        return
+      }
+
+      /* 🔥 BUILD CLEAN ITEMS */
+      const items = cart.map(item => {
+        const price = Number(
+          item?.selectedVariant?.price ??
+          item?.variant?.price ??
+          item?.price ??
+          0
+        )
+
+        return {
+          name: item.name,
+          quantity: Number(item.quantity || 1),
+          price
+        }
       })
 
-      const orderId = orderRes?.data?.data?._id
+      /* 🔥 TOTALS */
+      const orderTotal = items.reduce((sum, i) => {
+        return sum + (i.price * i.quantity)
+      }, 0)
+
+      const payload = {
+        customerName: storedUser?.name || "Guest",
+        email: storedUser.email,
+        items,
+        quantity: items.reduce((sum, i) => sum + i.quantity, 0),
+        price: orderTotal,
+        finalPrice: orderTotal
+      }
+
+      console.log("🔥 ORDER PAYLOAD:", payload)
+
+      /* 🔥 CREATE ORDER */
+      const orderRes = await api.post("/orders", payload)
+
+      const orderId =
+        orderRes?.data?.data?._id ||
+        orderRes?.data?._id
 
       if (!orderId) {
         throw new Error("Order ID missing")
       }
 
+      /* 🔥 CREATE PAYMENT LINK */
       const paymentRes = await api.post(`/square/create-payment/${orderId}`)
+
       const url = paymentRes?.data?.url
 
       if (!url) {
         throw new Error("No payment URL returned")
       }
 
+      console.log("💳 REDIRECTING:", url)
+
+      /* 🔥 CLEAR CART */
       clearCart()
       localStorage.removeItem("cart")
 
@@ -78,7 +121,7 @@ export default function CartDrawer({ isOpen, onClose }) {
 
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err)
-      alert("Checkout failed")
+      alert(err?.response?.data?.message || "Checkout failed")
       setIsRedirecting(false)
     }
   }
@@ -133,6 +176,7 @@ export default function CartDrawer({ isOpen, onClose }) {
             const price = Number(
               item?.selectedVariant?.price ??
               item?.variant?.price ??
+              item?.price ??
               0
             )
 
