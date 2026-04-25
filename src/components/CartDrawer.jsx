@@ -59,7 +59,7 @@ export default function CartDrawer({ isOpen, onClose }) {
         return
       }
 
-      /* 🔥 BUILD ITEMS (FIXED) */
+      /* 🔥 BUILD ITEMS (FIXED WITH productId) */
       const items = cart.map(item => {
         const price = Number(
           item?.selectedVariant?.price ??
@@ -68,7 +68,18 @@ export default function CartDrawer({ isOpen, onClose }) {
           0
         )
 
+        const productId =
+          item.productId ||
+          item._id ||
+          item.id
+
+        if (!productId) {
+          console.error("❌ Missing productId on item:", item)
+          throw new Error("Missing productId")
+        }
+
         return {
+          productId, // 🔥 FIX
           name: item.name,
           quantity: Number(item.quantity || 1),
           price,
@@ -129,7 +140,7 @@ export default function CartDrawer({ isOpen, onClose }) {
 
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err)
-      alert(err?.response?.data?.message || "Checkout failed")
+      alert(err?.response?.data?.message || err.message || "Checkout failed")
       setIsRedirecting(false)
     }
   }
