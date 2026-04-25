@@ -59,7 +59,7 @@ export default function CartDrawer({ isOpen, onClose }) {
         return
       }
 
-      /* 🔥 BUILD CLEAN ITEMS */
+      /* 🔥 BUILD ITEMS (FIXED) */
       const items = cart.map(item => {
         const price = Number(
           item?.selectedVariant?.price ??
@@ -71,25 +71,34 @@ export default function CartDrawer({ isOpen, onClose }) {
         return {
           name: item.name,
           quantity: Number(item.quantity || 1),
-          price
+          price,
+          variant: {
+            color: item?.selectedVariant?.color || "",
+            size: item?.selectedVariant?.size || ""
+          }
         }
       })
 
-      /* 🔥 TOTALS */
-      const orderTotal = items.reduce((sum, i) => {
+      /* 🔥 CALCULATE TOTALS */
+      const subtotal = items.reduce((sum, i) => {
         return sum + (i.price * i.quantity)
       }, 0)
+
+      const taxRate = 0.0825
+      const tax = subtotal * taxRate
 
       const payload = {
         customerName: storedUser?.name || "Guest",
         email: storedUser.email,
         items,
         quantity: items.reduce((sum, i) => sum + i.quantity, 0),
-        price: orderTotal,
-        finalPrice: orderTotal
+        subtotal,
+        tax,
+        price: subtotal,
+        finalPrice: subtotal + tax
       }
 
-      console.log("🔥 ORDER PAYLOAD:", payload)
+      console.log("🔥 FIXED ORDER PAYLOAD:", payload)
 
       /* 🔥 CREATE ORDER */
       const orderRes = await api.post("/orders", payload)
@@ -104,7 +113,6 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       /* 🔥 CREATE PAYMENT LINK */
       const paymentRes = await api.post(`/square/create-payment/${orderId}`)
-
       const url = paymentRes?.data?.url
 
       if (!url) {
