@@ -10,9 +10,13 @@ function Navbar({ setCartOpen }) {
 
   const { cartCount } = useCart()
 
-  const admin = JSON.parse(localStorage.getItem("adminUser") || "null")
-  const customer = JSON.parse(localStorage.getItem("customerUser") || "null")
-  const user = admin || customer
+  /* 🔥 SAFE PARSE */
+  const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null")
+  const customerUser = JSON.parse(localStorage.getItem("customerUser") || "null")
+
+  /* 🔥 ROLE CONTROL */
+  const isAdmin = adminUser?.role === "admin"
+  const isCustomer = !!customerUser
 
   const handleLogout = () => {
     localStorage.removeItem("adminUser")
@@ -42,30 +46,40 @@ function Navbar({ setCartOpen }) {
           <img src={logo} style={logoStyle} />
         </Link>
 
+        {/* 🔥 CUSTOMER NAV */}
         <NavLink to="/" active={isActive("/")}>Home</NavLink>
         <NavLink to="/store" active={isActive("/store")}>Store</NavLink>
 
-        {/* CART */}
         <button onClick={handleCartClick} style={cartBtn}>
           🛒 Cart
           {cartCount > 0 && <span style={badge}>{cartCount}</span>}
         </button>
 
-        {user && (
+        {(isCustomer || isAdmin) && (
           <NavLink to="/notifications" active={isActive("/notifications")}>
             🔔 Alerts
           </NavLink>
         )}
 
-        {/* 🔥 ADMIN NAV */}
-        {admin && (
+        {/* 🔐 ADMIN NAV ONLY */}
+        {isAdmin && (
           <div style={adminGroup}>
-            <NavLink to="/admin/production" active={isActive("/admin/production")}>Production</NavLink>
-            <NavLink to="/admin/orders" active={isActive("/admin/orders")}>Orders</NavLink>
-            <NavLink to="/admin/customers" active={isActive("/admin/customers")}>Customers</NavLink>
-            <NavLink to="/admin/revenue" active={isActive("/admin/revenue")}>Revenue</NavLink>
+            <NavLink to="/admin/production" active={isActive("/admin/production")}>
+              Production
+            </NavLink>
 
-            {/* 🔥 NEW LINKS */}
+            <NavLink to="/admin/orders" active={isActive("/admin/orders")}>
+              Orders
+            </NavLink>
+
+            <NavLink to="/admin/customers" active={isActive("/admin/customers")}>
+              Customers
+            </NavLink>
+
+            <NavLink to="/admin/revenue" active={isActive("/admin/revenue")}>
+              Revenue
+            </NavLink>
+
             <NavLink to="/admin/products" active={isActive("/admin/products")}>
               📦 Products
             </NavLink>
@@ -73,7 +87,6 @@ function Navbar({ setCartOpen }) {
             <NavLink to="/admin/products/new" active={isActive("/admin/products/new")}>
               ➕ Add Product
             </NavLink>
-
           </div>
         )}
       </div>
@@ -82,7 +95,7 @@ function Navbar({ setCartOpen }) {
       <div style={right}>
         <NotificationBell />
 
-        {user ? (
+        {(isCustomer || isAdmin) ? (
           <button onClick={handleLogout} style={logoutBtn}>
             Logout
           </button>
