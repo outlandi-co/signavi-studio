@@ -23,18 +23,35 @@ export default function CustomerDashboard() {
   useEffect(() => {
     const loadOrders = async () => {
       try {
-        /* 🔥 GET CUSTOMER EMAIL FROM LOCAL STORAGE */
-        const user = JSON.parse(localStorage.getItem("customerUser") || "null")
-        const email = user?.email
+        /* 🔥 GET EMAIL (ROBUST VERSION) */
+        let email = null
+
+        const storedUser = localStorage.getItem("customerUser")
+        const fallbackEmail = localStorage.getItem("customerEmail")
+
+        if (storedUser) {
+          try {
+            const parsed = JSON.parse(storedUser)
+            email = parsed?.email
+          } catch {
+            console.warn("⚠️ Failed to parse customerUser")
+          }
+        }
+
+        if (!email && fallbackEmail) {
+          email = fallbackEmail
+        }
 
         if (!email) {
-          console.warn("⚠️ No customer email found")
+          console.error("❌ NO EMAIL FOUND IN STORAGE")
           setOrders([])
           setLoading(false)
           return
         }
 
-        /* 🔥 FIXED API CALL */
+        console.log("📧 USING EMAIL:", email)
+
+        /* 🔥 FIXED CALL */
         const res = await api.get(`/orders/my-orders?email=${email}`)
 
         console.log("📦 DASHBOARD ORDERS:", res.data)
@@ -48,7 +65,7 @@ export default function CustomerDashboard() {
         setOrders(Array.isArray(data) ? data : [])
 
       } catch (err) {
-        console.error("❌ DASHBOARD LOAD ERROR:", err)
+        console.error("❌ LOAD ORDERS ERROR:", err)
         setOrders([])
       } finally {
         setLoading(false)
@@ -62,7 +79,6 @@ export default function CustomerDashboard() {
     <div className="min-h-screen bg-[#020617] text-white p-6">
       <h1 className="text-2xl font-semibold mb-6">👤 Dashboard</h1>
 
-      {/* NAV */}
       <div className="flex gap-3 mb-6">
         <button
           onClick={() => navigate("/my-orders")}
@@ -72,19 +88,16 @@ export default function CustomerDashboard() {
         </button>
       </div>
 
-      {/* LOADING */}
       {loading && (
         <p className="text-gray-400">Loading your orders...</p>
       )}
 
-      {/* EMPTY */}
       {!loading && orders.length === 0 && (
         <p className="text-gray-400">
           No orders yet
         </p>
       )}
 
-      {/* ORDERS */}
       {!loading && orders.length > 0 && (
         <div className="grid gap-4">
           {orders.slice(0, 5).map((order) => (
