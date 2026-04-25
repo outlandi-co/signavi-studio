@@ -80,7 +80,11 @@ export default function Login() {
 
       const { token, user } = res.data
 
-      /* 🔐 SAVE SESSION */
+      /* 🔥 CRITICAL FIX → CLEAR CUSTOMER SESSION */
+      localStorage.removeItem("customerUser")
+      localStorage.removeItem("customerToken")
+
+      /* 🔐 SAVE ADMIN SESSION */
       localStorage.setItem("adminToken", token)
       localStorage.setItem("adminUser", JSON.stringify(user))
 
