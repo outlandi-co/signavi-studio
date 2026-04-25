@@ -3,26 +3,18 @@ import SafeImage from "../components/SafeImage"
 import useCart from "../hooks/useCart"
 import api from "../services/api"
 import { useState, useMemo } from "react"
-import { useNavigate } from "react-router-dom"
 
 export default function CartDrawer({ isOpen, onClose }) {
 
-  const navigate = useNavigate()
   const { cart, removeFromCart, updateQuantity, clearCart } = useCart()
 
   const [isRedirecting, setIsRedirecting] = useState(false)
-
-  /* PASSWORD MODAL */
-  const [showPasswordModal, setShowPasswordModal] = useState(false)
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [loadingPassword, setLoadingPassword] = useState(false)
 
   const safeClose = () => {
     if (typeof onClose === "function") onClose()
   }
 
-  /* TOTALS */
+  /* ================= TOTALS ================= */
   const { subtotal, tax, total } = useMemo(() => {
 
     const sub = cart.reduce((acc, item) => {
@@ -45,40 +37,7 @@ export default function CartDrawer({ isOpen, onClose }) {
 
   }, [cart])
 
-  /* PASSWORD UPDATE */
-  const handleChangePassword = async () => {
-    if (!currentPassword || !newPassword) {
-      alert("Fill out both fields")
-      return
-    }
-
-    try {
-      setLoadingPassword(true)
-
-      const token = localStorage.getItem("customerToken")
-
-      await api.post(
-        "/auth/change-password",
-        { currentPassword, newPassword },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      )
-
-      alert("✅ Password updated")
-      setShowPasswordModal(false)
-
-    } catch (err) {
-      console.error(err)
-      alert("❌ Failed to update password")
-    } finally {
-      setLoadingPassword(false)
-    }
-  }
-
-  /* 🔥 CHECKOUT (FIXED) */
+  /* ================= CHECKOUT ================= */
   const handleCheckout = async () => {
     if (isRedirecting) return
 
@@ -93,25 +52,18 @@ export default function CartDrawer({ isOpen, onClose }) {
         return
       }
 
-      /* CREATE ORDER */
       const orderRes = await api.post("/orders", {
         customerName: storedUser?.name || "Guest",
         email: storedUser.email,
         items: cart
       })
 
-      console.log("🧾 ORDER RESPONSE:", orderRes.data)
-
-      /* 🔥 FIX HERE */
       const orderId = orderRes?.data?.data?._id
 
-      console.log("🧾 ORDER ID:", orderId)
-
       if (!orderId) {
-        throw new Error("Order ID missing from backend response")
+        throw new Error("Order ID missing")
       }
 
-      /* CREATE PAYMENT */
       const paymentRes = await api.post(`/square/create-payment/${orderId}`)
       const url = paymentRes?.data?.url
 
@@ -119,20 +71,14 @@ export default function CartDrawer({ isOpen, onClose }) {
         throw new Error("No payment URL returned")
       }
 
-      /* CLEAR CART ONLY AFTER SUCCESS */
       clearCart()
       localStorage.removeItem("cart")
 
-      /* REDIRECT */
       window.location.href = url
 
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err)
-      alert(
-        err?.response?.data?.message ||
-        err.message ||
-        "Checkout failed"
-      )
+      alert("Checkout failed")
       setIsRedirecting(false)
     }
   }
@@ -177,23 +123,6 @@ export default function CartDrawer({ isOpen, onClose }) {
         }}>
           <h2>🛒 Cart</h2>
           <button onClick={safeClose}>✖</button>
-        </div>
-
-        {/* ACCOUNT */}
-        <div style={{
-          padding: "10px 20px",
-          borderBottom: "1px solid #1e293b",
-          display: "flex",
-          flexDirection: "column",
-          gap: 8
-        }}>
-          <button onClick={() => { safeClose(); navigate("/my-orders") }} style={navBtn}>
-            📦 Orders
-          </button>
-
-          <button onClick={() => setShowPasswordModal(true)} style={navBtn}>
-            🔐 Change Password
-          </button>
         </div>
 
         {/* CART ITEMS */}
@@ -272,78 +201,7 @@ export default function CartDrawer({ isOpen, onClose }) {
           </div>
         )}
 
-        {/* PASSWORD MODAL */}
-        {showPasswordModal && (
-          <div style={modalOverlay}>
-            <div style={modal}>
-              <h3>Change Password</h3>
-
-              <input
-                type="password"
-                placeholder="Current Password"
-                value={currentPassword}
-                onChange={(e)=>setCurrentPassword(e.target.value)}
-                style={input}
-              />
-
-              <input
-                type="password"
-                placeholder="New Password"
-                value={newPassword}
-                onChange={(e)=>setNewPassword(e.target.value)}
-                style={input}
-              />
-
-              <div style={{ display: "flex", gap: 10 }}>
-                <Button onClick={handleChangePassword} loading={loadingPassword}>
-                  Update
-                </Button>
-
-                <Button variant="dark" onClick={()=>setShowPasswordModal(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
       </div>
     </>
   )
-}
-
-/* STYLES */
-const navBtn = {
-  width: "100%",
-  textAlign: "left",
-  padding: "10px",
-  background: "#0f172a",
-  borderRadius: "8px",
-  color: "white",
-  border: "1px solid #1e293b"
-}
-
-const modalOverlay = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(0,0,0,0.7)",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center"
-}
-
-const modal = {
-  background: "#020617",
-  padding: 20,
-  borderRadius: 10,
-  width: 300
-}
-
-const input = {
-  width: "100%",
-  padding: 10,
-  marginBottom: 10,
-  background: "#0f172a",
-  color: "white",
-  border: "1px solid #1e293b"
 }
