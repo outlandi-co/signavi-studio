@@ -1,16 +1,27 @@
 import { useState, useEffect } from "react"
 import api from "../services/api"
 
+/* 🔥 COMPANY INFO (CENTRALIZED) */
+const COMPANY = {
+  name: "SignaVi Studio",
+  website: "www.signavistudio.store",
+  email: "support@signavistudio.store"
+}
+
 export default function InvoiceEditor({ order = {}, onSave }) {
+
   const [items, setItems] = useState(order.items || [])
+  const [shipping, setShipping] = useState(order.shipping || 0)
+  const [taxRate, setTaxRate] = useState(0.0825) // 8.25%
   const [loading, setLoading] = useState(false)
 
   /* 🔒 LOCK IF PAID */
   const isLocked = order.status === "paid"
 
-  /* 🔄 SYNC WHEN ORDER CHANGES (IMPORTANT FIX) */
+  /* 🔄 SYNC */
   useEffect(() => {
     setItems(order.items || [])
+    setShipping(order.shipping || 0)
   }, [order])
 
   const updateItem = (index, field, value) => {
@@ -26,11 +37,7 @@ export default function InvoiceEditor({ order = {}, onSave }) {
 
   const addItem = () => {
     if (isLocked) return
-
-    setItems([
-      ...items,
-      { name: "", quantity: 1, price: 0 }
-    ])
+    setItems([...items, { name: "", quantity: 1, price: 0 }])
   }
 
   const removeItem = (index) => {
@@ -38,9 +45,13 @@ export default function InvoiceEditor({ order = {}, onSave }) {
     setItems(items.filter((_, i) => i !== index))
   }
 
-  const total = items.reduce((sum, item) => {
+  /* 🔥 CALCULATIONS */
+  const subtotal = items.reduce((sum, item) => {
     return sum + ((item.price || 0) * (item.quantity || 0))
   }, 0)
+
+  const tax = subtotal * taxRate
+  const total = subtotal + tax + Number(shipping || 0)
 
   const handleSave = async () => {
     if (isLocked) {
@@ -48,7 +59,6 @@ export default function InvoiceEditor({ order = {}, onSave }) {
       return
     }
 
-    /* 🚨 PREVENT EMPTY SAVE */
     if (!items.length) {
       alert("Add at least one item")
       return
@@ -57,16 +67,27 @@ export default function InvoiceEditor({ order = {}, onSave }) {
     try {
       setLoading(true)
 
-      console.log("🧾 Saving invoice:", items, total)
+      console.log("🧾 Saving invoice:", {
+        items,
+        subtotal,
+        tax,
+        shipping,
+        total
+      })
 
       await api.patch(`/orders/${order._id}/invoice`, {
         items,
+        subtotal,
+        tax,
+        shipping,
         total
       })
 
       alert("✅ Invoice saved")
 
-      if (onSave) onSave(items, total)
+      if (onSave) {
+        onSave({ items, subtotal, tax, shipping, total })
+      }
 
     } catch (err) {
       console.error("❌ Save error:", err)
@@ -83,6 +104,14 @@ export default function InvoiceEditor({ order = {}, onSave }) {
 
   return (
     <div style={{ marginTop: 20 }}>
+
+      {/* 🔥 HEADER */}
+      <div style={{ marginBottom: 20 }}>
+        <h2>{COMPANY.name}</h2>
+        <p style={{ margin: 0 }}>{COMPANY.website}</p>
+        <p style={{ margin: 0 }}>{COMPANY.email}</p>
+      </div>
+
       <h3>🧾 Edit Invoice</h3>
 
       {isLocked && (
@@ -91,6 +120,7 @@ export default function InvoiceEditor({ order = {}, onSave }) {
         </p>
       )}
 
+      {/* 🔥 ITEMS */}
       {items.map((item, i) => (
         <div
           key={i}
@@ -143,10 +173,39 @@ export default function InvoiceEditor({ order = {}, onSave }) {
         + Add Item
       </button>
 
-      <h3 style={{ marginTop: 20 }}>
-        Total: ${total.toFixed(2)}
-      </h3>
+      {/* 🔥 SHIPPING */}
+      <div style={{ marginTop: 15 }}>
+        <label>Shipping:</label>
+        <input
+          type="number"
+          value={shipping}
+          disabled={isLocked}
+          onChange={(e) => setShipping(Number(e.target.value) || 0)}
+        />
+      </div>
 
+      {/* 🔥 TAX RATE */}
+      <div style={{ marginTop: 10 }}>
+        <label>Tax Rate:</label>
+        <input
+          type="number"
+          step="0.01"
+          value={taxRate}
+          disabled={isLocked}
+          onChange={(e) => setTaxRate(Number(e.target.value) || 0)}
+        />
+      </div>
+
+      {/* 🔥 TOTALS */}
+      <div style={{ marginTop: 20 }}>
+        <p>Subtotal: ${subtotal.toFixed(2)}</p>
+        <p>Tax: ${tax.toFixed(2)}</p>
+        <p>Shipping: ${Number(shipping).toFixed(2)}</p>
+
+        <h3>Total: ${total.toFixed(2)}</h3>
+      </div>
+
+      {/* 🔥 SAVE */}
       <button
         onClick={handleSave}
         disabled={isLocked || loading}
@@ -160,6 +219,7 @@ export default function InvoiceEditor({ order = {}, onSave }) {
       >
         {loading ? "Saving..." : "Save Changes"}
       </button>
+
     </div>
   )
 }
