@@ -13,26 +13,44 @@ function AdminQuotes() {
 
   const [quotes, setQuotes] = useState([])
   const [prices, setPrices] = useState({})
+  const [shipping, setShipping] = useState({})
   const [loadingId, setLoadingId] = useState(null)
 
   /* ================= LOAD ================= */
   useEffect(() => {
-    const load = async () => {
-      const res = await api.get("/quotes")
-      setQuotes(res.data)
-    }
-    load()
+    reload()
   }, [])
+
+  const reload = async () => {
+    const res = await api.get("/quotes")
+    const data = res.data
+
+    setQuotes(data)
+
+    // preload values
+    const p = {}
+    const s = {}
+
+    data.forEach(q => {
+      p[q._id] = q.price || ""
+      s[q._id] = q.shippingCost || ""
+    })
+
+    setPrices(p)
+    setShipping(s)
+  }
 
   /* ================= APPROVE ================= */
   const handleApprove = async (id) => {
     try {
       setLoadingId(id)
 
-      await api.patch(`/quotes/${id}/approve`)
+      await api.patch(`/quotes/${id}/approve`, {
+        price: Number(prices[id] || 0),
+        shippingCost: Number(shipping[id] || 0)
+      })
 
       alert("✅ Approved — customer notified")
-
       reload()
 
     } catch (err) {
@@ -46,10 +64,7 @@ function AdminQuotes() {
   /* ================= DENY ================= */
   const handleDeny = async (id) => {
     try {
-      const reason = prompt(
-        "Enter reason:\n\n" + REASONS.join("\n")
-      )
-
+      const reason = prompt("Enter reason:\n\n" + REASONS.join("\n"))
       if (!reason) return
 
       const fee = prompt("Revision fee? (optional)") || 0
@@ -60,7 +75,6 @@ function AdminQuotes() {
       })
 
       alert("❌ Denied — customer notified")
-
       reload()
 
     } catch (err) {
@@ -75,11 +89,11 @@ function AdminQuotes() {
       setLoadingId(id)
 
       await api.patch(`/quotes/${id}/send-to-payment`, {
-        price: prices[id]
+        price: Number(prices[id] || 0),
+        shippingCost: Number(shipping[id] || 0)
       })
 
       alert("💳 Sent to payment")
-
       reload()
 
     } catch (err) {
@@ -92,12 +106,6 @@ function AdminQuotes() {
     } finally {
       setLoadingId(null)
     }
-  }
-
-  /* ================= RELOAD ================= */
-  const reload = async () => {
-    const res = await api.get("/quotes")
-    setQuotes(res.data)
   }
 
   /* ================= STATUS COLORS ================= */
@@ -118,7 +126,6 @@ function AdminQuotes() {
       <h1>📄 Admin Quotes</h1>
 
       {quotes.map(q => {
-
         const status = q.approvalStatus || "pending"
 
         return (
@@ -136,7 +143,6 @@ function AdminQuotes() {
             <p>{q.email}</p>
             <p>Qty: {q.quantity}</p>
 
-            {/* STATUS */}
             <p style={{
               color: getStatusColor(status),
               fontWeight: "bold"
@@ -144,22 +150,7 @@ function AdminQuotes() {
               Status: {status}
             </p>
 
-            {/* DENIAL INFO */}
-            {status === "denied" && (
-              <div style={{
-                background: "#7f1d1d",
-                padding: 10,
-                marginTop: 10,
-                borderRadius: 6
-              }}>
-                <p>Reason: {q.denialReason}</p>
-                {q.revisionFee > 0 && (
-                  <p>Fee: ${q.revisionFee}</p>
-                )}
-              </div>
-            )}
-
-            {/* PRICE INPUT */}
+            {/* 💰 PRICE */}
             <input
               type="number"
               placeholder="Set price"
@@ -168,10 +159,19 @@ function AdminQuotes() {
                 ...prices,
                 [q._id]: e.target.value
               })}
-              style={{
-                marginTop: 10,
-                padding: 6
-              }}
+              style={{ marginTop: 10, padding: 6 }}
+            />
+
+            {/* 🚚 SHIPPING */}
+            <input
+              type="number"
+              placeholder="Shipping cost"
+              value={shipping[q._id] || ""}
+              onChange={(e) => setShipping({
+                ...shipping,
+                [q._id]: e.target.value
+              })}
+              style={{ marginTop: 10, padding: 6 }}
             />
 
             <div style={{
@@ -180,7 +180,6 @@ function AdminQuotes() {
               marginTop: 10
             }}>
 
-              {/* APPROVE */}
               <button
                 onClick={() => handleApprove(q._id)}
                 disabled={loadingId === q._id}
@@ -188,7 +187,6 @@ function AdminQuotes() {
                 ✅ Approve
               </button>
 
-              {/* DENY */}
               <button
                 onClick={() => handleDeny(q._id)}
                 disabled={loadingId === q._id}
@@ -196,7 +194,6 @@ function AdminQuotes() {
                 ❌ Deny
               </button>
 
-              {/* SEND TO PAYMENT */}
               <button
                 onClick={() => handleSend(q._id)}
                 disabled={

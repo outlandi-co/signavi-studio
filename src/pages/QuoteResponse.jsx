@@ -53,7 +53,6 @@ export default function QuoteResponse() {
     }
   }
 
-  /* ================= LOADING ================= */
   if (!quote) {
     return (
       <div style={center}>
@@ -64,12 +63,13 @@ export default function QuoteResponse() {
 
   /* ================= PRICE CALC ================= */
   const subtotal = Number(quote.price || 0)
+  const shipping = Number(quote.shippingCost || 0)
 
-  const TAX_RATE = 0.0825 // 🔥 CHANGE IF NEEDED
+  const TAX_RATE = 0.0825
   const tax = subtotal * TAX_RATE
-  const total = subtotal + tax
 
-  /* ================= UI ================= */
+  const total = subtotal + tax + shipping
+
   return (
     <div style={container}>
       <h1 style={title}>📄 Review Your Quote</h1>
@@ -81,29 +81,26 @@ export default function QuoteResponse() {
 
         <hr style={{ margin: "20px 0", opacity: 0.2 }} />
 
-        {/* 💰 PRICING BREAKDOWN */}
+        {/* 💰 PRICING */}
         <p>Subtotal: ${subtotal.toFixed(2)}</p>
+        <p>Shipping: ${shipping.toFixed(2)}</p>
         <p>Tax (8.25%): ${tax.toFixed(2)}</p>
 
         <h2 style={{ marginTop: 10 }}>
           Total: ${total.toFixed(2)}
         </h2>
 
-        {/* 🔴 ERROR */}
-        {error && (
-          <p style={{ color: "red", marginTop: 10 }}>
-            {error}
-          </p>
-        )}
+        {/* ERROR */}
+        {error && <p style={{ color: "red" }}>{error}</p>}
 
-        {/* ⏳ NOT APPROVED */}
+        {/* NOT APPROVED */}
         {quote.approvalStatus !== "approved" && (
           <div style={pendingBox}>
             ⏳ Awaiting artwork approval
           </div>
         )}
 
-        {/* 💳 APPROVED */}
+        {/* APPROVED */}
         {quote.approvalStatus === "approved" && (
           <button
             onClick={handleCheckout}
@@ -131,9 +128,7 @@ const container = {
   textAlign: "center"
 }
 
-const title = {
-  marginBottom: 20
-}
+const title = { marginBottom: 20 }
 
 const card = {
   background: "#1e293b",
