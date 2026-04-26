@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import api from "../services/api"
 
-function ClientCheckout() {
+export default function ClientCheckout() {
   const { id } = useParams()
   const navigate = useNavigate()
 
@@ -18,105 +18,66 @@ function ClientCheckout() {
   const [rates, setRates] = useState([])
   const [selectedRate, setSelectedRate] = useState(null)
 
-  /* ================= GET RATES ================= */
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value })
+  }
+
   const getRates = async () => {
     try {
       const res = await api.post("/shipping/get-rates", {
         address_to: form
       })
-
-      console.log("🚚 RATES:", res.data)
       setRates(res.data.rates || [])
-
     } catch (err) {
-      console.error("❌ RATE ERROR:", err)
+      console.error(err)
       alert("Failed to get shipping rates")
     }
   }
 
-  /* ================= SUBMIT ================= */
   const handleSubmit = async () => {
-    try {
-      if (!selectedRate) {
-        alert("Select a shipping option")
-        return
-      }
-
-      await api.patch(`/orders/${id}/checkout`, {
-        shippingAddress: form,
-        shippingCost: selectedRate.amount,
-        shippingRateId: selectedRate.object_id,
-        carrier: selectedRate.provider,
-        serviceLevel: selectedRate.servicelevel?.name
-      })
-
-      alert("✅ Shipping saved!")
-
-      navigate(`/checkout/${id}`) // go to payment page
-
-    } catch (err) {
-      console.error(err)
-      alert("Error saving checkout")
+    if (!selectedRate) {
+      alert("Select shipping option")
+      return
     }
+
+    await api.patch(`/orders/${id}/checkout`, {
+      shippingAddress: form,
+      shippingCost: selectedRate.amount,
+      shippingRateId: selectedRate.object_id,
+      carrier: selectedRate.provider,
+      serviceLevel: selectedRate.servicelevel?.name
+    })
+
+    navigate(`/checkout/${id}`)
   }
 
   return (
     <div style={{ padding: 20, color: "white", maxWidth: 400 }}>
-      <h2>Checkout</h2>
+      <h2>Shipping Info</h2>
 
-      {/* ADDRESS */}
       {Object.keys(form).map((key) => (
         <input
           key={key}
+          name={key}
           placeholder={key.toUpperCase()}
           value={form[key]}
-          onChange={(e) =>
-            setForm({ ...form, [key]: e.target.value })
-          }
-          style={{
-            display: "block",
-            marginBottom: "10px",
-            width: "100%",
-            padding: "10px"
-          }}
+          onChange={handleChange}
+          style={{ display: "block", marginBottom: 10, width: "100%", padding: 10 }}
         />
       ))}
 
-      <button onClick={getRates} style={btn}>
-        📦 Get Shipping Rates
-      </button>
+      <button onClick={getRates}>📦 Get Shipping Rates</button>
 
-      {/* RATES */}
-      {rates.length > 0 && (
-        <div style={{ marginTop: 10 }}>
-          {rates.map((r) => (
-            <label key={r.object_id} style={{ display: "block", marginBottom: 5 }}>
-              <input
-                type="radio"
-                name="rate"
-                onChange={() => setSelectedRate(r)}
-              />
-              {r.provider} - {r.servicelevel?.name} - ${r.amount}
-            </label>
-          ))}
-        </div>
-      )}
+      {rates.map((r) => (
+        <label key={r.object_id} style={{ display: "block" }}>
+          <input type="radio" onChange={() => setSelectedRate(r)} />
+          {r.provider} - {r.servicelevel?.name} - ${r.amount}
+        </label>
+      ))}
 
-      <button onClick={handleSubmit} style={btn}>
+      <button onClick={handleSubmit} style={{ marginTop: 10 }}>
         Continue to Payment
       </button>
     </div>
   )
 }
-
-const btn = {
-  background: "#22c55e",
-  padding: "10px",
-  borderRadius: "6px",
-  border: "none",
-  color: "white",
-  width: "100%",
-  marginTop: "10px"
-}
-
-export default ClientCheckout

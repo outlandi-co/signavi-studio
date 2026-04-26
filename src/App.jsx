@@ -54,27 +54,19 @@ import EditProduct from "./pages/admin/EditProduct"
 /* FLOW */
 import ApproveMockup from "./pages/ApproveMockup"
 import Checkout from "./pages/Checkout"
-import ClientCheckout from "./pages/ClientCheckout" // 🔥 ADDED
+import ClientCheckout from "./pages/ClientCheckout" // 🔥 ADD
 
-/* ================= LAYOUT ================= */
 function LayoutWrapper({ children }) {
   const location = useLocation()
   const isAdminPage = location.pathname.startsWith("/admin")
 
   return (
-    <div
-      className={
-        isAdminPage
-          ? "w-full min-h-screen p-0 m-0"
-          : "max-w-6xl mx-auto p-6"
-      }
-    >
+    <div className={isAdminPage ? "w-full min-h-screen" : "max-w-6xl mx-auto p-6"}>
       {children}
     </div>
   )
 }
 
-/* ================= APP CONTENT ================= */
 function AppContent() {
   const location = useLocation()
   const path = location.pathname
@@ -82,7 +74,7 @@ function AppContent() {
   const [cartOpen, setCartOpen] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
 
-  /* ================= NEW CHECKOUT FLOW ================= */
+  /* 🔥 NEW CHECKOUT FLOW */
   const handleCheckout = async (cart) => {
     if (isRedirecting) return
 
@@ -92,7 +84,6 @@ function AppContent() {
       console.log("🛒 Creating order from cart drawer...")
 
       const email = localStorage.getItem("customerEmail")
-
       if (!email) {
         alert("Please login first")
         setIsRedirecting(false)
@@ -105,14 +96,11 @@ function AppContent() {
       })
 
       const orderId = res.data?.data?._id
-
-      if (!orderId) {
-        throw new Error("Order ID missing")
-      }
+      if (!orderId) throw new Error("Missing order ID")
 
       console.log("✅ ORDER CREATED:", orderId)
 
-      // 🔥 KEY CHANGE → go to shipping step
+      // 🔥 GO TO ADDRESS + SHIPPING PAGE
       window.location.href = `/client-checkout/${orderId}`
 
     } catch (err) {
@@ -122,23 +110,13 @@ function AppContent() {
     }
   }
 
-  /* ================= NAVBAR ================= */
-  const hideNavbarRoutes = [
-    "/login",
-    "/customer-login",
-    "/customer-register",
-    "/success"
-  ]
+  const hideNavbarRoutes = ["/login","/customer-login","/customer-register","/success"]
+  const shouldHideNavbar = hideNavbarRoutes.some(r => path.startsWith(r))
 
-  const shouldHideNavbar =
-    hideNavbarRoutes.some(route => path.startsWith(route))
-
-  /* ================= AUTH CHECK ================= */
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem("adminToken")
       if (!token) return
-
       try {
         const res = await api.get("/auth/profile")
         localStorage.setItem("adminUser", JSON.stringify(res.data.user))
@@ -147,15 +125,12 @@ function AppContent() {
         localStorage.removeItem("adminUser")
       }
     }
-
     checkAuth()
   }, [])
 
   return (
     <>
-      {!shouldHideNavbar && (
-        <Navbar setCartOpen={setCartOpen} />
-      )}
+      {!shouldHideNavbar && <Navbar setCartOpen={setCartOpen} />}
 
       <CartDrawer
         isOpen={cartOpen}
@@ -166,20 +141,15 @@ function AppContent() {
       <LayoutWrapper>
         <Routes>
 
-          {/* PUBLIC */}
           <Route path="/" element={<Home />} />
           <Route path="/store" element={<Store setCartOpen={setCartOpen} />} />
           <Route path="/product/:id" element={<ProductDetail />} />
-          <Route path="/submit" element={<CustomQuote />} />
 
-          {/* AUTH */}
           <Route path="/login" element={<Login />} />
 
-          {/* CUSTOMER AUTH */}
           <Route path="/customer-login" element={<CustomerLogin />} />
           <Route path="/customer-register" element={<CustomerRegister />} />
 
-          {/* CUSTOMER APP */}
           <Route element={<CustomerRoute />}>
             <Route element={<CustomerLayout />}>
               <Route path="/dashboard" element={<CustomerDashboard />} />
@@ -189,22 +159,20 @@ function AppContent() {
             </Route>
           </Route>
 
-          {/* 🔥 NEW FLOW */}
+          {/* 🔥 THIS IS THE MISSING STEP */}
           <Route path="/client-checkout/:id" element={<ClientCheckout />} />
+
           <Route path="/checkout/:id" element={<Checkout />} />
 
-          {/* OTHER FLOW */}
           <Route path="/track/:id" element={<TrackOrder />} />
           <Route path="/client-order/:id" element={<ClientOrder />} />
           <Route path="/quote/:id" element={<QuoteResponse />} />
           <Route path="/success/:id" element={<Success />} />
           <Route path="/approve/:id" element={<ApproveMockup />} />
 
-          {/* ADMIN */}
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<Dashboard />} />
-              <Route path="production" element={<ProductionBoard />} />
               <Route path="orders" element={<Orders />} />
               <Route path="customers" element={<AdminCustomers />} />
               <Route path="revenue" element={<AdminRevenue />} />
@@ -214,7 +182,6 @@ function AppContent() {
             </Route>
           </Route>
 
-          {/* 404 */}
           <Route path="*" element={<h2>Page not found</h2>} />
 
         </Routes>
@@ -223,8 +190,7 @@ function AppContent() {
   )
 }
 
-/* ================= ROOT ================= */
-function App() {
+export default function App() {
   return (
     <CartProvider>
       <BrowserRouter>
@@ -233,5 +199,3 @@ function App() {
     </CartProvider>
   )
 }
-
-export default App
