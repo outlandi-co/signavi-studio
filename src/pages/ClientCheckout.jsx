@@ -28,7 +28,7 @@ export default function ClientCheckout() {
       ...form,
       [name]:
         name === "state"
-          ? value.toUpperCase().slice(0, 2) // 🔥 enforce CA format
+          ? value.toUpperCase().slice(0, 2)
           : name === "country"
           ? value.toUpperCase()
           : value
@@ -60,7 +60,7 @@ export default function ClientCheckout() {
       if (!validateForm()) return
 
       setLoadingRates(true)
-      setSelectedRate(null) // 🔥 reset selection
+      setSelectedRate(null)
 
       console.log("📦 Getting rates with:", form)
 
@@ -86,7 +86,7 @@ export default function ClientCheckout() {
     }
   }
 
-  /* ================= SUBMIT ================= */
+  /* ================= SUBMIT (🔥 FIXED) ================= */
   const handleSubmit = async () => {
     try {
       if (!selectedRate) {
@@ -96,17 +96,32 @@ export default function ClientCheckout() {
 
       setSaving(true)
 
-      console.log("🚚 Saving shipping selection:", selectedRate)
-
-      await api.patch(`/orders/${id}/checkout`, {
+      const payload = {
         shippingAddress: form,
         shippingCost: Number(selectedRate.amount),
         shippingRateId: selectedRate.object_id,
         carrier: selectedRate.provider,
         serviceLevel: selectedRate.servicelevel?.name
-      })
+      }
 
-      /* 🔥 Save locally for cart UI */
+      console.log("🚚 SAVING SHIPPING:", payload)
+
+      /* 🔥 WAIT FOR BACKEND UPDATE */
+      const res = await api.patch(`/orders/${id}/checkout`, payload)
+
+      console.log("✅ ORDER UPDATED:", res.data)
+
+      /* 🔥 HARD VERIFY FINAL PRICE */
+      const updatedOrder = res.data?.data
+
+      if (!updatedOrder || !updatedOrder.finalPrice || updatedOrder.finalPrice <= 0) {
+        console.error("❌ BAD ORDER AFTER SAVE:", updatedOrder)
+        alert("Order total not calculated. Please try again.")
+        setSaving(false)
+        return
+      }
+
+      /* 🔥 SAVE FOR UI */
       localStorage.setItem(
         "shippingRate",
         JSON.stringify({
@@ -114,7 +129,12 @@ export default function ClientCheckout() {
         })
       )
 
-      navigate(`/checkout/${id}`)
+      console.log("➡️ PROCEEDING TO PAYMENT")
+
+      /* 🔥 DELAY TO ENSURE DB SYNC (Render safety) */
+      setTimeout(() => {
+        navigate(`/checkout/${id}`)
+      }, 300)
 
     } catch (err) {
       console.error("❌ SAVE ERROR:", err.response?.data || err.message)
@@ -129,7 +149,6 @@ export default function ClientCheckout() {
     <div style={{ padding: 20, color: "white", maxWidth: 420 }}>
       <h2>📦 Shipping Info</h2>
 
-      {/* FORM */}
       {Object.keys(form).map((key) => (
         <input
           key={key}
@@ -150,12 +169,10 @@ export default function ClientCheckout() {
         />
       ))}
 
-      {/* GET RATES */}
       <button onClick={getRates} disabled={loadingRates} style={btn}>
         {loadingRates ? "Getting rates..." : "📦 Get Shipping Rates"}
       </button>
 
-      {/* RATES */}
       {rates.length > 0 && (
         <div style={{ marginTop: 20 }}>
           <h3>Select Shipping</h3>
@@ -179,7 +196,6 @@ export default function ClientCheckout() {
         </div>
       )}
 
-      {/* CONTINUE */}
       <button
         onClick={handleSubmit}
         disabled={saving || !rates.length}
