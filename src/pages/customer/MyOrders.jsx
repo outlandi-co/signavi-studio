@@ -13,23 +13,37 @@ export default function MyOrders() {
     const loadOrders = async () => {
       try {
         setLoading(true)
+        setError("")
 
-        /* 🔥 FIX: get email correctly */
-        const storedUser = JSON.parse(
-          localStorage.getItem("customerUser") || "null"
-        )
+        /* 🔥 SAFE USER LOAD */
+        let storedUser = null
 
-        if (!storedUser?.email) {
-          setError("No user email found. Please log in.")
-          setLoading(false)
+        try {
+          storedUser = JSON.parse(
+            localStorage.getItem("customerUser") || "null"
+          )
+        } catch {
+          storedUser = null
+        }
+
+        /* 🔥 FALLBACK SUPPORT (old system) */
+        let email = storedUser?.email
+
+        if (!email) {
+          const fallback = localStorage.getItem("customerEmail")
+          if (fallback) {
+            email = fallback
+          }
+        }
+
+        if (!email) {
+          setError("No user email found. Please log in again.")
           return
         }
 
-        console.log("📧 Fetching orders for:", storedUser.email)
+        console.log("📧 Fetching orders for:", email)
 
-        const res = await api.get(
-          `/orders/my-orders?email=${storedUser.email}`
-        )
+        const res = await api.get(`/orders/my-orders?email=${email}`)
 
         console.log("📦 ORDERS:", res.data)
 
@@ -39,7 +53,7 @@ export default function MyOrders() {
         console.error("❌ LOAD ORDERS ERROR:", err)
 
         if (err.response?.status === 404) {
-          setError("Orders route not found (backend not deployed yet)")
+          setError("Orders route not found (backend not deployed)")
         } else {
           setError("Failed to load orders")
         }
@@ -54,10 +68,11 @@ export default function MyOrders() {
   }, [])
 
   /* ================= STATES ================= */
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        Loading orders...
+        ⏳ Loading orders...
       </div>
     )
   }
@@ -73,7 +88,7 @@ export default function MyOrders() {
   if (!orders.length) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        No orders found
+        📦 No orders found
       </div>
     )
   }
@@ -84,62 +99,84 @@ export default function MyOrders() {
 
       <h1 className="text-2xl mb-6">📦 My Orders</h1>
 
-      {orders.map(order => (
+      {orders.map(order => {
 
-        <div
-          key={order._id}
-          className="mb-6 p-4 border border-gray-700 rounded bg-[#020617]"
-        >
+        const subtotal = Number(order.subtotal || 0)
+        const tax = Number(order.tax || 0)
+        const shipping = Number(order.shippingCost || 0)
+        const total = Number(order.finalPrice || subtotal + tax + shipping)
 
-          <div className="flex justify-between mb-2">
-            <p className="font-bold">Order #{order._id}</p>
-            <p className="text-sm text-gray-400">
-              {new Date(order.createdAt).toLocaleDateString()}
-            </p>
-          </div>
+        return (
+          <div
+            key={order._id}
+            className="mb-6 p-4 border border-gray-700 rounded bg-[#020617]"
+          >
 
-          <p>Status: <span className="text-cyan-400">{order.status}</span></p>
-
-          <div className="mt-3">
-            {order.items.map((item, i) => (
-              <div key={i} className="text-sm text-gray-300">
-                {item.name} × {item.quantity} — $
-                {(item.price * item.quantity).toFixed(2)}
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-3 border-t border-gray-700 pt-2">
-            <p>Subtotal: ${order.subtotal?.toFixed(2)}</p>
-            <p>Tax: ${order.tax?.toFixed(2)}</p>
-            <p>Shipping: ${order.shippingCost?.toFixed(2) || "0.00"}</p>
-
-            <h3 className="mt-2 text-lg font-bold">
-              Total: ${order.finalPrice?.toFixed(2)}
-            </h3>
-          </div>
-
-          {/* 🔥 TRACKING */}
-          {order.trackingNumber && (
-            <div className="mt-3 text-green-400">
-              Tracking: {order.trackingNumber}
+            {/* HEADER */}
+            <div className="flex justify-between mb-2">
+              <p className="font-bold">Order #{order._id}</p>
+              <p className="text-sm text-gray-400">
+                {order.createdAt
+                  ? new Date(order.createdAt).toLocaleDateString()
+                  : "—"}
+              </p>
             </div>
-          )}
 
-          {order.trackingLink && (
-            <a
-              href={order.trackingLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-400 underline"
-            >
-              Track Package
-            </a>
-          )}
+            {/* STATUS */}
+            <p>
+              Status:{" "}
+              <span className="text-cyan-400 capitalize">
+                {order.status || "pending"}
+              </span>
+            </p>
 
-        </div>
+            {/* ITEMS */}
+            <div className="mt-3">
+              {(order.items || []).map((item, i) => {
+                const price = Number(item.price || 0)
+                const qty = Number(item.quantity || 1)
 
-      ))}
+                return (
+                  <div key={i} className="text-sm text-gray-300">
+                    {item.name} × {qty} — $
+                    {(price * qty).toFixed(2)}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* TOTALS */}
+            <div className="mt-3 border-t border-gray-700 pt-2 text-sm">
+              <p>Subtotal: ${subtotal.toFixed(2)}</p>
+              <p>Tax: ${tax.toFixed(2)}</p>
+              <p>Shipping: ${shipping.toFixed(2)}</p>
+
+              <h3 className="mt-2 text-lg font-bold">
+                Total: ${total.toFixed(2)}
+              </h3>
+            </div>
+
+            {/* TRACKING */}
+            {order.trackingNumber && (
+              <div className="mt-3 text-green-400 text-sm">
+                Tracking #: {order.trackingNumber}
+              </div>
+            )}
+
+            {order.trackingLink && (
+              <a
+                href={order.trackingLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 underline text-sm"
+              >
+                🔗 Track Package
+              </a>
+            )}
+
+          </div>
+        )
+      })}
 
     </div>
   )
