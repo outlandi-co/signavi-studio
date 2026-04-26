@@ -28,7 +28,7 @@ export default function ClientCheckout() {
       ...form,
       [name]:
         name === "state"
-          ? value.toUpperCase() // 🔥 auto fix CA/ca/Ca
+          ? value.toUpperCase().slice(0, 2) // 🔥 enforce CA format
           : name === "country"
           ? value.toUpperCase()
           : value
@@ -46,6 +46,11 @@ export default function ClientCheckout() {
       }
     }
 
+    if (form.state.length !== 2) {
+      alert("State must be 2 letters (e.g., CA)")
+      return false
+    }
+
     return true
   }
 
@@ -55,10 +60,10 @@ export default function ClientCheckout() {
       if (!validateForm()) return
 
       setLoadingRates(true)
+      setSelectedRate(null) // 🔥 reset selection
 
       console.log("📦 Getting rates with:", form)
 
-      /* ✅ CORRECT ENDPOINT */
       const res = await api.post("/shipping/get-rates", {
         address_to: form
       })
@@ -101,7 +106,7 @@ export default function ClientCheckout() {
         serviceLevel: selectedRate.servicelevel?.name
       })
 
-      /* 🔥 Save for cart display */
+      /* 🔥 Save locally for cart UI */
       localStorage.setItem(
         "shippingRate",
         JSON.stringify({
@@ -177,7 +182,7 @@ export default function ClientCheckout() {
       {/* CONTINUE */}
       <button
         onClick={handleSubmit}
-        disabled={saving}
+        disabled={saving || !rates.length}
         style={{
           ...btn,
           marginTop: 20,
