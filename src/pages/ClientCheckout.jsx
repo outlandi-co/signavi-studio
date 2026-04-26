@@ -22,7 +22,17 @@ export default function ClientCheckout() {
 
   /* ================= HANDLE INPUT ================= */
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value })
+    const { name, value } = e.target
+
+    setForm({
+      ...form,
+      [name]:
+        name === "state"
+          ? value.toUpperCase() // 🔥 auto fix CA/ca/Ca
+          : name === "country"
+          ? value.toUpperCase()
+          : value
+    })
   }
 
   /* ================= VALIDATE ================= */
@@ -48,17 +58,14 @@ export default function ClientCheckout() {
 
       console.log("📦 Getting rates with:", form)
 
-      const res = await api.post("/shipping/create-shipment", {
+      /* ✅ CORRECT ENDPOINT */
+      const res = await api.post("/shipping/get-rates", {
         address_to: form
       })
 
       console.log("📦 SHIPPING RESPONSE:", res.data)
 
-      // 🔥 normalize rates (in case API shape changes)
-      const incomingRates =
-        res.data?.rates ||
-        res.data?.shipment?.rates ||
-        []
+      const incomingRates = res.data?.rates || []
 
       if (!incomingRates.length) {
         alert("No shipping rates found")
@@ -94,7 +101,7 @@ export default function ClientCheckout() {
         serviceLevel: selectedRate.servicelevel?.name
       })
 
-      // 🔥 Save locally for cart display (optional)
+      /* 🔥 Save for cart display */
       localStorage.setItem(
         "shippingRate",
         JSON.stringify({
@@ -139,11 +146,7 @@ export default function ClientCheckout() {
       ))}
 
       {/* GET RATES */}
-      <button
-        onClick={getRates}
-        disabled={loadingRates}
-        style={btn}
-      >
+      <button onClick={getRates} disabled={loadingRates} style={btn}>
         {loadingRates ? "Getting rates..." : "📦 Get Shipping Rates"}
       </button>
 
