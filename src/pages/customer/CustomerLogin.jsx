@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import api from "../../services/api" // 🔥 make sure path is correct
+import api from "../../services/api"
 
 export default function CustomerLogin() {
 
@@ -10,7 +10,7 @@ export default function CustomerLogin() {
   const [error, setError] = useState("")
   const navigate = useNavigate()
 
-  /* 🔥 FIXED: SAFE REDIRECT (NO LOOP) */
+  /* ================= SAFE REDIRECT ================= */
   useEffect(() => {
     const token = localStorage.getItem("customerToken")
 
@@ -19,7 +19,7 @@ export default function CustomerLogin() {
     }
   }, [navigate])
 
-  /* 🔥 REAL LOGIN */
+  /* ================= LOGIN ================= */
   const handleLogin = async () => {
     setError("")
 
@@ -34,16 +34,31 @@ export default function CustomerLogin() {
         password
       })
 
-      // 🔐 STORE REAL AUTH
-      localStorage.setItem("customerToken", res.data.token)
-      localStorage.setItem("customerUser", JSON.stringify(res.data.user))
+      const user = res.data.user
+      const token = res.data.token
 
-      console.log("✅ CUSTOMER LOGGED IN:", res.data.user)
+      if (!user?.email) {
+        throw new Error("Email missing from response")
+      }
+
+      /* 🔥 CLEAN STANDARDIZED STORAGE */
+      const cleanUser = {
+        email: user.email,
+        name: user.name || "Customer"
+      }
+
+      localStorage.setItem("customerToken", token)
+      localStorage.setItem("customerUser", JSON.stringify(cleanUser))
+
+      /* 🔥 IMPORTANT BACKUP (used in other files) */
+      localStorage.setItem("customerEmail", user.email)
+
+      console.log("✅ CUSTOMER LOGGED IN:", cleanUser)
 
       navigate("/dashboard")
 
     } catch (err) {
-      console.error(err)
+      console.error("❌ LOGIN ERROR:", err)
       setError("Invalid email or password")
     }
   }
@@ -76,7 +91,6 @@ export default function CustomerLogin() {
             style={input}
           />
 
-          {/* 👁 TOGGLE */}
           <span
             onClick={() => setShowPassword(!showPassword)}
             style={eye}
