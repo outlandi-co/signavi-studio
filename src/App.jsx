@@ -17,7 +17,7 @@ import AdminLayout from "./components/admin/AdminLayout"
 import CustomerRoute from "./components/guards/CustomerRoute"
 import AdminRoute from "./components/admin/AdminRoute"
 
-/* 🔥 IMPORTANT: make sure file exists EXACTLY here */
+/* LAYOUT */
 import CustomerLayout from "./layouts/CustomerLayout"
 
 /* PAGES */
@@ -45,9 +45,6 @@ import Dashboard from "./pages/Dashboard"
 import AdminRevenue from "./pages/admin/AdminRevenue"
 import Orders from "./pages/admin/Orders"
 import AdminCustomers from "./pages/admin/AdminCustomers"
-import AdminPricing from "./pages/admin/AdminPricing"
-import AdminInventory from "./pages/admin/AdminInventory"
-import AdminMockups from "./pages/admin/AdminMockups"
 
 /* PRODUCTS */
 import Products from "./pages/admin/Products"
@@ -57,6 +54,7 @@ import EditProduct from "./pages/admin/EditProduct"
 /* FLOW */
 import ApproveMockup from "./pages/ApproveMockup"
 import Checkout from "./pages/Checkout"
+import ClientCheckout from "./pages/ClientCheckout" // 🔥 ADDED
 
 /* ================= LAYOUT ================= */
 function LayoutWrapper({ children }) {
@@ -84,26 +82,42 @@ function AppContent() {
   const [cartOpen, setCartOpen] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
 
-  /* ================= CHECKOUT ================= */
+  /* ================= NEW CHECKOUT FLOW ================= */
   const handleCheckout = async (cart) => {
     if (isRedirecting) return
 
     try {
       setIsRedirecting(true)
 
-      const res = await api.post("/stripe/create-cart-session", {
+      console.log("🛒 Creating order from cart drawer...")
+
+      const email = localStorage.getItem("customerEmail")
+
+      if (!email) {
+        alert("Please login first")
+        setIsRedirecting(false)
+        return
+      }
+
+      const res = await api.post("/orders", {
+        email,
         items: cart
       })
 
-      if (!res?.data?.url) {
-        throw new Error("No checkout URL returned")
+      const orderId = res.data?.data?._id
+
+      if (!orderId) {
+        throw new Error("Order ID missing")
       }
 
-      window.location.assign(res.data.url)
+      console.log("✅ ORDER CREATED:", orderId)
+
+      // 🔥 KEY CHANGE → go to shipping step
+      window.location.href = `/client-checkout/${orderId}`
 
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err)
-      alert("Server waking up... try again.")
+      alert("Checkout failed")
       setIsRedirecting(false)
     }
   }
@@ -113,8 +127,7 @@ function AppContent() {
     "/login",
     "/customer-login",
     "/customer-register",
-    "/success",
-    "/checkout"
+    "/success"
   ]
 
   const shouldHideNavbar =
@@ -153,20 +166,20 @@ function AppContent() {
       <LayoutWrapper>
         <Routes>
 
-          {/* ================= PUBLIC ================= */}
+          {/* PUBLIC */}
           <Route path="/" element={<Home />} />
           <Route path="/store" element={<Store setCartOpen={setCartOpen} />} />
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/submit" element={<CustomQuote />} />
 
-          {/* ================= AUTH ================= */}
+          {/* AUTH */}
           <Route path="/login" element={<Login />} />
 
-          {/* ================= CUSTOMER AUTH ================= */}
+          {/* CUSTOMER AUTH */}
           <Route path="/customer-login" element={<CustomerLogin />} />
           <Route path="/customer-register" element={<CustomerRegister />} />
 
-          {/* ================= CUSTOMER APP ================= */}
+          {/* CUSTOMER APP */}
           <Route element={<CustomerRoute />}>
             <Route element={<CustomerLayout />}>
               <Route path="/dashboard" element={<CustomerDashboard />} />
@@ -176,15 +189,18 @@ function AppContent() {
             </Route>
           </Route>
 
-          {/* ================= FLOW ================= */}
+          {/* 🔥 NEW FLOW */}
+          <Route path="/client-checkout/:id" element={<ClientCheckout />} />
+          <Route path="/checkout/:id" element={<Checkout />} />
+
+          {/* OTHER FLOW */}
           <Route path="/track/:id" element={<TrackOrder />} />
           <Route path="/client-order/:id" element={<ClientOrder />} />
           <Route path="/quote/:id" element={<QuoteResponse />} />
-          <Route path="/checkout/:id" element={<Checkout />} />
           <Route path="/success/:id" element={<Success />} />
           <Route path="/approve/:id" element={<ApproveMockup />} />
 
-          {/* ================= ADMIN ================= */}
+          {/* ADMIN */}
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<Dashboard />} />
@@ -198,7 +214,7 @@ function AppContent() {
             </Route>
           </Route>
 
-          {/* ================= 404 ================= */}
+          {/* 404 */}
           <Route path="*" element={<h2>Page not found</h2>} />
 
         </Routes>

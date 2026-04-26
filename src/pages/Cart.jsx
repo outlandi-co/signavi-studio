@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
+import api from "../services/api"
 
 export default function Cart() {
 
@@ -33,6 +34,41 @@ export default function Cart() {
   const tax = subtotal * taxRate
 
   const total = subtotal + tax + shipping
+
+  /* ================= CHECKOUT ================= */
+  const handleCheckout = async () => {
+    try {
+      console.log("🛒 Creating order before checkout...")
+
+      const email = localStorage.getItem("customerEmail")
+
+      if (!email) {
+        alert("Please login first")
+        return
+      }
+
+      const res = await api.post("/orders", {
+        email,
+        items
+      })
+
+      console.log("📦 ORDER CREATED:", res.data)
+
+      const orderId = res.data?.data?._id
+
+      if (!orderId) {
+        throw new Error("Order ID missing")
+      }
+
+      console.log("✅ ORDER ID:", orderId)
+
+      navigate(`/client-checkout/${orderId}`)
+
+    } catch (err) {
+      console.error("❌ CHECKOUT ERROR:", err)
+      alert("Failed to start checkout")
+    }
+  }
 
   /* ================= EMPTY ================= */
   if (!items.length) {
@@ -86,7 +122,7 @@ export default function Cart() {
         </p>
 
         <button
-          onClick={() => navigate("/checkout")}
+          onClick={handleCheckout}
           className="mt-4 bg-cyan-500 px-6 py-2 rounded text-black w-full"
         >
           💳 Checkout
