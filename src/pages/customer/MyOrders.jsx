@@ -26,22 +26,23 @@ export default function MyOrders() {
           storedUser = null
         }
 
-        /* 🔥 FALLBACK SUPPORT (old system) */
-        let email = storedUser?.email
+        console.log("👤 STORED USER:", storedUser)
+
+        /* 🔥 BULLETPROOF EMAIL EXTRACTION */
+        const email =
+          storedUser?.email ||
+          storedUser?.user?.email ||
+          storedUser?.data?.email ||
+          localStorage.getItem("customerEmail") ||
+          null
 
         if (!email) {
-          const fallback = localStorage.getItem("customerEmail")
-          if (fallback) {
-            email = fallback
-          }
-        }
-
-        if (!email) {
-          setError("No user email found. Please log in again.")
+          console.error("❌ No email found in localStorage")
+          setError("Please log in again")
           return
         }
 
-        console.log("📧 Fetching orders for:", email)
+        console.log("📧 USING EMAIL:", email)
 
         const res = await api.get(`/orders/my-orders?email=${email}`)
 
