@@ -6,8 +6,7 @@ import { useState, useMemo } from "react"
 
 export default function CartDrawer({ isOpen, onClose }) {
 
-  const { cart, removeFromCart, updateQuantity, clearCart } = useCart()
-
+  const { cart, removeFromCart, updateQuantity } = useCart()
   const [isRedirecting, setIsRedirecting] = useState(false)
 
   const safeClose = () => {
@@ -38,7 +37,7 @@ export default function CartDrawer({ isOpen, onClose }) {
 
   }, [cart])
 
-  /* ================= CHECKOUT ================= */
+  /* ================= FIXED CHECKOUT ================= */
   const handleCheckout = async () => {
     if (isRedirecting) return
 
@@ -59,46 +58,21 @@ export default function CartDrawer({ isOpen, onClose }) {
         return
       }
 
-      /* 🔥 BUILD ITEMS (FIXED WITH productId) */
-      const items = cart.map(item => {
-        const price = Number(
-          item?.selectedVariant?.price ??
-          item?.variant?.price ??
-          item?.price ??
-          0
-        )
-
-        const productId =
-          item.productId ||
-          item._id ||
-          item.id
-
-        if (!productId) {
-          console.error("❌ Missing productId on item:", item)
-          throw new Error("Missing productId")
+      const items = cart.map(item => ({
+        productId: item.productId || item._id || item.id,
+        name: item.name,
+        quantity: Number(item.quantity || 1),
+        price: Number(item.price || 0),
+        variant: {
+          color: item?.selectedVariant?.color || "",
+          size: item?.selectedVariant?.size || ""
         }
+      }))
 
-        return {
-          productId, // 🔥 FIX
-          name: item.name,
-          quantity: Number(item.quantity || 1),
-          price,
-          variant: {
-            color: item?.selectedVariant?.color || "",
-            size: item?.selectedVariant?.size || ""
-          }
-        }
-      })
+      const subtotal = items.reduce((sum, i) => sum + (i.price * i.quantity), 0)
+      const tax = subtotal * 0.0825
 
-      /* 🔥 CALCULATE TOTALS */
-      const subtotal = items.reduce((sum, i) => {
-        return sum + (i.price * i.quantity)
-      }, 0)
-
-      const taxRate = 0.0825
-      const tax = subtotal * taxRate
-
-      const payload = {
+      const orderRes = await api.post("/orders", {
         customerName: storedUser?.name || "Guest",
         email: storedUser.email,
         items,
@@ -107,162 +81,69 @@ export default function CartDrawer({ isOpen, onClose }) {
         tax,
         price: subtotal,
         finalPrice: subtotal + tax
-      }
+      })
 
-      console.log("🔥 FIXED ORDER PAYLOAD:", payload)
+      const orderId = orderRes?.data?.data?._id
 
-      /* 🔥 CREATE ORDER */
-      const orderRes = await api.post("/orders", payload)
+      if (!orderId) throw new Error("Order ID missing")
 
-      const orderId =
-        orderRes?.data?.data?._id ||
-        orderRes?.data?._id
+      console.log("➡️ Redirecting to shipping step:", orderId)
 
-      if (!orderId) {
-        throw new Error("Order ID missing")
-      }
-
-      /* 🔥 CREATE PAYMENT LINK */
-      const paymentRes = await api.post(`/square/create-payment/${orderId}`)
-      const url = paymentRes?.data?.url
-
-      if (!url) {
-        throw new Error("No payment URL returned")
-      }
-
-      console.log("💳 REDIRECTING:", url)
-
-      /* 🔥 CLEAR CART */
-      clearCart()
-      localStorage.removeItem("cart")
-
-      window.location.href = url
+      /* 🔥 KEY CHANGE */
+      window.location.href = `/client-checkout/${orderId}`
 
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err)
-      alert(err?.response?.data?.message || err.message || "Checkout failed")
+      alert(err?.message || "Checkout failed")
       setIsRedirecting(false)
     }
   }
 
   return (
     <>
-      {/* BACKDROP */}
-      <div
-        onClick={safeClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.6)",
-          opacity: isOpen ? 1 : 0,
-          pointerEvents: isOpen ? "auto" : "none",
-          zIndex: 900
-        }}
-      />
+      <div onClick={safeClose} style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+        opacity: isOpen ? 1 : 0, pointerEvents: isOpen ? "auto" : "none", zIndex: 900
+      }}/>
 
-      {/* DRAWER */}
       <div style={{
-        position: "fixed",
-        right: 0,
-        top: 0,
-        width: 360,
-        height: "100%",
-        background: "#020617",
-        transform: isOpen ? "translateX(0)" : "translateX(100%)",
-        transition: "0.3s ease",
-        display: "flex",
-        flexDirection: "column",
-        color: "white",
-        zIndex: 1000
+        position: "fixed", right: 0, top: 0, width: 360, height: "100%",
+        background: "#020617", transform: isOpen ? "translateX(0)" : "translateX(100%)",
+        transition: "0.3s", display: "flex", flexDirection: "column", color: "white", zIndex: 1000
       }}>
 
-        {/* HEADER */}
-        <div style={{
-          padding: 20,
-          display: "flex",
-          justifyContent: "space-between",
-          borderBottom: "1px solid #1e293b"
-        }}>
+        <div style={{ padding: 20, display: "flex", justifyContent: "space-between" }}>
           <h2>🛒 Cart</h2>
           <button onClick={safeClose}>✖</button>
         </div>
 
-        {/* CART ITEMS */}
         <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
-          {cart.length === 0 && <p>Cart is empty</p>}
-
-          {cart.map((item, index) => {
-            const price = Number(
-              item?.selectedVariant?.price ??
-              item?.variant?.price ??
-              item?.price ??
-              0
-            )
-
-            const qty = Number(item?.quantity || 1)
-            const lineTotal = price * qty
-            const id = item.productId || item._id
+          {cart.map((item, i) => {
+            const price = Number(item.price || 0)
+            const qty = Number(item.quantity || 1)
 
             return (
-              <div key={index} style={{
-                display: "flex",
-                gap: 10,
-                marginBottom: 16,
-                borderBottom: "1px solid #1e293b",
-                paddingBottom: 10
-              }}>
-                <SafeImage
-                  src={item.image || "/placeholder.png"}
-                  alt={item.name}
-                  style={{ width: 60, height: 60 }}
-                />
-
-                <div style={{ flex: 1 }}>
-                  <strong>{item.name}</strong>
-
-                  <p style={{ fontSize: 12, opacity: 0.7 }}>
-                    {(item.selectedVariant || item.variant)?.color || "N/A"} /
-                    {(item.selectedVariant || item.variant)?.size || "N/A"}
-                  </p>
-
-                  <p>${price.toFixed(2)} × {qty}</p>
-
-                  <p style={{ color: "#22c55e", fontWeight: "bold" }}>
-                    ${lineTotal.toFixed(2)}
-                  </p>
-
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => updateQuantity(id, qty - 1)}>-</button>
-                    <span>{qty}</span>
-                    <button onClick={() => updateQuantity(id, qty + 1)}>+</button>
-                  </div>
-                </div>
-
-                <button onClick={() => removeFromCart(id)}>✖</button>
+              <div key={i} style={{ marginBottom: 12 }}>
+                <SafeImage src={item.image} style={{ width: 60 }} />
+                <p>{item.name}</p>
+                <p>${price} × {qty}</p>
+                <button onClick={() => updateQuantity(item._id, qty - 1)}>-</button>
+                <button onClick={() => updateQuantity(item._id, qty + 1)}>+</button>
+                <button onClick={() => removeFromCart(item._id)}>✖</button>
               </div>
             )
           })}
         </div>
 
-        {/* TOTALS */}
-        {cart.length > 0 && (
-          <div style={{ padding: 20, borderTop: "1px solid #1e293b" }}>
-            <p>Subtotal: ${subtotal.toFixed(2)}</p>
-            <p>Tax: ${tax.toFixed(2)}</p>
+        <div style={{ padding: 20 }}>
+          <p>Subtotal: ${subtotal.toFixed(2)}</p>
+          <p>Tax: ${tax.toFixed(2)}</p>
+          <h3>Total: ${total.toFixed(2)}</h3>
 
-            <h3 style={{ color: "#22c55e" }}>
-              Total: ${total.toFixed(2)}
-            </h3>
-
-            <Button
-              onClick={handleCheckout}
-              fullWidth
-              disabled={isRedirecting}
-            >
-              {isRedirecting ? "🔐 Connecting..." : "💳 Checkout"}
-            </Button>
-          </div>
-        )}
+          <Button onClick={handleCheckout} disabled={isRedirecting}>
+            {isRedirecting ? "Loading..." : "Checkout"}
+          </Button>
+        </div>
 
       </div>
     </>
