@@ -170,24 +170,25 @@ function AppContent() {
           <Route path="/approve/:id" element={<ApproveMockup />} />
 
           {/* 🔥 ADMIN (FIXED) */}
-          <Route element={<AdminRoute />}>
-            <Route path="/admin" element={<AdminLayout />}>
+          {/* 🔥 ADMIN ROUTES */}
+<Route path="/admin" element={<AdminRoute />}>
+  <Route element={<AdminLayout />}>
 
-              <Route index element={<Dashboard />} />
+    <Route index element={<Dashboard />} />
 
-              {/* ✅ THIS IS THE FIX */}
-              <Route path="production" element={<ProductionBoard />} />
+    {/* ✅ PRODUCTION BOARD */}
+    <Route path="production" element={<ProductionBoard />} />
 
-              <Route path="orders" element={<Orders />} />
-              <Route path="customers" element={<AdminCustomers />} />
-              <Route path="revenue" element={<AdminRevenue />} />
+    <Route path="orders" element={<Orders />} />
+    <Route path="customers" element={<AdminCustomers />} />
+    <Route path="revenue" element={<AdminRevenue />} />
 
-              <Route path="products" element={<Products />} />
-              <Route path="products/new" element={<CreateProduct />} />
-              <Route path="products/edit/:id" element={<EditProduct />} />
+    <Route path="products" element={<Products />} />
+    <Route path="products/new" element={<CreateProduct />} />
+    <Route path="products/edit/:id" element={<EditProduct />} />
 
-            </Route>
-          </Route>
+  </Route>
+</Route>
 
           {/* FALLBACK */}
           <Route path="*" element={<h2>Page not found</h2>} />

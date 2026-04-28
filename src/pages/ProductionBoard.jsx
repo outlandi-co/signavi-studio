@@ -8,6 +8,7 @@ const getColor = (status) => {
   switch (status) {
     case "quotes": return "#1e293b"
     case "payment_required": return "#7c2d12"
+    case "ready_for_production": return "#78350f" // 🔥 NEW
     case "production": return "#1e40af"
     case "shipping": return "#065f46"
     case "shipped": return "#4c1d95"
@@ -34,7 +35,7 @@ function Column({ status, jobs, refresh }) {
         <JobCard
           key={job._id}
           job={job}
-          onUpdate={refresh} // 🔥 triggers reload after approve
+          onUpdate={refresh}
         />
       ))}
     </div>
@@ -48,17 +49,24 @@ export default function ProductionBoard() {
   /* ================= LOAD DATA ================= */
   const load = async () => {
     try {
-      const [quotesRes, ordersRes] = await Promise.all([
-        api.get("/quotes"),
-        api.get("/orders")
-      ])
+      let quotes = []
 
-      const quotes = quotesRes.data?.data || []
+      try {
+        const quotesRes = await api.get("/quotes")
+        quotes = quotesRes.data?.data || []
+      } catch {
+        console.warn("⚠️ /quotes not available — skipping")
+      }
+
+      const ordersRes = await api.get("/orders")
       const orders = ordersRes.data?.data || []
+
+      console.log("🔥 ORDERS LOADED:", orders.length)
 
       const grouped = {
         quotes,
         payment_required: orders.filter(o => o.status === "payment_required"),
+        ready_for_production: orders.filter(o => o.status === "ready_for_production"), // 🔥 NEW
         production: orders.filter(o => o.status === "production"),
         shipping: orders.filter(o => o.status === "shipping"),
         shipped: orders.filter(o => o.status === "shipped")
@@ -67,11 +75,12 @@ export default function ProductionBoard() {
       setJobs(grouped)
 
     } catch (err) {
-      console.error("LOAD ERROR:", err)
+      console.error("❌ LOAD ERROR:", err)
 
       setJobs({
         quotes: [],
         payment_required: [],
+        ready_for_production: [],
         production: [],
         shipping: [],
         shipped: []
@@ -82,7 +91,7 @@ export default function ProductionBoard() {
   /* ================= INITIAL LOAD ================= */
   useEffect(() => {
   const init = async () => {
-    await load()
+    await load() // ✅ no unused variable
   }
 
   init()
@@ -93,7 +102,8 @@ export default function ProductionBoard() {
     socketRef.current = io("https://signavi-backend.onrender.com")
 
     const handleJobUpdated = () => {
-      load() // 🔥 always reload fresh data
+      console.log("🔄 Job updated — refreshing board")
+      load()
     }
 
     socketRef.current.on("jobUpdated", handleJobUpdated)
@@ -127,18 +137,20 @@ export default function ProductionBoard() {
     if (movedJob?.status === newStatus) return
 
     try {
-      await api.patch(`/orders/${jobId}`, {
+      await api.patch(`/orders/${jobId}/status`, { // 🔥 FIXED
         status: newStatus
       })
 
-      load() // 🔥 instant UI update
+      console.log("✅ Status updated:", jobId, newStatus)
+
+      load()
 
     } catch (err) {
-      console.error(err)
+      console.error("❌ PATCH ERROR:", err)
     }
   }
 
-  if (!jobs) return <div>Loading...</div>
+  if (!jobs) return <div style={{ padding: 20 }}>Loading production board...</div>
 
   return (
     <div
@@ -158,7 +170,7 @@ export default function ProductionBoard() {
               key={status}
               status={status}
               jobs={list}
-              refresh={load} // 🔥 THIS is the missing link
+              refresh={load}
             />
           ))}
         </div>

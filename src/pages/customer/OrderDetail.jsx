@@ -5,89 +5,6 @@ import { io } from "socket.io-client"
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
 
-/* 🔥 TRY TO IMPORT — SAFE FALLBACK BELOW */
-let ShippingEditor
-try {
-  // normal path
-  ShippingEditor = (await import("../../components/admin/ShippingEditor")).default
-} catch {
-  // fallback inline component (so UI ALWAYS shows)
-  ShippingEditor = function FallbackShippingEditor({ order, onUpdate }) {
-    const [shippingCost, setShippingCost] = useState(order?.shippingCost || 0)
-    const [carrier, setCarrier] = useState(order?.carrier || "USPS")
-    const [trackingNumber, setTrackingNumber] = useState(order?.trackingNumber || "")
-    const [serviceLevel, setServiceLevel] = useState(order?.serviceLevel || "")
-    const [loading, setLoading] = useState(false)
-
-    useEffect(() => {
-      if (!order) return
-      setShippingCost(order.shippingCost || 0)
-      setCarrier(order.carrier || "USPS")
-      setTrackingNumber(order.trackingNumber || "")
-      setServiceLevel(order.serviceLevel || "")
-    }, [order])
-
-    const handleSave = async () => {
-      try {
-        setLoading(true)
-        const res = await api.patch(`/orders/${order._id}/shipping`, {
-          shippingCost,
-          carrier,
-          trackingNumber,
-          serviceLevel
-        })
-
-        alert("✅ Shipping updated")
-        if (onUpdate) onUpdate(res.data.data)
-
-      } catch (err) {
-        console.error(err)
-        alert("❌ Failed to update shipping")
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    return (
-      <div style={{ marginTop: 30, padding: 20, background: "#0f172a", borderRadius: 10 }}>
-        <h3>🚚 Shipping Editor (Fallback)</h3>
-
-        <input
-          type="number"
-          value={shippingCost}
-          onChange={(e) => setShippingCost(Number(e.target.value))}
-          placeholder="Shipping Cost"
-          style={input}
-        />
-
-        <select value={carrier} onChange={(e) => setCarrier(e.target.value)} style={input}>
-          <option>USPS</option>
-          <option>UPS</option>
-          <option>FedEx</option>
-        </select>
-
-        <input
-          value={serviceLevel}
-          onChange={(e) => setServiceLevel(e.target.value)}
-          placeholder="Service Level"
-          style={input}
-        />
-
-        <input
-          value={trackingNumber}
-          onChange={(e) => setTrackingNumber(e.target.value)}
-          placeholder="Tracking Number"
-          style={input}
-        />
-
-        <button onClick={handleSave} style={btn}>
-          {loading ? "Saving..." : "Save Shipping"}
-        </button>
-      </div>
-    )
-  }
-}
-
 const API_URL =
   import.meta.env.VITE_API_URL ||
   "https://signavi-backend.onrender.com/api"
@@ -157,11 +74,6 @@ export default function OrderDetail() {
     pdf.save(`invoice-${order._id}.pdf`)
   }
 
-  /* ================= UPDATE FROM SHIPPING ================= */
-  const handleUpdate = (updatedOrder) => {
-    setOrder(updatedOrder)
-  }
-
   if (loading) return <p style={{ padding: 20 }}>Loading...</p>
   if (!order) return <p style={{ padding: 20 }}>Order not found</p>
 
@@ -197,12 +109,19 @@ export default function OrderDetail() {
         </div>
 
         <p><strong>Customer:</strong> {order.customerName}</p>
+        <p><strong>Email:</strong> {order.email}</p>
         <p><strong>Status:</strong> {order.status}</p>
 
+        {/* ✅ READ-ONLY SHIPPING INFO */}
         {order.trackingNumber && (
           <div style={{ marginTop: 10 }}>
             <p><strong>Carrier:</strong> {order.carrier}</p>
             <p><strong>Tracking:</strong> {order.trackingNumber}</p>
+            {order.trackingLink && (
+              <a href={order.trackingLink} target="_blank">
+                Track Package
+              </a>
+            )}
           </div>
         )}
 
@@ -229,9 +148,6 @@ export default function OrderDetail() {
       <button onClick={handleDownloadInvoice} style={downloadBtn}>
         📄 Download Invoice
       </button>
-
-      {/* 🔥 GUARANTEED SHIPPING UI */}
-      <ShippingEditor order={order} onUpdate={handleUpdate} />
     </div>
   )
 }
@@ -243,22 +159,6 @@ const header = {
   paddingBottom: 12,
   display: "flex",
   justifyContent: "space-between"
-}
-
-const input = {
-  display: "block",
-  marginBottom: 10,
-  padding: 10,
-  width: "100%",
-  borderRadius: 6
-}
-
-const btn = {
-  padding: 10,
-  background: "#22c55e",
-  border: "none",
-  borderRadius: 6,
-  cursor: "pointer"
 }
 
 const downloadBtn = {

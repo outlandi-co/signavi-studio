@@ -6,12 +6,10 @@ import { useState } from "react"
 import AccountDrawer from "./AccountDrawer"
 
 function Navbar({ setCartOpen }) {
-
   const navigate = useNavigate()
   const location = useLocation()
 
   const { cartCount } = useCart()
-
   const [accountOpen, setAccountOpen] = useState(false)
 
   const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null")
@@ -21,10 +19,7 @@ function Navbar({ setCartOpen }) {
   const isCustomer = !!customerUser
 
   const handleLogout = () => {
-    localStorage.removeItem("adminUser")
-    localStorage.removeItem("adminToken")
-    localStorage.removeItem("customerUser")
-    localStorage.removeItem("customerToken")
+    localStorage.clear()
     navigate("/")
   }
 
@@ -39,11 +34,11 @@ function Navbar({ setCartOpen }) {
       {/* LEFT */}
       <div style={left}>
         <Link to="/">
-          <img src={logo} style={logoStyle} />
+          <img src={logo} style={logoStyle} alt="logo" />
         </Link>
 
-        <NavLink to="/" active={isActive("/")}>Home</NavLink>
-        <NavLink to="/store" active={isActive("/store")}>Store</NavLink>
+        <NavItem to="/" active={isActive("/")}>Home</NavItem>
+        <NavItem to="/store" active={isActive("/store")}>Store</NavItem>
 
         <button onClick={() => setCartOpen(true)} style={cartBtn}>
           🛒 Cart
@@ -51,17 +46,26 @@ function Navbar({ setCartOpen }) {
         </button>
 
         {(isCustomer || isAdmin) && (
-          <NavLink to="/notifications" active={isActive("/notifications")}>
+          <NavItem to="/notifications" active={isActive("/notifications")}>
             🔔 Alerts
-          </NavLink>
+          </NavItem>
         )}
 
+        {/* 🔥 ADMIN NAV */}
         {isAdmin && (
           <div style={adminGroup}>
-            <NavLink to="/admin/production" active={isActive("/admin/production")}>Production</NavLink>
-            <NavLink to="/admin/orders" active={isActive("/admin/orders")}>Orders</NavLink>
-            <NavLink to="/admin/customers" active={isActive("/admin/customers")}>Customers</NavLink>
-            <NavLink to="/admin/revenue" active={isActive("/admin/revenue")}>Revenue</NavLink>
+            <NavItem to="/admin/production" active={isActive("/admin/production")}>
+              Production
+            </NavItem>
+            <NavItem to="/admin/orders" active={isActive("/admin/orders")}>
+              Orders
+            </NavItem>
+            <NavItem to="/admin/customers" active={isActive("/admin/customers")}>
+              Customers
+            </NavItem>
+            <NavItem to="/admin/revenue" active={isActive("/admin/revenue")}>
+              Revenue
+            </NavItem>
           </div>
         )}
       </div>
@@ -70,7 +74,6 @@ function Navbar({ setCartOpen }) {
       <div style={right}>
         <NotificationBell />
 
-        {/* ✅ CUSTOMER ACCOUNT BUTTON */}
         {isCustomer && (
           <button
             onClick={() => setAccountOpen(true)}
@@ -93,7 +96,7 @@ function Navbar({ setCartOpen }) {
         )}
       </div>
 
-      {/* ✅ GLOBAL ACCOUNT DRAWER */}
+      {/* ACCOUNT DRAWER */}
       <AccountDrawer
         open={accountOpen}
         onClose={() => setAccountOpen(false)}
@@ -104,14 +107,15 @@ function Navbar({ setCartOpen }) {
   )
 }
 
-/* NAV LINK */
-function NavLink({ to, children, active }) {
+/* 🔥 CLEAN NAV ITEM */
+function NavItem({ to, children, active }) {
   return (
     <Link
       to={to}
       style={{
         color: active ? "#22d3ee" : "#cbd5f5",
-        fontWeight: active ? "600" : "400"
+        fontWeight: active ? "600" : "400",
+        textDecoration: "none"
       }}
     >
       {children}
