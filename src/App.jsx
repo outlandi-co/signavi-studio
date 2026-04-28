@@ -145,9 +145,6 @@ function AppContent() {
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/login" element={<Login />} />
 
-          {/* 🔥 FIX: PRODUCTION BOARD ROUTE */}
-          <Route path="/production" element={<ProductionBoard />} />
-
           {/* CUSTOMER AUTH */}
           <Route path="/customer-login" element={<CustomerLogin />} />
           <Route path="/customer-register" element={<CustomerRegister />} />
@@ -172,16 +169,23 @@ function AppContent() {
           <Route path="/success/:id" element={<Success />} />
           <Route path="/approve/:id" element={<ApproveMockup />} />
 
-          {/* ADMIN */}
+          {/* 🔥 ADMIN (FIXED) */}
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminLayout />}>
+
               <Route index element={<Dashboard />} />
+
+              {/* ✅ THIS IS THE FIX */}
+              <Route path="production" element={<ProductionBoard />} />
+
               <Route path="orders" element={<Orders />} />
               <Route path="customers" element={<AdminCustomers />} />
               <Route path="revenue" element={<AdminRevenue />} />
+
               <Route path="products" element={<Products />} />
               <Route path="products/new" element={<CreateProduct />} />
               <Route path="products/edit/:id" element={<EditProduct />} />
+
             </Route>
           </Route>
 
