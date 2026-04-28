@@ -30,55 +30,30 @@ function Navbar({ setCartOpen }) {
 
   return (
     <div style={nav}>
-
-      {/* LEFT */}
       <div style={left}>
         <Link to="/">
-          <img src={logo} style={logoStyle} alt="logo" />
+          <img src={logo} style={logoStyle} />
         </Link>
 
         <NavItem to="/" active={isActive("/")}>Home</NavItem>
         <NavItem to="/store" active={isActive("/store")}>Store</NavItem>
 
+        {/* 🔥 QUOTE BUTTON */}
+        <NavItem to="/quote" active={isActive("/quote")}>
+          Get Quote
+        </NavItem>
+
         <button onClick={() => setCartOpen(true)} style={cartBtn}>
           🛒 Cart
           {cartCount > 0 && <span style={badge}>{cartCount}</span>}
         </button>
-
-        {(isCustomer || isAdmin) && (
-          <NavItem to="/notifications" active={isActive("/notifications")}>
-            🔔 Alerts
-          </NavItem>
-        )}
-
-        {/* 🔥 ADMIN NAV */}
-        {isAdmin && (
-          <div style={adminGroup}>
-            <NavItem to="/admin/production" active={isActive("/admin/production")}>
-              Production
-            </NavItem>
-            <NavItem to="/admin/orders" active={isActive("/admin/orders")}>
-              Orders
-            </NavItem>
-            <NavItem to="/admin/customers" active={isActive("/admin/customers")}>
-              Customers
-            </NavItem>
-            <NavItem to="/admin/revenue" active={isActive("/admin/revenue")}>
-              Revenue
-            </NavItem>
-          </div>
-        )}
       </div>
 
-      {/* RIGHT */}
       <div style={right}>
         <NotificationBell />
 
         {isCustomer && (
-          <button
-            onClick={() => setAccountOpen(true)}
-            style={accountBtn}
-          >
+          <button onClick={() => setAccountOpen(true)} style={accountBtn}>
             Account
           </button>
         )}
@@ -96,18 +71,15 @@ function Navbar({ setCartOpen }) {
         )}
       </div>
 
-      {/* ACCOUNT DRAWER */}
       <AccountDrawer
         open={accountOpen}
         onClose={() => setAccountOpen(false)}
         user={customerUser}
       />
-
     </div>
   )
 }
 
-/* 🔥 CLEAN NAV ITEM */
 function NavItem({ to, children, active }) {
   return (
     <Link
@@ -123,13 +95,12 @@ function NavItem({ to, children, active }) {
   )
 }
 
-/* STYLES */
+/* styles */
 const nav = {
   display: "flex",
   justifyContent: "space-between",
   padding: "16px 24px",
-  background: "#020617",
-  borderBottom: "1px solid #1e293b"
+  background: "#020617"
 }
 
 const left = { display: "flex", gap: 20, alignItems: "center" }
@@ -137,7 +108,6 @@ const right = { display: "flex", gap: 16, alignItems: "center" }
 const authLinks = { display: "flex", gap: 12 }
 
 const logoStyle = { height: 40 }
-const adminGroup = { display: "flex", gap: 10, marginLeft: 20 }
 
 const cartBtn = {
   background: "none",
@@ -160,20 +130,17 @@ const badge = {
 
 const accountBtn = {
   background: "#22c55e",
-  color: "#000",
   padding: "6px 12px",
   borderRadius: "6px",
-  border: "none",
-  cursor: "pointer"
+  border: "none"
 }
 
 const logoutBtn = {
   background: "#ef4444",
   color: "#fff",
-  border: "none",
   padding: "6px 12px",
   borderRadius: "6px",
-  cursor: "pointer"
+  border: "none"
 }
 
 export default Navbar
