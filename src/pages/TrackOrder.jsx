@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { useParams } from "react-router-dom"
 import { io } from "socket.io-client"
 import api from "../services/api"
@@ -10,9 +10,7 @@ const API_URL =
 const SOCKET_URL = API_URL.replace("/api", "")
 
 const steps = [
-  "pending",
   "payment_required",
-  "paid",
   "production",
   "shipping",
   "shipped",
@@ -20,9 +18,7 @@ const steps = [
 ]
 
 const stepIcons = {
-  pending: "🕒",
   payment_required: "💳",
-  paid: "💰",
   production: "🏭",
   shipping: "📦",
   shipped: "🚚",
@@ -30,7 +26,6 @@ const stepIcons = {
 }
 
 export default function TrackOrder() {
-
   const { id } = useParams()
 
   const [order, setOrder] = useState(null)
@@ -39,26 +34,22 @@ export default function TrackOrder() {
   const socketRef = useRef(null)
 
   /* ================= LOAD ================= */
-  useEffect(() => {
-    if (!id) return
-
-    const load = async () => {
-      try {
-        const res = await api.get(`/orders/${id}`)
-
-        console.log("📦 ORDER LOADED:", res.data)
-
-        setOrder(res.data) // ✅ FIXED
-      } catch (err) {
-        console.error(err)
-        setOrder(null)
-      } finally {
-        setLoading(false)
-      }
+  const load = useCallback(async () => {
+    try {
+      const res = await api.get(`/orders/${id}`)
+      setOrder(res.data?.data)
+    } catch (err) {
+      console.error("❌ LOAD ERROR:", err)
+      setOrder(null)
+    } finally {
+      setLoading(false)
     }
-
-    load()
   }, [id])
+
+  /* ================= INITIAL LOAD ================= */
+  useEffect(() => {
+    if (id) load()
+  }, [id, load])
 
   /* ================= SOCKET ================= */
   useEffect(() => {
@@ -66,17 +57,14 @@ export default function TrackOrder() {
 
     socketRef.current = io(SOCKET_URL)
 
-    socketRef.current.on("jobUpdated", (updated) => {
-      if (updated._id === id) {
-        console.log("🔄 LIVE UPDATE:", updated)
-        setOrder(updated)
-      }
+    socketRef.current.on("jobUpdated", () => {
+      load() // 🔥 always get fresh data
     })
 
     return () => {
       socketRef.current?.disconnect()
     }
-  }, [id])
+  }, [id, load])
 
   /* ================= UI ================= */
 
@@ -125,6 +113,21 @@ export default function TrackOrder() {
         ))}
       </div>
 
+      {/* ================= STATUS MESSAGE ================= */}
+      <div className="mb-6 text-center">
+        {order.status === "production" && (
+          <p className="text-yellow-400">🏭 Your order is in production</p>
+        )}
+
+        {order.status === "shipping" && (
+          <p className="text-blue-400">📦 Preparing shipment</p>
+        )}
+
+        {order.status === "shipped" && (
+          <p className="text-green-400">🚚 Your order has shipped</p>
+        )}
+      </div>
+
       {/* ================= ITEMS ================= */}
       <div className="mb-6">
         <h2 className="text-lg mb-2">🧾 Items</h2>
@@ -136,7 +139,7 @@ export default function TrackOrder() {
             </div>
 
             <div className="text-sm text-gray-400">
-              {item.variant?.color} / {item.variant?.size}
+              {item.variant?.color || "N/A"} / {item.variant?.size || "N/A"}
             </div>
 
             <div className="text-sm">
@@ -153,11 +156,11 @@ export default function TrackOrder() {
         {(order.timeline || []).map((t, i) => (
           <div key={i} className="mb-3 bg-gray-900 p-3 rounded">
             <div>
-              {stepIcons[t.status]} {t.status}
+              {stepIcons[t.status] || "📌"} {t.status}
             </div>
 
             <div className="text-xs text-gray-400">
-              {new Date(t.date).toLocaleString()}
+              {t.date ? new Date(t.date).toLocaleString() : ""}
             </div>
 
             {t.note && (
@@ -170,28 +173,38 @@ export default function TrackOrder() {
       </div>
 
       {/* ================= SHIPPING ================= */}
-      {order.trackingLink && (
-        <div className="bg-gray-900 p-4 rounded">
-          <h2 className="text-lg mb-2">🚚 Shipping</h2>
+      <div className="bg-gray-900 p-4 rounded">
+        <h2 className="text-lg mb-2">🚚 Shipping</h2>
 
-          <p className="text-sm text-gray-400">
-            Carrier: {order.carrier || "N/A"}
+        {order.status !== "shipped" && (
+          <p className="text-gray-400">
+            Tracking will appear once your order ships.
           </p>
+        )}
 
-          <p className="text-sm">
-            Tracking #: {order.trackingNumber || "N/A"}
-          </p>
+        {order.status === "shipped" && (
+          <>
+            <p className="text-sm text-gray-400">
+              Carrier: {order.carrier || "N/A"}
+            </p>
 
-          <a
-            href={order.trackingLink}
-            target="_blank"
-            rel="noreferrer"
-            className="text-blue-400 underline mt-2 block"
-          >
-            Track Package
-          </a>
-        </div>
-      )}
+            <p className="text-sm">
+              Tracking #: {order.trackingNumber || "N/A"}
+            </p>
+
+            {order.trackingLink && (
+              <a
+                href={order.trackingLink}
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-400 underline mt-2 block"
+              >
+                Track Package
+              </a>
+            )}
+          </>
+        )}
+      </div>
 
     </div>
   )

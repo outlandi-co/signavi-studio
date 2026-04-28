@@ -13,11 +13,11 @@ function TrackingPage() {
 
       const res = await api.get(`/orders/${orderId}`)
 
-      setOrder(res.data)
+      // ✅ FIX: correct data access
+      setOrder(res.data?.data)
 
     } catch (err) {
       console.error("❌ TRACKING ERROR:", err)
-
       setError("Order not found or invalid ID")
     }
   }
@@ -31,62 +31,69 @@ function TrackingPage() {
           value={orderId}
           onChange={(e) => setOrderId(e.target.value)}
           placeholder="Enter Order ID"
-          style={{
-            padding: "10px",
-            marginRight: "10px",
-            borderRadius: "6px",
-            border: "1px solid #334155",
-            background: "#020617",
-            color: "white"
-          }}
+          style={input}
         />
 
-        <button
-          onClick={handleSearch}
-          style={{
-            padding: "10px",
-            background: "#22c55e",
-            border: "none",
-            cursor: "pointer",
-            borderRadius: "6px"
-          }}
-        >
+        <button onClick={handleSearch} style={btn}>
           Track
         </button>
       </div>
 
-      {/* ERROR */}
-      {error && (
-        <p style={{ color: "#ef4444", marginTop: "15px" }}>
-          {error}
-        </p>
-      )}
+      {error && <p style={{ color: "#ef4444", marginTop: "15px" }}>{error}</p>}
 
-      {/* RESULT */}
       {order && (
-        <div style={{
-          marginTop: "20px",
-          padding: "20px",
-          border: "1px solid #334155",
-          borderRadius: "10px"
-        }}>
+        <div style={card}>
           <p><strong>Name:</strong> {order.customerName}</p>
           <p><strong>Status:</strong> {order.status}</p>
 
-          {order.trackingLink && (
-            <a
-              href={order.trackingLink}
-              target="_blank"
-              rel="noreferrer"
-              style={{ color: "#22c55e", display: "block", marginTop: "10px" }}
-            >
-              📦 Track Shipment
-            </a>
+          {/* 🔥 STATUS FEEDBACK */}
+          {order.status === "production" && <p>🏭 In production</p>}
+          {order.status === "shipping" && <p>📦 Preparing shipment</p>}
+
+          {order.status === "shipped" && (
+            <>
+              <p>🚚 Tracking #: {order.trackingNumber}</p>
+              {order.trackingLink && (
+                <a href={order.trackingLink} target="_blank" rel="noreferrer" style={link}>
+                  Track Shipment
+                </a>
+              )}
+            </>
           )}
         </div>
       )}
     </div>
   )
+}
+
+const input = {
+  padding: "10px",
+  marginRight: "10px",
+  borderRadius: "6px",
+  border: "1px solid #334155",
+  background: "#020617",
+  color: "white"
+}
+
+const btn = {
+  padding: "10px",
+  background: "#22c55e",
+  border: "none",
+  cursor: "pointer",
+  borderRadius: "6px"
+}
+
+const card = {
+  marginTop: "20px",
+  padding: "20px",
+  border: "1px solid #334155",
+  borderRadius: "10px"
+}
+
+const link = {
+  color: "#22c55e",
+  display: "block",
+  marginTop: "10px"
 }
 
 export default TrackingPage

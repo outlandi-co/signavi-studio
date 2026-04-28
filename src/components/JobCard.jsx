@@ -4,6 +4,7 @@ import api from "../services/api"
 function JobCard({ job, onUpdate }) {
   const [price, setPrice] = useState(job?.price || "")
   const [loading, setLoading] = useState(false)
+  const [shipping, setShipping] = useState(false)
 
   if (!job) return null
 
@@ -15,7 +16,6 @@ function JobCard({ job, onUpdate }) {
 
     let finalPrice = Number(price)
 
-    // 🔥 GUARANTEE VALID PRICE (NO MORE BACKEND FAIL)
     if (!finalPrice || finalPrice <= 0) {
       console.warn("⚠️ Invalid input → forcing fallback 25")
       finalPrice = 25
@@ -24,11 +24,6 @@ function JobCard({ job, onUpdate }) {
     setLoading(true)
 
     try {
-      console.log("📤 SENDING APPROVE:", {
-        id: job._id,
-        price: finalPrice
-      })
-
       const res = await api.patch(`/quotes/${job._id}/approve`, {
         price: finalPrice
       })
@@ -38,13 +33,8 @@ function JobCard({ job, onUpdate }) {
       if (onUpdate) onUpdate()
 
     } catch (err) {
-      console.error("❌ APPROVE ERROR FULL:", err)
-      console.error("❌ RESPONSE:", err.response?.data)
-
-      alert(
-        "Approve failed:\n" +
-        JSON.stringify(err.response?.data, null, 2)
-      )
+      console.error("❌ APPROVE ERROR:", err.response?.data || err.message)
+      alert("Approve failed")
     } finally {
       setLoading(false)
     }
@@ -60,24 +50,42 @@ function JobCard({ job, onUpdate }) {
     setLoading(true)
 
     try {
-      const res = await api.patch(`/quotes/${job._id}/deny`, {
+      await api.patch(`/quotes/${job._id}/deny`, {
         reason,
         fee: 0
       })
-
-      console.log("❌ DENIED:", res.data)
 
       if (onUpdate) onUpdate()
 
     } catch (err) {
       console.error("❌ DENY ERROR:", err.response?.data || err.message)
-
-      alert(
-        "Deny failed:\n" +
-        JSON.stringify(err.response?.data, null, 2)
-      )
+      alert("Deny failed")
     } finally {
       setLoading(false)
+    }
+  }
+
+  /* ================= 🚚 SHIP ================= */
+  const handleShip = async (e) => {
+    e.stopPropagation()
+
+    const confirmShip = window.confirm("Ship this order?")
+    if (!confirmShip) return
+
+    setShipping(true)
+
+    try {
+      await api.post(`/orders/ship/${job._id}`)
+
+      console.log("🚚 SHIPPED")
+
+      if (onUpdate) onUpdate()
+
+    } catch (err) {
+      console.error("❌ SHIP ERROR:", err.response?.data || err.message)
+      alert("Shipping failed")
+    } finally {
+      setShipping(false)
     }
   }
 
@@ -123,6 +131,20 @@ function JobCard({ job, onUpdate }) {
           ✅ Approved (${Number(job.price || 0).toFixed(2)})
         </p>
       )}
+
+      {/* ================= 🚚 SHIPPING BUTTON ================= */}
+      {job.status === "shipping" && (
+        <button onClick={handleShip} style={shipBtn} disabled={shipping}>
+          {shipping ? "Shipping..." : "🚚 Ship Order"}
+        </button>
+      )}
+
+      {/* ================= SHIPPED ================= */}
+      {job.status === "shipped" && (
+        <p style={{ color: "#22c55e", marginTop: 8 }}>
+          ✔ Shipped
+        </p>
+      )}
     </div>
   )
 }
@@ -148,11 +170,21 @@ const input = {
   color: "white"
 }
 
+const shipBtn = {
+  marginTop: 10,
+  background: "#22c55e",
+  border: "none",
+  padding: "8px 12px",
+  borderRadius: 6,
+  cursor: "pointer"
+}
+
 const status = (s) => ({
   background:
     s === "payment_required" ? "#f59e0b" :
     s === "production" ? "#3b82f6" :
     s === "shipping" ? "#10b981" :
+    s === "shipped" ? "#22c55e" :
     "#64748b",
   padding: "2px 8px",
   borderRadius: 6,
