@@ -54,7 +54,7 @@ import EditProduct from "./pages/admin/EditProduct"
 /* FLOW */
 import ApproveMockup from "./pages/ApproveMockup"
 import Checkout from "./pages/Checkout"
-import ClientCheckout from "./pages/ClientCheckout" // 🔥 ADD
+import ClientCheckout from "./pages/ClientCheckout"
 
 function LayoutWrapper({ children }) {
   const location = useLocation()
@@ -74,14 +74,12 @@ function AppContent() {
   const [cartOpen, setCartOpen] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
 
-  /* 🔥 NEW CHECKOUT FLOW */
+  /* ================= CHECKOUT FLOW ================= */
   const handleCheckout = async (cart) => {
     if (isRedirecting) return
 
     try {
       setIsRedirecting(true)
-
-      console.log("🛒 Creating order from cart drawer...")
 
       const email = localStorage.getItem("customerEmail")
       if (!email) {
@@ -98,9 +96,6 @@ function AppContent() {
       const orderId = res.data?.data?._id
       if (!orderId) throw new Error("Missing order ID")
 
-      console.log("✅ ORDER CREATED:", orderId)
-
-      // 🔥 GO TO ADDRESS + SHIPPING PAGE
       window.location.href = `/client-checkout/${orderId}`
 
     } catch (err) {
@@ -113,10 +108,12 @@ function AppContent() {
   const hideNavbarRoutes = ["/login","/customer-login","/customer-register","/success"]
   const shouldHideNavbar = hideNavbarRoutes.some(r => path.startsWith(r))
 
+  /* ================= ADMIN AUTH CHECK ================= */
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem("adminToken")
       if (!token) return
+
       try {
         const res = await api.get("/auth/profile")
         localStorage.setItem("adminUser", JSON.stringify(res.data.user))
@@ -125,6 +122,7 @@ function AppContent() {
         localStorage.removeItem("adminUser")
       }
     }
+
     checkAuth()
   }, [])
 
@@ -141,12 +139,16 @@ function AppContent() {
       <LayoutWrapper>
         <Routes>
 
+          {/* PUBLIC */}
           <Route path="/" element={<Home />} />
           <Route path="/store" element={<Store setCartOpen={setCartOpen} />} />
           <Route path="/product/:id" element={<ProductDetail />} />
-
           <Route path="/login" element={<Login />} />
 
+          {/* 🔥 FIX: PRODUCTION BOARD ROUTE */}
+          <Route path="/production" element={<ProductionBoard />} />
+
+          {/* CUSTOMER AUTH */}
           <Route path="/customer-login" element={<CustomerLogin />} />
           <Route path="/customer-register" element={<CustomerRegister />} />
 
@@ -159,17 +161,18 @@ function AppContent() {
             </Route>
           </Route>
 
-          {/* 🔥 THIS IS THE MISSING STEP */}
+          {/* CHECKOUT FLOW */}
           <Route path="/client-checkout/:id" element={<ClientCheckout />} />
-
           <Route path="/checkout/:id" element={<Checkout />} />
 
+          {/* ORDER + QUOTES */}
           <Route path="/track/:id" element={<TrackOrder />} />
           <Route path="/client-order/:id" element={<ClientOrder />} />
           <Route path="/quote/:id" element={<QuoteResponse />} />
           <Route path="/success/:id" element={<Success />} />
           <Route path="/approve/:id" element={<ApproveMockup />} />
 
+          {/* ADMIN */}
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<Dashboard />} />
@@ -182,6 +185,7 @@ function AppContent() {
             </Route>
           </Route>
 
+          {/* FALLBACK */}
           <Route path="*" element={<h2>Page not found</h2>} />
 
         </Routes>
