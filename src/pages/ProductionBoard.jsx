@@ -15,7 +15,7 @@ const getColor = (status) => {
   }
 }
 
-function Column({ status, jobs }) {
+function Column({ status, jobs, refresh }) {
   const { setNodeRef } = useDroppable({ id: status })
 
   return (
@@ -31,7 +31,11 @@ function Column({ status, jobs }) {
       <h3>{status.toUpperCase()}</h3>
 
       {(jobs || []).map(job => (
-        <JobCard key={job._id} job={job} />
+        <JobCard
+          key={job._id}
+          job={job}
+          onUpdate={refresh} // 🔥 triggers reload after approve
+        />
       ))}
     </div>
   )
@@ -39,72 +43,57 @@ function Column({ status, jobs }) {
 
 export default function ProductionBoard() {
   const [jobs, setJobs] = useState(null)
-
-  // 🔥 SOCKET REF (prevents duplicates)
   const socketRef = useRef(null)
 
   /* ================= LOAD DATA ================= */
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await api.get("/production")
+  const load = async () => {
+    try {
+      const [quotesRes, ordersRes] = await Promise.all([
+        api.get("/quotes"),
+        api.get("/orders")
+      ])
 
-        // 🔥 ensure all columns exist
-        const safeData = {
-          quotes: [],
-          payment_required: [],
-          production: [],
-          shipping: [],
-          shipped: [],
-          ...res.data
-        }
+      const quotes = quotesRes.data?.data || []
+      const orders = ordersRes.data?.data || []
 
-        setJobs(safeData)
-      } catch (err) {
-        console.error(err)
-        setJobs({
-          quotes: [],
-          payment_required: [],
-          production: [],
-          shipping: [],
-          shipped: []
-        })
+      const grouped = {
+        quotes,
+        payment_required: orders.filter(o => o.status === "payment_required"),
+        production: orders.filter(o => o.status === "production"),
+        shipping: orders.filter(o => o.status === "shipping"),
+        shipped: orders.filter(o => o.status === "shipped")
       }
-    }
 
-    load()
-  }, [])
+      setJobs(grouped)
+
+    } catch (err) {
+      console.error("LOAD ERROR:", err)
+
+      setJobs({
+        quotes: [],
+        payment_required: [],
+        production: [],
+        shipping: [],
+        shipped: []
+      })
+    }
+  }
+
+  /* ================= INITIAL LOAD ================= */
+  useEffect(() => {
+  const init = async () => {
+    await load()
+  }
+
+  init()
+}, [])
 
   /* ================= SOCKET ================= */
   useEffect(() => {
     socketRef.current = io("https://signavi-backend.onrender.com")
 
-    const handleJobUpdated = (updatedJob) => {
-      setJobs(prev => {
-        if (!prev) return prev
-
-        const updated = {}
-
-        // remove from all columns
-        for (const key in prev) {
-          updated[key] = (prev[key] || []).filter(
-            j => j._id !== updatedJob._id
-          )
-        }
-
-        // normalize status
-        let column = updatedJob.status || "quotes"
-
-        if (column === "paid") {
-          column = "production"
-        }
-
-        if (!updated[column]) updated[column] = []
-
-        updated[column].push(updatedJob)
-
-        return updated
-      })
+    const handleJobUpdated = () => {
+      load() // 🔥 always reload fresh data
     }
 
     socketRef.current.on("jobUpdated", handleJobUpdated)
@@ -135,13 +124,15 @@ export default function ProductionBoard() {
     // 🚫 prevent dragging quotes
     if (movedJob?.source === "quote") return
 
-    // 🚫 prevent same column update
     if (movedJob?.status === newStatus) return
 
     try {
-      await api.patch(`/orders/update-status/${jobId}`, {
+      await api.patch(`/orders/${jobId}`, {
         status: newStatus
       })
+
+      load() // 🔥 instant UI update
+
     } catch (err) {
       console.error(err)
     }
@@ -163,7 +154,12 @@ export default function ProductionBoard() {
       <DndContext onDragEnd={handleDragEnd}>
         <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
           {Object.entries(jobs).map(([status, list]) => (
-            <Column key={status} status={status} jobs={list} />
+            <Column
+              key={status}
+              status={status}
+              jobs={list}
+              refresh={load} // 🔥 THIS is the missing link
+            />
           ))}
         </div>
       </DndContext>
