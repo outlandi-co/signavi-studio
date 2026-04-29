@@ -79,14 +79,13 @@ export default function CustomQuote() {
     setPreview(URL.createObjectURL(selected))
   }
 
-  /* ================= CLEANUP ================= */
   useEffect(() => {
     return () => {
       if (preview) URL.revokeObjectURL(preview)
     }
   }, [preview])
 
-  /* ================= SUBMIT (🔥 FINAL FIX) ================= */
+  /* ================= SUBMIT (🔥 FIXED) ================= */
   const handleSubmit = async (e) => {
     e.preventDefault()
 
@@ -98,42 +97,38 @@ export default function CustomQuote() {
     setLoading(true)
 
     try {
-      const formData = new FormData()
-
-      formData.append("customerName", form.name)
-      formData.append("email", form.email)
-      formData.append("quantity", form.quantity)
-      formData.append("printType", form.printType)
-      formData.append("price", estimate)
-
-      formData.append("items", JSON.stringify([
-        {
-          name: form.printType,
-          quantity: form.quantity,
-          price: estimate
-        }
-      ]))
-
-      formData.append("notes", form.notes)
-
-      if (file) {
-        formData.append("artwork", file)
-      }
-
-      /* 🔥 DEBUG FORM DATA */
-      for (let pair of formData.entries()) {
-        console.log("📤 FORM DATA:", pair[0], pair[1])
-      }
-
       const API =
         import.meta.env.VITE_API_URL ||
         "http://localhost:5050/api"
 
-      const res = await axios.post(`${API}/quotes`, formData)
+      /* 🔥 SEND JSON INSTEAD OF FORMDATA */
+      const payload = {
+        customerName: form.name,
+        email: form.email,
+        quantity: form.quantity,
+        printType: form.printType,
+        price: estimate,
+        items: [
+          {
+            name: form.printType,
+            quantity: form.quantity,
+            price: estimate
+          }
+        ],
+        notes: form.notes,
+        artwork: file?.name || "" // 🔥 KEY FIX
+      }
+
+      console.log("📤 SENDING QUOTE JSON:", payload)
+
+      const res = await axios.post(`${API}/quotes`, payload)
 
       console.log("🧪 RESPONSE DATA:", res.data)
 
-      const quoteId = res?.data?.data?._id
+      const quoteId =
+        res?.data?.data?._id ||
+        res?.data?._id ||
+        null
 
       console.log("🆔 EXTRACTED ID:", quoteId)
 
@@ -142,9 +137,6 @@ export default function CustomQuote() {
         return
       }
 
-      console.log("➡️ NAVIGATING TO:", `/quote/${quoteId}`)
-
-      /* ✅ FIXED NAVIGATION */
       navigate(`/quote/${quoteId}`)
 
     } catch (err) {

@@ -21,15 +21,12 @@ export default function useCart() {
   const addToCart = (product) => {
     const variant = product.selectedVariant
 
-    // ✅ FIXED: remove _id check
     if (!variant || !variant.color || !variant.size) {
       console.warn("❌ Missing variant (color/size)")
       return
     }
 
     setCart(prev => {
-
-      // ✅ FIXED: match by color + size
       const existing = prev.find(item =>
         item.productId === product._id &&
         item.selectedVariant?.color === variant.color &&
@@ -52,14 +49,11 @@ export default function useCart() {
           productId: product._id,
           name: product.name,
           image: product.image,
-
-          /* 🔥 NO _id */
           selectedVariant: {
             color: variant.color,
             size: variant.size,
             price: variant.price
           },
-
           quantity: 1
         }
       ]
@@ -72,7 +66,7 @@ export default function useCart() {
   }
 
   /* ================= UPDATE ================= */
-  const updateQty = (index, qty) => {
+  const updateQuantity = (index, qty) => {
     setCart(prev =>
       prev.map((item, i) =>
         i === index
@@ -82,26 +76,29 @@ export default function useCart() {
     )
   }
 
+  /* 🔥 ALIAS (BACKWARD COMPATIBILITY) */
+  const updateQty = updateQuantity
+
   /* ================= CLEAR ================= */
   const clearCart = () => setCart([])
 
   /* ================= TOTAL ================= */
   const total = cart.reduce((sum, item) => {
     const quantity = Number(item?.quantity) || 1
-
-    const price = Number(
-      item?.selectedVariant?.price ?? 0
-    )
-
+    const price = Number(item?.selectedVariant?.price ?? 0)
     return sum + price * quantity
   }, 0)
+
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
 
   /* ================= RETURN ================= */
   return {
     cart,
+    cartCount,
     addToCart,
     removeFromCart,
-    updateQty,
+    updateQuantity, // ✅ FIXED
+    updateQty,      // still works
     clearCart,
     total
   }

@@ -70,12 +70,36 @@ function AppContent() {
     try {
       setIsRedirecting(true)
 
-      const email = localStorage.getItem("customerEmail")
-      if (!email) {
-        alert("Please login first")
-        setIsRedirecting(false)
-        return
+      let email = null
+
+      const storedUser = localStorage.getItem("customerUser")
+
+      if (storedUser) {
+        try {
+          email = JSON.parse(storedUser)?.email
+        } catch  {
+          console.warn("⚠️ Failed to parse customerUser")
+        }
       }
+
+      if (!email) {
+        email = localStorage.getItem("customerEmail")
+      }
+
+      /* 🔥 GUEST SUPPORT */
+      if (!email) {
+        email = prompt("Enter your email to continue checkout:")
+
+        if (!email) {
+          alert("Email required to continue")
+          setIsRedirecting(false)
+          return
+        }
+
+        localStorage.setItem("customerEmail", email)
+      }
+
+      console.log("📧 CHECKOUT EMAIL:", email)
 
       const res = await api.post("/orders", {
         email,
@@ -85,7 +109,6 @@ function AppContent() {
       const orderId = res.data?.data?._id
       if (!orderId) throw new Error("Missing order ID")
 
-      /* 🔥 IMPORTANT: USE SPA NAVIGATION */
       window.location.assign(`/client-checkout/${orderId}`)
 
     } catch (err) {
@@ -132,7 +155,7 @@ function AppContent() {
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/login" element={<Login />} />
 
-        {/* 🔥 QUOTE FLOW */}
+        {/* QUOTE FLOW */}
         <Route path="/quote" element={<CustomQuote />} />
         <Route path="/quote/:id" element={<QuoteResponse />} />
 

@@ -12,9 +12,9 @@ function Home() {
     }
 
     // 🔥 Pass idea into submit page
-    navigate("/submit", {
-      state: { idea }
-    })
+    navigate("/quote", {
+  state: { idea }
+})
   }
 
   return (
