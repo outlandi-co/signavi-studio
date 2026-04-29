@@ -11,24 +11,21 @@ export default function Login() {
   const navigate = useNavigate()
 
   /* =========================================================
-     🔥 WAKE SERVER + CHECK EXISTING SESSION
+     🔥 WAKE SERVER + CHECK SESSION
   ========================================================= */
   useEffect(() => {
     const init = async () => {
       try {
-        // Wake backend (Render cold start)
         await api.get("/ping").catch(() => {})
 
         const token = localStorage.getItem("adminToken")
 
         if (token) {
-          console.log("✅ Existing session found → redirecting")
+          console.log("✅ Existing session → redirect")
           navigate("/admin/production", { replace: true })
-        } else {
-          console.log("ℹ️ No session found")
         }
       } catch {
-        console.log("⚠️ Init check failed")
+        console.log("⚠️ Init failed")
       }
     }
 
@@ -38,7 +35,9 @@ export default function Login() {
   /* =========================================================
      🔐 LOGIN HANDLER
   ========================================================= */
-  const handleLogin = async () => {
+  const handleLogin = async (e) => {
+    if (e) e.preventDefault()
+
     if (loading) return
 
     if (!email || !password) {
@@ -50,21 +49,24 @@ export default function Login() {
       setLoading(true)
       setError("")
 
-      console.log("📤 SENDING:", { email })
+      /* 🔥 FIXED LOG */
+      console.log("📤 LOGIN PAYLOAD:", { email, password })
 
       let attempts = 0
       let res
 
-      /* 🔁 RETRY LOOP (Render wake fix) */
       while (attempts < 3) {
         try {
-          res = await api.post("/auth/login", { email, password })
+          res = await api.post("/auth/login", {
+            email,
+            password
+          })
           break
         } catch (err) {
           attempts++
 
           if (attempts < 3 && err?.code === "ERR_NETWORK") {
-            console.log("⏳ Server waking... retrying")
+            console.log("⏳ Waking server...")
             await new Promise(r => setTimeout(r, 2500))
           } else {
             throw err
@@ -72,15 +74,13 @@ export default function Login() {
         }
       }
 
-      console.log("✅ RESPONSE:", res.data)
-
       if (!res?.data?.token || !res?.data?.user) {
         throw new Error("Invalid login response")
       }
 
       const { token, user } = res.data
 
-      /* 🔥 CRITICAL FIX → CLEAR CUSTOMER SESSION */
+      /* 🔥 CLEAR CUSTOMER SESSION */
       localStorage.removeItem("customerUser")
       localStorage.removeItem("customerToken")
 
@@ -116,70 +116,65 @@ export default function Login() {
   }
 
   /* =========================================================
-     ⌨️ ENTER KEY SUPPORT
-  ========================================================= */
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
-      handleLogin()
-    }
-  }
-
-  /* =========================================================
      UI
   ========================================================= */
   return (
     <div style={{ padding: 20, maxWidth: 400, margin: "0 auto" }}>
       <h2>Admin Login</h2>
 
-      <input
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        onKeyDown={handleKeyPress}
-        placeholder="Email"
-        style={{
-          display: "block",
-          marginBottom: 10,
-          width: "100%",
-          padding: "10px"
-        }}
-      />
+      {/* 🔥 FORM WRAPPER FIX */}
+      <form onSubmit={handleLogin}>
 
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        onKeyDown={handleKeyPress}
-        placeholder="Password"
-        style={{
-          display: "block",
-          marginBottom: 10,
-          width: "100%",
-          padding: "10px"
-        }}
-      />
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email"
+          style={{
+            display: "block",
+            marginBottom: 10,
+            width: "100%",
+            padding: "10px"
+          }}
+        />
 
-      {error && (
-        <p style={{ color: "red", marginBottom: 10 }}>
-          {error}
-        </p>
-      )}
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Password"
+          style={{
+            display: "block",
+            marginBottom: 10,
+            width: "100%",
+            padding: "10px"
+          }}
+        />
 
-      <button
-        onClick={handleLogin}
-        disabled={loading}
-        style={{
-          width: "100%",
-          padding: "12px",
-          cursor: "pointer",
-          background: "#06b6d4",
-          border: "none",
-          borderRadius: "6px",
-          color: "#000",
-          fontWeight: "bold"
-        }}
-      >
-        {loading ? "🔐 Connecting..." : "Login"}
-      </button>
+        {error && (
+          <p style={{ color: "red", marginBottom: 10 }}>
+            {error}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            width: "100%",
+            padding: "12px",
+            cursor: "pointer",
+            background: "#06b6d4",
+            border: "none",
+            borderRadius: "6px",
+            color: "#000",
+            fontWeight: "bold"
+          }}
+        >
+          {loading ? "🔐 Connecting..." : "Login"}
+        </button>
+
+      </form>
     </div>
   )
 }
