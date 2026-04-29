@@ -29,18 +29,32 @@ export default function Cart() {
   /* ================= CHECKOUT ================= */
   const handleCheckout = async () => {
     try {
-      const email = localStorage.getItem("customerEmail")
-
-      if (!email) {
-        alert("Please login first")
-        return
-      }
 
       if (!cart.length) {
         alert("Cart is empty")
         return
       }
 
+      /* 🔥 FIX: ALLOW GUEST CHECKOUT */
+      let email = null
+
+      const storedUser = localStorage.getItem("customerUser")
+
+      if (storedUser) {
+        try {
+  email = JSON.parse(storedUser)?.email
+} catch  {
+  console.warn("⚠️ Failed to parse customerUser")
+}
+      }
+
+      if (!email) {
+        email = "guest@signavi.com"
+      }
+
+      console.log("🛒 CHECKOUT EMAIL:", email)
+
+      /* ================= BUILD ITEMS ================= */
       const items = cart.map(item => {
         const price = getPrice(item)
 
@@ -63,6 +77,9 @@ export default function Cart() {
       const subtotal = items.reduce((sum, i) => sum + (i.price * i.quantity), 0)
       const tax = subtotal * 0.0825
 
+      console.log("📦 CREATING ORDER:", { email, items })
+
+      /* ================= CREATE ORDER ================= */
       const res = await api.post("/orders", {
         email,
         items,
@@ -72,10 +89,18 @@ export default function Cart() {
         finalPrice: subtotal + tax
       })
 
-      const orderId = res.data?.data?._id
+      const orderId =
+        res?.data?.data?._id ||
+        res?.data?._id ||
+        null
 
-      if (!orderId) throw new Error("Order ID missing")
+      if (!orderId) {
+        throw new Error("Order ID missing")
+      }
 
+      console.log("🆔 ORDER CREATED:", orderId)
+
+      /* ================= REDIRECT ================= */
       navigate(`/client-checkout/${orderId}`)
 
     } catch (err) {

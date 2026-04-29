@@ -23,13 +23,32 @@ export default function CustomerOrders() {
   useEffect(() => {
     const loadOrders = async () => {
       try {
-        const email = localStorage.getItem("customerEmail")
+        let email = null
+
+        /* 🔥 BULLETPROOF EMAIL EXTRACTION */
+        const storedUser = localStorage.getItem("customerUser")
+        const fallbackEmail = localStorage.getItem("customerEmail")
+
+        if (storedUser) {
+          try {
+            const parsed = JSON.parse(storedUser)
+            email = parsed?.email || null
+          } catch {
+            console.warn("⚠️ Failed to parse customerUser")
+          }
+        }
+
+        if (!email && fallbackEmail) {
+          email = fallbackEmail
+        }
 
         if (!email) {
-          console.error("❌ No email found in localStorage")
+          console.warn("⚠️ No email found → showing empty orders")
           setOrders([])
           return
         }
+
+        console.log("📧 FETCHING ORDERS FOR:", email)
 
         const res = await api.get(`/orders/my-orders?email=${email}`)
 
@@ -42,6 +61,7 @@ export default function CustomerOrders() {
           []
 
         setOrders(Array.isArray(data) ? data : [])
+
       } catch (err) {
         console.error("❌ LOAD ORDERS ERROR:", err.response?.data || err.message)
         setOrders([])
@@ -53,6 +73,7 @@ export default function CustomerOrders() {
     loadOrders()
   }, [])
 
+  /* ================= LOADING ================= */
   if (loading) {
     return (
       <div className="text-white text-center mt-10">
@@ -61,6 +82,7 @@ export default function CustomerOrders() {
     )
   }
 
+  /* ================= EMPTY ================= */
   if (!orders.length) {
     return (
       <div className="text-white text-center mt-10">
@@ -69,6 +91,7 @@ export default function CustomerOrders() {
     )
   }
 
+  /* ================= UI ================= */
   return (
     <div className="min-h-screen bg-[#020617] text-white p-6">
       <h1 className="text-2xl font-semibold mb-6">📦 My Orders</h1>
@@ -98,14 +121,16 @@ export default function CustomerOrders() {
             <div className="mb-3">
               {order.items?.map((item, i) => (
                 <div key={i} className="text-sm text-gray-300">
-                  {item.name} ({item.variant?.color} / {item.variant?.size}) × {item.quantity}
+                  {item.name} ({item.variant?.color || "-"} / {item.variant?.size || "-"}) × {item.quantity}
                 </div>
               ))}
             </div>
 
             <div className="flex justify-between items-center text-sm">
               <span className="text-gray-400">
-                {new Date(order.createdAt).toLocaleDateString()}
+                {order.createdAt
+                  ? new Date(order.createdAt).toLocaleDateString()
+                  : "No date"}
               </span>
 
               <span className="font-semibold text-green-400">

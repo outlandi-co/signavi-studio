@@ -12,6 +12,7 @@ export default function CustomerProfile() {
   useEffect(() => {
     const load = async () => {
       try {
+        /* ================= GET USER ================= */
         const stored = localStorage.getItem("customerUser")
 
         if (!stored) {
@@ -19,17 +20,36 @@ export default function CustomerProfile() {
           return
         }
 
-        const parsedUser = JSON.parse(stored)
+        let parsedUser = null
+
+        try {
+          parsedUser = JSON.parse(stored)
+        } catch {
+          console.warn("⚠️ Failed to parse customerUser")
+          navigate("/customer-login")
+          return
+        }
+
         setUser(parsedUser)
 
-        const email = localStorage.getItem("customerEmail")
+        /* ================= GET EMAIL (FIXED) ================= */
+        let email = parsedUser?.email || null
+
+        const fallbackEmail = localStorage.getItem("customerEmail")
+
+        if (!email && fallbackEmail) {
+          email = fallbackEmail
+        }
 
         if (!email) {
-          console.error("❌ No email found")
+          console.warn("⚠️ No email found for profile")
           setOrders([])
           return
         }
 
+        console.log("📧 PROFILE FETCH EMAIL:", email)
+
+        /* ================= FETCH ORDERS ================= */
         const res = await api.get(`/orders/my-orders?email=${email}`)
 
         const data =
@@ -51,18 +71,26 @@ export default function CustomerProfile() {
     load()
   }, [navigate])
 
-  if (loading) return <p style={{ padding: 40 }}>Loading profile...</p>
+  /* ================= LOADING ================= */
+  if (loading) {
+    return <p style={{ padding: 40 }}>Loading profile...</p>
+  }
 
+  /* ================= STATS ================= */
   const totalOrders = orders.length
-  const totalSpent = orders.reduce((sum, o) => sum + (o.finalPrice || 0), 0)
+  const totalSpent = orders.reduce(
+    (sum, o) => sum + Number(o.finalPrice || 0),
+    0
+  )
 
+  /* ================= UI ================= */
   return (
     <div style={{ padding: 40, maxWidth: 1000, margin: "0 auto", color: "white" }}>
       <h1>My Profile</h1>
 
       <div style={card}>
-        <p><strong>Name:</strong> {user?.name}</p>
-        <p><strong>Email:</strong> {user?.email}</p>
+        <p><strong>Name:</strong> {user?.name || "N/A"}</p>
+        <p><strong>Email:</strong> {user?.email || "N/A"}</p>
       </div>
 
       <div style={{ display: "flex", gap: 20, marginTop: 20 }}>
@@ -79,6 +107,8 @@ export default function CustomerProfile() {
     </div>
   )
 }
+
+/* ================= STYLES ================= */
 
 const card = {
   background: "#020617",
