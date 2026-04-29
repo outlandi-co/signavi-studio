@@ -22,24 +22,25 @@ export default function MyOrders() {
           storedUser = JSON.parse(
             localStorage.getItem("customerUser") || "null"
           )
-        } catch {
+        } catch  {
+          console.warn("⚠️ Failed to parse customerUser")
           storedUser = null
         }
 
         console.log("👤 STORED USER:", storedUser)
 
         /* 🔥 BULLETPROOF EMAIL EXTRACTION */
-        const email =
+        let email =
           storedUser?.email ||
           storedUser?.user?.email ||
           storedUser?.data?.email ||
           localStorage.getItem("customerEmail") ||
           null
 
+        /* 🔥 FIX: ALLOW GUEST */
         if (!email) {
-          console.error("❌ No email found in localStorage")
-          setError("Please log in again")
-          return
+          console.warn("⚠️ No email found → using guest fallback")
+          email = "guest@signavi.com"
         }
 
         console.log("📧 USING EMAIL:", email)
@@ -48,7 +49,13 @@ export default function MyOrders() {
 
         console.log("📦 ORDERS:", res.data)
 
-        setOrders(res.data?.data || [])
+        const data =
+          res.data?.data ||
+          res.data?.orders ||
+          res.data ||
+          []
+
+        setOrders(Array.isArray(data) ? data : [])
 
       } catch (err) {
         console.error("❌ LOAD ORDERS ERROR:", err)

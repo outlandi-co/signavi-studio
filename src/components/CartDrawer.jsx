@@ -51,11 +51,26 @@ export default function CartDrawer({ isOpen, onClose }) {
 
       const storedUser = JSON.parse(localStorage.getItem("customerUser") || "null")
 
-      if (!storedUser?.email) {
-        alert("Please log in")
-        window.location.href = "/customer-login"
-        return
-      }
+      /* 🔥 ALLOW GUEST CHECKOUT */
+let email = null
+
+const storedUserRaw = localStorage.getItem("customerUser")
+
+if (storedUserRaw) {
+  try {
+    const parsed = JSON.parse(storedUserRaw)
+    email = parsed?.email || null
+  } catch  {
+    console.warn("⚠️ Failed to parse customerUser")
+  }
+}
+
+/* 🔥 FALLBACK FOR GUEST */
+if (!email) {
+  email = "guest@signavi.com"
+}
+
+console.log("🛒 CART DRAWER EMAIL:", email)
 
       if (!cart.length) {
         alert("Cart is empty")
