@@ -13,7 +13,7 @@ export default function CartDrawer({ isOpen, onClose }) {
     if (typeof onClose === "function") onClose()
   }
 
-  /* ================= PRICE HELPER (🔥 SINGLE SOURCE) ================= */
+  /* ================= PRICE HELPER ================= */
   const getPrice = (item) => {
     return Number(
       item?.selectedVariant?.price ??
@@ -49,28 +49,28 @@ export default function CartDrawer({ isOpen, onClose }) {
     try {
       setIsRedirecting(true)
 
-      const storedUser = JSON.parse(localStorage.getItem("customerUser") || "null")
+      /* 🔥 SAFE USER LOAD */
+      let storedUser = null
+      let email = null
 
-      /* 🔥 ALLOW GUEST CHECKOUT */
-let email = null
+      const storedUserRaw = localStorage.getItem("customerUser")
 
-const storedUserRaw = localStorage.getItem("customerUser")
+      if (storedUserRaw) {
+        try {
+          const parsed = JSON.parse(storedUserRaw)
+          storedUser = parsed
+          email = parsed?.email || null
+        } catch {
+          console.warn("⚠️ Failed to parse customerUser")
+        }
+      }
 
-if (storedUserRaw) {
-  try {
-    const parsed = JSON.parse(storedUserRaw)
-    email = parsed?.email || null
-  } catch  {
-    console.warn("⚠️ Failed to parse customerUser")
-  }
-}
+      /* 🔥 GUEST FALLBACK */
+      if (!email) {
+        email = "guest@signavi.com"
+      }
 
-/* 🔥 FALLBACK FOR GUEST */
-if (!email) {
-  email = "guest@signavi.com"
-}
-
-console.log("🛒 CART DRAWER EMAIL:", email)
+      console.log("🛒 CART DRAWER EMAIL:", email)
 
       if (!cart.length) {
         alert("Cart is empty")
@@ -101,9 +101,10 @@ console.log("🛒 CART DRAWER EMAIL:", email)
       const subtotal = items.reduce((sum, i) => sum + (i.price * i.quantity), 0)
       const tax = subtotal * 0.0825
 
+      /* 🔥 FIXED HERE */
       const orderRes = await api.post("/orders", {
         customerName: storedUser?.name || "Guest",
-        email: storedUser.email,
+        email: email, // ✅ USE SAFE EMAIL
         items,
         quantity: items.reduce((sum, i) => sum + i.quantity, 0),
         subtotal,
@@ -165,15 +166,14 @@ console.log("🛒 CART DRAWER EMAIL:", email)
 
                 <p>{item.name}</p>
 
-                {/* 🔥 FIXED DISPLAY */}
                 <p style={{ color: "#22c55e", fontWeight: "bold" }}>
                   ${price.toFixed(2)} × {qty}
                 </p>
 
                 <div>
-                  <button onClick={() => updateQuantity(item._id, qty - 1)}>-</button>
-                  <button onClick={() => updateQuantity(item._id, qty + 1)}>+</button>
-                  <button onClick={() => removeFromCart(item._id)}>✖</button>
+                  <button onClick={() => updateQuantity(i, qty - 1)}>-</button>
+                  <button onClick={() => updateQuantity(i, qty + 1)}>+</button>
+                  <button onClick={() => removeFromCart(i)}>✖</button>
                 </div>
               </div>
             )
