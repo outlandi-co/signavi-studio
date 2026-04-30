@@ -10,10 +10,17 @@ const api = axios.create({
 
 console.log("🌐 API BASE:", api.defaults.baseURL)
 
-/* ================= REQUEST ================= */
+/* =========================================================
+   🔥 REQUEST INTERCEPTOR
+========================================================= */
 api.interceptors.request.use((config) => {
-  const adminToken = localStorage.getItem("adminToken")
-  const customerToken = localStorage.getItem("customerToken")
+  const adminToken =
+    localStorage.getItem("adminToken") ||
+    sessionStorage.getItem("adminToken")
+
+  const customerToken =
+    localStorage.getItem("customerToken") ||
+    sessionStorage.getItem("customerToken")
 
   const token = adminToken || customerToken
 
@@ -25,7 +32,6 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`
   }
 
-  // ✅ Fix multipart uploads
   if (config.data instanceof FormData) {
     delete config.headers["Content-Type"]
   }
@@ -35,33 +41,80 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-/* ================= RESPONSE ================= */
+/* =========================================================
+   🔁 RESPONSE INTERCEPTOR (SMART RETRY)
+========================================================= */
 api.interceptors.response.use(
   (res) => {
     console.log("✅ RESPONSE:", res.config.url, res.data)
     return res
   },
-  (err) => {
+  async (err) => {
     const status = err?.response?.status
+    const url = err?.config?.url || ""
 
     console.error(
       "❌ API ERROR:",
       status,
-      err?.config?.baseURL + err?.config?.url
+      err?.config?.baseURL + url
     )
 
-    // 🔥 ONLY redirect if it's NOT checkout flow
-    if (status === 401) {
-      const isCheckout = err?.config?.url?.includes("/square")
+    const originalRequest = err.config
 
+    /* ================= SAFE ROUTES ================= */
+    const safeRoutes = [
+      "/auth/login",
+      "/auth/register",
+      "/auth/forgot-password",
+      "/auth/reset-password"
+    ]
+
+    const isSafeRoute = safeRoutes.some((r) => url.includes(r))
+
+    /* =========================================================
+       🔁 SILENT RETRY (NO BACKEND CHANGE NEEDED)
+    ========================================================= */
+    if (status === 401 && !isSafeRoute && !originalRequest._retry) {
+      originalRequest._retry = true
+
+      console.warn("🔁 Retrying request once...")
+
+      try {
+        return api(originalRequest)
+      } catch (err) {
+  console.error("❌ Retry failed:", err)
+}
+    }
+
+    /* =========================================================
+       🔒 FINAL FAIL → LOGOUT
+    ========================================================= */
+    if (status === 401 && !isSafeRoute) {
+      const isCheckout = url.includes("/square")
+
+      // 🔥 clear only auth
       localStorage.removeItem("adminToken")
       localStorage.removeItem("adminUser")
       localStorage.removeItem("customerToken")
       localStorage.removeItem("customerUser")
 
+      sessionStorage.removeItem("adminToken")
+      sessionStorage.removeItem("adminUser")
+      sessionStorage.removeItem("customerToken")
+      sessionStorage.removeItem("customerUser")
+
       if (!isCheckout) {
         console.warn("🔒 Redirecting to login")
-        window.location.href = "/customer-login"
+
+        const wasAdmin =
+          localStorage.getItem("adminUser") ||
+          sessionStorage.getItem("adminUser")
+
+        if (wasAdmin) {
+          window.location.href = "/login"
+        } else {
+          window.location.href = "/customer-login"
+        }
       }
     }
 

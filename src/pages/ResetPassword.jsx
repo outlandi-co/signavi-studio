@@ -13,12 +13,18 @@ export default function ResetPassword() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+
     setError("")
     setMessage("")
 
     if (!password || !confirm) {
       return setError("All fields required")
+    }
+
+    if (password.length < 6) {
+      return setError("Password must be at least 6 characters")
     }
 
     if (password !== confirm) {
@@ -32,9 +38,12 @@ export default function ResetPassword() {
         password
       })
 
-      setMessage(res.data.message)
+      setMessage(res.data.message || "Password reset successful")
 
-      setTimeout(() => navigate("/customer-login"), 2000)
+      // 🔥 CLEAN REDIRECT FLOW
+      setTimeout(() => {
+        navigate("/customer-login", { replace: true })
+      }, 1500)
 
     } catch (err) {
       setError(err?.response?.data?.message || "Reset failed")
@@ -46,7 +55,7 @@ export default function ResetPassword() {
   return (
     <div style={container}>
 
-      <div style={card}>
+      <form style={card} onSubmit={handleSubmit}>
         <h2 style={title}>🔐 Reset Password</h2>
 
         <input
@@ -66,16 +75,19 @@ export default function ResetPassword() {
         />
 
         <button
-          onClick={handleSubmit}
+          type="submit"
           disabled={loading}
-          style={button}
+          style={{
+            ...button,
+            opacity: loading ? 0.6 : 1
+          }}
         >
           {loading ? "Updating..." : "Reset Password"}
         </button>
 
         {message && <p style={success}>{message}</p>}
         {error && <p style={errorText}>{error}</p>}
-      </div>
+      </form>
 
     </div>
   )
@@ -118,7 +130,9 @@ const button = {
   background: "#22c55e",
   color: "black",
   borderRadius: 6,
-  cursor: "pointer"
+  cursor: "pointer",
+  border: "none",
+  fontWeight: "bold"
 }
 
 const success = {

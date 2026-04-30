@@ -5,20 +5,21 @@ import api from "../services/api"
 export default function Login() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [remember, setRemember] = useState(true) // 🔥 NEW
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
   const navigate = useNavigate()
 
-  /* =========================================================
-     🔥 WAKE SERVER + CHECK SESSION
-  ========================================================= */
+  /* ================= INIT ================= */
   useEffect(() => {
     const init = async () => {
       try {
         await api.get("/ping").catch(() => {})
 
-        const token = localStorage.getItem("adminToken")
+        const token =
+          localStorage.getItem("adminToken") ||
+          sessionStorage.getItem("adminToken")
 
         if (token) {
           console.log("✅ Existing session → redirect")
@@ -32,35 +33,25 @@ export default function Login() {
     init()
   }, [navigate])
 
-  /* =========================================================
-     🔐 LOGIN HANDLER
-  ========================================================= */
+  /* ================= LOGIN ================= */
   const handleLogin = async (e) => {
-    if (e) e.preventDefault()
-
+    e.preventDefault()
     if (loading) return
 
     if (!email || !password) {
-      setError("Please enter email and password")
-      return
+      return setError("Please enter email and password")
     }
 
     try {
       setLoading(true)
       setError("")
 
-      /* 🔥 FIXED LOG */
-      console.log("📤 LOGIN PAYLOAD:", { email, password })
-
-      let attempts = 0
       let res
+      let attempts = 0
 
       while (attempts < 3) {
         try {
-          res = await api.post("/auth/login", {
-            email,
-            password
-          })
+          res = await api.post("/auth/login", { email, password })
           break
         } catch (err) {
           attempts++
@@ -80,13 +71,18 @@ export default function Login() {
 
       const { token, user } = res.data
 
-      /* 🔥 CLEAR CUSTOMER SESSION */
-      localStorage.removeItem("customerUser")
-      localStorage.removeItem("customerToken")
+      /* 🔥 CLEAR ALL OLD SESSIONS */
+      localStorage.clear()
+      sessionStorage.clear()
 
-      /* 🔐 SAVE ADMIN SESSION */
-      localStorage.setItem("adminToken", token)
-      localStorage.setItem("adminUser", JSON.stringify(user))
+      /* 🔥 STORE BASED ON REMEMBER */
+      if (remember) {
+        localStorage.setItem("adminToken", token)
+        localStorage.setItem("adminUser", JSON.stringify(user))
+      } else {
+        sessionStorage.setItem("adminToken", token)
+        sessionStorage.setItem("adminUser", JSON.stringify(user))
+      }
 
       console.log("✅ ADMIN LOGGED IN:", user)
 
@@ -95,19 +91,11 @@ export default function Login() {
     } catch (err) {
       console.error("❌ LOGIN ERROR:", err)
 
-      let message = "Login failed"
-
-      if (err?.response?.data) {
-        const data = err.response.data
-
-        if (typeof data === "string") {
-          message = data
-        } else {
-          message = data.message || data.error || message
-        }
-      } else if (err.message) {
-        message = err.message
-      }
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err.message ||
+        "Login failed"
 
       setError(message)
     } finally {
@@ -115,27 +103,17 @@ export default function Login() {
     }
   }
 
-  /* =========================================================
-     UI
-  ========================================================= */
   return (
-    <div style={{ padding: 20, maxWidth: 400, margin: "0 auto" }}>
-      <h2>Admin Login</h2>
-
-      {/* 🔥 FORM WRAPPER FIX */}
-      <form onSubmit={handleLogin}>
+    <div style={container}>
+      <form style={card} onSubmit={handleLogin}>
+        <h2 style={title}>Admin Login</h2>
 
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Email"
-          style={{
-            display: "block",
-            marginBottom: 10,
-            width: "100%",
-            padding: "10px"
-          }}
+          style={input}
         />
 
         <input
@@ -143,38 +121,77 @@ export default function Login() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Password"
-          style={{
-            display: "block",
-            marginBottom: 10,
-            width: "100%",
-            padding: "10px"
-          }}
+          style={input}
         />
 
-        {error && (
-          <p style={{ color: "red", marginBottom: 10 }}>
-            {error}
-          </p>
-        )}
+        {/* 🔥 REMEMBER ME */}
+        <label style={rememberRow}>
+          <input
+            type="checkbox"
+            checked={remember}
+            onChange={() => setRemember(!remember)}
+          />
+          Remember Me
+        </label>
 
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            width: "100%",
-            padding: "12px",
-            cursor: "pointer",
-            background: "#06b6d4",
-            border: "none",
-            borderRadius: "6px",
-            color: "#000",
-            fontWeight: "bold"
-          }}
-        >
+        {error && <p style={errorText}>{error}</p>}
+
+        <button type="submit" disabled={loading} style={button}>
           {loading ? "🔐 Connecting..." : "Login"}
         </button>
-
       </form>
     </div>
   )
+}
+
+/* STYLES */
+const container = {
+  minHeight: "100vh",
+  background: "#020617",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center"
+}
+
+const card = {
+  background: "#0f172a",
+  padding: 30,
+  borderRadius: 12,
+  width: 350,
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+  color: "white"
+}
+
+const title = { textAlign: "center" }
+
+const input = {
+  padding: 12,
+  borderRadius: 6,
+  border: "1px solid #1e293b",
+  background: "#020617",
+  color: "white"
+}
+
+const rememberRow = {
+  display: "flex",
+  gap: 8,
+  alignItems: "center",
+  fontSize: 14
+}
+
+const button = {
+  padding: 12,
+  background: "#06b6d4",
+  borderRadius: 6,
+  border: "none",
+  cursor: "pointer",
+  color: "#000",
+  fontWeight: "bold"
+}
+
+const errorText = {
+  color: "#ef4444",
+  textAlign: "center"
 }
