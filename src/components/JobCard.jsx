@@ -17,24 +17,30 @@ function JobCard({ job, onUpdate }) {
     let finalPrice = Number(price)
 
     if (!finalPrice || finalPrice <= 0) {
-      console.warn("⚠️ Invalid input → forcing fallback 25")
-      finalPrice = 25
+      alert("Enter a valid price before approving")
+      return
     }
 
     setLoading(true)
 
     try {
-      const res = await api.patch(`/quotes/${job._id}/approve`, {
+      // 🔥 STEP 1: SAVE PRICE FIRST
+      await api.patch(`/quotes/${job._id}`, {
         price: finalPrice
       })
 
+      // 🔥 STEP 2: APPROVE (THIS TRIGGERS EMAIL)
+      const res = await api.patch(`/quotes/${job._id}/approve`)
+
       console.log("✅ APPROVED:", res.data)
+
+      alert("✅ Quote approved & email sent")
 
       if (onUpdate) onUpdate()
 
     } catch (err) {
       console.error("❌ APPROVE ERROR:", err.response?.data || err.message)
-      alert("Approve failed")
+      alert(err?.response?.data?.message || "Approve failed")
     } finally {
       setLoading(false)
     }
@@ -51,8 +57,7 @@ function JobCard({ job, onUpdate }) {
 
     try {
       await api.patch(`/quotes/${job._id}/deny`, {
-        reason,
-        fee: 0
+        reason
       })
 
       if (onUpdate) onUpdate()
