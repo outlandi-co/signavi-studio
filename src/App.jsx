@@ -22,6 +22,8 @@ import CustomerLayout from "./layouts/CustomerLayout"
 
 /* PAGES */
 import Home from "./pages/Home"
+import ForgotPassword from "./pages/ForgotPassword"
+import ResetPassword from "./pages/ResetPassword"
 import Store from "./pages/Store"
 import ProductDetail from "./pages/ProductDetail"
 import ProductionBoard from "./pages/ProductionBoard"
@@ -154,6 +156,10 @@ function AppContent() {
         <Route path="/store" element={<Store setCartOpen={setCartOpen} />} />
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/login" element={<Login />} />
+
+        {/* 🔥 ADD THESE RIGHT HERE */}
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
 
         {/* QUOTE FLOW */}
         <Route path="/quote" element={<CustomQuote />} />
