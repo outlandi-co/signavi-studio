@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import api from "../services/api"
 
 export default function Checkout() {
@@ -8,40 +8,47 @@ export default function Checkout() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
+  const hasStarted = useRef(false)
+
   /* =========================================================
-     💳 AUTO CHECKOUT (WORKS WITHOUT LOGIN)
+     💳 AUTO CHECKOUT (PREVENT DOUBLE CALLS)
   ========================================================= */
   useEffect(() => {
-  const startCheckout = async () => {
-    try {
-      console.log("🔥 START CHECKOUT:", id)
+    if (hasStarted.current) return
+    hasStarted.current = true
 
-      if (!id || id === "null") {
-        throw new Error("❌ Invalid order ID")
+    const startCheckout = async () => {
+      try {
+        console.log("🔥 START CHECKOUT:", id)
+
+        if (!id || id === "null") {
+          throw new Error("Invalid order ID")
+        }
+
+        const res = await api.post(`/square/create-payment/${id}`)
+        const url = res?.data?.url
+
+        if (!url) throw new Error("No payment URL returned")
+
+        console.log("✅ REDIRECTING:", url)
+
+        window.location.href = url
+
+      } catch (err) {
+        console.error("❌ AUTO CHECKOUT ERROR:", err)
+
+        setError(
+          err?.response?.data?.message ||
+          err.message ||
+          "Checkout failed"
+        )
+
+        setLoading(false)
       }
-
-      const res = await api.post(`/square/create-payment/${id}`)
-      const url = res?.data?.url
-
-      if (!url) throw new Error("No payment URL returned")
-
-      window.location.href = url
-
-    } catch (err) {
-      console.error("❌ AUTO CHECKOUT ERROR:", err)
-
-      setError(
-        err?.response?.data?.message ||
-        err.message ||
-        "Checkout failed"
-      )
-
-      setLoading(false)
     }
-  }
 
-  startCheckout()
-}, [id])
+    startCheckout()
+  }, [id])
 
   /* =========================================================
      🔁 RETRY
@@ -52,12 +59,9 @@ export default function Checkout() {
       setError("")
 
       const res = await api.post(`/square/create-payment/${id}`)
-
       const url = res?.data?.url
 
-      if (!url) {
-        throw new Error("No payment URL")
-      }
+      if (!url) throw new Error("No payment URL")
 
       window.location.href = url
 
