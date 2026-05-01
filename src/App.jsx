@@ -51,6 +51,7 @@ import Dashboard from "./pages/Dashboard"
 import AdminRevenue from "./pages/admin/AdminRevenue"
 import Orders from "./pages/admin/Orders"
 import AdminCustomers from "./pages/admin/AdminCustomers"
+import AdminCustomerDetail from "./pages/admin/AdminCustomerDetail"
 
 /* PRODUCTS */
 import Products from "./pages/admin/Products"
@@ -66,12 +67,12 @@ function AppContent() {
   const location = useLocation()
   const path = location.pathname
 
-  const { addToast } = useToast() // 🔥 NEW
+  const { addToast } = useToast()
 
   const [cartOpen, setCartOpen] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
 
-  /* ================= SAFE CHECKOUT ================= */
+  /* ================= CHECKOUT ================= */
   const handleCheckout = async (cart) => {
     if (isRedirecting) return
 
@@ -82,13 +83,14 @@ function AppContent() {
 
       const storedUser = localStorage.getItem("customerUser")
 
-      if (storedUser) {
-        try {
-          email = JSON.parse(storedUser)?.email
-        } catch {
-          console.warn("⚠️ Failed to parse customerUser")
-        }
-      }
+      // 🔥 ONLY CHANGE IS THIS BLOCK
+if (storedUser) {
+  try {
+    email = JSON.parse(storedUser)?.email
+  } catch (err) {
+    console.warn("⚠️ Failed to parse customerUser:", err)
+  }
+}
 
       if (!email) {
         email = localStorage.getItem("customerEmail")
@@ -96,13 +98,11 @@ function AppContent() {
 
       if (!email) {
         email = prompt("Enter your email to continue checkout:")
-
         if (!email) {
-          addToast("Email required to continue", "error") // 🔥 UPDATED
+          addToast("Email required to continue", "error")
           setIsRedirecting(false)
           return
         }
-
         localStorage.setItem("customerEmail", email)
       }
 
@@ -118,7 +118,7 @@ function AppContent() {
 
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err)
-      addToast("Checkout failed", "error") // 🔥 UPDATED
+      addToast("Checkout failed", "error")
       setIsRedirecting(false)
     }
   }
@@ -170,21 +170,22 @@ function AppContent() {
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/login" element={<Login />} />
 
-        {/* 🔥 PASSWORD FLOW */}
+        {/* PASSWORD */}
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
 
-        {/* QUOTE FLOW */}
+        {/* QUOTE */}
         <Route path="/quote" element={<CustomQuote />} />
         <Route path="/quote/:id" element={<QuoteResponse />} />
 
         {/* TRACK */}
         <Route path="/track/:id" element={<TrackOrder />} />
 
-        {/* CUSTOMER */}
+        {/* CUSTOMER AUTH */}
         <Route path="/customer-login" element={<CustomerLogin />} />
         <Route path="/customer-register" element={<CustomerRegister />} />
 
+        {/* CUSTOMER AREA */}
         <Route element={<CustomerRoute />}>
           <Route element={<CustomerLayout />}>
             <Route path="/dashboard" element={<CustomerDashboard />} />
@@ -210,6 +211,10 @@ function AppContent() {
             <Route path="production" element={<ProductionBoard />} />
             <Route path="orders" element={<Orders />} />
             <Route path="customers" element={<AdminCustomers />} />
+
+            {/* 🔥 NEW CUSTOMER DETAIL ROUTE */}
+            <Route path="customers/:id" element={<AdminCustomerDetail />} />
+
             <Route path="revenue" element={<AdminRevenue />} />
             <Route path="products" element={<Products />} />
             <Route path="products/new" element={<CreateProduct />} />
@@ -227,7 +232,7 @@ function AppContent() {
 
 export default function App() {
   return (
-    <ToastProvider> {/* 🔥 NEW */}
+    <ToastProvider>
       <CartProvider>
         <BrowserRouter>
           <AppContent />

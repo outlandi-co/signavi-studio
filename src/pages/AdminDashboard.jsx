@@ -2,165 +2,131 @@ import { useEffect, useState, useCallback, useRef } from "react"
 import api from "../services/api"
 import { getSocket } from "../services/socket"
 
-function AdminDashboard() {
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  BarChart, Bar, CartesianGrid
+} from "recharts"
 
+export default function AdminDashboard() {
   const [data, setData] = useState(null)
-  const [rates, setRates] = useState([])
   const loadingRef = useRef(false)
 
-  /* ================= LOAD ================= */
   const load = useCallback(async () => {
     if (loadingRef.current) return
-
     try {
       loadingRef.current = true
-      const res = await api.get("/analytics")
-      setData(res.data)
+      const res = await api.get("/orders/analytics")
+      setData(res.data?.data)
     } catch (err) {
-      console.error("❌ DASHBOARD ERROR:", err)
+      console.error(err)
     } finally {
       loadingRef.current = false
     }
   }, [])
 
-  useEffect(() => {
-    load()
-  }, [load])
+  useEffect(() => { load() }, [load])
 
-  /* ================= SOCKET ================= */
   useEffect(() => {
     let socket
-
     const init = async () => {
       socket = await getSocket()
       if (!socket) return
-
-      const handleUpdate = () => {
-        console.log("📡 Dashboard update received")
-        load()
-      }
-
-      socket.on("jobUpdated", handleUpdate)
-      socket.on("pricingUpdated", handleUpdate)
+      const update = () => load()
+      socket.on("jobUpdated", update)
+      socket.on("pricingUpdated", update)
     }
-
     init()
-
     return () => {
       socket?.off("jobUpdated")
       socket?.off("pricingUpdated")
     }
   }, [load])
 
-  /* ================= GET SHIPPING RATES ================= */
-  const getRates = async () => {
-    try {
-      console.log("📦 Getting shipping rates...")
+  if (!data) return <div className="text-white p-6">Loading...</div>
 
-      const res = await api.post("/shipping/get-rates", {
-        address_to: {
-          name: "Adam",
-          street1: "456 Test St",
-          city: "Merced",
-          state: "CA",
-          zip: "95340",
-          country: "US"
-        }
-      })
+  const revenue = data.revenueByDay || []
+  const products = data.topProducts || []
+  const lowMargin = data.lowMarginOrders || []
 
-      console.log("🚚 RATES:", res.data)
-      setRates(res.data.rates || [])
-
-    } catch (err) {
-      console.error("❌ RATE ERROR:", err.response?.data || err.message)
-    }
-  }
-
-  /* ================= TEST SHIPPING ================= */
-  const testShipping = async () => {
-    try {
-      console.log("🚚 Creating shipment...")
-
-      const res = await api.post("/shipping/create-shipment", {
-        address_to: {
-          name: "Adam",
-          street1: "456 Test St",
-          city: "Merced",
-          state: "CA",
-          zip: "95340",
-          country: "US"
-        }
-      })
-
-      console.log("📦 SHIPPING SUCCESS:", res.data)
-      alert("Shipment created! Check console.")
-
-    } catch (err) {
-      console.error("❌ SHIPPING ERROR:", err.response?.data || err.message)
-      alert("Shipping failed.")
-    }
-  }
-
-  if (!data) {
-    return <p style={{ color: "white", padding: 20 }}>Loading dashboard...</p>
-  }
+  const totalRevenue = revenue.reduce((s, r) => s + r.total, 0)
 
   return (
-    <div style={{ padding: 20, color: "white" }}>
-      <h1>📊 Dashboard</h1>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-black text-white p-6">
 
-      <div style={card}>
-        <h2>Revenue</h2>
-        <p>${Number(data.totalRevenue || 0).toFixed(2)}</p>
+      <h1 className="text-3xl font-bold mb-6">📊 Admin Dashboard</h1>
+
+      {/* KPI CARDS */}
+      <div className="grid md:grid-cols-3 gap-4 mb-6">
+
+        <div className="bg-white/10 backdrop-blur-md p-5 rounded-xl shadow-lg">
+          <p className="text-sm text-gray-300">Total Revenue</p>
+          <h2 className="text-2xl font-bold text-cyan-400">
+            ${totalRevenue.toFixed(2)}
+          </h2>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-md p-5 rounded-xl shadow-lg">
+          <p className="text-sm text-gray-300">Top Product</p>
+          <h2 className="text-xl font-bold text-green-400">
+            {products[0]?.name || "—"}
+          </h2>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-md p-5 rounded-xl shadow-lg">
+          <p className="text-sm text-gray-300">Low Margin Alerts</p>
+          <h2 className={`text-2xl font-bold ${lowMargin.length ? "text-red-500" : "text-green-400"}`}>
+            {lowMargin.length}
+          </h2>
+        </div>
+
       </div>
 
-      <div style={card}>
-        <h2>Profit</h2>
-        <p>${Number(data.totalProfit || 0).toFixed(2)}</p>
+      {/* REVENUE CHART */}
+      <div className="bg-white/10 backdrop-blur-md p-5 rounded-xl shadow-lg mb-6">
+        <h2 className="mb-4 text-lg font-semibold">📈 Revenue Trend</h2>
+
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={revenue}>
+            <XAxis dataKey="date" stroke="#ccc" />
+            <YAxis stroke="#ccc" />
+            <Tooltip />
+            <Line type="monotone" dataKey="total" stroke="#06b6d4" strokeWidth={3} />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
 
-      {/* 🚚 SHIPPING TEST */}
-      <div style={card}>
-        <h2>Shipping Test</h2>
+      {/* PRODUCT CHART */}
+      <div className="bg-white/10 backdrop-blur-md p-5 rounded-xl shadow-lg mb-6">
+        <h2 className="mb-4 text-lg font-semibold">🏆 Top Products</h2>
 
-        <button onClick={getRates} style={button}>
-          📦 Get Shipping Rates
-        </button>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={products}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" stroke="#ccc" />
+            <YAxis stroke="#ccc" />
+            <Tooltip />
+            <Bar dataKey="revenue" fill="#22c55e" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
 
-        <button onClick={testShipping} style={{ ...button, marginLeft: 10 }}>
-          🚚 Create Shipment
-        </button>
+      {/* LOW MARGIN */}
+      <div className="bg-white/10 backdrop-blur-md p-5 rounded-xl shadow-lg">
+        <h2 className="mb-4 text-lg font-semibold">🚨 Low Margin Orders</h2>
 
-        {/* SHOW RATES */}
-        {rates.length > 0 && (
-          <div style={{ marginTop: 10 }}>
-            {rates.map((rate) => (
-              <div key={rate.object_id} style={{ fontSize: 12 }}>
-                {rate.provider} - {rate.servicelevel?.name} - ${rate.amount}
-              </div>
-            ))}
-          </div>
+        {lowMargin.length === 0 ? (
+          <p className="text-green-400">All margins healthy</p>
+        ) : (
+          lowMargin.map((o, i) => (
+            <div key={i} className="flex justify-between text-red-400 border-b border-white/10 py-2">
+              <span>{o.customer}</span>
+              <span>{o.margin.toFixed(2)}%</span>
+              <span>${o.total.toFixed(2)}</span>
+            </div>
+          ))
         )}
       </div>
+
     </div>
   )
 }
-
-/* ================= STYLES ================= */
-const card = {
-  background: "#1e293b",
-  padding: 15,
-  marginTop: 10,
-  borderRadius: 10
-}
-
-const button = {
-  padding: "10px 15px",
-  background: "#06b6d4",
-  border: "none",
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontWeight: "bold"
-}
-
-export default AdminDashboard

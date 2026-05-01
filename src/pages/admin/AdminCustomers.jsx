@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import api from "../../services/api"
 import { useNavigate } from "react-router-dom"
 import { io } from "socket.io-client"
@@ -18,20 +18,28 @@ export default function AdminCustomers() {
   const navigate = useNavigate()
 
   /* ================= LOAD ================= */
-  const loadCustomers = async () => {
+  const loadCustomers = useCallback(async () => {
     try {
+      setLoading(true)
+
       const res = await api.get("/customers")
-      setCustomers(res.data || [])
+
+      // 🔥 FIX: correct API shape
+      const data = Array.isArray(res.data?.data) ? res.data.data : []
+
+      setCustomers(data)
+
     } catch (err) {
       console.error("❌ CUSTOMER LOAD ERROR:", err)
+      setCustomers([])
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     loadCustomers()
-  }, [])
+  }, [loadCustomers])
 
   /* ================= SOCKET ================= */
   useEffect(() => {
@@ -55,7 +63,7 @@ export default function AdminCustomers() {
       socket.off("customerUpdated", handleUpdate)
     }
 
-  }, [])
+  }, [loadCustomers])
 
   /* ================= FILTER ================= */
   useEffect(() => {
@@ -63,7 +71,7 @@ export default function AdminCustomers() {
 
     if (search) {
       data = data.filter(c =>
-        c.email.toLowerCase().includes(search.toLowerCase())
+        (c.email || "").toLowerCase().includes(search.toLowerCase())
       )
     }
 
@@ -85,6 +93,7 @@ export default function AdminCustomers() {
       await api.patch(`/customers/${id}`, {
         isVIP: !current
       })
+      loadCustomers() // 🔥 refresh UI
     } catch (err) {
       console.error("VIP ERROR:", err)
     }
@@ -99,7 +108,7 @@ export default function AdminCustomers() {
     }
   }
 
-  if (loading) return <p className="text-white">Loading...</p>
+  if (loading) return <p className="text-white p-4">Loading...</p>
 
   return (
     <div>
@@ -131,7 +140,7 @@ export default function AdminCustomers() {
       {/* LIST */}
       <div className="grid gap-4">
 
-        {filtered.map(customer => (
+        {Array.isArray(filtered) && filtered.map(customer => (
           <div
             key={customer._id}
             className="bg-gray-900 border border-gray-800 p-4 rounded-lg"
@@ -166,12 +175,12 @@ export default function AdminCustomers() {
             {/* STATS */}
             <div className="flex justify-between mt-3">
               <p>Orders: <strong>{customer.totalOrders || 0}</strong></p>
-              <p>Spent: <strong>${customer.totalSpent || 0}</strong></p>
+              <p>Spent: <strong>${Number(customer.totalSpent || 0).toFixed(2)}</strong></p>
             </div>
 
             {/* NOTES */}
             <textarea
-              defaultValue={customer.notes}
+              defaultValue={customer.notes || ""}
               onBlur={(e) =>
                 updateNotes(customer._id, e.target.value)
               }
