@@ -1,5 +1,8 @@
 import axios from "axios"
 
+/* =========================================================
+   🌐 BASE URL
+========================================================= */
 const BASE_URL =
   import.meta.env.VITE_API_URL ||
   "https://signavi-backend.onrender.com/api"
@@ -11,9 +14,24 @@ const api = axios.create({
 console.log("🌐 API BASE:", api.defaults.baseURL)
 
 /* =========================================================
+   🔥 GLOBAL LOADING HANDLERS
+========================================================= */
+let startLoading = null
+let stopLoading = null
+
+export const setLoadingHandlers = (start, stop) => {
+  startLoading = start
+  stopLoading = stop
+}
+
+/* =========================================================
    🔥 REQUEST INTERCEPTOR
 ========================================================= */
 api.interceptors.request.use((config) => {
+
+  /* 🔥 START LOADING */
+  if (startLoading) startLoading()
+
   const adminToken =
     localStorage.getItem("adminToken") ||
     sessionStorage.getItem("adminToken")
@@ -32,6 +50,7 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`
   }
 
+  /* ✅ FIX FORM DATA */
   if (config.data instanceof FormData) {
     delete config.headers["Content-Type"]
   }
@@ -42,14 +61,23 @@ api.interceptors.request.use((config) => {
 })
 
 /* =========================================================
-   🔁 RESPONSE INTERCEPTOR (SMART RETRY)
+   🔁 RESPONSE INTERCEPTOR (SMART RETRY + SAFE LOADER)
 ========================================================= */
 api.interceptors.response.use(
   (res) => {
+
+    /* 🔥 STOP LOADING */
+    if (stopLoading) stopLoading()
+
     console.log("✅ RESPONSE:", res.config.url, res.data)
     return res
   },
+
   async (err) => {
+
+    /* 🔥 ALWAYS STOP LOADING (CRITICAL) */
+    if (stopLoading) stopLoading()
+
     const status = err?.response?.status
     const url = err?.config?.url || ""
 
@@ -72,7 +100,7 @@ api.interceptors.response.use(
     const isSafeRoute = safeRoutes.some((r) => url.includes(r))
 
     /* =========================================================
-       🔁 SILENT RETRY (NO BACKEND CHANGE NEEDED)
+       🔁 SILENT RETRY (ONLY ONCE)
     ========================================================= */
     if (status === 401 && !isSafeRoute && !originalRequest._retry) {
       originalRequest._retry = true
@@ -80,10 +108,10 @@ api.interceptors.response.use(
       console.warn("🔁 Retrying request once...")
 
       try {
-        return api(originalRequest)
-      } catch (err) {
-  console.error("❌ Retry failed:", err)
-}
+        return await api(originalRequest)
+      } catch (retryErr) {
+        console.error("❌ Retry failed:", retryErr)
+      }
     }
 
     /* =========================================================
@@ -92,7 +120,11 @@ api.interceptors.response.use(
     if (status === 401 && !isSafeRoute) {
       const isCheckout = url.includes("/square")
 
-      // 🔥 clear only auth
+      const wasAdmin =
+        localStorage.getItem("adminUser") ||
+        sessionStorage.getItem("adminUser")
+
+      /* 🔥 CLEAR AUTH */
       localStorage.removeItem("adminToken")
       localStorage.removeItem("adminUser")
       localStorage.removeItem("customerToken")
@@ -105,10 +137,6 @@ api.interceptors.response.use(
 
       if (!isCheckout) {
         console.warn("🔒 Redirecting to login")
-
-        const wasAdmin =
-          localStorage.getItem("adminUser") ||
-          sessionStorage.getItem("adminUser")
 
         if (wasAdmin) {
           window.location.href = "/login"

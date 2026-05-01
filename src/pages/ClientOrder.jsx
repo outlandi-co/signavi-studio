@@ -5,22 +5,49 @@ import api from "../services/api"
 function ClientOrder() {
   const { id } = useParams()
   const [order, setOrder] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get(`/orders/${id}/client`)
-      .then(res => setOrder(res.data))
+    if (!id || id === "null") {
+      console.warn("⚠️ Invalid order ID:", id)
+      setLoading(false)
+      return
+    }
+
+    const load = async () => {
+      try {
+        const res = await api.get(`/orders/${id}/client`)
+        setOrder(res.data)
+      } catch (err) {
+        console.error("❌ CLIENT ORDER ERROR:", err)
+        setOrder(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    load()
   }, [id])
 
-  if (!order) return <p>Loading...</p>
+  if (loading) return <p style={{ padding: 20 }}>Loading...</p>
+  if (!order) return <p style={{ padding: 20 }}>Order not found</p>
 
   const approve = async () => {
-    await api.patch(`/orders/${id}/client-approve`)
-    alert("Approved!")
+    try {
+      await api.patch(`/orders/${id}/client-approve`)
+      alert("Approved!")
+    } catch (err) {
+      console.error("❌ APPROVE ERROR:", err)
+    }
   }
 
   const deny = async () => {
-    await api.patch(`/orders/${id}/client-deny`)
-    alert("Denied")
+    try {
+      await api.patch(`/orders/${id}/client-deny`)
+      alert("Denied")
+    } catch (err) {
+      console.error("❌ DENY ERROR:", err)
+    }
   }
 
   return (
@@ -30,17 +57,14 @@ function ClientOrder() {
       <p><b>{order.customerName}</b></p>
       <p>{order.email}</p>
 
-      {/* ITEMS */}
       {order.items?.map((item, i) => (
         <div key={i}>
           <p>{item.name} x {item.quantity}</p>
         </div>
       ))}
 
-      {/* PRICE */}
       <h3>Total: ${order.finalPrice}</h3>
 
-      {/* ACTIONS */}
       {order.approvalStatus === "pending" && (
         <>
           <button onClick={approve}>✅ Approve</button>
@@ -48,9 +72,8 @@ function ClientOrder() {
         </>
       )}
 
-      {/* TRACKING */}
       {order.trackingNumber && (
-        <a href={order.trackingLink} target="_blank">
+        <a href={order.trackingLink} target="_blank" rel="noreferrer">
           Track Package
         </a>
       )}

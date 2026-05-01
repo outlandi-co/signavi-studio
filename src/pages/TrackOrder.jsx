@@ -48,7 +48,7 @@ export default function TrackOrder() {
 
   /* ================= INITIAL LOAD ================= */
   useEffect(() => {
-    if (id) load()
+    if (id && id !== "null") load()
   }, [id, load])
 
   /* ================= SOCKET ================= */

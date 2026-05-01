@@ -7,6 +7,10 @@ import {
 import { useEffect, useState } from "react"
 import api from "./services/api"
 
+/* 🔥 NEW */
+import ToastProvider from "./context/ToastProvider"
+import { useToast } from "./hooks/useToast"
+
 /* CONTEXT */
 import { CartProvider } from "./context/CartProvider"
 
@@ -62,6 +66,8 @@ function AppContent() {
   const location = useLocation()
   const path = location.pathname
 
+  const { addToast } = useToast() // 🔥 NEW
+
   const [cartOpen, setCartOpen] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
 
@@ -79,7 +85,7 @@ function AppContent() {
       if (storedUser) {
         try {
           email = JSON.parse(storedUser)?.email
-        } catch  {
+        } catch {
           console.warn("⚠️ Failed to parse customerUser")
         }
       }
@@ -88,20 +94,17 @@ function AppContent() {
         email = localStorage.getItem("customerEmail")
       }
 
-      /* 🔥 GUEST SUPPORT */
       if (!email) {
         email = prompt("Enter your email to continue checkout:")
 
         if (!email) {
-          alert("Email required to continue")
+          addToast("Email required to continue", "error") // 🔥 UPDATED
           setIsRedirecting(false)
           return
         }
 
         localStorage.setItem("customerEmail", email)
       }
-
-      console.log("📧 CHECKOUT EMAIL:", email)
 
       const res = await api.post("/orders", {
         email,
@@ -115,14 +118,24 @@ function AppContent() {
 
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err)
-      alert("Checkout failed")
+      addToast("Checkout failed", "error") // 🔥 UPDATED
       setIsRedirecting(false)
     }
   }
 
   /* ================= NAVBAR CONTROL ================= */
-  const hideNavbarRoutes = ["/login","/customer-login","/customer-register","/success"]
-  const shouldHideNavbar = hideNavbarRoutes.some(r => path.startsWith(r))
+  const hideNavbarRoutes = [
+    "/login",
+    "/customer-login",
+    "/customer-register",
+    "/success",
+    "/forgot-password",
+    "/reset-password"
+  ]
+
+  const shouldHideNavbar = hideNavbarRoutes.some(r =>
+    path.startsWith(r)
+  )
 
   /* ================= ADMIN AUTH ================= */
   useEffect(() => {
@@ -157,7 +170,7 @@ function AppContent() {
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/login" element={<Login />} />
 
-        {/* 🔥 ADD THESE RIGHT HERE */}
+        {/* 🔥 PASSWORD FLOW */}
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
 
@@ -214,10 +227,12 @@ function AppContent() {
 
 export default function App() {
   return (
-    <CartProvider>
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
-    </CartProvider>
+    <ToastProvider> {/* 🔥 NEW */}
+      <CartProvider>
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
+      </CartProvider>
+    </ToastProvider>
   )
 }

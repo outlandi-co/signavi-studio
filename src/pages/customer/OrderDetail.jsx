@@ -21,22 +21,41 @@ export default function OrderDetail() {
 
   /* ================= LOAD ================= */
   useEffect(() => {
+    if (!id || id === "null") {
+      console.warn("⚠️ Invalid order ID:", id)
+      setLoading(false)
+      return
+    }
+
+    let isMounted = true
+
     const load = async () => {
       try {
         const res = await api.get(`/orders/${id}`)
         const data = res.data?.data || res.data
-        setOrder(data)
+
+        if (isMounted) {
+          setOrder(data)
+        }
       } catch (err) {
         console.error("❌ ORDER LOAD ERROR:", err)
+        if (isMounted) setOrder(null)
       } finally {
-        setLoading(false)
+        if (isMounted) setLoading(false)
       }
     }
+
     load()
+
+    return () => {
+      isMounted = false
+    }
   }, [id])
 
   /* ================= SOCKET ================= */
   useEffect(() => {
+    if (!id || id === "null") return
+
     if (!socketRef.current) {
       socketRef.current = io(SOCKET_URL, {
         transports: ["websocket"]
@@ -46,7 +65,8 @@ export default function OrderDetail() {
     const socket = socketRef.current
 
     const handleSocketUpdate = (updatedOrder) => {
-      if (updatedOrder._id === id) {
+      if (updatedOrder?._id === id) {
+        console.log("🔄 Live update received")
         setOrder(updatedOrder)
       }
     }
@@ -60,23 +80,41 @@ export default function OrderDetail() {
 
   /* ================= PDF ================= */
   const handleDownloadInvoice = async () => {
-    const input = document.getElementById("invoice")
+    if (!order) return
 
-    const canvas = await html2canvas(input)
-    const imgData = canvas.toDataURL("image/png")
+    try {
+      const input = document.getElementById("invoice")
+      if (!input) return
 
-    const pdf = new jsPDF("p", "mm", "a4")
+      const canvas = await html2canvas(input)
+      const imgData = canvas.toDataURL("image/png")
 
-    const width = pdf.internal.pageSize.getWidth()
-    const height = (canvas.height * width) / canvas.width
+      const pdf = new jsPDF("p", "mm", "a4")
 
-    pdf.addImage(imgData, "PNG", 0, 0, width, height)
-    pdf.save(`invoice-${order._id}.pdf`)
+      const width = pdf.internal.pageSize.getWidth()
+      const height = (canvas.height * width) / canvas.width
+
+      pdf.addImage(imgData, "PNG", 0, 0, width, height)
+      pdf.save(`invoice-${order._id}.pdf`)
+    } catch (err) {
+      console.error("❌ PDF ERROR:", err)
+    }
   }
 
-  if (loading) return <p style={{ padding: 20 }}>Loading...</p>
-  if (!order) return <p style={{ padding: 20 }}>Order not found</p>
+  /* ================= STATES ================= */
+  if (loading) {
+    return <p style={{ padding: 20 }}>Loading...</p>
+  }
 
+  if (!order) {
+    return (
+      <p style={{ padding: 20, color: "red" }}>
+        ⚠️ Order not found or invalid ID
+      </p>
+    )
+  }
+
+  /* ================= UI ================= */
   return (
     <div style={{ padding: 20, color: "white" }}>
       <h1>📦 Order Detail</h1>
@@ -101,9 +139,13 @@ export default function OrderDetail() {
 
           <div style={{ textAlign: "right" }}>
             <h2 style={{ margin: 0 }}>INVOICE</h2>
-            <p style={{ margin: 0 }}>#{order._id.slice(-6)}</p>
             <p style={{ margin: 0 }}>
-              {new Date(order.createdAt).toLocaleDateString()}
+              #{order._id?.slice(-6) || "N/A"}
+            </p>
+            <p style={{ margin: 0 }}>
+              {order.createdAt
+                ? new Date(order.createdAt).toLocaleDateString()
+                : "N/A"}
             </p>
           </div>
         </div>
@@ -112,13 +154,18 @@ export default function OrderDetail() {
         <p><strong>Email:</strong> {order.email}</p>
         <p><strong>Status:</strong> {order.status}</p>
 
-        {/* ✅ READ-ONLY SHIPPING INFO */}
+        {/* SHIPPING */}
         {order.trackingNumber && (
           <div style={{ marginTop: 10 }}>
             <p><strong>Carrier:</strong> {order.carrier}</p>
             <p><strong>Tracking:</strong> {order.trackingNumber}</p>
+
             {order.trackingLink && (
-              <a href={order.trackingLink} target="_blank">
+              <a
+                href={order.trackingLink}
+                target="_blank"
+                rel="noreferrer"
+              >
                 Track Package
               </a>
             )}
@@ -130,9 +177,18 @@ export default function OrderDetail() {
         {order.items?.map((item, i) => (
           <div key={i} style={{ marginBottom: 10 }}>
             <p><strong>{item.name}</strong></p>
-            <p>{item.variant?.color || "N/A"} / {item.variant?.size || "N/A"}</p>
-            <p>Qty: {item.quantity} × ${Number(item.price).toFixed(2)}</p>
-            <p>Line Total: ${(item.quantity * item.price).toFixed(2)}</p>
+            <p>
+              {item.variant?.color || "N/A"} /{" "}
+              {item.variant?.size || "N/A"}
+            </p>
+            <p>
+              Qty: {item.quantity} × $
+              {Number(item.price || 0).toFixed(2)}
+            </p>
+            <p>
+              Line Total: $
+              {(item.quantity * item.price).toFixed(2)}
+            </p>
           </div>
         ))}
 
