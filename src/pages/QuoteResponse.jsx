@@ -67,7 +67,6 @@ export default function QuoteResponse() {
 
   const TAX_RATE = 0.0825
   const tax = subtotal * TAX_RATE
-
   const total = subtotal + tax + shipping
 
   return (
@@ -89,6 +88,13 @@ export default function QuoteResponse() {
         <h2 style={{ marginTop: 10 }}>
           Total: ${total.toFixed(2)}
         </h2>
+
+        {/* 🔥 ESTIMATE MESSAGE */}
+        {quote.approvalStatus !== "approved" && (
+          <p style={estimateText}>
+            ⚠️ Estimated price — final price may change after review
+          </p>
+        )}
 
         {/* ERROR */}
         {error && <p style={{ color: "red" }}>{error}</p>}
@@ -144,6 +150,12 @@ const pendingBox = {
   background: "#f59e0b",
   borderRadius: 6,
   color: "black",
+  fontWeight: "bold"
+}
+
+const estimateText = {
+  marginTop: 10,
+  color: "#facc15",
   fontWeight: "bold"
 }
 
