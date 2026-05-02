@@ -17,25 +17,44 @@ export default function useCart() {
     localStorage.setItem("cart", JSON.stringify(cart))
   }, [cart])
 
+  /* ================= SYNC (cross-tab only) ================= */
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (e.key === "cart") {
+        try {
+          setCart(e.newValue ? JSON.parse(e.newValue) : [])
+        } catch {
+          setCart([])
+        }
+      }
+    }
+
+    window.addEventListener("storage", handleStorage)
+
+    return () => {
+      window.removeEventListener("storage", handleStorage)
+    }
+  }, [])
+
   /* ================= ADD ================= */
   const addToCart = (product) => {
     const variant = product.selectedVariant
 
-    if (!variant || !variant.color || !variant.size) {
+    if (!variant?.color || !variant?.size) {
       console.warn("❌ Missing variant (color/size)")
       return
     }
 
     setCart(prev => {
       const existing = prev.find(item =>
-        item.productId === product._id &&
+        item.productId === product.productId &&
         item.selectedVariant?.color === variant.color &&
         item.selectedVariant?.size === variant.size
       )
 
       if (existing) {
         return prev.map(item =>
-          item.productId === product._id &&
+          item.productId === product.productId &&
           item.selectedVariant?.color === variant.color &&
           item.selectedVariant?.size === variant.size
             ? { ...item, quantity: item.quantity + 1 }
@@ -46,7 +65,7 @@ export default function useCart() {
       return [
         ...prev,
         {
-          productId: product._id,
+          productId: product.productId,
           name: product.name,
           image: product.image,
           selectedVariant: {
@@ -76,7 +95,6 @@ export default function useCart() {
     )
   }
 
-  /* 🔥 ALIAS (BACKWARD COMPATIBILITY) */
   const updateQty = updateQuantity
 
   /* ================= CLEAR ================= */
@@ -91,14 +109,13 @@ export default function useCart() {
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
 
-  /* ================= RETURN ================= */
   return {
     cart,
     cartCount,
     addToCart,
     removeFromCart,
-    updateQuantity, // ✅ FIXED
-    updateQty,      // still works
+    updateQuantity,
+    updateQty,
     clearCart,
     total
   }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
 import api from "../services/api"
-import useCart from "../hooks/useCart"
+import { useCartContext } from "../context/useCartContext" 
 
 const BASE_URL =
   (import.meta.env.VITE_API_URL || "https://signavi-backend.onrender.com/api")
@@ -15,7 +15,7 @@ export default function ProductDetail() {
   const [selectedColor, setSelectedColor] = useState("")
   const [selectedSize, setSelectedSize] = useState("")
 
-  const { addToCart } = useCart()
+  const { addToCart } = useCartContext()
 
   /* ================= LOAD ================= */
   useEffect(() => {
@@ -35,11 +35,9 @@ export default function ProductDetail() {
     v.size === selectedSize
   )
 
-  /* 🔥 FINAL PRICE */
   const displayPrice = selectedVariant?.price ?? product.price
 
   const handleAddToCart = () => {
-
     if (!selectedVariant) {
       alert("Please select color and size")
       return
@@ -49,13 +47,11 @@ export default function ProductDetail() {
       productId: product._id,
       name: product.name,
       image: product.image,
-
       selectedVariant: {
         color: selectedVariant.color,
         size: selectedVariant.size,
         price: selectedVariant.price
       },
-
       quantity: 1
     })
   }
@@ -71,7 +67,7 @@ export default function ProductDetail() {
 
       <h1>{product.name}</h1>
 
-      {/* 🔥 COLOR SELECT */}
+      {/* COLOR */}
       <select onChange={(e)=>setSelectedColor(e.target.value)}>
         <option>Select Color</option>
         {[...new Set(product.variants.map(v => v.color))].map(color => (
@@ -79,7 +75,7 @@ export default function ProductDetail() {
         ))}
       </select>
 
-      {/* 🔥 SIZE SELECT */}
+      {/* SIZE */}
       <select onChange={(e)=>setSelectedSize(e.target.value)}>
         <option>Select Size</option>
         {product.variants

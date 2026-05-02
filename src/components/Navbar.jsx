@@ -1,15 +1,16 @@
 import { Link, useNavigate, useLocation } from "react-router-dom"
 import logo from "../assets/SignaVi_Logo.jpg"
 import NotificationBell from "./NotificationBell"
-import useCart from "../hooks/useCart"
+import { useCartContext } from "../context/useCartContext"
 import { useState } from "react"
 import AccountDrawer from "./AccountDrawer"
 
 function Navbar({ setCartOpen }) {
+
   const navigate = useNavigate()
   const location = useLocation()
 
-  const { cartCount } = useCart()
+  const { cartCount } = useCartContext()
   const [accountOpen, setAccountOpen] = useState(false)
 
   const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null")
@@ -37,11 +38,7 @@ function Navbar({ setCartOpen }) {
 
         <NavItem to="/" active={isActive("/")}>Home</NavItem>
         <NavItem to="/store" active={isActive("/store")}>Store</NavItem>
-
-        {/* 🔥 QUOTE BUTTON */}
-        <NavItem to="/quote" active={isActive("/quote")}>
-          Get Quote
-        </NavItem>
+        <NavItem to="/quote" active={isActive("/quote")}>Get Quote</NavItem>
 
         <button onClick={() => setCartOpen(true)} style={cartBtn}>
           🛒 Cart
@@ -95,27 +92,13 @@ function NavItem({ to, children, active }) {
   )
 }
 
-/* styles */
-const nav = {
-  display: "flex",
-  justifyContent: "space-between",
-  padding: "16px 24px",
-  background: "#020617"
-}
-
+const nav = { display: "flex", justifyContent: "space-between", padding: "16px 24px", background: "#020617" }
 const left = { display: "flex", gap: 20, alignItems: "center" }
 const right = { display: "flex", gap: 16, alignItems: "center" }
 const authLinks = { display: "flex", gap: 12 }
-
 const logoStyle = { height: 40 }
 
-const cartBtn = {
-  background: "none",
-  border: "none",
-  color: "#cbd5f5",
-  cursor: "pointer",
-  position: "relative"
-}
+const cartBtn = { background: "none", border: "none", color: "#cbd5f5", cursor: "pointer", position: "relative" }
 
 const badge = {
   position: "absolute",
@@ -128,19 +111,7 @@ const badge = {
   fontSize: "11px"
 }
 
-const accountBtn = {
-  background: "#22c55e",
-  padding: "6px 12px",
-  borderRadius: "6px",
-  border: "none"
-}
-
-const logoutBtn = {
-  background: "#ef4444",
-  color: "#fff",
-  padding: "6px 12px",
-  borderRadius: "6px",
-  border: "none"
-}
+const accountBtn = { background: "#22c55e", padding: "6px 12px", borderRadius: "6px", border: "none" }
+const logoutBtn = { background: "#ef4444", color: "#fff", padding: "6px 12px", borderRadius: "6px", border: "none" }
 
 export default Navbar

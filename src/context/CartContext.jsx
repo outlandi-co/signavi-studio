@@ -4,7 +4,6 @@ const CartContext = createContext()
 
 export function CartProvider({ children }) {
 
-  /* ================= INIT ================= */
   const [cart, setCart] = useState(() => {
     try {
       const saved = localStorage.getItem("cart")
@@ -14,53 +13,36 @@ export function CartProvider({ children }) {
     }
   })
 
-  /* ================= PERSIST ================= */
   useEffect(() => {
     localStorage.setItem("cart", JSON.stringify(cart))
   }, [cart])
 
-  /* ================= ADD ================= */
   const addToCart = (product) => {
     const variant = product.selectedVariant
 
-    if (!variant || !variant.color || !variant.size) {
+    if (!variant?.color || !variant?.size) {
       console.warn("❌ Missing variant")
       return
     }
 
     const productId = product.productId || product._id
 
-    const incomingColor = String(variant.color).trim().toLowerCase()
-    const incomingSize = String(variant.size).trim().toUpperCase()
-
-    console.log("🛒 ADD:", product.name, variant)
-
     setCart(prev => {
 
-      const existing = prev.find(item => {
-        const itemColor = String(item.selectedVariant?.color || "").trim().toLowerCase()
-        const itemSize = String(item.selectedVariant?.size || "").trim().toUpperCase()
-
-        return (
-          (item.productId || item._id) === productId &&
-          itemColor === incomingColor &&
-          itemSize === incomingSize
-        )
-      })
+      const existing = prev.find(item =>
+        item.productId === productId &&
+        item.selectedVariant?.color === variant.color &&
+        item.selectedVariant?.size === variant.size
+      )
 
       if (existing) {
-        return prev.map(item => {
-          const itemColor = String(item.selectedVariant?.color || "").trim().toLowerCase()
-          const itemSize = String(item.selectedVariant?.size || "").trim().toUpperCase()
-
-          return (
-            (item.productId || item._id) === productId &&
-            itemColor === incomingColor &&
-            itemSize === incomingSize
-          )
+        return prev.map(item =>
+          item.productId === productId &&
+          item.selectedVariant?.color === variant.color &&
+          item.selectedVariant?.size === variant.size
             ? { ...item, quantity: item.quantity + 1 }
             : item
-        })
+        )
       }
 
       return [
@@ -69,79 +51,55 @@ export function CartProvider({ children }) {
           productId,
           name: product.name,
           image: product.image,
-
           selectedVariant: {
             color: variant.color,
             size: variant.size,
-            price: variant.price
+            price: Number(variant.price || 0)
           },
-
           quantity: 1
         }
       ]
     })
   }
 
-  /* ================= REMOVE ================= */
-  const removeFromCart = (id) => {
-    setCart(prev =>
-      prev.filter(item => (item.productId || item._id) !== id)
-    )
+  const removeFromCart = (index) => {
+    setCart(prev => prev.filter((_, i) => i !== index))
   }
 
-  /* ================= UPDATE QTY ================= */
-  const updateQuantity = (id, qty) => {
-    if (qty <= 0) {
-      removeFromCart(id)
-      return
-    }
-
+  const updateQuantity = (index, qty) => {
     setCart(prev =>
-      prev.map(item =>
-        (item.productId || item._id) === id
-          ? { ...item, quantity: qty }
+      prev.map((item, i) =>
+        i === index
+          ? { ...item, quantity: Math.max(1, qty) }
           : item
       )
     )
   }
 
-  /* ================= CLEAR ================= */
-  const clearCart = () => {
-    setCart([])
-    localStorage.removeItem("cart")
-  }
+  const clearCart = () => setCart([])
 
-  /* ================= TOTALS ================= */
   const subtotal = cart.reduce((sum, item) => {
     const price = Number(item?.selectedVariant?.price || 0)
     const qty = Number(item?.quantity || 1)
     return sum + price * qty
   }, 0)
 
-  const taxRate = 0.0825
-  const tax = subtotal * taxRate
+  const tax = subtotal * 0.0825
   const total = subtotal + tax
 
-  const cartCount = cart.reduce(
-    (sum, item) => sum + item.quantity,
-    0
-  )
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
 
   return (
     <CartContext.Provider
       value={{
         cart,
-        setCart,
         addToCart,
         removeFromCart,
         updateQuantity,
         clearCart,
-
-        /* 🔥 totals */
         subtotal,
         tax,
         total,
-
         cartCount
       }}
     >
@@ -149,5 +107,8 @@ export function CartProvider({ children }) {
     </CartContext.Provider>
   )
 }
+
+/* ✅ ADD THIS BACK */
+
 
 export default CartContext

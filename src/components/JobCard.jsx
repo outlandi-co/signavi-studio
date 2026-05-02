@@ -1,10 +1,29 @@
 import React, { useState } from "react"
+import { useDraggable } from "@dnd-kit/core"
 import api from "../services/api"
 
 function JobCard({ job, onUpdate }) {
   const [price, setPrice] = useState(job?.price || "")
   const [loading, setLoading] = useState(false)
   const [shipping, setShipping] = useState(false)
+
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: job._id,
+    data: {
+      type: "card",
+      job
+    }
+  })
+
+  const style = {
+    ...card,
+    transform: transform
+      ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
+      : undefined,
+    transition: isDragging ? "none" : "transform 0.2s ease",
+    opacity: isDragging ? 0.6 : 1,
+    willChange: "transform"
+  }
 
   if (!job) return null
 
@@ -14,8 +33,7 @@ function JobCard({ job, onUpdate }) {
   const handleApprove = async (e) => {
     e.stopPropagation()
 
-    let finalPrice = Number(price)
-
+    const finalPrice = Number(price)
     if (!finalPrice || finalPrice <= 0) {
       alert("Enter a valid price before approving")
       return
@@ -24,23 +42,13 @@ function JobCard({ job, onUpdate }) {
     setLoading(true)
 
     try {
-      // 🔥 STEP 1: SAVE PRICE FIRST
-      await api.patch(`/quotes/${job._id}`, {
-        price: finalPrice
-      })
-
-      // 🔥 STEP 2: APPROVE (THIS TRIGGERS EMAIL)
-      const res = await api.patch(`/quotes/${job._id}/approve`)
-
-      console.log("✅ APPROVED:", res.data)
-
+      await api.patch(`/quotes/${job._id}`, { price: finalPrice })
+      await api.patch(`/quotes/${job._id}/approve`)
       alert("✅ Quote approved & email sent")
-
-      if (onUpdate) onUpdate()
-
+      onUpdate?.()
     } catch (err) {
-      console.error("❌ APPROVE ERROR:", err.response?.data || err.message)
-      alert(err?.response?.data?.message || "Approve failed")
+      console.error("❌ APPROVE ERROR:", err)
+      alert("Approve failed")
     } finally {
       setLoading(false)
     }
@@ -56,56 +64,104 @@ function JobCard({ job, onUpdate }) {
     setLoading(true)
 
     try {
-      await api.patch(`/quotes/${job._id}/deny`, {
-        reason
-      })
-
-      if (onUpdate) onUpdate()
-
+      await api.patch(`/quotes/${job._id}/deny`, { reason })
+      onUpdate?.()
     } catch (err) {
-      console.error("❌ DENY ERROR:", err.response?.data || err.message)
-      alert("Deny failed")
+      console.error("❌ DENY ERROR:", err)
     } finally {
       setLoading(false)
     }
   }
 
-  /* ================= 🚚 SHIP ================= */
+  /* ================= SHIP ================= */
   const handleShip = async (e) => {
     e.stopPropagation()
 
-    const confirmShip = window.confirm("Ship this order?")
-    if (!confirmShip) return
+    if (!window.confirm("Ship this order?")) return
 
     setShipping(true)
 
     try {
       await api.post(`/orders/ship/${job._id}`)
-
-      console.log("🚚 SHIPPED")
-
-      if (onUpdate) onUpdate()
-
+      onUpdate?.()
     } catch (err) {
-      console.error("❌ SHIP ERROR:", err.response?.data || err.message)
-      alert("Shipping failed")
+      console.error("❌ SHIP ERROR:", err)
     } finally {
       setShipping(false)
     }
   }
 
-  /* ================= UI ================= */
+  /* ================= DOWNLOAD ================= */
+  const handleDownloadArtwork = (e) => {
+    e.stopPropagation()
+
+    if (!job.artwork) {
+      alert("No artwork uploaded")
+      return
+    }
+
+    window.open(
+      `${import.meta.env.VITE_API_URL}/orders/${job._id}/artwork`,
+      "_blank"
+    )
+  }
+
+  /* ================= PREVIEW ================= */
+  const handlePreviewArtwork = (e) => {
+    e.stopPropagation()
+
+    if (!job.artwork) {
+      alert("No artwork uploaded")
+      return
+    }
+
+    window.open(
+      `${import.meta.env.VITE_API_URL}/${job.artwork}`,
+      "_blank"
+    )
+  }
+
+  const fileType = job.artwork?.split(".").pop()?.toLowerCase()
+  const canPreview = ["png", "jpg", "jpeg", "pdf"].includes(fileType)
+
   return (
-    <div style={card}>
+    <div ref={setNodeRef} style={style}>
+      
+      {/* 🔥 DRAG HANDLE */}
+      <div {...listeners} {...attributes} style={dragHandle}>
+        ☰ Drag
+      </div>
+
       <p><b>{job.customerName || "Guest"}</b></p>
       <p>Qty: {job.quantity}</p>
 
       <p>
-        Status:{" "}
-        <span style={status(job.status)}>
-          {job.status}
-        </span>
+        Status: <span style={status(job.status)}>{job.status}</span>
       </p>
+
+      {/* ================= ARTWORK SECTION ================= */}
+      {job.artwork && (
+        <div style={{ marginTop: 10 }}>
+          
+          <p style={{ fontSize: 12, color: "#94a3b8" }}>
+            File: {fileType?.toUpperCase()}
+          </p>
+
+          <div style={{ display: "flex", gap: 8 }}>
+
+            {canPreview && (
+              <button onClick={handlePreviewArtwork} style={previewBtn}>
+                👁 Preview
+              </button>
+            )}
+
+            <button onClick={handleDownloadArtwork} style={downloadBtn}>
+              ⬇️ Download
+            </button>
+
+          </div>
+        </div>
+      )}
 
       {/* ================= QUOTE MODE ================= */}
       {isQuote && job.approvalStatus !== "approved" && (
@@ -114,7 +170,6 @@ function JobCard({ job, onUpdate }) {
 
           <input
             type="number"
-            placeholder="Enter price"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             style={input}
@@ -137,14 +192,13 @@ function JobCard({ job, onUpdate }) {
         </p>
       )}
 
-      {/* ================= 🚚 SHIPPING BUTTON ================= */}
+      {/* ================= SHIPPING ================= */}
       {job.status === "shipping" && (
         <button onClick={handleShip} style={shipBtn} disabled={shipping}>
           {shipping ? "Shipping..." : "🚚 Ship Order"}
         </button>
       )}
 
-      {/* ================= SHIPPED ================= */}
       {job.status === "shipped" && (
         <p style={{ color: "#22c55e", marginTop: 8 }}>
           ✔ Shipped
@@ -165,6 +219,13 @@ const card = {
   color: "white"
 }
 
+const dragHandle = {
+  cursor: "grab",
+  marginBottom: 10,
+  fontWeight: "bold",
+  userSelect: "none"
+}
+
 const input = {
   width: "100%",
   padding: 8,
@@ -182,6 +243,24 @@ const shipBtn = {
   padding: "8px 12px",
   borderRadius: 6,
   cursor: "pointer"
+}
+
+const downloadBtn = {
+  background: "#2563eb",
+  border: "none",
+  padding: "8px 12px",
+  borderRadius: 6,
+  cursor: "pointer",
+  color: "white"
+}
+
+const previewBtn = {
+  background: "#0ea5e9",
+  border: "none",
+  padding: "8px 12px",
+  borderRadius: 6,
+  cursor: "pointer",
+  color: "white"
 }
 
 const status = (s) => ({

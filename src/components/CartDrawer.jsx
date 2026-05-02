@@ -1,29 +1,22 @@
 import Button from "../components/UI/Button"
 import SafeImage from "../components/SafeImage"
-import useCart from "../hooks/useCart"
+import { useCartContext } from "../context/useCartContext"
 import api from "../services/api"
 import { useState, useMemo } from "react"
 
 export default function CartDrawer({ isOpen, onClose }) {
 
-  const { cart, removeFromCart, updateQuantity } = useCart()
+  const { cart, removeFromCart, updateQuantity } = useCartContext()
   const [isRedirecting, setIsRedirecting] = useState(false)
 
   const safeClose = () => {
     if (typeof onClose === "function") onClose()
   }
 
-  /* ================= PRICE HELPER ================= */
   const getPrice = (item) => {
-    return Number(
-      item?.selectedVariant?.price ??
-      item?.variant?.price ??
-      item?.price ??
-      0
-    )
+    return Number(item?.selectedVariant?.price ?? 0)
   }
 
-  /* ================= TOTALS ================= */
   const { subtotal, tax, total } = useMemo(() => {
 
     const sub = cart.reduce((acc, item) => {
@@ -42,35 +35,22 @@ export default function CartDrawer({ isOpen, onClose }) {
 
   }, [cart])
 
-  /* ================= CHECKOUT ================= */
   const handleCheckout = async () => {
     if (isRedirecting) return
 
     try {
       setIsRedirecting(true)
 
-      /* 🔥 SAFE USER LOAD */
-      let storedUser = null
-      let email = null
+      let email = "guest@signavi.com"
 
-      const storedUserRaw = localStorage.getItem("customerUser")
-
-      if (storedUserRaw) {
+      const storedUser = localStorage.getItem("customerUser")
+      if (storedUser) {
         try {
-          const parsed = JSON.parse(storedUserRaw)
-          storedUser = parsed
-          email = parsed?.email || null
-        } catch {
-          console.warn("⚠️ Failed to parse customerUser")
+          email = JSON.parse(storedUser)?.email || email
+        } catch (err) {
+          console.warn("⚠️ Failed to parse customerUser", err)
         }
       }
-
-      /* 🔥 GUEST FALLBACK */
-      if (!email) {
-        email = "guest@signavi.com"
-      }
-
-      console.log("🛒 CART DRAWER EMAIL:", email)
 
       if (!cart.length) {
         alert("Cart is empty")
@@ -78,43 +58,26 @@ export default function CartDrawer({ isOpen, onClose }) {
         return
       }
 
-      const items = cart.map(item => {
-        const price = getPrice(item)
-
-        if (!price || price <= 0) {
-          console.error("❌ BAD ITEM:", item)
-          throw new Error(`Invalid price for ${item.name}`)
-        }
-
-        return {
-          productId: item.productId || item._id || item.id,
-          name: item.name,
-          quantity: Number(item.quantity || 1),
-          price,
-          variant: {
-            color: item?.selectedVariant?.color || "",
-            size: item?.selectedVariant?.size || ""
-          }
-        }
-      })
+      const items = cart.map(item => ({
+        productId: item.productId,
+        name: item.name,
+        quantity: item.quantity,
+        price: getPrice(item),
+        variant: item.selectedVariant
+      }))
 
       const subtotal = items.reduce((sum, i) => sum + (i.price * i.quantity), 0)
       const tax = subtotal * 0.0825
 
-      /* 🔥 FIXED HERE */
       const orderRes = await api.post("/orders", {
-        customerName: storedUser?.name || "Guest",
-        email: email, // ✅ USE SAFE EMAIL
+        email,
         items,
-        quantity: items.reduce((sum, i) => sum + i.quantity, 0),
         subtotal,
         tax,
-        price: subtotal,
         finalPrice: subtotal + tax
       })
 
       const orderId = orderRes?.data?.data?._id
-
       if (!orderId) throw new Error("Order ID missing")
 
       window.location.href = `/client-checkout/${orderId}`
@@ -128,7 +91,6 @@ export default function CartDrawer({ isOpen, onClose }) {
 
   return (
     <>
-      {/* BACKDROP */}
       <div onClick={safeClose} style={{
         position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
         opacity: isOpen ? 1 : 0,
@@ -136,7 +98,6 @@ export default function CartDrawer({ isOpen, onClose }) {
         zIndex: 900
       }}/>
 
-      {/* DRAWER */}
       <div style={{
         position: "fixed", right: 0, top: 0, width: 360, height: "100%",
         background: "#020617",
@@ -148,13 +109,11 @@ export default function CartDrawer({ isOpen, onClose }) {
         zIndex: 1000
       }}>
 
-        {/* HEADER */}
         <div style={{ padding: 20, display: "flex", justifyContent: "space-between" }}>
           <h2>🛒 Cart</h2>
           <button onClick={safeClose}>✖</button>
         </div>
 
-        {/* ITEMS */}
         <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
           {cart.map((item, i) => {
             const price = getPrice(item)
@@ -180,7 +139,6 @@ export default function CartDrawer({ isOpen, onClose }) {
           })}
         </div>
 
-        {/* TOTAL */}
         <div style={{ padding: 20 }}>
           <p>Subtotal: ${subtotal.toFixed(2)}</p>
           <p>Tax: ${tax.toFixed(2)}</p>
