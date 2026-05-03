@@ -104,24 +104,12 @@ export default function ClientCheckout() {
 
       console.log("🚚 SAVING SHIPPING:", payload)
 
-      let res
-
-      /* 🔥 TRY CHECKOUT ROUTE FIRST */
-      try {
-        res = await api.patch(`/orders/${id}/checkout`, payload)
-      } catch {
-        console.warn("⚠️ Checkout route failed, using fallback")
-
-        /* 🔥 FALLBACK ROUTE (GUARANTEED TO WORK) */
-        res = await api.patch(`/orders/${id}`, {
-          ...payload,
-          status: "shipping"
-        })
-      }
+      /* ✅ ONLY USE VALID BACKEND ROUTE */
+      const res = await api.patch(`/orders/${id}/checkout`, payload)
 
       console.log("✅ ORDER UPDATED:", res.data)
 
-      /* 🔥 ALWAYS PROCEED */
+      /* 🔥 SAVE SHIPPING LOCALLY */
       localStorage.setItem(
         "shippingRate",
         JSON.stringify({ amount: selectedRate.amount })
@@ -133,7 +121,7 @@ export default function ClientCheckout() {
 
     } catch (err) {
       console.error("❌ SAVE ERROR:", err.response?.data || err.message)
-      alert("Failed to save shipping")
+      alert("Checkout failed. Please try again.")
     } finally {
       setSaving(false)
     }

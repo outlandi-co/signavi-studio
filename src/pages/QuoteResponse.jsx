@@ -38,8 +38,8 @@ export default function QuoteResponse() {
       setLoading(true)
       setError("")
 
-      const res = await api.post(`/square/create-payment/${id}`)
-      const url = res?.data?.url
+      const res = await api.patch(`/orders/${id}/checkout`)
+const url = res?.data?.paymentUrl
 
       if (!url) throw new Error("No payment URL returned")
 

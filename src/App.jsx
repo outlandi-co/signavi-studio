@@ -60,7 +60,7 @@ import EditProduct from "./pages/admin/EditProduct"
 
 /* FLOW */
 import ApproveMockup from "./pages/ApproveMockup"
-import Checkout from "./pages/Checkout"
+import CheckoutRedirect from "./pages/CheckoutRedirect"
 import ClientCheckout from "./pages/ClientCheckout"
 
 function AppContent() {
@@ -197,7 +197,7 @@ if (storedUser) {
 
         {/* CHECKOUT */}
         <Route path="/client-checkout/:id" element={<ClientCheckout />} />
-        <Route path="/checkout/:id" element={<Checkout />} />
+        <Route path="/checkout/:id" element={<CheckoutRedirect />} />
 
         {/* ORDER */}
         <Route path="/client-order/:id" element={<ClientOrder />} />

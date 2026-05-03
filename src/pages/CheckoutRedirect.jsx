@@ -14,7 +14,7 @@ function CheckoutRedirect() {
 
     const goToSquare = async () => {
       try {
-        console.log("💳 Creating Square checkout for:", id)
+        console.log("💳 Starting checkout for:", id)
 
         let attempts = 0
         let success = false
@@ -23,8 +23,10 @@ function CheckoutRedirect() {
         /* 🔥 HANDLE RENDER COLD START */
         while (attempts < 3 && !success) {
           try {
-            res = await api.post(`/square/create-payment/${id}`)
+            // ✅ MATCH BACKEND ROUTE
+            res = await api.patch(`/orders/${id}/checkout`)
             success = true
+
           } catch (err) {
             attempts++
 
@@ -37,14 +39,16 @@ function CheckoutRedirect() {
           }
         }
 
-        if (!res?.data?.url) {
+        const url = res?.data?.paymentUrl
+
+        if (!url) {
           throw new Error("No payment URL returned")
         }
 
-        console.log("🚀 Redirecting to Square:", res.data.url)
+        console.log("🚀 Redirecting to:", url)
 
-        /* 🔥 USE ASSIGN (safer than href) */
-        window.location.assign(res.data.url)
+        // 🔥 Redirect safely
+        window.location.assign(url)
 
       } catch (err) {
         console.error("❌ Checkout error:", err)
@@ -76,7 +80,8 @@ function CheckoutRedirect() {
             background: "#22c55e",
             border: "none",
             borderRadius: 6,
-            color: "white"
+            color: "white",
+            cursor: "pointer"
           }}
         >
           Retry

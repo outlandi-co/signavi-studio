@@ -25,8 +25,8 @@ export default function Checkout() {
           throw new Error("Invalid order ID")
         }
 
-        const res = await api.post(`/square/create-payment/${id}`)
-        const url = res?.data?.url
+        const res = await api.patch(`/orders/${id}/checkout`)
+const url = res?.data?.paymentUrl
 
         if (!url) throw new Error("No payment URL returned")
 
@@ -58,8 +58,8 @@ export default function Checkout() {
       setLoading(true)
       setError("")
 
-      const res = await api.post(`/square/create-payment/${id}`)
-      const url = res?.data?.url
+      const res = await api.patch(`/orders/${id}/checkout`)
+const url = res?.data?.paymentUrl
 
       if (!url) throw new Error("No payment URL")
 
