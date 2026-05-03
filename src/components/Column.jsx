@@ -1,7 +1,10 @@
 import { useDroppable } from "@dnd-kit/core"
+import {
+  SortableContext,
+  verticalListSortingStrategy
+} from "@dnd-kit/sortable"
 import JobCard from "./JobCard"
 
-/* 🔥 ADD THIS */
 const getColor = (status) => {
   switch (status) {
     case "quotes": return "#1e293b"
@@ -28,18 +31,26 @@ export function Column({ id, jobs }) {
       ref={setNodeRef}
       style={{
         minWidth: 260,
-        minHeight: 300,
+        minHeight: 400,
         background: getColor(id),
         padding: 12,
         borderRadius: 10,
-        border: isOver ? "2px solid #3b82f6" : "1px solid #1e293b"
+        border: isOver ? "2px solid #3b82f6" : "1px solid #1e293b",
+        display: "flex",
+        flexDirection: "column"
       }}
     >
       <h3>{id.toUpperCase()}</h3>
 
-      {(jobs || []).map(job => (
-        <JobCard key={job._id} job={job} />
-      ))}
+      {/* 🔥 SORTABLE CONTEXT */}
+      <SortableContext
+        items={(jobs || []).map(j => j._id)}
+        strategy={verticalListSortingStrategy}
+      >
+        {(jobs || []).map(job => (
+          <JobCard key={job._id} job={job} />
+        ))}
+      </SortableContext>
     </div>
   )
 }

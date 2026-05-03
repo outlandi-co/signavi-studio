@@ -3,6 +3,7 @@ import api from "../services/api"
 import { DndContext, closestCorners } from "@dnd-kit/core"
 import { io } from "socket.io-client"
 import { Column } from "../components/Column"
+import { arrayMove } from "@dnd-kit/sortable"
 
 export default function ProductionBoard() {
   const [jobs, setJobs] = useState(null)
@@ -18,7 +19,7 @@ export default function ProductionBoard() {
       const orders = ordersRes.data?.data || []
 
       setJobs({
-        quotes, // ✅ keep quotes separate
+        quotes,
         payment_required: orders.filter(o => o.status === "payment_required"),
         ready_for_production: orders.filter(o => o.status === "ready_for_production"),
         production: orders.filter(o => o.status === "production"),
@@ -33,16 +34,11 @@ export default function ProductionBoard() {
 
   /* ================= INITIAL LOAD ================= */
   useEffect(() => {
-  const init = async () => {
-    try {
+    const init = async () => {
       await load()
-    } catch (err) {
-      console.error("❌ INIT LOAD ERROR:", err)
     }
-  }
-
-  init()
-}, [])
+    init()
+  }, [])
 
   /* ================= SOCKET ================= */
   useEffect(() => {
@@ -55,7 +51,7 @@ export default function ProductionBoard() {
         const updated = { ...prev }
 
         Object.keys(updated).forEach(key => {
-          if (key === "quotes") return // ✅ DON'T TOUCH QUOTES
+          if (key === "quotes") return
           updated[key] = updated[key].filter(j => j._id !== updatedOrder._id)
         })
 
@@ -75,74 +71,73 @@ export default function ProductionBoard() {
 
   /* ================= DRAG ================= */
   const handleDragEnd = async ({ active, over }) => {
-    console.log("DRAG EVENT:", { active, over })
-
-    if (!active || !over) return
+    if (!active || !over || !jobs) return
 
     const jobId = active.id
-    const columnData = over.data?.current
+    const overId = over.id
+    const overData = over.data?.current
 
-    if (!columnData || columnData.type !== "column") {
-      console.warn("❌ Not dropped on a column:", columnData)
+    let sourceColumn = null
+    let targetColumn = null
+
+    // 🔍 find source column
+    Object.entries(jobs).forEach(([key, arr]) => {
+      if (key === "quotes") return
+      if (arr.some(j => j._id === jobId)) sourceColumn = key
+    })
+
+    // 🔍 determine target column
+    Object.entries(jobs).forEach(([key, arr]) => {
+      if (key === "quotes") return
+      if (arr.some(j => j._id === overId)) targetColumn = key
+    })
+
+    // fallback if dropped on column
+    if (!targetColumn && overData?.type === "column") {
+      targetColumn = overData.columnId
+    }
+
+    if (!sourceColumn || !targetColumn) return
+
+    /* ================= SAME COLUMN (REORDER) ================= */
+    if (sourceColumn === targetColumn) {
+      const items = jobs[sourceColumn]
+      const oldIndex = items.findIndex(j => j._id === jobId)
+      const newIndex = items.findIndex(j => j._id === overId)
+
+      if (oldIndex !== newIndex && newIndex !== -1) {
+        setJobs(prev => ({
+          ...prev,
+          [sourceColumn]: arrayMove(prev[sourceColumn], oldIndex, newIndex)
+        }))
+      }
+
       return
     }
 
-    const newStatus = columnData.columnId
-
-    // 🔍 find job (IGNORE quotes)
-    const currentJob = Object.values(jobs)
-      .filter((_, key) => Object.keys(jobs)[key] !== "quotes")
-      .flat()
-      .find(j => j._id === jobId)
-
-    if (!currentJob) return
-    if (currentJob.source === "quote") return
-    if (currentJob.status === newStatus) return
-
+    /* ================= MOVE BETWEEN COLUMNS ================= */
     try {
-      console.log("➡️ MOVING:", jobId, "TO:", newStatus)
-
-      const res = await api.patch(`/orders/${jobId}/status`, {
-        status: newStatus
+      await api.patch(`/orders/${jobId}/status`, {
+        status: targetColumn
       })
 
-      const updatedJob = res.data?.data
-      if (!updatedJob) return
-
-      /* 🔥 FIX: PRESERVE QUOTES + REBUILD ORDERS */
       setJobs(prev => {
-        const quotes = prev.quotes || []
+        const sourceItems = prev[sourceColumn].filter(j => j._id !== jobId)
+        const movedItem = prev[sourceColumn].find(j => j._id === jobId)
 
-        const allOrders = Object.entries(prev)
-          .filter(([key]) => key !== "quotes")
-          .flatMap(([, arr]) => arr)
+        if (!movedItem) return prev
 
-        const updatedOrders = allOrders.map(job =>
-          job._id === jobId
-            ? { ...job, status: newStatus }
-            : job
-        )
+        const updatedItem = { ...movedItem, status: targetColumn }
 
-        const regrouped = {
-          quotes, // ✅ KEEP QUOTES
-          payment_required: [],
-          ready_for_production: [],
-          production: [],
-          shipping: [],
-          shipped: []
+        return {
+          ...prev,
+          [sourceColumn]: sourceItems,
+          [targetColumn]: [updatedItem, ...prev[targetColumn]]
         }
-
-        updatedOrders.forEach(job => {
-          if (regrouped[job.status]) {
-            regrouped[job.status].push(job)
-          }
-        })
-
-        return regrouped
       })
 
     } catch (err) {
-      console.error("❌ PATCH ERROR:", err)
+      console.error("❌ MOVE ERROR:", err)
     }
   }
 
@@ -152,7 +147,10 @@ export default function ProductionBoard() {
     <div style={{ padding: 20, background: "#020617", minHeight: "100vh", color: "white" }}>
       <h1>🏭 Production Board</h1>
 
-      <DndContext collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+      <DndContext
+        collisionDetection={closestCorners}
+        onDragEnd={handleDragEnd}
+      >
         <div style={{ display: "flex", gap: 20 }}>
           {Object.entries(jobs).map(([status, list]) => (
             <Column key={status} id={status} jobs={list} />
