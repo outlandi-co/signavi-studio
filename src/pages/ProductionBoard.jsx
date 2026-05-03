@@ -2,8 +2,7 @@ import { useEffect, useState, useRef } from "react"
 import api from "../services/api"
 import { DndContext, closestCorners } from "@dnd-kit/core"
 import { io } from "socket.io-client"
-import JobCard from "../components/JobCard"
-import { Column } from "../components/Column" // ✅ USE THE REAL COLUMN
+import { Column } from "../components/Column"
 
 export default function ProductionBoard() {
   const [jobs, setJobs] = useState(null)
@@ -19,7 +18,7 @@ export default function ProductionBoard() {
       const orders = ordersRes.data?.data || []
 
       setJobs({
-        quotes,
+        quotes, // ✅ keep quotes separate
         payment_required: orders.filter(o => o.status === "payment_required"),
         ready_for_production: orders.filter(o => o.status === "ready_for_production"),
         production: orders.filter(o => o.status === "production"),
@@ -34,11 +33,16 @@ export default function ProductionBoard() {
 
   /* ================= INITIAL LOAD ================= */
   useEffect(() => {
-    const init = async () => {
+  const init = async () => {
+    try {
       await load()
+    } catch (err) {
+      console.error("❌ INIT LOAD ERROR:", err)
     }
-    init()
-  }, [])
+  }
+
+  init()
+}, [])
 
   /* ================= SOCKET ================= */
   useEffect(() => {
@@ -51,6 +55,7 @@ export default function ProductionBoard() {
         const updated = { ...prev }
 
         Object.keys(updated).forEach(key => {
+          if (key === "quotes") return // ✅ DON'T TOUCH QUOTES
           updated[key] = updated[key].filter(j => j._id !== updatedOrder._id)
         })
 
@@ -68,64 +73,80 @@ export default function ProductionBoard() {
     return () => socketRef.current.disconnect()
   }, [])
 
-/* ================= DRAG ================= */
-const handleDragEnd = async ({ active, over }) => {
-  console.log("DRAG EVENT:", { active, over })
+  /* ================= DRAG ================= */
+  const handleDragEnd = async ({ active, over }) => {
+    console.log("DRAG EVENT:", { active, over })
 
-  if (!active || !over) return
+    if (!active || !over) return
 
-  const jobId = active.id
-  const columnData = over.data?.current
+    const jobId = active.id
+    const columnData = over.data?.current
 
-  if (!columnData || columnData.type !== "column") {
-    console.warn("❌ Not dropped on a column:", columnData)
-    return
-  }
+    if (!columnData || columnData.type !== "column") {
+      console.warn("❌ Not dropped on a column:", columnData)
+      return
+    }
 
-  const newStatus = columnData.columnId
+    const newStatus = columnData.columnId
 
-  // 🔍 find job
-  const currentJob = Object.values(jobs)
-    .flat()
-    .find(j => j._id === jobId)
+    // 🔍 find job (IGNORE quotes)
+    const currentJob = Object.values(jobs)
+      .filter((_, key) => Object.keys(jobs)[key] !== "quotes")
+      .flat()
+      .find(j => j._id === jobId)
 
-  if (!currentJob) return
-  if (currentJob.source === "quote") return
-  if (currentJob.status === newStatus) return
+    if (!currentJob) return
+    if (currentJob.source === "quote") return
+    if (currentJob.status === newStatus) return
 
-  try {
-    console.log("➡️ MOVING:", jobId, "TO:", newStatus)
+    try {
+      console.log("➡️ MOVING:", jobId, "TO:", newStatus)
 
-    const res = await api.patch(`/orders/${jobId}/status`, {
-      status: newStatus
-    })
-
-    const updatedJob = res.data?.data
-
-    if (!updatedJob) return
-
-    /* 🔥 CRITICAL FIX: UPDATE LOCAL STATE */
-    setJobs(prev => {
-      const newJobs = { ...prev }
-
-      // remove from all columns
-      Object.keys(newJobs).forEach(col => {
-        newJobs[col] = newJobs[col].filter(j => j._id !== jobId)
+      const res = await api.patch(`/orders/${jobId}/status`, {
+        status: newStatus
       })
 
-      // add to new column
-      if (!newJobs[newStatus]) newJobs[newStatus] = []
-      newJobs[newStatus].push(updatedJob)
+      const updatedJob = res.data?.data
+      if (!updatedJob) return
 
-      return newJobs
-    })
+      /* 🔥 FIX: PRESERVE QUOTES + REBUILD ORDERS */
+      setJobs(prev => {
+        const quotes = prev.quotes || []
 
-  } catch (err) {
-    console.error("❌ PATCH ERROR:", err)
+        const allOrders = Object.entries(prev)
+          .filter(([key]) => key !== "quotes")
+          .flatMap(([, arr]) => arr)
+
+        const updatedOrders = allOrders.map(job =>
+          job._id === jobId
+            ? { ...job, status: newStatus }
+            : job
+        )
+
+        const regrouped = {
+          quotes, // ✅ KEEP QUOTES
+          payment_required: [],
+          ready_for_production: [],
+          production: [],
+          shipping: [],
+          shipped: []
+        }
+
+        updatedOrders.forEach(job => {
+          if (regrouped[job.status]) {
+            regrouped[job.status].push(job)
+          }
+        })
+
+        return regrouped
+      })
+
+    } catch (err) {
+      console.error("❌ PATCH ERROR:", err)
+    }
   }
-}
 
-if (!jobs) return <div style={{ padding: 20 }}>Loading...</div>
+  if (!jobs) return <div style={{ padding: 20 }}>Loading...</div>
 
   return (
     <div style={{ padding: 20, background: "#020617", minHeight: "100vh", color: "white" }}>
