@@ -1,10 +1,9 @@
 import { useState } from "react"
-import { useParams, useNavigate } from "react-router-dom"
+import { useParams } from "react-router-dom"
 import api from "../services/api"
 
 export default function ClientCheckout() {
   const { id } = useParams()
-  const navigate = useNavigate()
 
   const [form, setForm] = useState({
     name: "",
@@ -84,7 +83,7 @@ export default function ClientCheckout() {
     }
   }
 
-  /* ================= SUBMIT (🔥 FIXED) ================= */
+  /* ================= SUBMIT (🔥 FINAL FIX) ================= */
   const handleSubmit = async () => {
     if (!selectedRate) {
       alert("Select a shipping option")
@@ -104,20 +103,34 @@ export default function ClientCheckout() {
 
       console.log("🚚 SAVING SHIPPING:", payload)
 
-      /* ✅ ONLY USE VALID BACKEND ROUTE */
       const res = await api.patch(`/orders/${id}/checkout`, payload)
 
       console.log("✅ ORDER UPDATED:", res.data)
 
-      /* 🔥 SAVE SHIPPING LOCALLY */
+      const { paymentUrl, orderId } = res.data || {}
+
+      if (!paymentUrl) {
+        alert("Payment failed")
+        return
+      }
+
+      /* 🔥 CRITICAL FIX: SAVE ORDER ID BEFORE REDIRECT */
+      if (orderId) {
+        localStorage.setItem("lastOrderId", orderId)
+      } else {
+        console.warn("⚠️ Missing orderId in response")
+      }
+
+      /* 🔥 SAVE SHIPPING (OPTIONAL) */
       localStorage.setItem(
         "shippingRate",
         JSON.stringify({ amount: selectedRate.amount })
       )
 
-      console.log("➡️ PROCEEDING TO PAYMENT")
+      console.log("➡️ REDIRECTING TO PAYMENT")
 
-      navigate(`/checkout/${id}`)
+      /* 🔥 REDIRECT TO SQUARE */
+      window.location.href = paymentUrl
 
     } catch (err) {
       console.error("❌ SAVE ERROR:", err.response?.data || err.message)

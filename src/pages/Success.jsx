@@ -3,18 +3,20 @@ import { useSearchParams, useNavigate } from "react-router-dom"
 import api from "../services/api"
 
 export default function Success() {
-
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const orderId = searchParams.get("orderId")
+  /* 🔥 FIX: try URL first, fallback to localStorage */
+  const urlOrderId = searchParams.get("orderId")
+  const storedOrderId = localStorage.getItem("lastOrderId")
+  const orderId = urlOrderId || storedOrderId
 
   useEffect(() => {
-
     if (!orderId) {
+      console.warn("⚠️ No orderId found")
       setLoading(false)
       return
     }
@@ -22,7 +24,7 @@ export default function Success() {
     const loadOrder = async () => {
       try {
         const res = await api.get(`/orders/${orderId}`)
-        setOrder(res.data)
+        setOrder(res.data?.data || res.data)
       } catch (err) {
         console.error("❌ Failed to load order:", err)
       } finally {
@@ -31,8 +33,18 @@ export default function Success() {
     }
 
     loadOrder()
-
   }, [orderId])
+
+  /* 🔥 OPTIONAL: auto redirect after short delay */
+  useEffect(() => {
+    if (!loading && orderId) {
+      const timer = setTimeout(() => {
+        navigate(`/track/${orderId}`)
+      }, 2500)
+
+      return () => clearTimeout(timer)
+    }
+  }, [loading, orderId, navigate])
 
   return (
     <div style={{
@@ -44,7 +56,6 @@ export default function Success() {
       alignItems: "center",
       padding: 20
     }}>
-
       <div style={{
         maxWidth: 500,
         width: "100%",
