@@ -1,17 +1,13 @@
 import { Link, useNavigate, useLocation } from "react-router-dom"
 import logo from "../assets/SignaVi_Logo.jpg"
-import NotificationBell from "./NotificationBell"
+// 🔥 TEMP: disable until we confirm no click blockers
+// import NotificationBell from "./NotificationBell"
 import { useCartContext } from "../context/useCartContext"
-import { useState } from "react"
-import AccountDrawer from "./AccountDrawer"
 
-function Navbar({ setCartOpen }) {
-
+function Navbar({ setCartOpen, setAccountOpen }) {
   const navigate = useNavigate()
   const location = useLocation()
-
   const { cartCount } = useCartContext()
-  const [accountOpen, setAccountOpen] = useState(false)
 
   const adminUser = JSON.parse(localStorage.getItem("adminUser") || "null")
   const customerUser = JSON.parse(localStorage.getItem("customerUser") || "null")
@@ -29,6 +25,16 @@ function Navbar({ setCartOpen }) {
     return location.pathname.startsWith(path)
   }
 
+  const openCart = () => {
+    setAccountOpen(false)
+    setCartOpen(true)
+  }
+
+  const openAccount = () => {
+    setCartOpen(false)
+    setAccountOpen(true)
+  }
+
   return (
     <div style={nav}>
       <div style={left}>
@@ -40,17 +46,18 @@ function Navbar({ setCartOpen }) {
         <NavItem to="/store" active={isActive("/store")}>Store</NavItem>
         <NavItem to="/quote" active={isActive("/quote")}>Get Quote</NavItem>
 
-        <button onClick={() => setCartOpen(true)} style={cartBtn}>
+        <button onClick={openCart} style={cartBtn}>
           🛒 Cart
           {cartCount > 0 && <span style={badge}>{cartCount}</span>}
         </button>
       </div>
 
       <div style={right}>
-        <NotificationBell />
+        {/* 🔥 COMMENTED OUT FOR DEBUG */}
+        {/* <NotificationBell /> */}
 
         {isCustomer && (
-          <button onClick={() => setAccountOpen(true)} style={accountBtn}>
+          <button onClick={openAccount} style={accountBtn}>
             Account
           </button>
         )}
@@ -67,12 +74,6 @@ function Navbar({ setCartOpen }) {
           </div>
         )}
       </div>
-
-      <AccountDrawer
-        open={accountOpen}
-        onClose={() => setAccountOpen(false)}
-        user={customerUser}
-      />
     </div>
   )
 }

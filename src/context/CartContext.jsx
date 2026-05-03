@@ -16,7 +16,6 @@ export function CartProvider({ children }) {
     localStorage.setItem("cart", JSON.stringify(cart))
   }, [cart])
 
-  /* ================= ADD ================= */
   const addToCart = (product) => {
     const variant = product.selectedVariant
     const productId = product.productId || product._id
@@ -57,7 +56,6 @@ export function CartProvider({ children }) {
     })
   }
 
-  /* ================= UPDATE (+ / - FIX) ================= */
   const updateQuantity = (productId, variant, delta) => {
     setCart(prev =>
       prev
@@ -77,7 +75,6 @@ export function CartProvider({ children }) {
     )
   }
 
-  /* ================= REMOVE ================= */
   const removeFromCart = (productId, variant) => {
     setCart(prev =>
       prev.filter(item =>
@@ -90,8 +87,6 @@ export function CartProvider({ children }) {
     )
   }
 
-  const clearCart = () => setCart([])
-
   const subtotal = cart.reduce((sum, item) => {
     const price = Number(item.selectedVariant?.price || 0)
     const qty = Number(item.quantity || 1)
@@ -101,20 +96,16 @@ export function CartProvider({ children }) {
   const tax = subtotal * 0.0825
   const total = subtotal + tax
 
-  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
-
   return (
     <CartContext.Provider
       value={{
         cart,
         addToCart,
-        removeFromCart,
         updateQuantity,
-        clearCart,
+        removeFromCart,
         subtotal,
         tax,
-        total,
-        cartCount
+        total
       }}
     >
       {children}

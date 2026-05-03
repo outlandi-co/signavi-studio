@@ -10,11 +10,11 @@ import api from "./services/api"
 /* CONTEXT */
 import ToastProvider from "./context/ToastProvider"
 import { useToast } from "./hooks/useToast"
-import { CartProvider } from "./context/CartProvider"
 
 /* COMPONENTS */
 import Navbar from "./components/Navbar"
 import CartDrawer from "./components/CartDrawer"
+import AccountDrawer from "./components/AccountDrawer" // 🔥 ADDED
 import AdminLayout from "./components/admin/AdminLayout"
 import CustomerRoute from "./components/guards/CustomerRoute"
 import AdminRoute from "./components/admin/AdminRoute"
@@ -33,7 +33,7 @@ import CustomQuote from "./pages/CustomQuote"
 import Login from "./pages/Login"
 import QuoteResponse from "./pages/QuoteResponse"
 import Success from "./pages/Success"
-import TrackingPage from "./pages/TrackingPage"   // 🔥 FIXED
+import TrackingPage from "./pages/TrackingPage"
 import ClientOrder from "./pages/ClientOrder"
 
 /* CUSTOMER */
@@ -67,7 +67,10 @@ function AppContent() {
 
   const { addToast } = useToast()
 
+  /* 🔥 FIX: BOTH DRAWERS CONTROLLED HERE */
   const [cartOpen, setCartOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
+
   const [isRedirecting, setIsRedirecting] = useState(false)
 
   /* ================= CHECKOUT ================= */
@@ -78,19 +81,20 @@ function AppContent() {
       setIsRedirecting(true)
 
       let email = null
-const storedUser = localStorage.getItem("customerUser")
+      const storedUser = localStorage.getItem("customerUser")
 
-if (storedUser) {
-  try {
-    email = JSON.parse(storedUser)?.email
-  } catch (err) {
-    console.warn("⚠️ Failed to parse customerUser:", err)
-  }
-}
+      if (storedUser) {
+        try {
+          email = JSON.parse(storedUser)?.email
+        } catch (err) {
+          console.warn("⚠️ Failed to parse customerUser:", err)
+        }
+      }
 
-if (!email) {
-  email = localStorage.getItem("customerEmail")
-}
+      if (!email) {
+        email = localStorage.getItem("customerEmail")
+      }
+
       if (!email) {
         email = prompt("Enter your email to continue checkout:")
         if (!email) {
@@ -149,39 +153,44 @@ if (!email) {
 
   return (
     <>
-      {!shouldHideNavbar && <Navbar setCartOpen={setCartOpen} />}
+      {/* 🔥 FIX: PASS BOTH SETTERS */}
+      {!shouldHideNavbar && (
+        <Navbar
+          setCartOpen={setCartOpen}
+          setAccountOpen={setAccountOpen}
+        />
+      )}
 
+      {/* 🔥 FIX: BOTH DRAWERS LIVE HERE */}
       <CartDrawer
         isOpen={cartOpen}
         onClose={() => setCartOpen(false)}
         onCheckout={handleCheckout}
       />
 
-      <Routes>
+      <AccountDrawer
+        open={accountOpen}
+        onClose={() => setAccountOpen(false)}
+      />
 
-        {/* PUBLIC */}
+      <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/store" element={<Store setCartOpen={setCartOpen} />} />
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/login" element={<Login />} />
 
-        {/* PASSWORD */}
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
 
-        {/* QUOTE */}
         <Route path="/quote" element={<CustomQuote />} />
         <Route path="/quote/:id" element={<QuoteResponse />} />
 
-        {/* 🔥 TRACK FIX */}
         <Route path="/track" element={<TrackingPage />} />
         <Route path="/track/:id" element={<TrackingPage />} />
 
-        {/* CUSTOMER AUTH */}
         <Route path="/customer-login" element={<CustomerLogin />} />
         <Route path="/customer-register" element={<CustomerRegister />} />
 
-        {/* CUSTOMER AREA */}
         <Route element={<CustomerRoute />}>
           <Route element={<CustomerLayout />}>
             <Route path="/dashboard" element={<CustomerDashboard />} />
@@ -191,16 +200,13 @@ if (!email) {
           </Route>
         </Route>
 
-        {/* CHECKOUT */}
         <Route path="/client-checkout/:id" element={<ClientCheckout />} />
         <Route path="/checkout/:id" element={<CheckoutRedirect />} />
 
-        {/* ORDER */}
         <Route path="/client-order/:id" element={<ClientOrder />} />
         <Route path="/success/:id" element={<Success />} />
         <Route path="/approve/:id" element={<ApproveMockup />} />
 
-        {/* ADMIN */}
         <Route path="/admin" element={<AdminRoute />}>
           <Route element={<AdminLayout />}>
             <Route index element={<Dashboard />} />
@@ -215,9 +221,7 @@ if (!email) {
           </Route>
         </Route>
 
-        {/* FALLBACK */}
         <Route path="*" element={<h2>Page not found</h2>} />
-
       </Routes>
     </>
   )
@@ -226,11 +230,9 @@ if (!email) {
 export default function App() {
   return (
     <ToastProvider>
-      <CartProvider>
-        <BrowserRouter>
-          <AppContent />
-        </BrowserRouter>
-      </CartProvider>
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
     </ToastProvider>
   )
 }

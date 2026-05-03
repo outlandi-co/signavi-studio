@@ -1,22 +1,15 @@
 import { useNavigate } from "react-router-dom"
-import { useCartContext } from "../hooks/CartContext" 
+import { useCartContext } from "../hooks/useCartContext"
 import api from "../services/api"
 
 export default function Cart() {
 
   const navigate = useNavigate()
-  const { cart } = useCartContext()
+  const { cart, total } = useCartContext()
 
   const getPrice = (item) => {
     return Number(item?.selectedVariant?.price ?? 0)
   }
-
-  const subtotal = cart.reduce((sum, item) => {
-    return sum + (getPrice(item) * item.quantity)
-  }, 0)
-
-  const tax = subtotal * 0.0825
-  const total = subtotal + tax
 
   const handleCheckout = async () => {
     if (!cart.length) {
@@ -34,12 +27,15 @@ export default function Cart() {
       variant: item.selectedVariant
     }))
 
+    const subtotal = items.reduce((sum, i) => sum + (i.price * i.quantity), 0)
+    const tax = subtotal * 0.0825
+
     const res = await api.post("/orders", {
       email,
       items,
       subtotal,
       tax,
-      finalPrice: total
+      finalPrice: subtotal + tax
     })
 
     const orderId = res?.data?.data?._id

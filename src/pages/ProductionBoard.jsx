@@ -1,81 +1,60 @@
 import { useEffect, useState, useRef } from "react"
 import api from "../services/api"
 import { DndContext, closestCenter } from "@dnd-kit/core"
-import { io } from "socket.io-client"
 import { Column } from "../components/Column"
 import { arrayMove } from "@dnd-kit/sortable"
+import { getSocket } from "../services/socket"
 
 export default function ProductionBoard() {
   const [jobs, setJobs] = useState(null)
   const socketRef = useRef(null)
 
-  /* ================= INITIAL LOAD ================= */
+  /* ================= LOAD ================= */
+  const load = async () => {
+    try {
+      const quotesRes = await api.get("/quotes").catch(() => ({ data: { data: [] } }))
+      const ordersRes = await api.get("/orders")
+
+      const quotes = quotesRes.data?.data || []
+      const orders = ordersRes.data?.data || []
+
+      setJobs({
+        quotes,
+        payment_required: orders.filter(o => o.status === "payment_required"),
+        ready_for_production: orders.filter(o => o.status === "ready_for_production"),
+        production: orders.filter(o => o.status === "production"),
+        shipping: orders.filter(o => o.status === "shipping"),
+        shipped: orders.filter(o => o.status === "shipped")
+      })
+    } catch (err) {
+      console.error("❌ LOAD ERROR:", err)
+    }
+  }
+
+  /* ================= INITIAL LOAD (NO ESLINT WARNING) ================= */
   useEffect(() => {
-    let isMounted = true
-
     const init = async () => {
-      try {
-        const quotesRes = await api.get("/quotes").catch(() => ({ data: { data: [] } }))
-        const ordersRes = await api.get("/orders")
-
-        if (!isMounted) return
-
-        const quotes = quotesRes.data?.data || []
-        const orders = ordersRes.data?.data || []
-
-        setJobs({
-          quotes,
-          payment_required: orders.filter(o => o.status === "payment_required"),
-          ready_for_production: orders.filter(o => o.status === "ready_for_production"),
-          production: orders.filter(o => o.status === "production"),
-          shipping: orders.filter(o => o.status === "shipping"),
-          shipped: orders.filter(o => o.status === "shipped")
-        })
-
-      } catch (err) {
-        console.error("❌ LOAD ERROR:", err)
-      }
+      await load()
     }
-
     init()
-
-    return () => {
-      isMounted = false
-    }
   }, [])
 
   /* ================= SOCKET ================= */
   useEffect(() => {
-    socketRef.current = io("https://signavi-backend.onrender.com")
+    const socket = getSocket()
+    socketRef.current = socket
 
-    socketRef.current.on("orderUpdated", (updatedOrder) => {
-      setJobs(prev => {
-        if (!prev) return prev
+    const handleUpdate = () => {
+      console.log("🔄 Realtime update → reload board")
+      load()
+    }
 
-        const updated = { ...prev }
-
-        // remove from all columns
-        Object.keys(updated).forEach(key => {
-          if (key === "quotes") return
-          updated[key] = updated[key].filter(j => j._id !== updatedOrder._id)
-        })
-
-        // add to correct column
-        if (updated[updatedOrder.status]) {
-          updated[updatedOrder.status] = [
-            updatedOrder,
-            ...updated[updatedOrder.status]
-          ]
-        }
-
-        return updated
-      })
-    })
+    socket.on("orderUpdated", handleUpdate)
+    socket.on("orderCreated", handleUpdate)
 
     return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect()
-      }
+      socket.off("orderUpdated", handleUpdate)
+      socket.off("orderCreated", handleUpdate)
     }
   }, [])
 
@@ -90,24 +69,31 @@ export default function ProductionBoard() {
     let sourceColumn = null
     let targetColumn = null
 
-    Object.entries(jobs).forEach(([key, arr]) => {
-      if (key === "quotes") return
-      if (arr.some(j => j._id === jobId)) sourceColumn = key
-    })
+    // FIND SOURCE
+    for (const [key, arr] of Object.entries(jobs)) {
+      if (key === "quotes") continue
+      if (arr.some(j => j._id === jobId)) {
+        sourceColumn = key
+        break
+      }
+    }
 
-    Object.entries(jobs).forEach(([key, arr]) => {
-      if (key === "quotes") return
-      if (arr.some(j => j._id === overId)) targetColumn = key
-    })
-
-    // dropping into empty column
-    if (!targetColumn && overData?.type === "column") {
+    // FIND TARGET
+    if (overData?.type === "column") {
       targetColumn = overData.columnId
+    } else {
+      for (const [key, arr] of Object.entries(jobs)) {
+        if (key === "quotes") continue
+        if (arr.some(j => j._id === overId)) {
+          targetColumn = key
+          break
+        }
+      }
     }
 
     if (!sourceColumn || !targetColumn) return
 
-    /* 🔥 SAME COLUMN (REORDER) */
+    /* SAME COLUMN (UI reorder only) */
     if (sourceColumn === targetColumn) {
       const items = jobs[sourceColumn]
       const oldIndex = items.findIndex(j => j._id === jobId)
@@ -122,28 +108,14 @@ export default function ProductionBoard() {
       return
     }
 
-    /* 🔥 MOVE BETWEEN COLUMNS */
+    /* MOVE BETWEEN COLUMNS */
     try {
       await api.patch(`/orders/${jobId}/status`, {
         status: targetColumn
       })
 
-      setJobs(prev => {
-        if (!prev) return prev
-
-        const sourceItems = prev[sourceColumn].filter(j => j._id !== jobId)
-        const movedItem = prev[sourceColumn].find(j => j._id === jobId)
-
-        if (!movedItem) return prev
-
-        const updatedItem = { ...movedItem, status: targetColumn }
-
-        return {
-          ...prev,
-          [sourceColumn]: sourceItems,
-          [targetColumn]: [updatedItem, ...prev[targetColumn]]
-        }
-      })
+      // 🔥 FORCE REALTIME SYNC
+      await load()
 
     } catch (err) {
       console.error("❌ MOVE ERROR:", err)

@@ -13,11 +13,15 @@ export const getSocket = () => {
   })
 
   socket.on("connect", () => {
-    console.log("✅ Socket connected")
+    console.log("🟢 Socket connected:", socket.id)
   })
 
-  socket.on("connect_error", () => {
-    console.warn("⚠️ Socket failed")
+  socket.on("disconnect", () => {
+    console.log("🔴 Socket disconnected")
+  })
+
+  socket.on("connect_error", (err) => {
+    console.warn("⚠️ Socket error:", err.message)
   })
 
   return socket
