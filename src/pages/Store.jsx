@@ -17,7 +17,13 @@ export default function Store() {
     const load = async () => {
       try {
         const res = await api.get("/products")
-        setProducts(Array.isArray(res.data) ? res.data : [])
+
+        // 🔥 FIX: handle both response shapes
+        const list = Array.isArray(res.data)
+          ? res.data
+          : res.data?.data || []
+
+        setProducts(list)
       } catch (err) {
         console.error("❌ Failed to load products:", err)
       } finally {
@@ -82,7 +88,7 @@ export default function Store() {
 
               <h3>{product.name}</h3>
 
-              {/* 🎨 COLORS */}
+              {/* COLORS */}
               <div>
                 <p>Color</p>
                 <div style={row}>
@@ -109,7 +115,7 @@ export default function Store() {
                 </div>
               </div>
 
-              {/* 📏 SIZES */}
+              {/* SIZES */}
               {sel.color && (
                 <div>
                   <p>Size</p>
@@ -138,12 +144,12 @@ export default function Store() {
                 </div>
               )}
 
-              {/* 💰 PRICE */}
+              {/* PRICE */}
               <p style={priceStyle}>
                 {price ? `$${price.toFixed(2)}` : "Select options"}
               </p>
 
-              {/* 📦 STOCK */}
+              {/* STOCK */}
               {variant && (
                 <p style={{
                   color: stock > 0 ? "#22c55e" : "red",
@@ -155,7 +161,7 @@ export default function Store() {
                 </p>
               )}
 
-              {/* 🛒 BUTTON */}
+              {/* ADD TO CART */}
               <button
                 disabled={!variant || stock <= 0}
                 onClick={() => {
@@ -169,20 +175,15 @@ export default function Store() {
                     return
                   }
 
-                  /* 🔥 FIXED: NO _id USED */
                   addToCart({
-                    _id: product._id,
                     productId: product._id,
                     name: product.name,
                     image: product.image,
-
                     selectedVariant: {
                       color: variant.color,
                       size: variant.size,
                       price: variant.price
-                    },
-
-                    quantity: 1
+                    }
                   })
 
                   toast.success("Added to cart")
@@ -207,64 +208,14 @@ export default function Store() {
   )
 }
 
-/* ================= STYLES ================= */
-
-const container = {
-  padding: 20,
-  background: "#020617",
-  minHeight: "100vh",
-  color: "white"
-}
-
+/* STYLES */
+const container = { padding: 20, background: "#020617", minHeight: "100vh", color: "white" }
 const title = { marginBottom: 20 }
-
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill,minmax(250px,1fr))",
-  gap: 20
-}
-
-const card = {
-  padding: 15,
-  background: "#111",
-  borderRadius: 10
-}
-
-const image = {
-  width: "100%",
-  height: 200,
-  objectFit: "cover"
-}
-
-const priceStyle = {
-  color: "#22c55e",
-  fontWeight: "bold"
-}
-
-const row = {
-  display: "flex",
-  gap: 5,
-  flexWrap: "wrap"
-}
-
-const btn = {
-  padding: 5,
-  borderRadius: 5,
-  border: "none",
-  color: "white"
-}
-
-const button = {
-  marginTop: 10,
-  padding: 10,
-  background: "#06b6d4",
-  border: "none",
-  borderRadius: 6
-}
-
-const center = {
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  height: "100vh"
-}
+const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(250px,1fr))", gap: 20 }
+const card = { padding: 15, background: "#111", borderRadius: 10 }
+const image = { width: "100%", height: 200, objectFit: "cover" }
+const priceStyle = { color: "#22c55e", fontWeight: "bold" }
+const row = { display: "flex", gap: 5, flexWrap: "wrap" }
+const btn = { padding: 5, borderRadius: 5, border: "none", color: "white" }
+const button = { marginTop: 10, padding: 10, background: "#06b6d4", border: "none", borderRadius: 6 }
+const center = { display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }

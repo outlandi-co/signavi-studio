@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
 import api from "../services/api"
-import { useCartContext } from "../context/useCartContext" 
+import { useCartContext } from "../context/useCartContext"
 
 const BASE_URL =
   (import.meta.env.VITE_API_URL || "https://signavi-backend.onrender.com/api")
@@ -17,19 +17,24 @@ export default function ProductDetail() {
 
   const { addToCart } = useCartContext()
 
-  /* ================= LOAD ================= */
   useEffect(() => {
     const load = async () => {
       const res = await api.get("/products")
-      const found = res.data.find(p => p._id === id)
+
+      // 🔥 FIX
+      const list = Array.isArray(res.data)
+        ? res.data
+        : res.data?.data || []
+
+      const found = list.find(p => p._id === id)
       setProduct(found)
     }
+
     load()
   }, [id])
 
   if (!product) return <p style={{ padding: 20 }}>Loading...</p>
 
-  /* 🔥 FIND SELECTED VARIANT */
   const selectedVariant = product.variants?.find(v =>
     v.color === selectedColor &&
     v.size === selectedSize
@@ -51,14 +56,12 @@ export default function ProductDetail() {
         color: selectedVariant.color,
         size: selectedVariant.size,
         price: selectedVariant.price
-      },
-      quantity: 1
+      }
     })
   }
 
   return (
     <div style={{ padding: 20, color: "white" }}>
-
       <img
         src={product.image ? `${BASE_URL}/${product.image}` : "/placeholder.png"}
         alt={product.name}
@@ -67,7 +70,6 @@ export default function ProductDetail() {
 
       <h1>{product.name}</h1>
 
-      {/* COLOR */}
       <select onChange={(e)=>setSelectedColor(e.target.value)}>
         <option>Select Color</option>
         {[...new Set(product.variants.map(v => v.color))].map(color => (
@@ -75,7 +77,6 @@ export default function ProductDetail() {
         ))}
       </select>
 
-      {/* SIZE */}
       <select onChange={(e)=>setSelectedSize(e.target.value)}>
         <option>Select Size</option>
         {product.variants
@@ -93,7 +94,6 @@ export default function ProductDetail() {
       <button onClick={handleAddToCart}>
         🛒 Add to Cart
       </button>
-
     </div>
   )
 }
