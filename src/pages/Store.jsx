@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import api from "../services/api"
-import useCart from "../hooks/useCart"
+import { useCartContext } from "../context/useCartContext"
 import toast from "react-hot-toast"
 
 export default function Store() {
@@ -8,7 +8,7 @@ export default function Store() {
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState({})
 
-  const { addToCart } = useCart()
+  const { addToCart } = useCartContext()
 
   const BASE_URL = api.defaults.baseURL.replace("/api", "")
 

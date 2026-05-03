@@ -6,8 +6,7 @@ export function CartProvider({ children }) {
 
   const [cart, setCart] = useState(() => {
     try {
-      const saved = localStorage.getItem("cart")
-      return saved ? JSON.parse(saved) : []
+      return JSON.parse(localStorage.getItem("cart") || "[]")
     } catch {
       return []
     }
@@ -17,29 +16,25 @@ export function CartProvider({ children }) {
     localStorage.setItem("cart", JSON.stringify(cart))
   }, [cart])
 
+  /* ================= ADD ================= */
   const addToCart = (product) => {
     const variant = product.selectedVariant
-
-    if (!variant?.color || !variant?.size) {
-      console.warn("❌ Missing variant")
-      return
-    }
-
     const productId = product.productId || product._id
 
-    setCart(prev => {
+    if (!variant?.color || !variant?.size) return
 
+    setCart(prev => {
       const existing = prev.find(item =>
         item.productId === productId &&
-        item.selectedVariant?.color === variant.color &&
-        item.selectedVariant?.size === variant.size
+        item.selectedVariant.color === variant.color &&
+        item.selectedVariant.size === variant.size
       )
 
       if (existing) {
         return prev.map(item =>
           item.productId === productId &&
-          item.selectedVariant?.color === variant.color &&
-          item.selectedVariant?.size === variant.size
+          item.selectedVariant.color === variant.color &&
+          item.selectedVariant.size === variant.size
             ? { ...item, quantity: item.quantity + 1 }
             : item
         )
@@ -62,16 +57,35 @@ export function CartProvider({ children }) {
     })
   }
 
-  const removeFromCart = (index) => {
-    setCart(prev => prev.filter((_, i) => i !== index))
+  /* ================= UPDATE (+ / - FIX) ================= */
+  const updateQuantity = (productId, variant, delta) => {
+    setCart(prev =>
+      prev
+        .map(item => {
+          if (
+            item.productId === productId &&
+            item.selectedVariant.color === variant.color &&
+            item.selectedVariant.size === variant.size
+          ) {
+            const newQty = item.quantity + delta
+            if (newQty <= 0) return null
+            return { ...item, quantity: newQty }
+          }
+          return item
+        })
+        .filter(Boolean)
+    )
   }
 
-  const updateQuantity = (index, qty) => {
+  /* ================= REMOVE ================= */
+  const removeFromCart = (productId, variant) => {
     setCart(prev =>
-      prev.map((item, i) =>
-        i === index
-          ? { ...item, quantity: Math.max(1, qty) }
-          : item
+      prev.filter(item =>
+        !(
+          item.productId === productId &&
+          item.selectedVariant.color === variant.color &&
+          item.selectedVariant.size === variant.size
+        )
       )
     )
   }
@@ -79,8 +93,8 @@ export function CartProvider({ children }) {
   const clearCart = () => setCart([])
 
   const subtotal = cart.reduce((sum, item) => {
-    const price = Number(item?.selectedVariant?.price || 0)
-    const qty = Number(item?.quantity || 1)
+    const price = Number(item.selectedVariant?.price || 0)
+    const qty = Number(item.quantity || 1)
     return sum + price * qty
   }, 0)
 
@@ -107,8 +121,5 @@ export function CartProvider({ children }) {
     </CartContext.Provider>
   )
 }
-
-/* ✅ ADD THIS BACK */
-
 
 export default CartContext

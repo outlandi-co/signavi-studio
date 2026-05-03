@@ -61,8 +61,6 @@ export default function ClientCheckout() {
       setLoadingRates(true)
       setSelectedRate(null)
 
-      console.log("📦 Getting rates with:", form)
-
       const res = await api.post("/shipping/get-rates", {
         address_to: form
       })
@@ -83,63 +81,68 @@ export default function ClientCheckout() {
     }
   }
 
-  /* ================= SUBMIT (🔥 FINAL FIX) ================= */
-  const handleSubmit = async () => {
-    if (!selectedRate) {
-      alert("Select a shipping option")
+/* ================= SUBMIT (FINAL FIX) ================= */
+const handleSubmit = async () => {
+  if (!selectedRate) {
+    alert("Select a shipping option")
+    return
+  }
+
+  try {
+    setSaving(true)
+
+    const payload = {
+      shippingAddress: form,
+      shippingCost: Number(selectedRate.amount),
+      shippingRateId: selectedRate.object_id,
+      carrier: selectedRate.provider,
+      serviceLevel: selectedRate.servicelevel?.name
+    }
+
+    const res = await api.patch(`/orders/${id}/checkout`, payload)
+
+    console.log("🧾 CHECKOUT RESPONSE:", res.data)
+
+    const { paymentUrl, orderId } = res.data || {}
+
+    if (!paymentUrl) {
+      alert("Payment failed")
       return
     }
 
+    /* 🔥 CRITICAL FIX (STRICT) */
+    if (!orderId) {
+      console.error("❌ orderId missing from backend!", res.data)
+      alert("Order error. Please try again.")
+      return
+    }
+
+    /* ✅ GUARANTEED SAVE */
+    localStorage.setItem("lastOrderId", orderId)
+    console.log("✅ Saved orderId:", orderId)
+
+    /* OPTIONAL SHIPPING SAVE */
     try {
-      setSaving(true)
-
-      const payload = {
-        shippingAddress: form,
-        shippingCost: Number(selectedRate.amount),
-        shippingRateId: selectedRate.object_id,
-        carrier: selectedRate.provider,
-        serviceLevel: selectedRate.servicelevel?.name
-      }
-
-      console.log("🚚 SAVING SHIPPING:", payload)
-
-      const res = await api.patch(`/orders/${id}/checkout`, payload)
-
-      console.log("✅ ORDER UPDATED:", res.data)
-
-      const { paymentUrl, orderId } = res.data || {}
-
-      if (!paymentUrl) {
-        alert("Payment failed")
-        return
-      }
-
-      /* 🔥 CRITICAL FIX: SAVE ORDER ID BEFORE REDIRECT */
-      if (orderId) {
-        localStorage.setItem("lastOrderId", orderId)
-      } else {
-        console.warn("⚠️ Missing orderId in response")
-      }
-
-      /* 🔥 SAVE SHIPPING (OPTIONAL) */
       localStorage.setItem(
         "shippingRate",
         JSON.stringify({ amount: selectedRate.amount })
       )
-
-      console.log("➡️ REDIRECTING TO PAYMENT")
-
-      /* 🔥 REDIRECT TO SQUARE */
-      window.location.href = paymentUrl
-
-    } catch (err) {
-      console.error("❌ SAVE ERROR:", err.response?.data || err.message)
-      alert("Checkout failed. Please try again.")
-    } finally {
-      setSaving(false)
+    } catch (e) {
+      console.warn("⚠️ Failed to save shippingRate", e)
     }
-  }
 
+    console.log("💳 Redirecting to:", paymentUrl)
+
+    /* 🔥 REDIRECT */
+    window.location.href = paymentUrl
+
+  } catch (err) {
+    console.error("❌ SAVE ERROR:", err.response?.data || err.message)
+    alert("Checkout failed. Please try again.")
+  } finally {
+    setSaving(false)
+  }
+}
   /* ================= UI ================= */
   return (
     <div style={{ padding: 20, color: "white", maxWidth: 420 }}>

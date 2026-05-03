@@ -130,9 +130,31 @@ export default function CartDrawer({ isOpen, onClose }) {
                 </p>
 
                 <div>
-                  <button onClick={() => updateQuantity(i, qty - 1)}>-</button>
-                  <button onClick={() => updateQuantity(i, qty + 1)}>+</button>
-                  <button onClick={() => removeFromCart(i)}>✖</button>
+                  <button
+  onClick={() =>
+    updateQuantity(item.productId, item.selectedVariant, -1)
+  }
+>
+  -
+</button>
+
+<span>{qty}</span>
+
+<button
+  onClick={() =>
+    updateQuantity(item.productId, item.selectedVariant, 1)
+  }
+>
+  +
+</button>
+
+<button
+  onClick={() =>
+    removeFromCart(item.productId, item.selectedVariant)
+  }
+>
+  ✖
+</button>
                 </div>
               </div>
             )

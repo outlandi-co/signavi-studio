@@ -19,7 +19,7 @@ export default function AdminShipping() {
     try {
       setLoading(true)
       const res = await api.get(`/orders/${orderId}`)
-      setOrder(res.data)
+      setOrder(res.data.data)
 
       setTrackingNumber(res.data.trackingNumber || "")
       setTrackingLink(res.data.trackingLink || "")

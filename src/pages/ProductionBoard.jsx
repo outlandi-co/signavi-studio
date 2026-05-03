@@ -68,44 +68,64 @@ export default function ProductionBoard() {
     return () => socketRef.current.disconnect()
   }, [])
 
-  /* ================= DRAG ================= */
-  const handleDragEnd = async ({ active, over }) => {
-    console.log("DRAG EVENT:", { active, over })
+/* ================= DRAG ================= */
+const handleDragEnd = async ({ active, over }) => {
+  console.log("DRAG EVENT:", { active, over })
 
-    if (!active || !over) return
+  if (!active || !over) return
 
-    const jobId = active.id
+  const jobId = active.id
+  const columnData = over.data?.current
 
-    const columnData = over.data?.current
-
-    if (!columnData || columnData.type !== "column") {
-      console.warn("❌ Not dropped on a column:", columnData)
-      return
-    }
-
-    const newStatus = columnData.columnId
-
-    const currentJob = Object.values(jobs)
-      .flat()
-      .find(j => j._id === jobId)
-
-    if (!currentJob) return
-    if (currentJob.source === "quote") return
-    if (currentJob.status === newStatus) return
-
-    try {
-      console.log("➡️ MOVING:", jobId, "TO:", newStatus)
-
-      await api.patch(`/orders/${jobId}/status`, {
-        status: newStatus
-      })
-
-    } catch (err) {
-      console.error("❌ PATCH ERROR:", err)
-    }
+  if (!columnData || columnData.type !== "column") {
+    console.warn("❌ Not dropped on a column:", columnData)
+    return
   }
 
-  if (!jobs) return <div style={{ padding: 20 }}>Loading...</div>
+  const newStatus = columnData.columnId
+
+  // 🔍 find job
+  const currentJob = Object.values(jobs)
+    .flat()
+    .find(j => j._id === jobId)
+
+  if (!currentJob) return
+  if (currentJob.source === "quote") return
+  if (currentJob.status === newStatus) return
+
+  try {
+    console.log("➡️ MOVING:", jobId, "TO:", newStatus)
+
+    const res = await api.patch(`/orders/${jobId}/status`, {
+      status: newStatus
+    })
+
+    const updatedJob = res.data?.data
+
+    if (!updatedJob) return
+
+    /* 🔥 CRITICAL FIX: UPDATE LOCAL STATE */
+    setJobs(prev => {
+      const newJobs = { ...prev }
+
+      // remove from all columns
+      Object.keys(newJobs).forEach(col => {
+        newJobs[col] = newJobs[col].filter(j => j._id !== jobId)
+      })
+
+      // add to new column
+      if (!newJobs[newStatus]) newJobs[newStatus] = []
+      newJobs[newStatus].push(updatedJob)
+
+      return newJobs
+    })
+
+  } catch (err) {
+    console.error("❌ PATCH ERROR:", err)
+  }
+}
+
+if (!jobs) return <div style={{ padding: 20 }}>Loading...</div>
 
   return (
     <div style={{ padding: 20, background: "#020617", minHeight: "100vh", color: "white" }}>

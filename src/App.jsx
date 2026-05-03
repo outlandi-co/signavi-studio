@@ -7,11 +7,9 @@ import {
 import { useEffect, useState } from "react"
 import api from "./services/api"
 
-/* 🔥 NEW */
+/* CONTEXT */
 import ToastProvider from "./context/ToastProvider"
 import { useToast } from "./hooks/useToast"
-
-/* CONTEXT */
 import { CartProvider } from "./context/CartProvider"
 
 /* COMPONENTS */
@@ -35,7 +33,7 @@ import CustomQuote from "./pages/CustomQuote"
 import Login from "./pages/Login"
 import QuoteResponse from "./pages/QuoteResponse"
 import Success from "./pages/Success"
-import TrackOrder from "./pages/TrackOrder"
+import TrackingPage from "./pages/TrackingPage"   // 🔥 FIXED
 import ClientOrder from "./pages/ClientOrder"
 
 /* CUSTOMER */
@@ -80,10 +78,8 @@ function AppContent() {
       setIsRedirecting(true)
 
       let email = null
+const storedUser = localStorage.getItem("customerUser")
 
-      const storedUser = localStorage.getItem("customerUser")
-
-      // 🔥 ONLY CHANGE IS THIS BLOCK
 if (storedUser) {
   try {
     email = JSON.parse(storedUser)?.email
@@ -92,10 +88,9 @@ if (storedUser) {
   }
 }
 
-      if (!email) {
-        email = localStorage.getItem("customerEmail")
-      }
-
+if (!email) {
+  email = localStorage.getItem("customerEmail")
+}
       if (!email) {
         email = prompt("Enter your email to continue checkout:")
         if (!email) {
@@ -178,8 +173,9 @@ if (storedUser) {
         <Route path="/quote" element={<CustomQuote />} />
         <Route path="/quote/:id" element={<QuoteResponse />} />
 
-        {/* TRACK */}
-        <Route path="/track/:id" element={<TrackOrder />} />
+        {/* 🔥 TRACK FIX */}
+        <Route path="/track" element={<TrackingPage />} />
+        <Route path="/track/:id" element={<TrackingPage />} />
 
         {/* CUSTOMER AUTH */}
         <Route path="/customer-login" element={<CustomerLogin />} />
@@ -211,10 +207,7 @@ if (storedUser) {
             <Route path="production" element={<ProductionBoard />} />
             <Route path="orders" element={<Orders />} />
             <Route path="customers" element={<AdminCustomers />} />
-
-            {/* 🔥 NEW CUSTOMER DETAIL ROUTE */}
             <Route path="customers/:id" element={<AdminCustomerDetail />} />
-
             <Route path="revenue" element={<AdminRevenue />} />
             <Route path="products" element={<Products />} />
             <Route path="products/new" element={<CreateProduct />} />

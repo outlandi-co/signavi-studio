@@ -17,7 +17,7 @@ function ClientOrder() {
     const load = async () => {
       try {
         const res = await api.get(`/orders/${id}/client`)
-        setOrder(res.data)
+        setOrder(res.data.data)
       } catch (err) {
         console.error("❌ CLIENT ORDER ERROR:", err)
         setOrder(null)

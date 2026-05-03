@@ -86,7 +86,17 @@ export default function Success() {
             )}
 
             <button
-              onClick={() => navigate(`/track/${orderId}`)}
+              onClick={() => {
+  const storedId = localStorage.getItem("lastOrderId")
+  const finalId = orderId || storedId
+
+  if (!finalId) {
+    alert("Order not found")
+    return
+  }
+
+  navigate(`/track/${finalId}`)
+}}
               style={{
                 marginTop: 20,
                 padding: "10px 20px",
