@@ -7,7 +7,7 @@ import {
   useSensor,
   useSensors
 } from "@dnd-kit/core"
-import JobCard from "../components/JobCard"
+import { Column } from "../components/Column"
 
 /* ================= VALID STATUSES ================= */
 const VALID_STATUSES = [
@@ -41,19 +41,21 @@ export default function ProductionBoard() {
     if (!over) return
 
     const jobId = active.id
-    const newStatus = over.id
 
-    /* 🔥 BLOCK INVALID DROPS */
-    if (!VALID_STATUSES.includes(newStatus)) {
-      console.warn("❌ BLOCKED INVALID DROP:", newStatus)
+    /* 🔥 ONLY ALLOW COLUMN DROPS */
+    if (!VALID_STATUSES.includes(over.id)) {
+      console.warn("❌ DROPPED ON CARD → IGNORE:", over.id)
       return
     }
+
+    const newStatus = over.id
 
     try {
       await api.patch(`/orders/${jobId}/status`, {
         status: newStatus
       })
 
+      /* UPDATE UI */
       setJobs(prev =>
         prev.map(j =>
           j._id === jobId ? { ...j, status: newStatus } : j
@@ -66,7 +68,7 @@ export default function ProductionBoard() {
 
   /* ================= GROUP ================= */
   const grouped = {
-    quotes: jobs.filter(j => j.status === "quotes"), // display only
+    quotes: jobs.filter(j => j.status === "quotes"),
     payment_required: jobs.filter(j => j.status === "payment_required"),
     ready_for_production: jobs.filter(j => j.status === "ready_for_production"),
     production: jobs.filter(j => j.status === "production"),
@@ -89,30 +91,26 @@ export default function ProductionBoard() {
           <div style={{ width: 260 }}>
             <h3 style={{ color: "white" }}>quotes</h3>
             {grouped.quotes.map(job => (
-              <JobCard key={job._id} job={job} />
+              <div
+                key={job._id}
+                style={{
+                  padding: 10,
+                  marginBottom: 10,
+                  background: "#334155",
+                  borderRadius: 6,
+                  color: "white"
+                }}
+              >
+                {job.customerName || "Guest"}
+              </div>
             ))}
           </div>
 
-          {/* 🔥 VALID COLUMNS ONLY */}
+          {/* 🔥 REAL DROPPABLE COLUMNS */}
           {Object.entries(grouped)
             .filter(([col]) => col !== "quotes")
             .map(([col, list]) => (
-              <div
-                key={col}
-                id={col}
-                style={{
-                  width: 260,
-                  background: "#0f172a",
-                  padding: 10,
-                  borderRadius: 10
-                }}
-              >
-                <h3 style={{ color: "white" }}>{col}</h3>
-
-                {list.map(job => (
-                  <JobCard key={job._id} job={job} />
-                ))}
-              </div>
+              <Column key={col} id={col} jobs={list} />
             ))}
 
         </div>
