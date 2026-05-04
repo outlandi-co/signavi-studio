@@ -29,7 +29,7 @@ export default function JobCard({ job }) {
     color: "#e5e7eb"
   }
 
-  /* ================= UPDATE ================= */
+  /* ================= ACTIONS ================= */
 
   const updatePrice = async () => {
     try {
@@ -65,6 +65,12 @@ export default function JobCard({ job }) {
     }
   }
 
+  /* ================= SHOW BUTTON LOGIC ================= */
+
+  const showDecisionButtons =
+    job.status === "payment_required" ||
+    job.status === "quotes"
+
   return (
     <div ref={setNodeRef} style={style}>
 
@@ -72,7 +78,7 @@ export default function JobCard({ job }) {
         ⠿ drag
       </div>
 
-      <p><b>{job.customerName}</b></p>
+      <p><b>{job.customerName || "Guest"}</b></p>
       <p style={{ color: "#38bdf8" }}>{job.status}</p>
 
       <p style={{ color: "#22c55e", fontWeight: "bold" }}>
@@ -120,32 +126,34 @@ export default function JobCard({ job }) {
         }}
       />
 
-      {/* 🔥 ALWAYS SHOW APPROVE/DENY */}
-      <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-        <button
-          onClick={approve}
-          style={{
-            flex: 1,
-            background: "#22c55e",
-            color: "white",
-            padding: 6
-          }}
-        >
-          Approve
-        </button>
+      {/* 🔥 APPROVE / DENY */}
+      {showDecisionButtons && (
+        <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+          <button
+            onClick={approve}
+            style={{
+              flex: 1,
+              background: "#22c55e",
+              color: "white",
+              padding: 6
+            }}
+          >
+            Approve
+          </button>
 
-        <button
-          onClick={deny}
-          style={{
-            flex: 1,
-            background: "#ef4444",
-            color: "white",
-            padding: 6
-          }}
-        >
-          Deny
-        </button>
-      </div>
+          <button
+            onClick={deny}
+            style={{
+              flex: 1,
+              background: "#ef4444",
+              color: "white",
+              padding: 6
+            }}
+          >
+            Deny
+          </button>
+        </div>
+      )}
 
     </div>
   )
