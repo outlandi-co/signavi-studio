@@ -7,6 +7,20 @@ const API_URL =
   import.meta.env.VITE_API_URL?.replace("/api", "") ||
   "https://signavi-backend.onrender.com"
 
+const formatDate = (date) => {
+  if (!date) return ""
+  return new Date(date).toLocaleString()
+}
+
+const statusColors = {
+  payment_required: "#facc15",
+  ready_for_production: "#22c55e",
+  production: "#3b82f6",
+  shipping: "#f97316",
+  shipped: "#10b981",
+  denied: "#ef4444"
+}
+
 export default function JobCard({ job }) {
   const {
     attributes,
@@ -29,7 +43,7 @@ export default function JobCard({ job }) {
     opacity: isDragging ? 0.6 : 1,
     background: "#020617",
     padding: 14,
-    borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 12,
     border: "1px solid #1e293b",
     color: "white"
@@ -40,6 +54,14 @@ export default function JobCard({ job }) {
       ? job.artwork
       : `${API_URL}${job.artwork.startsWith("/uploads") ? "" : "/uploads/"}${job.artwork}`
     : null
+
+  const itemsTotal = (job.items || []).reduce(
+    (sum, item) =>
+      sum + Number(item.price || 0) * Number(item.quantity || 1),
+    0
+  )
+
+  const final = Number(job.finalPrice || itemsTotal || 0)
 
   /* ================= ACTIONS ================= */
 
@@ -54,59 +76,50 @@ export default function JobCard({ job }) {
   }
 
   const approve = async () => {
-    try {
-      await api.patch(`/orders/${job._id}/status`, {
-        status: "ready_for_production",
-        note
-      })
-      window.location.reload()
-    } catch (err) {
-      console.error("❌ APPROVE ERROR:", err)
-    }
+    await api.patch(`/orders/${job._id}/status`, {
+      status: "ready_for_production",
+      note
+    })
+    window.location.reload()
   }
 
   const deny = async () => {
-    try {
-      await api.patch(`/orders/${job._id}/status`, {
-        status: "denied",
-        note
-      })
-      window.location.reload()
-    } catch (err) {
-      console.error("❌ DENY ERROR:", err)
-    }
+    await api.patch(`/orders/${job._id}/status`, {
+      status: "denied",
+      note
+    })
+    window.location.reload()
   }
 
   const addTracking = async () => {
     if (!tracking) return
 
-    try {
-      await api.patch(`/orders/${job._id}/status`, {
-        status: "shipping",
-        trackingNumber: tracking
-      })
-      window.location.reload()
-    } catch (err) {
-      console.error("❌ TRACKING ERROR:", err)
-    }
+    await api.patch(`/orders/${job._id}/status`, {
+      status: "shipping",
+      trackingNumber: tracking
+    })
+
+    window.location.reload()
   }
 
   return (
     <div ref={setNodeRef} style={style}>
 
       {/* DRAG HANDLE */}
-      <div
-        {...attributes}
-        {...listeners}
-        style={{ cursor: "grab", fontSize: 10, opacity: 0.5 }}
-      >
+      <div {...attributes} {...listeners} style={{ cursor: "grab", fontSize: 10, opacity: 0.5 }}>
         ⠿ drag
       </div>
 
-      <p><b>{job.customerName || "Guest"}</b></p>
-      <p style={{ fontSize: 12 }}>{job.status}</p>
+      {/* HEADER */}
+      <p style={{ fontWeight: "bold" }}>
+        {job.customerName || "Guest"}
+      </p>
 
-      {/* ARTWORK */}
+      <p style={{ fontSize: 12, color: statusColors[job.status] }}>
+        {job.status}
+      </p>
+
+      {/* IMAGE */}
       {artworkUrl && (
         <img
           src={artworkUrl}
@@ -115,7 +128,7 @@ export default function JobCard({ job }) {
             width: "100%",
             height: 120,
             objectFit: "cover",
-            borderRadius: 6,
+            borderRadius: 8,
             marginTop: 8
           }}
         />
@@ -123,13 +136,21 @@ export default function JobCard({ job }) {
 
       {/* DOWNLOAD */}
       {artworkUrl && (
-        <a href={artworkUrl} download style={{ fontSize: 12 }}>
-          ⬇ Download
+        <a
+          href={artworkUrl}
+          download
+          style={{ fontSize: 12, color: "#38bdf8" }}
+        >
+          ⬇ Download Artwork
         </a>
       )}
 
-      {/* 💰 INLINE PRICE */}
-      <div style={{ marginTop: 8 }}>
+      {/* PRICE */}
+      <p style={{ color: "#22c55e", fontWeight: "bold", marginTop: 6 }}>
+        💰 ${final.toFixed(2)}
+      </p>
+
+      <div style={{ marginTop: 6 }}>
         <input
           type="number"
           value={price}
@@ -139,15 +160,15 @@ export default function JobCard({ job }) {
         <button onClick={updatePrice}>Update Price</button>
       </div>
 
-      {/* 💬 COMMENT */}
+      {/* NOTE */}
       <textarea
-        placeholder="Reason / note to customer..."
+        placeholder="Reason / note..."
         value={note}
         onChange={(e) => setNote(e.target.value)}
         style={{ width: "100%", marginTop: 6 }}
       />
 
-      {/* ✅ APPROVAL */}
+      {/* APPROVAL */}
       {job.status === "payment_required" && (
         <div style={{ marginTop: 6 }}>
           <button onClick={approve}>✅ Approve</button>
@@ -155,7 +176,7 @@ export default function JobCard({ job }) {
         </div>
       )}
 
-      {/* 🚚 TRACKING */}
+      {/* TRACKING */}
       {job.status === "shipping" && (
         <div style={{ marginTop: 6 }}>
           <input
@@ -167,7 +188,45 @@ export default function JobCard({ job }) {
         </div>
       )}
 
-      {job.trackingNumber && <p>📦 {job.trackingNumber}</p>}
+      {job.trackingNumber && (
+        <p style={{ fontSize: 12 }}>📦 {job.trackingNumber}</p>
+      )}
+
+      {/* ================= 🔥 PRO TIMELINE ================= */}
+      <div style={{ marginTop: 12 }}>
+        <p style={{ fontWeight: "bold", fontSize: 13 }}>🕒 Timeline</p>
+
+        {(job.timeline || [])
+          .slice()
+          .reverse()
+          .map((t, i) => (
+            <div
+              key={i}
+              style={{
+                borderLeft: `3px solid ${statusColors[t.status] || "#64748b"}`,
+                paddingLeft: 8,
+                marginBottom: 8
+              }}
+            >
+              <div style={{ fontSize: 12 }}>
+                <b style={{ color: statusColors[t.status] }}>
+                  {t.status}
+                </b>
+              </div>
+
+              <div style={{ fontSize: 10, opacity: 0.6 }}>
+                {formatDate(t.date)}
+              </div>
+
+              {t.note && (
+                <div style={{ fontSize: 11, color: "#38bdf8" }}>
+                  💬 {t.note}
+                </div>
+              )}
+            </div>
+          ))}
+      </div>
+
     </div>
   )
 }
