@@ -1,98 +1,150 @@
-import { useEffect, useState } from "react"
-import { useParams } from "react-router-dom"
-import api from "../services/api"
+import { createPortal } from "react-dom"
 import { useCartContext } from "../context/useCartContext"
 
-const BASE_URL =
-  (import.meta.env.VITE_API_URL || "https://signavi-backend.onrender.com/api")
-    .replace("/api", "")
+const money = (v) => Number(v || 0).toFixed(2)
 
-export default function ProductDetail() {
+export default function CartDrawer({ isOpen, onClose, onCheckout }) {
+  const {
+    cart,
+    updateQuantity,
+    removeFromCart,
+    subtotal,
+    tax,
+    shipping,
+    total
+  } = useCartContext()
 
-  const { id } = useParams()
-  const [product, setProduct] = useState(null)
+  if (!isOpen) return null
 
-  const [selectedColor, setSelectedColor] = useState("")
-  const [selectedSize, setSelectedSize] = useState("")
-
-  const { addToCart } = useCartContext()
-
-  useEffect(() => {
-    const load = async () => {
-      const res = await api.get("/products")
-
-      const list = Array.isArray(res.data)
-        ? res.data
-        : res.data?.data || []
-
-      const found = list.find(p => p._id === id)
-      setProduct(found)
-    }
-
-    load()
-  }, [id])
-
-  if (!product) return <p style={{ padding: 20 }}>Loading...</p>
-
-  const selectedVariant = product.variants?.find(v =>
-    v.color === selectedColor &&
-    v.size === selectedSize
-  )
-
-  const displayPrice = selectedVariant?.price ?? product.price ?? 0
-
-  const handleAddToCart = () => {
-    if (!selectedVariant) {
-      alert("Please select color and size")
-      return
-    }
-
-    addToCart({
-      productId: product._id,
-      name: product.name,
-      image: product.image,
-      selectedVariant: {
-        color: selectedVariant.color,
-        size: selectedVariant.size,
-        price: selectedVariant.price
-      }
-    })
-  }
-
-  return (
-    <div style={{ padding: 20, color: "white" }}>
-      <img
-        src={product.image ? `${BASE_URL}/${product.image}` : "/placeholder.png"}
-        alt={product.name}
-        style={{ width: 300 }}
+  return createPortal(
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999 }}>
+      {/* overlay */}
+      <div
+        onClick={onClose}
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "rgba(0,0,0,0.6)",
+          backdropFilter: "blur(4px)"
+        }}
       />
 
-      <h1>{product.name}</h1>
+      {/* drawer */}
+      <div
+        style={{
+          position: "absolute",
+          right: 0,
+          top: 0,
+          width: 340,
+          height: "100%",
+          background: "#0f172a",
+          padding: 20,
+          color: "#fff",
+          overflowY: "auto",
+          boxShadow: "-10px 0 30px rgba(0,0,0,0.5)"
+        }}
+      >
+        <h2 style={{ marginBottom: 20 }}>Cart</h2>
 
-      <select onChange={(e)=>setSelectedColor(e.target.value)}>
-        <option>Select Color</option>
-        {[...new Set(product.variants.map(v => v.color))].map(color => (
-          <option key={color}>{color}</option>
-        ))}
-      </select>
+        {cart.length === 0 && (
+          <p style={{ opacity: 0.7 }}>Your cart is empty</p>
+        )}
 
-      <select onChange={(e)=>setSelectedSize(e.target.value)}>
-        <option>Select Size</option>
-        {product.variants
-          .filter(v => v.color === selectedColor)
-          .map(v => (
-            <option key={v.size}>{v.size}</option>
-          ))
-        }
-      </select>
+        {cart.map((item) => {
+          const price = Number(item.selectedVariant?.price || 0)
+          const qty = Number(item.quantity || 1)
+          const itemTotal = price * qty
 
-      <h2 style={{ color: "#06b6d4" }}>
-        ${Number(displayPrice || 0).toFixed(2)}
-      </h2>
+          return (
+            <div
+              key={`${item.productId}-${item.selectedVariant.color}-${item.selectedVariant.size}`}
+              style={{
+                marginBottom: 20,
+                borderBottom: "1px solid rgba(255,255,255,0.1)",
+                paddingBottom: 15
+              }}
+            >
+              <p style={{ fontWeight: "bold" }}>{item.name}</p>
 
-      <button onClick={handleAddToCart}>
-        🛒 Add to Cart
-      </button>
-    </div>
+              <p style={{ fontSize: 12, opacity: 0.7 }}>
+                {item.selectedVariant.color} / {item.selectedVariant.size}
+              </p>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+                <button
+                  onClick={() =>
+                    updateQuantity(item.productId, item.selectedVariant, -1)
+                  }
+                >
+                  ➖
+                </button>
+
+                <span>{qty}</span>
+
+                <button
+                  onClick={() =>
+                    updateQuantity(item.productId, item.selectedVariant, 1)
+                  }
+                >
+                  ➕
+                </button>
+              </div>
+
+              <p style={{ marginTop: 5 }}>
+                ${money(itemTotal)}
+              </p>
+
+              <button
+                onClick={() =>
+                  removeFromCart(item.productId, item.selectedVariant)
+                }
+                style={{
+                  marginTop: 5,
+                  fontSize: 12,
+                  color: "#ef4444",
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer"
+                }}
+              >
+                Remove
+              </button>
+            </div>
+          )
+        })}
+
+        {/* TOTALS */}
+        <div style={{ marginTop: 20 }}>
+          <p>Subtotal: ${money(subtotal)}</p>
+          <p>Tax: ${money(tax)}</p>
+          <p>Shipping: ${money(shipping)}</p>
+
+          <h3 style={{ marginTop: 10 }}>
+            Total: ${money(total)}
+          </h3>
+        </div>
+
+        <button
+          onClick={() => {
+            if (cart.length === 0) return
+            onCheckout(cart)
+          }}
+          disabled={cart.length === 0}
+          style={{
+            marginTop: 20,
+            width: "100%",
+            padding: 12,
+            background: cart.length === 0 ? "#555" : "#22c55e",
+            color: "#fff",
+            border: "none",
+            cursor: cart.length === 0 ? "not-allowed" : "pointer",
+            fontWeight: "bold"
+          }}
+        >
+          Checkout
+        </button>
+      </div>
+    </div>,
+    document.body
   )
 }

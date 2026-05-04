@@ -1,6 +1,8 @@
 import { createPortal } from "react-dom"
 import { useCartContext } from "../context/useCartContext"
 
+const money = (v) => Number(v || 0).toFixed(2)
+
 export default function CartDrawer({ isOpen, onClose, onCheckout }) {
   const {
     cart,
@@ -14,16 +16,10 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
 
   if (!isOpen) return null
 
-  // 🔥 SAFE VALUES
-  const safeSubtotal = Number(subtotal || 0)
-  const safeTax = Number(tax || 0)
-  const safeShipping = Number(shipping || 0)
-  const safeTotal = Number(total || 0)
-
   return createPortal(
     <div style={{ position: "fixed", inset: 0, zIndex: 9999 }}>
-
-      {/* overlay */}
+      
+      {/* OVERLAY */}
       <div
         onClick={onClose}
         style={{
@@ -34,8 +30,9 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
         }}
       />
 
-      {/* drawer */}
+      {/* DRAWER */}
       <div
+        onClick={(e) => e.stopPropagation()} // 🔥 prevents closing when clicking inside
         style={{
           position: "absolute",
           right: 0,
@@ -51,20 +48,22 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
       >
         <h2 style={{ marginBottom: 20 }}>Cart</h2>
 
-        {/* EMPTY STATE */}
+        {/* EMPTY */}
         {cart.length === 0 && (
           <p style={{ opacity: 0.7 }}>Your cart is empty</p>
         )}
 
         {/* ITEMS */}
-        {cart.map((item) => {
-          const itemTotal =
-            Number(item.selectedVariant?.price || 0) *
-            Number(item.quantity || 1)
+        {cart.map((item, index) => {
+          const price = Number(item?.selectedVariant?.price || 0)
+          const qty = Number(item?.quantity || 1)
+          const itemTotal = price * qty
+
+          const key = `${item.productId}-${item?.selectedVariant?.color || "x"}-${item?.selectedVariant?.size || "x"}-${index}`
 
           return (
             <div
-              key={`${item.productId}-${item.selectedVariant.color}-${item.selectedVariant.size}`}
+              key={key}
               style={{
                 marginBottom: 20,
                 borderBottom: "1px solid rgba(255,255,255,0.1)",
@@ -74,25 +73,27 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
               <p style={{ fontWeight: "bold" }}>{item.name}</p>
 
               <p style={{ fontSize: 12, opacity: 0.7 }}>
-                {item.selectedVariant?.color} / {item.selectedVariant?.size}
+                {item?.selectedVariant?.color || "-"} / {item?.selectedVariant?.size || "-"}
               </p>
 
               {/* QUANTITY */}
               <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
                 <button
-                  onClick={() =>
+                  onClick={(e) => {
+                    e.stopPropagation()
                     updateQuantity(item.productId, item.selectedVariant, -1)
-                  }
+                  }}
                 >
                   ➖
                 </button>
 
-                <span>{item.quantity}</span>
+                <span>{qty}</span>
 
                 <button
-                  onClick={() =>
+                  onClick={(e) => {
+                    e.stopPropagation()
                     updateQuantity(item.productId, item.selectedVariant, 1)
-                  }
+                  }}
                 >
                   ➕
                 </button>
@@ -100,14 +101,15 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
 
               {/* PRICE */}
               <p style={{ marginTop: 5 }}>
-                ${Number(itemTotal || 0).toFixed(2)}
+                ${money(itemTotal)}
               </p>
 
               {/* REMOVE */}
               <button
-                onClick={() =>
+                onClick={(e) => {
+                  e.stopPropagation()
                   removeFromCart(item.productId, item.selectedVariant)
-                }
+                }}
                 style={{
                   marginTop: 5,
                   fontSize: 12,
@@ -125,12 +127,12 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
 
         {/* TOTALS */}
         <div style={{ marginTop: 20 }}>
-          <p>Subtotal: ${safeSubtotal.toFixed(2)}</p>
-          <p>Tax: ${safeTax.toFixed(2)}</p>
-          <p>Shipping: ${safeShipping.toFixed(2)}</p>
+          <p>Subtotal: ${money(subtotal)}</p>
+          <p>Tax: ${money(tax)}</p>
+          <p>Shipping: ${money(shipping || 0)}</p>
 
           <h3 style={{ marginTop: 10 }}>
-            Total: ${safeTotal.toFixed(2)}
+            Total: ${money(total)}
           </h3>
         </div>
 
@@ -154,7 +156,6 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
         >
           Checkout
         </button>
-
       </div>
     </div>,
     document.body
