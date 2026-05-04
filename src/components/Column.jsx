@@ -23,10 +23,10 @@ function JobCard({ job }) {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.6 : 1,
-    padding: 10,
+    padding: 12,
     marginBottom: 10,
     background: "#1e293b",
-    borderRadius: 6,
+    borderRadius: 8,
     cursor: "grab",
     color: "white"
   }
@@ -42,7 +42,11 @@ function JobCard({ job }) {
 /* ================= COLUMN ================= */
 export function Column({ id, jobs }) {
   const { setNodeRef, isOver } = useDroppable({
-    id
+    id,
+    data: {
+      type: "column",
+      columnId: id // 🔥 CRITICAL FIX
+    }
   })
 
   return (
@@ -52,14 +56,12 @@ export function Column({ id, jobs }) {
         width: 260,
         minHeight: 400,
         background: isOver ? "#1e293b" : "#0f172a",
-        padding: 10,
+        padding: 12,
         borderRadius: 10,
         transition: "0.2s"
       }}
     >
-      <h3 style={{ color: "white", marginBottom: 10 }}>
-        {id}
-      </h3>
+      <h3 style={{ color: "white", marginBottom: 10 }}>{id}</h3>
 
       <SortableContext
         items={jobs.map(j => j._id)}

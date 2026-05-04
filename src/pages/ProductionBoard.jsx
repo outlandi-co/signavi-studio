@@ -42,23 +42,27 @@ export default function ProductionBoard() {
 
     const jobId = active.id
 
-    /* 🔥 ONLY ALLOW COLUMN DROPS */
-    if (!VALID_STATUSES.includes(over.id)) {
-      console.warn("❌ DROPPED ON CARD → IGNORE:", over.id)
+    /* 🔥 USE COLUMN DATA (NOT over.id) */
+    const columnId = over?.data?.current?.columnId
+
+    if (!columnId) {
+      console.warn("❌ NOT DROPPED ON COLUMN")
       return
     }
 
-    const newStatus = over.id
+    if (!VALID_STATUSES.includes(columnId)) {
+      console.warn("❌ INVALID COLUMN:", columnId)
+      return
+    }
 
     try {
       await api.patch(`/orders/${jobId}/status`, {
-        status: newStatus
+        status: columnId
       })
 
-      /* UPDATE UI */
       setJobs(prev =>
         prev.map(j =>
-          j._id === jobId ? { ...j, status: newStatus } : j
+          j._id === jobId ? { ...j, status: columnId } : j
         )
       )
     } catch (err) {
@@ -87,17 +91,18 @@ export default function ProductionBoard() {
       >
         <div style={{ display: "flex", gap: 20 }}>
 
-          {/* 🔥 QUOTES (NOT DROPPABLE) */}
+          {/* 🔥 QUOTES (VIEW ONLY) */}
           <div style={{ width: 260 }}>
             <h3 style={{ color: "white" }}>quotes</h3>
+
             {grouped.quotes.map(job => (
               <div
                 key={job._id}
                 style={{
-                  padding: 10,
+                  padding: 12,
                   marginBottom: 10,
                   background: "#334155",
-                  borderRadius: 6,
+                  borderRadius: 8,
                   color: "white"
                 }}
               >
@@ -106,7 +111,7 @@ export default function ProductionBoard() {
             ))}
           </div>
 
-          {/* 🔥 REAL DROPPABLE COLUMNS */}
+          {/* 🔥 REAL DROP ZONES */}
           {Object.entries(grouped)
             .filter(([col]) => col !== "quotes")
             .map(([col, list]) => (
