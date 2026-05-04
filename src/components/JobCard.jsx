@@ -13,8 +13,7 @@ export default function JobCard({ job }) {
     listeners,
     setNodeRef,
     transform,
-    transition,
-    isDragging
+    transition
   } = useSortable({
     id: job._id,
     data: { type: "card", job }
@@ -26,7 +25,6 @@ export default function JobCard({ job }) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
     background: "#020617",
     padding: 14,
     borderRadius: 10,
@@ -41,15 +39,14 @@ export default function JobCard({ job }) {
     background: "#020617",
     color: "#e5e7eb",
     border: "1px solid #334155",
-    borderRadius: "6px",
-    outline: "none"
+    borderRadius: "6px"
   }
 
   /* ================= ACTIONS ================= */
 
   const updatePrice = async () => {
     try {
-      await api.patch(`/orders/${job._id}/price`, {
+      await api.patch(`/orders/${job._id}`, {
         finalPrice: Number(price)
       })
     } catch (err) {
@@ -59,10 +56,11 @@ export default function JobCard({ job }) {
 
   const approve = async () => {
     try {
-      await api.patch(`/orders/${job._id}/status`, {
+      await api.patch(`/orders/${job._id}`, {
         status: "ready_for_production",
         note
       })
+      window.location.reload()
     } catch (err) {
       console.error("❌ APPROVE ERROR:", err)
     }
@@ -70,10 +68,11 @@ export default function JobCard({ job }) {
 
   const deny = async () => {
     try {
-      await api.patch(`/orders/${job._id}/status`, {
+      await api.patch(`/orders/${job._id}`, {
         status: "denied",
         note
       })
+      window.location.reload()
     } catch (err) {
       console.error("❌ DENY ERROR:", err)
     }
@@ -90,23 +89,20 @@ export default function JobCard({ job }) {
 
   return (
     <div ref={setNodeRef} style={style}>
-      
+
       {/* DRAG HANDLE */}
       <div {...listeners} {...attributes} style={{ cursor: "grab", fontSize: 10, opacity: 0.5 }}>
         ⠿ drag
       </div>
 
-      {/* CUSTOMER */}
-      <p style={{ fontWeight: "bold", fontSize: 14 }}>
+      <p style={{ fontWeight: "bold" }}>
         {job.customerName || "Guest"}
       </p>
 
-      {/* STATUS */}
       <p style={{ fontSize: 12, color: "#38bdf8" }}>
         {job.status}
       </p>
 
-      {/* PRICE */}
       <p style={{
         color: "#22c55e",
         fontWeight: "bold",
@@ -116,7 +112,6 @@ export default function JobCard({ job }) {
         💰 ${Number(job.finalPrice || 0).toFixed(2)}
       </p>
 
-      {/* IMAGE PREVIEW */}
       {artworkUrl && (
         <>
           <img
@@ -131,22 +126,12 @@ export default function JobCard({ job }) {
             }}
           />
 
-          <a
-            href={artworkUrl}
-            download
-            style={{
-              display: "block",
-              marginTop: 6,
-              fontSize: 12,
-              color: "#38bdf8"
-            }}
-          >
+          <a href={artworkUrl} download style={{ fontSize: 12, color: "#38bdf8" }}>
             ⬇ Download Artwork
           </a>
         </>
       )}
 
-      {/* PRICE EDIT */}
       <div style={{ marginTop: 10 }}>
         <input
           type="number"
@@ -169,7 +154,6 @@ export default function JobCard({ job }) {
         </button>
       </div>
 
-      {/* NOTE */}
       <textarea
         placeholder="Reason / note..."
         value={note}
@@ -181,8 +165,8 @@ export default function JobCard({ job }) {
         }}
       />
 
-      {/* APPROVAL */}
-      {job.status === "payment_required" && (
+      {/* 🔥 FIXED APPROVE/DENY */}
+      {["payment_required", "quotes"].includes(job.status) && (
         <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
           <button
             onClick={approve}
@@ -212,7 +196,6 @@ export default function JobCard({ job }) {
         </div>
       )}
 
-      {/* LAST NOTE DISPLAY */}
       {latestNote && (
         <div
           style={{
@@ -220,8 +203,7 @@ export default function JobCard({ job }) {
             padding: 8,
             background: "#111827",
             borderRadius: 6,
-            fontSize: 12,
-            color: "#cbd5f5"
+            fontSize: 12
           }}
         >
           💬 {latestNote}
