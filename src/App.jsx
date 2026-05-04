@@ -10,6 +10,7 @@ import api from "./services/api"
 /* CONTEXT */
 import ToastProvider from "./context/ToastProvider"
 import { useToast } from "./hooks/useToast"
+import { CartProvider } from "./context/CartContext"
 
 /* COMPONENTS */
 import Navbar from "./components/Navbar"
@@ -230,9 +231,13 @@ function AppContent() {
 export default function App() {
   return (
     <ToastProvider>
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
+      <LoadingProvider>
+        <CartProvider> {/* 🔥 THIS IS THE KEY */}
+          <BrowserRouter>
+            <AppContent />
+          </BrowserRouter>
+        </CartProvider>
+      </LoadingProvider>
     </ToastProvider>
   )
 }
