@@ -46,7 +46,7 @@ export default function JobCard({ job }) {
     borderRadius: 12,
     marginBottom: 12,
     border: "1px solid #1e293b",
-    color: "white"
+    color: "#e2e8f0" // 🔥 softer readable text
   }
 
   const artworkUrl = job.artwork
@@ -66,13 +66,9 @@ export default function JobCard({ job }) {
   /* ================= ACTIONS ================= */
 
   const updatePrice = async () => {
-    try {
-      await api.patch(`/orders/${job._id}`, {
-        finalPrice: Number(price)
-      })
-    } catch (err) {
-      console.error("❌ PRICE UPDATE ERROR:", err)
-    }
+    await api.patch(`/orders/${job._id}`, {
+      finalPrice: Number(price)
+    })
   }
 
   const approve = async () => {
@@ -105,13 +101,13 @@ export default function JobCard({ job }) {
   return (
     <div ref={setNodeRef} style={style}>
 
-      {/* DRAG HANDLE */}
+      {/* DRAG */}
       <div {...attributes} {...listeners} style={{ cursor: "grab", fontSize: 10, opacity: 0.5 }}>
         ⠿ drag
       </div>
 
       {/* HEADER */}
-      <p style={{ fontWeight: "bold" }}>
+      <p style={{ fontWeight: "bold", color: "white" }}>
         {job.customerName || "Guest"}
       </p>
 
@@ -145,34 +141,72 @@ export default function JobCard({ job }) {
         </a>
       )}
 
-      {/* PRICE */}
-      <p style={{ color: "#22c55e", fontWeight: "bold", marginTop: 6 }}>
+      {/* 🔥 PRICE DISPLAY */}
+      <p style={{
+        color: "#4ade80",
+        fontWeight: "bold",
+        fontSize: 16,
+        marginTop: 8
+      }}>
         💰 ${final.toFixed(2)}
       </p>
 
+      {/* 🔥 PRICE INPUT */}
       <div style={{ marginTop: 6 }}>
         <input
           type="number"
           value={price}
           onChange={(e) => setPrice(e.target.value)}
-          style={{ width: "100%", padding: 4 }}
+          style={{
+            width: "100%",
+            padding: 6,
+            background: "#0f172a",
+            color: "white",
+            border: "1px solid #334155",
+            borderRadius: 6
+          }}
         />
-        <button onClick={updatePrice}>Update Price</button>
+        <button
+          onClick={updatePrice}
+          style={{
+            marginTop: 4,
+            width: "100%",
+            background: "#22c55e",
+            color: "white",
+            padding: 6,
+            borderRadius: 6,
+            border: "none"
+          }}
+        >
+          Update Price
+        </button>
       </div>
 
-      {/* NOTE */}
+      {/* 🔥 NOTE */}
       <textarea
         placeholder="Reason / note..."
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        style={{ width: "100%", marginTop: 6 }}
+        style={{
+          width: "100%",
+          marginTop: 8,
+          padding: 6,
+          background: "#0f172a",
+          color: "white",
+          border: "1px solid #334155",
+          borderRadius: 6
+        }}
       />
 
       {/* APPROVAL */}
       {job.status === "payment_required" && (
-        <div style={{ marginTop: 6 }}>
-          <button onClick={approve}>✅ Approve</button>
-          <button onClick={deny}>❌ Deny</button>
+        <div style={{ marginTop: 6, display: "flex", gap: 6 }}>
+          <button style={{ flex: 1, background: "#22c55e", color: "white", padding: 6, borderRadius: 6 }} onClick={approve}>
+            ✅ Approve
+          </button>
+          <button style={{ flex: 1, background: "#ef4444", color: "white", padding: 6, borderRadius: 6 }} onClick={deny}>
+            ❌ Deny
+          </button>
         </div>
       )}
 
@@ -183,8 +217,28 @@ export default function JobCard({ job }) {
             placeholder="Tracking #"
             value={tracking}
             onChange={(e) => setTracking(e.target.value)}
+            style={{
+              width: "100%",
+              padding: 6,
+              background: "#0f172a",
+              color: "white",
+              border: "1px solid #334155",
+              borderRadius: 6
+            }}
           />
-          <button onClick={addTracking}>Ship</button>
+          <button
+            onClick={addTracking}
+            style={{
+              marginTop: 4,
+              width: "100%",
+              background: "#3b82f6",
+              color: "white",
+              padding: 6,
+              borderRadius: 6
+            }}
+          >
+            Ship
+          </button>
         </div>
       )}
 
@@ -192,39 +246,42 @@ export default function JobCard({ job }) {
         <p style={{ fontSize: 12 }}>📦 {job.trackingNumber}</p>
       )}
 
-      {/* ================= 🔥 PRO TIMELINE ================= */}
+      {/* 🔥 PRO TIMELINE */}
       <div style={{ marginTop: 12 }}>
-        <p style={{ fontWeight: "bold", fontSize: 13 }}>🕒 Timeline</p>
+        <p style={{ fontWeight: "bold", fontSize: 13, color: "white" }}>
+          🕒 Timeline
+        </p>
 
-        {(job.timeline || [])
-          .slice()
-          .reverse()
-          .map((t, i) => (
-            <div
-              key={i}
-              style={{
-                borderLeft: `3px solid ${statusColors[t.status] || "#64748b"}`,
-                paddingLeft: 8,
-                marginBottom: 8
-              }}
-            >
-              <div style={{ fontSize: 12 }}>
-                <b style={{ color: statusColors[t.status] }}>
-                  {t.status}
-                </b>
-              </div>
-
-              <div style={{ fontSize: 10, opacity: 0.6 }}>
-                {formatDate(t.date)}
-              </div>
-
-              {t.note && (
-                <div style={{ fontSize: 11, color: "#38bdf8" }}>
-                  💬 {t.note}
-                </div>
-              )}
+        {(job.timeline || []).slice().reverse().map((t, i) => (
+          <div
+            key={i}
+            style={{
+              borderLeft: `3px solid ${statusColors[t.status] || "#64748b"}`,
+              paddingLeft: 8,
+              marginBottom: 8
+            }}
+          >
+            <div style={{ fontSize: 12, color: "white" }}>
+              <b style={{ color: statusColors[t.status] }}>
+                {t.status}
+              </b>
             </div>
-          ))}
+
+            <div style={{ fontSize: 10, opacity: 0.7 }}>
+              {formatDate(t.date)}
+            </div>
+
+            {t.note && (
+              <div style={{
+                fontSize: 12,
+                color: "#38bdf8",
+                marginTop: 2
+              }}>
+                💬 {t.note}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
 
     </div>
