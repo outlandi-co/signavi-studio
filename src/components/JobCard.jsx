@@ -16,13 +16,11 @@ export default function JobCard({ job }) {
     transition,
     isDragging
   } = useSortable({
-    id: job._id,
-    data: {
-      type: "card",
-      job
-    }
+    id: job._id
   })
 
+  const [price, setPrice] = useState(job.finalPrice || 0)
+  const [note, setNote] = useState("")
   const [tracking, setTracking] = useState("")
 
   const style = {
@@ -43,39 +41,54 @@ export default function JobCard({ job }) {
       : `${API_URL}${job.artwork.startsWith("/uploads") ? "" : "/uploads/"}${job.artwork}`
     : null
 
-  const itemsTotal = (job.items || []).reduce(
-    (sum, item) =>
-      sum + Number(item.price || 0) * Number(item.quantity || 1),
-    0
-  )
-
-  const final = Number(job.finalPrice || itemsTotal || 0)
-
   /* ================= ACTIONS ================= */
 
+  const updatePrice = async () => {
+    try {
+      await api.patch(`/orders/${job._id}`, {
+        finalPrice: Number(price)
+      })
+    } catch (err) {
+      console.error("❌ PRICE UPDATE ERROR:", err)
+    }
+  }
+
   const approve = async () => {
-    await api.patch(`/orders/${job._id}/status`, {
-      status: "ready_for_production"
-    })
-    window.location.reload()
+    try {
+      await api.patch(`/orders/${job._id}/status`, {
+        status: "ready_for_production",
+        note
+      })
+      window.location.reload()
+    } catch (err) {
+      console.error("❌ APPROVE ERROR:", err)
+    }
   }
 
   const deny = async () => {
-    await api.patch(`/orders/${job._id}/status`, {
-      status: "denied"
-    })
-    window.location.reload()
+    try {
+      await api.patch(`/orders/${job._id}/status`, {
+        status: "denied",
+        note
+      })
+      window.location.reload()
+    } catch (err) {
+      console.error("❌ DENY ERROR:", err)
+    }
   }
 
   const addTracking = async () => {
     if (!tracking) return
 
-    await api.patch(`/orders/${job._id}/status`, {
-      status: "shipping",
-      trackingNumber: tracking
-    })
-
-    window.location.reload()
+    try {
+      await api.patch(`/orders/${job._id}/status`, {
+        status: "shipping",
+        trackingNumber: tracking
+      })
+      window.location.reload()
+    } catch (err) {
+      console.error("❌ TRACKING ERROR:", err)
+    }
   }
 
   return (
@@ -90,15 +103,10 @@ export default function JobCard({ job }) {
         ⠿ drag
       </div>
 
-      {/* CUSTOMER */}
       <p><b>{job.customerName || "Guest"}</b></p>
+      <p style={{ fontSize: 12 }}>{job.status}</p>
 
-      {/* STATUS */}
-      <p style={{ fontSize: 12, opacity: 0.7 }}>
-        {job.status}
-      </p>
-
-      {/* ARTWORK PREVIEW */}
+      {/* ARTWORK */}
       {artworkUrl && (
         <img
           src={artworkUrl}
@@ -115,56 +123,51 @@ export default function JobCard({ job }) {
 
       {/* DOWNLOAD */}
       {artworkUrl && (
-        <a
-          href={artworkUrl}
-          download
-          style={{ fontSize: 12, color: "#38bdf8" }}
-        >
-          ⬇ Download Artwork
+        <a href={artworkUrl} download style={{ fontSize: 12 }}>
+          ⬇ Download
         </a>
       )}
 
-      {/* PRICE */}
-      <p style={{ color: "#22c55e", fontWeight: "bold" }}>
-        💰 ${final.toFixed(2)}
-      </p>
-
-      {/* ITEMS */}
-      <div style={{ fontSize: 12 }}>
-        {job.items?.map((item, i) => (
-          <p key={i}>
-            {item.name} x{item.quantity}
-          </p>
-        ))}
+      {/* 💰 INLINE PRICE */}
+      <div style={{ marginTop: 8 }}>
+        <input
+          type="number"
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          style={{ width: "100%", padding: 4 }}
+        />
+        <button onClick={updatePrice}>Update Price</button>
       </div>
 
-      {/* APPROVE / DENY */}
+      {/* 💬 COMMENT */}
+      <textarea
+        placeholder="Reason / note to customer..."
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        style={{ width: "100%", marginTop: 6 }}
+      />
+
+      {/* ✅ APPROVAL */}
       {job.status === "payment_required" && (
-        <div style={{ marginTop: 8 }}>
+        <div style={{ marginTop: 6 }}>
           <button onClick={approve}>✅ Approve</button>
           <button onClick={deny}>❌ Deny</button>
         </div>
       )}
 
-      {/* TRACKING */}
+      {/* 🚚 TRACKING */}
       {job.status === "shipping" && (
-        <div style={{ marginTop: 8 }}>
+        <div style={{ marginTop: 6 }}>
           <input
+            placeholder="Tracking #"
             value={tracking}
             onChange={(e) => setTracking(e.target.value)}
-            placeholder="Tracking #"
           />
           <button onClick={addTracking}>Ship</button>
         </div>
       )}
 
-      {/* SHOW TRACKING */}
-      {job.trackingNumber && (
-        <p style={{ fontSize: 12 }}>
-          📦 {job.trackingNumber}
-        </p>
-      )}
-
+      {job.trackingNumber && <p>📦 {job.trackingNumber}</p>}
     </div>
   )
 }
