@@ -10,11 +10,13 @@ const statusColors = {
   denied: "bg-red-100 text-red-700"
 }
 
-export default function Card({ order, job, onDelete }) {
+export default function Card({ order, job, onDelete, onUpdate }) {
   const data = order || job || {}
 
   const [tracking, setTracking] = useState("")
   const [deleting, setDeleting] = useState(false)
+  const [price, setPrice] = useState(data.finalPrice || data.price || 0)
+  const [saving, setSaving] = useState(false)
 
   const BASE_URL =
     import.meta.env.VITE_API_URL?.replace("/api", "") ||
@@ -22,7 +24,43 @@ export default function Card({ order, job, onDelete }) {
 
   const formatMoney = (v) => Number(v || 0).toFixed(2)
 
-  /* ================= ADD TRACKING ================= */
+  /* ================= ARTWORK URL ================= */
+  const artworkUrl =
+    data.artwork
+      ? data.artwork.startsWith("http")
+        ? data.artwork
+        : `${BASE_URL}${data.artwork.startsWith("/uploads") ? "" : "/uploads/"}${data.artwork}`
+      : "/placeholder.png"
+
+  /* ================= STATUS ================= */
+  const updateStatus = async (status) => {
+    try {
+      setSaving(true)
+      await api.patch(`/orders/${data._id}/status`, { status })
+      onUpdate?.()
+    } catch (err) {
+      console.error("❌ STATUS ERROR:", err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  /* ================= PRICE ================= */
+  const updatePrice = async () => {
+    try {
+      setSaving(true)
+      await api.patch(`/orders/${data._id}/price`, {
+        finalPrice: Number(price)
+      })
+      onUpdate?.()
+    } catch (err) {
+      console.error("❌ PRICE ERROR:", err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  /* ================= TRACKING ================= */
   const addTracking = async () => {
     if (!tracking) return
 
@@ -97,23 +135,27 @@ export default function Card({ order, job, onDelete }) {
         {data.status || "unknown"}
       </span>
 
-      {/* IMAGE */}
+      {/* ================= IMAGE + PREVIEW ================= */}
       <img
-        src={
-          data.artwork
-            ? data.artwork.startsWith("http")
-              ? data.artwork
-              : `${BASE_URL}${data.artwork.startsWith("/uploads") ? "" : "/uploads/"}${data.artwork}`
-            : "/placeholder.png"
-        }
+        src={artworkUrl}
         alt="Artwork"
-        className="mt-2 w-full h-32 object-cover rounded border"
+        className="mt-2 w-full h-32 object-cover rounded border cursor-pointer"
+        onClick={() => window.open(artworkUrl, "_blank")}
         onError={(e) => {
           e.target.src = "/placeholder.png"
         }}
       />
 
-      {/* PRICE */}
+      {/* DOWNLOAD */}
+      <a
+        href={artworkUrl}
+        download
+        className="block mt-1 text-xs text-blue-600 underline"
+      >
+        ⬇ Download Artwork
+      </a>
+
+      {/* ================= PRICE DISPLAY ================= */}
       <div className="mt-2">
         <p className="text-green-600 font-bold">
           💰 ${formatMoney(final)}
@@ -126,7 +168,43 @@ export default function Card({ order, job, onDelete }) {
         )}
       </div>
 
-      {/* ITEMS */}
+      {/* ================= PRICE EDIT ================= */}
+      <div className="mt-2">
+        <input
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          className="border p-1 w-full text-sm"
+        />
+
+        <button
+          onClick={updatePrice}
+          disabled={saving}
+          className="bg-blue-500 text-white px-2 py-1 mt-1 text-xs rounded"
+        >
+          Update Price
+        </button>
+      </div>
+
+      {/* ================= APPROVE / DENY ================= */}
+      {data.source === "quote" && (
+        <div className="flex gap-2 mt-3">
+          <button
+            onClick={() => updateStatus("approved")}
+            className="bg-green-500 text-white px-2 py-1 text-xs rounded"
+          >
+            Approve
+          </button>
+
+          <button
+            onClick={() => updateStatus("denied")}
+            className="bg-red-500 text-white px-2 py-1 text-xs rounded"
+          >
+            Deny
+          </button>
+        </div>
+      )}
+
+      {/* ================= ITEMS ================= */}
       <div className="text-sm mt-2">
         {data.items?.map((item, i) => (
           <p key={i}>

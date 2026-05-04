@@ -1,137 +1,223 @@
 import { useEffect, useState, useRef } from "react"
 import api from "../services/api"
-import { DndContext, closestCenter } from "@dnd-kit/core"
-import { Column } from "../components/Column"
-import { arrayMove } from "@dnd-kit/sortable"
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors
+} from "@dnd-kit/core"
+import {
+  useSortable,
+  SortableContext,
+  verticalListSortingStrategy
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 import { getSocket } from "../services/socket"
 
+/* ================= DRAG CARD ================= */
+function JobCard({ job }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition
+  } = useSortable({ id: job._id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    background: "#1e293b",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 10,
+    cursor: "grab"
+  }
+
+  const approve = async (e) => {
+    e.stopPropagation()
+    await api.patch(`/orders/${job._id}/status`, { status: "approved" })
+  }
+
+  const deny = async (e) => {
+    e.stopPropagation()
+    await api.patch(`/orders/${job._id}/status`, { status: "denied" })
+  }
+
+  const addTracking = async (e) => {
+    e.stopPropagation()
+    const tracking = prompt("Tracking #")
+    if (!tracking) return
+
+    await api.patch(`/orders/${job._id}/status`, {
+      status: "shipping",
+      trackingNumber: tracking
+    })
+  }
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <div {...attributes} {...listeners} style={{ fontSize: 10 }}>
+        ⠿ drag
+      </div>
+
+      <p>{job.customerName}</p>
+      <p style={{ fontSize: 12, opacity: 0.6 }}>{job.status}</p>
+
+      {/* PRICE */}
+      {job.finalPrice > 0 && (
+        <p style={{ color: "#22c55e" }}>💰 ${job.finalPrice}</p>
+      )}
+
+      {/* DOWNLOAD */}
+      {job.artwork && (
+        <a
+          href={`https://signavi-backend.onrender.com/uploads/${job.artwork}`}
+          download
+          onClick={(e) => e.stopPropagation()}
+        >
+          ⬇ Download
+        </a>
+      )}
+
+      {/* APPROVE / DENY */}
+      {job.status === "quotes" && (
+        <div>
+          <button onClick={approve}>Approve</button>
+          <button onClick={deny}>Deny</button>
+        </div>
+      )}
+
+      {/* TRACKING */}
+      {job.status === "production" && (
+        <button onClick={addTracking}>Ship</button>
+      )}
+    </div>
+  )
+}
+
+/* ================= COLUMN ================= */
+function Column({ id, jobs }) {
+  return (
+    <div
+      style={{
+        width: 260,
+        background: "#0f172a",
+        padding: 10,
+        borderRadius: 10
+      }}
+    >
+      <h3 style={{ color: "white" }}>{id}</h3>
+
+      <SortableContext
+        items={jobs.map(j => j._id)}
+        strategy={verticalListSortingStrategy}
+      >
+        {jobs.map(job => (
+          <JobCard key={job._id} job={job} />
+        ))}
+      </SortableContext>
+    </div>
+  )
+}
+
+/* ================= MAIN ================= */
 export default function ProductionBoard() {
-  const [jobs, setJobs] = useState(null)
+  const [jobs, setJobs] = useState([])
   const socketRef = useRef(null)
 
-  /* ================= LOAD ================= */
+  const sensors = useSensors(useSensor(PointerSensor))
+
+  /* LOAD */
   const load = async () => {
+    const res = await api.get("/orders")
+    const list = res.data?.data || []
+    setJobs(list)
+  }
+
+  useEffect(() => {
+  let mounted = true
+
+  const init = async () => {
     try {
-      const quotesRes = await api.get("/quotes").catch(() => ({ data: { data: [] } }))
-      const ordersRes = await api.get("/orders")
+      const res = await api.get("/orders")
+      const list = res.data?.data || []
 
-      const quotes = quotesRes.data?.data || []
-      const orders = ordersRes.data?.data || []
-
-      setJobs({
-        quotes,
-        payment_required: orders.filter(o => o.status === "payment_required"),
-        ready_for_production: orders.filter(o => o.status === "ready_for_production"),
-        production: orders.filter(o => o.status === "production"),
-        shipping: orders.filter(o => o.status === "shipping"),
-        shipped: orders.filter(o => o.status === "shipped")
-      })
+      if (mounted) {
+        setJobs(list)
+      }
     } catch (err) {
       console.error("❌ LOAD ERROR:", err)
     }
   }
 
-  /* ================= INITIAL LOAD (NO ESLINT WARNING) ================= */
-  useEffect(() => {
-    const init = async () => {
-      await load()
-    }
-    init()
-  }, [])
+  init()
 
-  /* ================= SOCKET ================= */
+  return () => {
+    mounted = false
+  }
+}, [])
+
+  /* SOCKET */
   useEffect(() => {
     const socket = getSocket()
     socketRef.current = socket
 
-    const handleUpdate = () => {
-      console.log("🔄 Realtime update → reload board")
-      load()
-    }
+    const update = () => load()
 
-    socket.on("orderUpdated", handleUpdate)
-    socket.on("orderCreated", handleUpdate)
+    socket.on("orderUpdated", update)
+    socket.on("orderCreated", update)
 
     return () => {
-      socket.off("orderUpdated", handleUpdate)
-      socket.off("orderCreated", handleUpdate)
+      socket.off("orderUpdated", update)
+      socket.off("orderCreated", update)
     }
   }, [])
 
-  /* ================= DRAG ================= */
+  /* DRAG */
   const handleDragEnd = async ({ active, over }) => {
-    if (!active || !over || !jobs) return
+    if (!over) return
 
     const jobId = active.id
-    const overId = over.id
-    const overData = over.data?.current
+    const newStatus = over.id
 
-    let sourceColumn = null
-    let targetColumn = null
-
-    // FIND SOURCE
-    for (const [key, arr] of Object.entries(jobs)) {
-      if (key === "quotes") continue
-      if (arr.some(j => j._id === jobId)) {
-        sourceColumn = key
-        break
-      }
-    }
-
-    // FIND TARGET
-    if (overData?.type === "column") {
-      targetColumn = overData.columnId
-    } else {
-      for (const [key, arr] of Object.entries(jobs)) {
-        if (key === "quotes") continue
-        if (arr.some(j => j._id === overId)) {
-          targetColumn = key
-          break
-        }
-      }
-    }
-
-    if (!sourceColumn || !targetColumn) return
-
-    /* SAME COLUMN (UI reorder only) */
-    if (sourceColumn === targetColumn) {
-      const items = jobs[sourceColumn]
-      const oldIndex = items.findIndex(j => j._id === jobId)
-      const newIndex = items.findIndex(j => j._id === overId)
-
-      if (oldIndex !== newIndex && newIndex !== -1) {
-        setJobs(prev => ({
-          ...prev,
-          [sourceColumn]: arrayMove(prev[sourceColumn], oldIndex, newIndex)
-        }))
-      }
-      return
-    }
-
-    /* MOVE BETWEEN COLUMNS */
     try {
       await api.patch(`/orders/${jobId}/status`, {
-        status: targetColumn
+        status: newStatus
       })
 
-      // 🔥 FORCE REALTIME SYNC
-      await load()
-
+      setJobs(prev =>
+        prev.map(j =>
+          j._id === jobId ? { ...j, status: newStatus } : j
+        )
+      )
     } catch (err) {
-      console.error("❌ MOVE ERROR:", err)
+      console.error(err)
     }
   }
 
-  if (!jobs) return <div style={{ padding: 20 }}>Loading...</div>
+  const grouped = {
+    quotes: jobs.filter(j => j.status === "quotes"),
+    payment_required: jobs.filter(j => j.status === "payment_required"),
+    ready_for_production: jobs.filter(j => j.status === "ready_for_production"),
+    production: jobs.filter(j => j.status === "production"),
+    shipping: jobs.filter(j => j.status === "shipping"),
+    shipped: jobs.filter(j => j.status === "shipped")
+  }
 
   return (
-    <div style={{ padding: 20, background: "#020617", minHeight: "100vh", color: "white" }}>
-      <h1>🏭 Production Board</h1>
+    <div style={{ padding: 20, background: "#020617", minHeight: "100vh" }}>
+      <h1 style={{ color: "white" }}>🏭 Production Board</h1>
 
-      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
         <div style={{ display: "flex", gap: 20 }}>
-          {Object.entries(jobs).map(([status, list]) => (
-            <Column key={status} id={status} jobs={list} />
+          {Object.entries(grouped).map(([col, list]) => (
+            <Column key={col} id={col} jobs={list} />
           ))}
         </div>
       </DndContext>
