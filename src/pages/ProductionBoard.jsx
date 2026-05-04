@@ -54,12 +54,30 @@ export default function ProductionBoard() {
   const [jobs, setJobs] = useState([])
   const sensors = useSensors(useSensor(PointerSensor))
 
-  /* ================= LOAD ================= */
+  /* ================= LOAD (FIXED) ================= */
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await api.get("/orders")
-        setJobs(res.data?.data || [])
+        const [ordersRes, quotesRes] = await Promise.all([
+          api.get("/orders"),
+          api.get("/quotes").catch(() => ({ data: { data: [] } }))
+        ])
+
+        const orders = ordersRes.data?.data || []
+        const quotes = quotesRes.data?.data || []
+
+        /* 🔥 MERGE */
+        const merged = [
+          ...quotes.map(q => ({
+            ...q,
+            status: "quotes",
+            source: "quote"
+          })),
+          ...orders
+        ]
+
+        setJobs(merged)
+
       } catch (err) {
         console.error("❌ LOAD ERROR:", err)
       }
@@ -73,8 +91,6 @@ export default function ProductionBoard() {
     if (!over) return
 
     const jobId = active.id
-
-    /* 🔥 USE COLUMN DATA */
     const columnId = over?.data?.current?.columnId
 
     if (!columnId) {
@@ -88,7 +104,7 @@ export default function ProductionBoard() {
     }
 
     try {
-      await api.patch(`/orders/${jobId}/status`, {
+      await api.patch(`/orders/${jobId}`, {
         status: columnId
       })
 
@@ -123,27 +139,16 @@ export default function ProductionBoard() {
       >
         <div style={{ display: "flex", gap: 20 }}>
 
-          {/* QUOTES (NOT DRAGGABLE) */}
+          {/* 🔥 QUOTES (NOW USES JobCard) */}
           <div style={{ width: 260 }}>
             <h3 style={{ color: "white" }}>quotes</h3>
 
             {grouped.quotes.map(job => (
-              <div
-                key={job._id}
-                style={{
-                  padding: 12,
-                  marginBottom: 10,
-                  background: "#334155",
-                  borderRadius: 8,
-                  color: "white"
-                }}
-              >
-                {job.customerName || "Guest"}
-              </div>
+              <JobCard key={job._id} job={job} />
             ))}
           </div>
 
-          {/* REAL DRAG COLUMNS */}
+          {/* 🔥 DRAG COLUMNS */}
           {Object.entries(grouped)
             .filter(([col]) => col !== "quotes")
             .map(([col, list]) => (
