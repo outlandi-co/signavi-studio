@@ -15,15 +15,11 @@ export default function JobCard({ job }) {
     data: { type: "card", job }
   })
 
-  /* ================= DETECT TYPE ================= */
-  const isQuote =
-    job.source === "quote" || job.status === "quotes"
+  const isQuote = job.status === "quotes"
 
-  /* ================= STATE ================= */
   const [price, setPrice] = useState(job.finalPrice || 0)
   const [note, setNote] = useState("")
 
-  /* ================= STYLE ================= */
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -35,68 +31,68 @@ export default function JobCard({ job }) {
     color: "#e5e7eb"
   }
 
+  /* 🔥 ROUTE SWITCH */
+  const endpoint = isQuote
+    ? `/quotes/${job._id}`
+    : `/orders/${job._id}`
+
   /* ================= ACTIONS ================= */
 
   const updateQuote = async () => {
     try {
-      await api.patch(`/orders/${job._id}`, {
-        finalPrice: Number(price),
+      await api.patch(endpoint, {
+        price: Number(price),
         note
       })
       console.log("✅ Quote updated")
     } catch (err) {
-      console.error("❌ UPDATE ERROR:", err)
+      console.error("❌ UPDATE ERROR:", err.response?.data || err.message)
     }
   }
 
   const approve = async () => {
     try {
-      await api.patch(`/orders/${job._id}`, {
-        status: "payment_required",
-        finalPrice: Number(price),
+      await api.patch(endpoint, {
+        status: "approved",
+        price: Number(price),
         note
       })
       window.location.reload()
     } catch (err) {
-      console.error("❌ APPROVE ERROR:", err)
+      console.error("❌ APPROVE ERROR:", err.response?.data || err.message)
     }
   }
 
   const deny = async () => {
     try {
-      await api.patch(`/orders/${job._id}`, {
+      await api.patch(endpoint, {
         status: "denied",
         note
       })
       window.location.reload()
     } catch (err) {
-      console.error("❌ DENY ERROR:", err)
+      console.error("❌ DENY ERROR:", err.response?.data || err.message)
     }
   }
 
   return (
     <div ref={setNodeRef} style={style}>
 
-      {/* DRAG HANDLE */}
+      {/* DRAG */}
       <div {...listeners} {...attributes} style={{ cursor: "grab", fontSize: 10 }}>
         ⠿ drag
       </div>
 
-      {/* CUSTOMER */}
       <p><b>{job.customerName || "Guest"}</b></p>
-
-      {/* STATUS */}
       <p style={{ color: "#38bdf8" }}>{job.status}</p>
 
-      {/* PRICE DISPLAY */}
       <p style={{ color: "#22c55e", fontWeight: "bold" }}>
         💰 ${Number(job.finalPrice || 0).toFixed(2)}
       </p>
 
-      {/* 🔥 QUOTE ONLY CONTROLS */}
+      {/* 🔥 QUOTE ONLY UI */}
       {isQuote && (
         <>
-          {/* PRICE INPUT */}
           <input
             value={price}
             onChange={(e) => setPrice(e.target.value)}
@@ -112,7 +108,6 @@ export default function JobCard({ job }) {
             }}
           />
 
-          {/* NOTE INPUT */}
           <textarea
             placeholder="Reason / comment..."
             value={note}
@@ -128,7 +123,6 @@ export default function JobCard({ job }) {
             }}
           />
 
-          {/* SAVE BUTTON */}
           <button
             onClick={updateQuote}
             style={{
@@ -143,7 +137,6 @@ export default function JobCard({ job }) {
             Save Quote
           </button>
 
-          {/* APPROVE / DENY */}
           <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
             <button
               onClick={approve}
