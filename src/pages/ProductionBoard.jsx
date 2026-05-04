@@ -5,9 +5,10 @@ import {
   closestCenter,
   PointerSensor,
   useSensor,
-  useSensors
+  useSensors,
+  useDroppable
 } from "@dnd-kit/core"
-import { Column } from "../components/Column"
+import JobCard from "../components/JobCard"
 
 /* ================= VALID STATUSES ================= */
 const VALID_STATUSES = [
@@ -17,6 +18,37 @@ const VALID_STATUSES = [
   "shipping",
   "shipped"
 ]
+
+/* ================= DROPPABLE COLUMN ================= */
+function DropColumn({ id, jobs }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id,
+    data: {
+      type: "column",
+      columnId: id
+    }
+  })
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        width: 260,
+        minHeight: 400,
+        background: isOver ? "#1e293b" : "#0f172a",
+        padding: 12,
+        borderRadius: 10,
+        transition: "0.2s"
+      }}
+    >
+      <h3 style={{ color: "white", marginBottom: 10 }}>{id}</h3>
+
+      {jobs.map(job => (
+        <JobCard key={job._id} job={job} />
+      ))}
+    </div>
+  )
+}
 
 export default function ProductionBoard() {
   const [jobs, setJobs] = useState([])
@@ -42,7 +74,7 @@ export default function ProductionBoard() {
 
     const jobId = active.id
 
-    /* 🔥 USE COLUMN DATA (NOT over.id) */
+    /* 🔥 USE COLUMN DATA */
     const columnId = over?.data?.current?.columnId
 
     if (!columnId) {
@@ -91,7 +123,7 @@ export default function ProductionBoard() {
       >
         <div style={{ display: "flex", gap: 20 }}>
 
-          {/* 🔥 QUOTES (VIEW ONLY) */}
+          {/* QUOTES (NOT DRAGGABLE) */}
           <div style={{ width: 260 }}>
             <h3 style={{ color: "white" }}>quotes</h3>
 
@@ -111,11 +143,11 @@ export default function ProductionBoard() {
             ))}
           </div>
 
-          {/* 🔥 REAL DROP ZONES */}
+          {/* REAL DRAG COLUMNS */}
           {Object.entries(grouped)
             .filter(([col]) => col !== "quotes")
             .map(([col, list]) => (
-              <Column key={col} id={col} jobs={list} />
+              <DropColumn key={col} id={col} jobs={list} />
             ))}
 
         </div>
