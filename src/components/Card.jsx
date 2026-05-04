@@ -11,8 +11,7 @@ const statusColors = {
 }
 
 export default function Card({ order, job, onDelete }) {
-
-  const data = order || job
+  const data = order || job || {}
 
   const [tracking, setTracking] = useState("")
   const [deleting, setDeleting] = useState(false)
@@ -20,6 +19,8 @@ export default function Card({ order, job, onDelete }) {
   const BASE_URL =
     import.meta.env.VITE_API_URL?.replace("/api", "") ||
     "https://signavi-backend.onrender.com"
+
+  const formatMoney = (v) => Number(v || 0).toFixed(2)
 
   /* ================= ADD TRACKING ================= */
   const addTracking = async () => {
@@ -51,109 +52,98 @@ export default function Card({ order, job, onDelete }) {
     }
   }
 
-  /* ================= PRICE ================= */
+  /* ================= CALCULATIONS ================= */
   const itemsTotal = (data.items || []).reduce(
     (sum, item) =>
-      sum + (Number(item.price || 0) * Number(item.quantity || 1)),
+      sum + Number(item.price || 0) * Number(item.quantity || 1),
     0
   )
 
   const final = Number(data.finalPrice || itemsTotal || 0)
   const shipping = Number(data.shippingCost || 0)
 
+  const statusClass =
+    statusColors[data.status] || "bg-gray-200 text-gray-700"
+
   return (
-    <div className="bg-white border rounded-xl p-4 shadow-sm hover:shadow-2xl transition duration-300 relative">
+    <div className="bg-white border rounded-xl p-4 shadow-sm hover:shadow-xl transition relative">
 
       {/* DELETE */}
       <button
         onClick={handleDelete}
         disabled={deleting}
-        className="absolute top-2 right-2 text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 disabled:opacity-50"
+        className="absolute top-2 right-2 text-xs bg-red-500 text-white px-2 py-1 rounded"
       >
         {deleting ? "..." : "Delete"}
       </button>
 
       {/* CUSTOMER */}
-      <p className="font-semibold">{data.customerName}</p>
+      <p className="font-semibold">
+        {data.customerName || "Unknown"}
+      </p>
 
       {/* TYPE */}
       <p className="text-[10px] opacity-60">
-        {data.source === "quote" ? "📝 Quote Request" : "📦 Order"}
+        {data.source === "quote" ? "📝 Quote" : "📦 Order"}
       </p>
 
-      {/* ORDER NUMBER */}
+      {/* ORDER ID */}
       <p className="text-[11px] opacity-70">
-        Order #{data?._id?.slice(-6) || "----"}
+        #{data?._id?.slice(-6) || "----"}
       </p>
 
       {/* STATUS */}
-      <span className={`text-xs px-2 py-1 rounded-full ${statusColors[data.status]}`}>
-        {data.status}
+      <span className={`text-xs px-2 py-1 rounded-full ${statusClass}`}>
+        {data.status || "unknown"}
       </span>
 
-<img
-  src={
-    data.artwork
-      ? data.artwork.startsWith("http")
-        ? data.artwork
-        : data.artwork.startsWith("/uploads")
-          ? `https://signavi-backend.onrender.com${data.artwork}`
-          : `https://signavi-backend.onrender.com/uploads/${data.artwork}`
-      : "/placeholder.png"
-  }
-  alt="Artwork"
-  className="mt-2 w-full h-32 object-cover rounded border"
-  onError={(e) => {
-    console.warn("❌ Broken image:", data.artwork)
-    e.target.src = "/placeholder.png"
-  }}
-/>
+      {/* IMAGE */}
+      <img
+        src={
+          data.artwork
+            ? data.artwork.startsWith("http")
+              ? data.artwork
+              : `${BASE_URL}${data.artwork.startsWith("/uploads") ? "" : "/uploads/"}${data.artwork}`
+            : "/placeholder.png"
+        }
+        alt="Artwork"
+        className="mt-2 w-full h-32 object-cover rounded border"
+        onError={(e) => {
+          e.target.src = "/placeholder.png"
+        }}
+      />
+
       {/* PRICE */}
       <div className="mt-2">
-        {data.finalPrice ? (
-          <p className="text-green-600 font-bold">
-            💰 ${final}
-          </p>
-        ) : data.price ? (
-          <p className="text-yellow-600">
-            💲 ${data.price} (est)
-          </p>
-        ) : (
-          <p className="text-gray-400">
-            💲 Not priced
-          </p>
-        )}
+        <p className="text-green-600 font-bold">
+          💰 ${formatMoney(final)}
+        </p>
 
         {shipping > 0 && (
           <p className="text-xs text-gray-500">
-            🚚 Shipping: ${shipping}
+            🚚 ${formatMoney(shipping)}
           </p>
         )}
       </div>
-
-      {/* MESSAGE */}
-      {data.message && (
-        <p className="text-xs mt-2 text-gray-500">
-          💬 {data.message}
-        </p>
-      )}
 
       {/* ITEMS */}
       <div className="text-sm mt-2">
         {data.items?.map((item, i) => (
-          <p key={i}>{item.name} x{item.quantity}</p>
+          <p key={i}>
+            {item.name} x{item.quantity}
+          </p>
         ))}
       </div>
 
       {/* TIMELINE */}
-      <Timeline timeline={data.timeline} />
+      {data.timeline && <Timeline timeline={data.timeline} />}
 
       {/* TRACKING */}
       {data.status !== "shipped" && (
         <div className="mt-3">
           <input
             value={tracking}
-            onChange={e => setTracking(e.target.value)}
+            onChange={(e) => setTracking(e.target.value)}
             placeholder="Tracking #"
             className="border p-1 w-full text-sm"
           />
