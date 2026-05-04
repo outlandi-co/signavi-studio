@@ -23,10 +23,7 @@ const VALID_STATUSES = [
 function DropColumn({ id, jobs }) {
   const { setNodeRef, isOver } = useDroppable({
     id,
-    data: {
-      type: "column",
-      columnId: id
-    }
+    data: { type: "column", columnId: id }
   })
 
   return (
@@ -54,37 +51,92 @@ export default function ProductionBoard() {
   const [jobs, setJobs] = useState([])
   const sensors = useSensors(useSensor(PointerSensor))
 
-  /* ================= LOAD (FIXED) ================= */
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [ordersRes, quotesRes] = await Promise.all([
-          api.get("/orders"),
-          api.get("/quotes").catch(() => ({ data: { data: [] } }))
-        ])
+  /* ================= LOAD ================= */
+  const load = async () => {
+    try {
+      const [ordersRes, quotesRes] = await Promise.all([
+        api.get("/orders"),
+        api.get("/quotes").catch(() => ({ data: { data: [] } }))
+      ])
 
-        const orders = ordersRes.data?.data || []
-        const quotes = quotesRes.data?.data || []
+      const orders = ordersRes.data?.data || []
+      const quotes = quotesRes.data?.data || []
 
-        /* 🔥 MERGE */
-        const merged = [
-          ...quotes.map(q => ({
-            ...q,
-            status: "quotes",
-            source: "quote"
-          })),
-          ...orders
-        ]
+      const merged = [
+        ...quotes.map(q => ({
+          ...q,
+          status: "quotes",
+          source: "quote"
+        })),
+        ...orders
+      ]
 
-        setJobs(merged)
-
-      } catch (err) {
-        console.error("❌ LOAD ERROR:", err)
-      }
+      setJobs(merged)
+    } catch (err) {
+      console.error("❌ LOAD ERROR:", err)
     }
+  }
 
-    load()
-  }, [])
+  useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const [ordersRes, quotesRes] = await Promise.all([
+        api.get("/orders"),
+        api.get("/quotes").catch(() => ({ data: { data: [] } }))
+      ])
+
+      const orders = ordersRes.data?.data || []
+      const quotes = quotesRes.data?.data || []
+
+      const merged = [
+        ...quotes.map(q => ({
+          ...q,
+          status: "quotes",
+          source: "quote"
+        })),
+        ...orders
+      ]
+
+      setJobs(merged)
+
+    } catch (err) {
+      console.error("❌ LOAD ERROR:", err)
+    }
+  }
+
+  fetchData()
+}, [])
+
+  /* ================= APPROVE ================= */
+  const handleApprove = async (id) => {
+    try {
+      await api.patch(`/quotes/${id}`, {
+        approvalStatus: "approved"
+      })
+
+      console.log("✅ Quote approved")
+
+      // refresh from backend
+      load()
+    } catch (err) {
+      console.error("❌ APPROVE ERROR:", err.response?.data || err.message)
+    }
+  }
+
+  /* ================= DENY ================= */
+  const handleDeny = async (id) => {
+    try {
+      await api.patch(`/quotes/${id}`, {
+        approvalStatus: "denied"
+      })
+
+      console.log("❌ Quote denied")
+
+      load()
+    } catch (err) {
+      console.error("❌ DENY ERROR:", err.response?.data || err.message)
+    }
+  }
 
   /* ================= DRAG ================= */
   const handleDragEnd = async ({ active, over }) => {
@@ -93,15 +145,7 @@ export default function ProductionBoard() {
     const jobId = active.id
     const columnId = over?.data?.current?.columnId
 
-    if (!columnId) {
-      console.warn("❌ NOT DROPPED ON COLUMN")
-      return
-    }
-
-    if (!VALID_STATUSES.includes(columnId)) {
-      console.warn("❌ INVALID COLUMN:", columnId)
-      return
-    }
+    if (!columnId || !VALID_STATUSES.includes(columnId)) return
 
     try {
       await api.patch(`/orders/${jobId}`, {
@@ -139,16 +183,48 @@ export default function ProductionBoard() {
       >
         <div style={{ display: "flex", gap: 20 }}>
 
-          {/* 🔥 QUOTES (NOW USES JobCard) */}
+          {/* 🔥 QUOTES COLUMN WITH ACTIONS */}
           <div style={{ width: 260 }}>
             <h3 style={{ color: "white" }}>quotes</h3>
 
             {grouped.quotes.map(job => (
-              <JobCard key={job._id} job={job} />
+              <div key={job._id} style={{ marginBottom: 10 }}>
+                <JobCard job={job} />
+
+                <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                  <button
+                    onClick={() => handleApprove(job._id)}
+                    style={{
+                      flex: 1,
+                      background: "#16a34a",
+                      color: "white",
+                      border: "none",
+                      padding: 6,
+                      borderRadius: 6
+                    }}
+                  >
+                    Approve
+                  </button>
+
+                  <button
+                    onClick={() => handleDeny(job._id)}
+                    style={{
+                      flex: 1,
+                      background: "#dc2626",
+                      color: "white",
+                      border: "none",
+                      padding: 6,
+                      borderRadius: 6
+                    }}
+                  >
+                    Deny
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
 
-          {/* 🔥 DRAG COLUMNS */}
+          {/* 🔥 OTHER COLUMNS */}
           {Object.entries(grouped)
             .filter(([col]) => col !== "quotes")
             .map(([col, list]) => (
