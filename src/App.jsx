@@ -9,13 +9,13 @@ import api from "./services/api"
 
 /* CONTEXT */
 import ToastProvider from "./context/ToastProvider"
+import LoadingProvider from "./context/LoadingProvider" // ✅ FIXED IMPORT
 import { useToast } from "./hooks/useToast"
-import { CartProvider } from "./context/CartContext"
 
 /* COMPONENTS */
 import Navbar from "./components/Navbar"
 import CartDrawer from "./components/CartDrawer"
-import AccountDrawer from "./components/AccountDrawer" // 🔥 ADDED
+import AccountDrawer from "./components/AccountDrawer"
 import AdminLayout from "./components/admin/AdminLayout"
 import CustomerRoute from "./components/guards/CustomerRoute"
 import AdminRoute from "./components/admin/AdminRoute"
@@ -65,16 +65,12 @@ import ClientCheckout from "./pages/ClientCheckout"
 function AppContent() {
   const location = useLocation()
   const path = location.pathname
-
   const { addToast } = useToast()
 
-  /* 🔥 FIX: BOTH DRAWERS CONTROLLED HERE */
   const [cartOpen, setCartOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
-
   const [isRedirecting, setIsRedirecting] = useState(false)
 
-  /* ================= CHECKOUT ================= */
   const handleCheckout = async (cart) => {
     if (isRedirecting) return
 
@@ -85,21 +81,19 @@ function AppContent() {
       const storedUser = localStorage.getItem("customerUser")
 
       if (storedUser) {
-        try {
-          email = JSON.parse(storedUser)?.email
-        } catch (err) {
-          console.warn("⚠️ Failed to parse customerUser:", err)
-        }
+       try {
+  email = JSON.parse(storedUser)?.email
+} catch (err) {
+  console.warn("⚠️ Failed to parse customerUser:", err)
+}
       }
 
-      if (!email) {
-        email = localStorage.getItem("customerEmail")
-      }
+      if (!email) email = localStorage.getItem("customerEmail")
 
       if (!email) {
         email = prompt("Enter your email to continue checkout:")
         if (!email) {
-          addToast("Email required to continue", "error")
+          addToast("Email required", "error")
           setIsRedirecting(false)
           return
         }
@@ -123,7 +117,6 @@ function AppContent() {
     }
   }
 
-  /* ================= NAVBAR CONTROL ================= */
   const hideNavbarRoutes = [
     "/login",
     "/customer-login",
@@ -137,7 +130,6 @@ function AppContent() {
     path.startsWith(r)
   )
 
-  /* ================= ADMIN AUTH ================= */
   useEffect(() => {
     const token = localStorage.getItem("adminToken")
     if (!token) return
@@ -154,7 +146,6 @@ function AppContent() {
 
   return (
     <>
-      {/* 🔥 FIX: PASS BOTH SETTERS */}
       {!shouldHideNavbar && (
         <Navbar
           setCartOpen={setCartOpen}
@@ -162,7 +153,6 @@ function AppContent() {
         />
       )}
 
-      {/* 🔥 FIX: BOTH DRAWERS LIVE HERE */}
       <CartDrawer
         isOpen={cartOpen}
         onClose={() => setCartOpen(false)}
@@ -232,11 +222,10 @@ export default function App() {
   return (
     <ToastProvider>
       <LoadingProvider>
-        <CartProvider> {/* 🔥 THIS IS THE KEY */}
-          <BrowserRouter>
-            <AppContent />
-          </BrowserRouter>
-        </CartProvider>
+        {/* ❌ REMOVED duplicate CartProvider */}
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
       </LoadingProvider>
     </ToastProvider>
   )
