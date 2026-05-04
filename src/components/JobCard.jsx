@@ -3,10 +3,6 @@ import { CSS } from "@dnd-kit/utilities"
 import { useState } from "react"
 import api from "../services/api"
 
-const API_URL =
-  import.meta.env.VITE_API_URL?.replace("/api", "") ||
-  "https://signavi-backend.onrender.com"
-
 export default function JobCard({ job }) {
   const {
     attributes,
@@ -33,16 +29,7 @@ export default function JobCard({ job }) {
     color: "#e5e7eb"
   }
 
-  const inputStyle = {
-    width: "100%",
-    padding: "8px",
-    background: "#020617",
-    color: "#e5e7eb",
-    border: "1px solid #334155",
-    borderRadius: "6px"
-  }
-
-  /* ================= ACTIONS ================= */
+  /* ================= UPDATE ================= */
 
   const updatePrice = async () => {
     try {
@@ -50,7 +37,7 @@ export default function JobCard({ job }) {
         finalPrice: Number(price)
       })
     } catch (err) {
-      console.error("❌ PRICE UPDATE ERROR:", err)
+      console.error("❌ PRICE ERROR:", err)
     }
   }
 
@@ -78,137 +65,87 @@ export default function JobCard({ job }) {
     }
   }
 
-  const artworkUrl = job.artwork
-    ? job.artwork.startsWith("http")
-      ? job.artwork
-      : `${API_URL}${job.artwork.startsWith("/uploads") ? "" : "/uploads/"}${job.artwork}`
-    : null
-
-  const latestNote =
-    job.timeline?.[job.timeline.length - 1]?.note || ""
-
   return (
     <div ref={setNodeRef} style={style}>
 
-      {/* DRAG HANDLE */}
-      <div {...listeners} {...attributes} style={{ cursor: "grab", fontSize: 10, opacity: 0.5 }}>
+      <div {...listeners} {...attributes} style={{ cursor: "grab", fontSize: 10 }}>
         ⠿ drag
       </div>
 
-      <p style={{ fontWeight: "bold" }}>
-        {job.customerName || "Guest"}
-      </p>
+      <p><b>{job.customerName}</b></p>
+      <p style={{ color: "#38bdf8" }}>{job.status}</p>
 
-      <p style={{ fontSize: 12, color: "#38bdf8" }}>
-        {job.status}
-      </p>
-
-      <p style={{
-        color: "#22c55e",
-        fontWeight: "bold",
-        fontSize: "18px",
-        marginTop: 6
-      }}>
+      <p style={{ color: "#22c55e", fontWeight: "bold" }}>
         💰 ${Number(job.finalPrice || 0).toFixed(2)}
       </p>
 
-      {artworkUrl && (
-        <>
-          <img
-            src={artworkUrl}
-            alt="artwork"
-            style={{
-              width: "100%",
-              height: 120,
-              objectFit: "cover",
-              borderRadius: 6,
-              marginTop: 6
-            }}
-          />
+      {/* PRICE */}
+      <input
+        value={price}
+        onChange={(e) => setPrice(e.target.value)}
+        style={{
+          width: "100%",
+          marginTop: 6,
+          padding: 6,
+          background: "#020617",
+          color: "#fff",
+          border: "1px solid #334155"
+        }}
+      />
 
-          <a href={artworkUrl} download style={{ fontSize: 12, color: "#38bdf8" }}>
-            ⬇ Download Artwork
-          </a>
-        </>
-      )}
+      <button
+        onClick={updatePrice}
+        style={{
+          width: "100%",
+          marginTop: 6,
+          background: "#2563eb",
+          color: "white",
+          padding: 6
+        }}
+      >
+        Update Price
+      </button>
 
-      <div style={{ marginTop: 10 }}>
-        <input
-          type="number"
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          style={inputStyle}
-        />
-        <button
-          onClick={updatePrice}
-          style={{
-            marginTop: 6,
-            width: "100%",
-            background: "#2563eb",
-            color: "white",
-            padding: 6,
-            borderRadius: 6
-          }}
-        >
-          Update Price
-        </button>
-      </div>
-
+      {/* NOTE */}
       <textarea
         placeholder="Reason / note..."
         value={note}
         onChange={(e) => setNote(e.target.value)}
         style={{
-          ...inputStyle,
-          minHeight: 60,
-          marginTop: 8
+          width: "100%",
+          marginTop: 6,
+          padding: 6,
+          background: "#020617",
+          color: "#fff"
         }}
       />
 
-      {/* 🔥 FIXED APPROVE/DENY */}
-      {["payment_required", "quotes"].includes(job.status) && (
-        <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-          <button
-            onClick={approve}
-            style={{
-              flex: 1,
-              background: "#22c55e",
-              color: "white",
-              padding: 6,
-              borderRadius: 6
-            }}
-          >
-            Approve
-          </button>
-
-          <button
-            onClick={deny}
-            style={{
-              flex: 1,
-              background: "#ef4444",
-              color: "white",
-              padding: 6,
-              borderRadius: 6
-            }}
-          >
-            Deny
-          </button>
-        </div>
-      )}
-
-      {latestNote && (
-        <div
+      {/* 🔥 ALWAYS SHOW APPROVE/DENY */}
+      <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+        <button
+          onClick={approve}
           style={{
-            marginTop: 10,
-            padding: 8,
-            background: "#111827",
-            borderRadius: 6,
-            fontSize: 12
+            flex: 1,
+            background: "#22c55e",
+            color: "white",
+            padding: 6
           }}
         >
-          💬 {latestNote}
-        </div>
-      )}
+          Approve
+        </button>
+
+        <button
+          onClick={deny}
+          style={{
+            flex: 1,
+            background: "#ef4444",
+            color: "white",
+            padding: 6
+          }}
+        >
+          Deny
+        </button>
+      </div>
 
     </div>
   )
