@@ -17,24 +17,30 @@ export function CartProvider({ children }) {
 
   const addToCart = (product) => {
     const variant = product.selectedVariant
+    const productId = product.productId || product._id
 
-    const price = Number(variant?.price || 0)
+    // 🔥 keep this guard
+    if (!variant?.color || !variant?.size) {
+      console.warn("❌ Missing variant:", product)
+      return
+    }
 
+    const price = Number(variant.price || 0)
     if (!price || price <= 0) {
-      console.error("❌ INVALID PRICE BLOCKED:", product)
+      console.warn("❌ Invalid price:", product)
       return
     }
 
     setCart(prev => {
       const existing = prev.find(item =>
-        item.productId === product.productId &&
+        item.productId === productId &&
         item.selectedVariant.color === variant.color &&
         item.selectedVariant.size === variant.size
       )
 
       if (existing) {
         return prev.map(item =>
-          item.productId === product.productId &&
+          item.productId === productId &&
           item.selectedVariant.color === variant.color &&
           item.selectedVariant.size === variant.size
             ? { ...item, quantity: item.quantity + 1 }
@@ -45,13 +51,13 @@ export function CartProvider({ children }) {
       return [
         ...prev,
         {
-          productId: product.productId,
+          productId,
           name: product.name,
           image: product.image,
           selectedVariant: {
             color: variant.color,
             size: variant.size,
-            price // 🔥 GUARANTEED
+            price
           },
           quantity: 1
         }
