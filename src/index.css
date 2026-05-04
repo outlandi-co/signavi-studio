@@ -196,3 +196,8 @@ code {
     transform: translateY(0px);
   }
 }
+
+input::placeholder,
+textarea::placeholder {
+  color: #94a3b8;
+}
