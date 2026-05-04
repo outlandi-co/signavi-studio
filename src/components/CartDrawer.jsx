@@ -14,6 +14,12 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
 
   if (!isOpen) return null
 
+  // 🔥 SAFE VALUES
+  const safeSubtotal = Number(subtotal || 0)
+  const safeTax = Number(tax || 0)
+  const safeShipping = Number(shipping || 0)
+  const safeTotal = Number(total || 0)
+
   return createPortal(
     <div style={{ position: "fixed", inset: 0, zIndex: 9999 }}>
 
@@ -53,7 +59,8 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
         {/* ITEMS */}
         {cart.map((item) => {
           const itemTotal =
-            Number(item.selectedVariant?.price || 0) * item.quantity
+            Number(item.selectedVariant?.price || 0) *
+            Number(item.quantity || 1)
 
           return (
             <div
@@ -67,7 +74,7 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
               <p style={{ fontWeight: "bold" }}>{item.name}</p>
 
               <p style={{ fontSize: 12, opacity: 0.7 }}>
-                {item.selectedVariant.color} / {item.selectedVariant.size}
+                {item.selectedVariant?.color} / {item.selectedVariant?.size}
               </p>
 
               {/* QUANTITY */}
@@ -93,7 +100,7 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
 
               {/* PRICE */}
               <p style={{ marginTop: 5 }}>
-                ${itemTotal.toFixed(2)}
+                ${Number(itemTotal || 0).toFixed(2)}
               </p>
 
               {/* REMOVE */}
@@ -118,12 +125,12 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
 
         {/* TOTALS */}
         <div style={{ marginTop: 20 }}>
-          <p>Subtotal: ${subtotal.toFixed(2)}</p>
-          <p>Tax: ${tax.toFixed(2)}</p>
-          <p>Shipping: ${shipping.toFixed(2)}</p>
+          <p>Subtotal: ${safeSubtotal.toFixed(2)}</p>
+          <p>Tax: ${safeTax.toFixed(2)}</p>
+          <p>Shipping: ${safeShipping.toFixed(2)}</p>
 
           <h3 style={{ marginTop: 10 }}>
-            Total: ${total.toFixed(2)}
+            Total: ${safeTotal.toFixed(2)}
           </h3>
         </div>
 

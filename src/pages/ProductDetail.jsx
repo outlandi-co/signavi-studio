@@ -21,7 +21,6 @@ export default function ProductDetail() {
     const load = async () => {
       const res = await api.get("/products")
 
-      // 🔥 FIX
       const list = Array.isArray(res.data)
         ? res.data
         : res.data?.data || []
@@ -40,7 +39,7 @@ export default function ProductDetail() {
     v.size === selectedSize
   )
 
-  const displayPrice = selectedVariant?.price ?? product.price
+  const displayPrice = selectedVariant?.price ?? product.price ?? 0
 
   const handleAddToCart = () => {
     if (!selectedVariant) {
@@ -88,7 +87,7 @@ export default function ProductDetail() {
       </select>
 
       <h2 style={{ color: "#06b6d4" }}>
-        ${Number(displayPrice).toFixed(2)}
+        ${Number(displayPrice || 0).toFixed(2)}
       </h2>
 
       <button onClick={handleAddToCart}>
