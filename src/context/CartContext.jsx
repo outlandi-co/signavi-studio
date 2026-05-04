@@ -3,7 +3,6 @@ import { createContext, useState, useEffect } from "react"
 const CartContext = createContext()
 
 export function CartProvider({ children }) {
-
   const [cart, setCart] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("cart") || "[]")
@@ -18,20 +17,24 @@ export function CartProvider({ children }) {
 
   const addToCart = (product) => {
     const variant = product.selectedVariant
-    const productId = product.productId || product._id
 
-    if (!variant?.color || !variant?.size) return
+    const price = Number(variant?.price || 0)
+
+    if (!price || price <= 0) {
+      console.error("❌ INVALID PRICE BLOCKED:", product)
+      return
+    }
 
     setCart(prev => {
       const existing = prev.find(item =>
-        item.productId === productId &&
+        item.productId === product.productId &&
         item.selectedVariant.color === variant.color &&
         item.selectedVariant.size === variant.size
       )
 
       if (existing) {
         return prev.map(item =>
-          item.productId === productId &&
+          item.productId === product.productId &&
           item.selectedVariant.color === variant.color &&
           item.selectedVariant.size === variant.size
             ? { ...item, quantity: item.quantity + 1 }
@@ -42,13 +45,13 @@ export function CartProvider({ children }) {
       return [
         ...prev,
         {
-          productId,
+          productId: product.productId,
           name: product.name,
           image: product.image,
           selectedVariant: {
             color: variant.color,
             size: variant.size,
-            price: Number(variant.price || 0)
+            price // 🔥 GUARANTEED
           },
           quantity: 1
         }
@@ -89,12 +92,12 @@ export function CartProvider({ children }) {
 
   const subtotal = cart.reduce((sum, item) => {
     const price = Number(item.selectedVariant?.price || 0)
-    const qty = Number(item.quantity || 1)
-    return sum + price * qty
+    return sum + price * item.quantity
   }, 0)
 
   const tax = subtotal * 0.0825
-  const total = subtotal + tax
+  const shipping = 0
+  const total = subtotal + tax + shipping
 
   return (
     <CartContext.Provider
@@ -105,6 +108,7 @@ export function CartProvider({ children }) {
         removeFromCart,
         subtotal,
         tax,
+        shipping,
         total
       }}
     >
