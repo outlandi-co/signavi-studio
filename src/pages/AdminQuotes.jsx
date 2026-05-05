@@ -17,17 +17,12 @@ function AdminQuotes() {
   const [loadingId, setLoadingId] = useState(null)
 
   /* ================= LOAD ================= */
-  useEffect(() => {
-    reload()
-  }, [])
-
   const reload = async () => {
     const res = await api.get("/quotes")
     const data = res.data
 
     setQuotes(data)
 
-    // preload values
     const p = {}
     const s = {}
 
@@ -40,12 +35,40 @@ function AdminQuotes() {
     setShipping(s)
   }
 
+  useEffect(() => {
+  const loadData = async () => {
+    try {
+      const res = await api.get("/quotes")
+      const data = res.data
+
+      setQuotes(data)
+
+      const p = {}
+      const s = {}
+
+      data.forEach(q => {
+        p[q._id] = q.price || ""
+        s[q._id] = q.shippingCost || ""
+      })
+
+      setPrices(p)
+      setShipping(s)
+
+    } catch (err) {
+      console.error("❌ LOAD ERROR:", err)
+    }
+  }
+
+  loadData()
+}, [])
+
   /* ================= APPROVE ================= */
   const handleApprove = async (id) => {
     try {
       setLoadingId(id)
 
-      await api.patch(`/quotes/${id}/approve`, {
+      await api.patch(`/quotes/${id}`, {
+        approvalStatus: "approved", // 🔥 THIS FIXES EVERYTHING
         price: Number(prices[id] || 0),
         shippingCost: Number(shipping[id] || 0)
       })
@@ -69,8 +92,9 @@ function AdminQuotes() {
 
       const fee = prompt("Revision fee? (optional)") || 0
 
-      await api.patch(`/quotes/${id}/deny`, {
-        reason,
+      await api.patch(`/quotes/${id}`, {
+        approvalStatus: "denied", // 🔥 FIX
+        denialReason: reason,
         fee
       })
 
