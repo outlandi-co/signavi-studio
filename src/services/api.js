@@ -8,7 +8,10 @@ const BASE_URL =
   "https://signavi-backend.onrender.com/api"
 
 const api = axios.create({
-  baseURL: BASE_URL.replace(/\/$/, "")
+  baseURL: BASE_URL.replace(/\/$/, ""),
+  headers: {
+    "Content-Type": "application/json" // 🔥 CRITICAL FIX
+  }
 })
 
 console.log("🌐 API BASE:", api.defaults.baseURL)
@@ -42,7 +45,9 @@ api.interceptors.request.use((config) => {
 
   const token = adminToken || customerToken
 
+  /* 🔥 DO NOT WIPE HEADERS — MERGE INSTEAD */
   config.headers = {
+    "Content-Type": "application/json", // 🔥 FORCE JSON
     ...(config.headers || {})
   }
 
@@ -50,23 +55,22 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`
   }
 
-  /* ✅ FIX FORM DATA */
+  /* ✅ HANDLE FORM DATA PROPERLY */
   if (config.data instanceof FormData) {
     delete config.headers["Content-Type"]
   }
 
-  console.log("🔥 REQUEST:", config.baseURL + config.url)
+  console.log("🔥 REQUEST:", config.baseURL + config.url, config.data)
 
   return config
 })
 
 /* =========================================================
-   🔁 RESPONSE INTERCEPTOR (SMART RETRY + SAFE LOADER)
+   🔁 RESPONSE INTERCEPTOR
 ========================================================= */
 api.interceptors.response.use(
   (res) => {
 
-    /* 🔥 STOP LOADING */
     if (stopLoading) stopLoading()
 
     console.log("✅ RESPONSE:", res.config.url, res.data)
@@ -75,7 +79,6 @@ api.interceptors.response.use(
 
   async (err) => {
 
-    /* 🔥 ALWAYS STOP LOADING (CRITICAL) */
     if (stopLoading) stopLoading()
 
     const status = err?.response?.status
@@ -89,7 +92,6 @@ api.interceptors.response.use(
 
     const originalRequest = err.config
 
-    /* ================= SAFE ROUTES ================= */
     const safeRoutes = [
       "/auth/login",
       "/auth/register",
@@ -99,9 +101,7 @@ api.interceptors.response.use(
 
     const isSafeRoute = safeRoutes.some((r) => url.includes(r))
 
-    /* =========================================================
-       🔁 SILENT RETRY (ONLY ONCE)
-    ========================================================= */
+    /* 🔁 RETRY ONCE */
     if (status === 401 && !isSafeRoute && !originalRequest._retry) {
       originalRequest._retry = true
 
@@ -114,9 +114,7 @@ api.interceptors.response.use(
       }
     }
 
-    /* =========================================================
-       🔒 FINAL FAIL → LOGOUT
-    ========================================================= */
+    /* 🔒 LOGOUT ON FAIL */
     if (status === 401 && !isSafeRoute) {
       const isCheckout = url.includes("/square")
 
@@ -124,25 +122,15 @@ api.interceptors.response.use(
         localStorage.getItem("adminUser") ||
         sessionStorage.getItem("adminUser")
 
-      /* 🔥 CLEAR AUTH */
-      localStorage.removeItem("adminToken")
-      localStorage.removeItem("adminUser")
-      localStorage.removeItem("customerToken")
-      localStorage.removeItem("customerUser")
-
-      sessionStorage.removeItem("adminToken")
-      sessionStorage.removeItem("adminUser")
-      sessionStorage.removeItem("customerToken")
-      sessionStorage.removeItem("customerUser")
+      localStorage.clear()
+      sessionStorage.clear()
 
       if (!isCheckout) {
         console.warn("🔒 Redirecting to login")
 
-        if (wasAdmin) {
-          window.location.href = "/login"
-        } else {
-          window.location.href = "/customer-login"
-        }
+        window.location.href = wasAdmin
+          ? "/login"
+          : "/customer-login"
       }
     }
 
