@@ -14,6 +14,9 @@ export default function AdminEmails() {
 
   const [history, setHistory] = useState([])
 
+  const [historyFilter, setHistoryFilter] =
+    useState("active")
+
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
 
@@ -206,6 +209,22 @@ SignaVi Studio`
     init()
 
   }, [])
+
+  /* ================= FILTER HISTORY ================= */
+
+  const filteredHistory =
+    history.filter(email => {
+
+      if (historyFilter === "active") {
+        return !email.archived
+      }
+
+      if (historyFilter === "archived") {
+        return email.archived
+      }
+
+      return true
+    })
 
   /* ================= SELECT CUSTOMER ================= */
 
@@ -531,11 +550,63 @@ SignaVi Studio`
 
         <div style={historyPanel}>
 
+          <div style={filterRow}>
+
+            <button
+              onClick={() =>
+                setHistoryFilter("active")
+              }
+              style={{
+                ...filterButton,
+
+                background:
+                  historyFilter === "active"
+                    ? "#22c55e"
+                    : "#111827"
+              }}
+            >
+              Active
+            </button>
+
+            <button
+              onClick={() =>
+                setHistoryFilter("archived")
+              }
+              style={{
+                ...filterButton,
+
+                background:
+                  historyFilter === "archived"
+                    ? "#f59e0b"
+                    : "#111827"
+              }}
+            >
+              Archived
+            </button>
+
+            <button
+              onClick={() =>
+                setHistoryFilter("all")
+              }
+              style={{
+                ...filterButton,
+
+                background:
+                  historyFilter === "all"
+                    ? "#3b82f6"
+                    : "#111827"
+              }}
+            >
+              All
+            </button>
+
+          </div>
+
           <h2 style={sectionTitle}>
             📨 Email History
           </h2>
 
-          {history.map(email => (
+          {filteredHistory.map(email => (
 
             <div
               key={email._id}
@@ -713,6 +784,21 @@ const templateButton = {
   color: "#fff",
   cursor: "pointer",
   fontSize: 13
+}
+
+const filterRow = {
+  display: "flex",
+  gap: 10,
+  marginBottom: 20,
+  flexWrap: "wrap"
+}
+
+const filterButton = {
+  padding: "8px 14px",
+  borderRadius: 8,
+  border: "1px solid #334155",
+  color: "#fff",
+  cursor: "pointer"
 }
 
 const historyCard = {
