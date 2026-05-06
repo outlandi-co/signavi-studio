@@ -17,6 +17,115 @@ export default function AdminEmails() {
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
 
+  /* ================= EMAIL TEMPLATES ================= */
+
+  const templates = [
+
+    {
+      name: "Quote Ready",
+
+      subject:
+        "Your Quote Is Ready - SignaVi Studio",
+
+      message:
+`Hello {{customerName}},
+
+Your quote is now ready for review.
+
+Please review the quote details and let us know if you would like to proceed.
+
+Thank you,
+SignaVi Studio`
+    },
+
+    {
+      name: "Payment Reminder",
+
+      subject:
+        "Payment Reminder - SignaVi Studio",
+
+      message:
+`Hello {{customerName}},
+
+This is a friendly reminder that payment is still pending for your order.
+
+If you have already submitted payment, please disregard this message.
+
+Thank you,
+SignaVi Studio`
+    },
+
+    {
+      name: "Production Started",
+
+      subject:
+        "Production Has Started",
+
+      message:
+`Hello {{customerName}},
+
+Your project is now in production.
+
+We will notify you once it is completed and ready for shipping or pickup.
+
+Thank you,
+SignaVi Studio`
+    },
+
+    {
+      name: "Shipping Update",
+
+      subject:
+        "Your Order Has Shipped",
+
+      message:
+`Hello {{customerName}},
+
+Your order has shipped.
+
+Tracking:
+{{tracking}}
+
+Thank you,
+SignaVi Studio`
+    },
+
+    {
+      name: "Mockup Approval",
+
+      subject:
+        "Mockup Ready For Approval",
+
+      message:
+`Hello {{customerName}},
+
+Your mockup is ready for approval.
+
+Please review the design and let us know if any revisions are needed.
+
+Thank you,
+SignaVi Studio`
+    },
+
+    {
+      name: "Thank You",
+
+      subject:
+        "Thank You From SignaVi Studio",
+
+      message:
+`Hello {{customerName}},
+
+Thank you for choosing SignaVi Studio.
+
+We truly appreciate your support and look forward to working with you again.
+
+Thank you,
+SignaVi Studio`
+    }
+
+  ]
+
   /* ================= LOAD CUSTOMERS ================= */
 
   const loadCustomers = async () => {
@@ -87,16 +196,16 @@ export default function AdminEmails() {
 
   useEffect(() => {
 
-  const init = async () => {
+    const init = async () => {
 
-    await loadCustomers()
-    await loadHistory()
+      await loadCustomers()
+      await loadHistory()
 
-  }
+    }
 
-  init()
+    init()
 
-}, [])
+  }, [])
 
   /* ================= SELECT CUSTOMER ================= */
 
@@ -107,6 +216,31 @@ export default function AdminEmails() {
     setSelectedCustomer(customer)
 
     setTo(customer.email || "")
+  }
+
+  /* ================= APPLY TEMPLATE ================= */
+
+  const applyTemplate = (template) => {
+
+    const customerName =
+      selectedCustomer?.name || "Customer"
+
+    const parsedMessage =
+      template.message
+
+        .replace(
+          "{{customerName}}",
+          customerName
+        )
+
+        .replace(
+          "{{tracking}}",
+          "TRACKING_NUMBER"
+        )
+
+    setSubject(template.subject)
+
+    setMessage(parsedMessage)
   }
 
   /* ================= SEND ================= */
@@ -289,6 +423,36 @@ export default function AdminEmails() {
           <h2 style={sectionTitle}>
             Compose Email
           </h2>
+
+          {/* ================= TEMPLATES ================= */}
+
+          <div style={field}>
+
+            <label style={label}>
+              Templates
+            </label>
+
+            <div style={templateGrid}>
+
+              {templates.map(template => (
+
+                <button
+                  key={template.name}
+
+                  onClick={() =>
+                    applyTemplate(template)
+                  }
+
+                  style={templateButton}
+                >
+                  {template.name}
+                </button>
+
+              ))}
+
+            </div>
+
+          </div>
 
           <div style={field}>
             <label style={label}>
@@ -486,7 +650,7 @@ const customerButton = {
   textAlign: "left",
   cursor: "pointer",
   display: "flex",
- flexDirection: "column"
+  flexDirection: "column"
 }
 
 const emailStyle = {
@@ -533,6 +697,22 @@ const sendButton = {
   color: "#fff",
   fontWeight: "700",
   cursor: "pointer"
+}
+
+const templateGrid = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 10
+}
+
+const templateButton = {
+  padding: "10px 14px",
+  borderRadius: 8,
+  border: "1px solid #334155",
+  background: "#111827",
+  color: "#fff",
+  cursor: "pointer",
+  fontSize: 13
 }
 
 const historyCard = {
