@@ -5,7 +5,7 @@ import api from "../services/api"
 export default function Login() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [remember, setRemember] = useState(true) // 🔥 NEW
+  const [remember, setRemember] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -22,7 +22,7 @@ export default function Login() {
           sessionStorage.getItem("adminToken")
 
         if (token) {
-          console.log("✅ Existing session → redirect")
+          console.log("✅ Existing admin session → redirect")
           navigate("/admin/production", { replace: true })
         }
       } catch {
@@ -38,8 +38,11 @@ export default function Login() {
     e.preventDefault()
     if (loading) return
 
-    if (!email || !password) {
-      return setError("Please enter email and password")
+    const cleanEmail = email.trim().toLowerCase()
+
+    if (!cleanEmail || !password) {
+      setError("Please enter email and password")
+      return
     }
 
     try {
@@ -51,14 +54,17 @@ export default function Login() {
 
       while (attempts < 3) {
         try {
-          res = await api.post("/auth/login", { email, password })
+          res = await api.post("/auth/login", {
+            email: cleanEmail,
+            password
+          })
           break
         } catch (err) {
           attempts++
 
           if (attempts < 3 && err?.code === "ERR_NETWORK") {
             console.log("⏳ Waking server...")
-            await new Promise(r => setTimeout(r, 2500))
+            await new Promise((resolve) => setTimeout(resolve, 2500))
           } else {
             throw err
           }
@@ -71,9 +77,21 @@ export default function Login() {
 
       const { token, user } = res.data
 
-      /* 🔥 CLEAR ALL OLD SESSIONS */
-      localStorage.clear()
-      sessionStorage.clear()
+      if (user.role !== "admin") {
+        throw new Error("This login is for admins only")
+      }
+
+      /* 🔥 CLEAR OLD ADMIN/CUSTOMER SESSIONS */
+      localStorage.removeItem("adminToken")
+      localStorage.removeItem("adminUser")
+      sessionStorage.removeItem("adminToken")
+      sessionStorage.removeItem("adminUser")
+
+      localStorage.removeItem("customerToken")
+      localStorage.removeItem("customerUser")
+      localStorage.removeItem("customerEmail")
+      sessionStorage.removeItem("customerToken")
+      sessionStorage.removeItem("customerUser")
 
       /* 🔥 STORE BASED ON REMEMBER */
       if (remember) {
@@ -87,7 +105,6 @@ export default function Login() {
       console.log("✅ ADMIN LOGGED IN:", user)
 
       navigate("/admin/production", { replace: true })
-
     } catch (err) {
       console.error("❌ LOGIN ERROR:", err)
 
@@ -124,7 +141,6 @@ export default function Login() {
           style={input}
         />
 
-        {/* 🔥 REMEMBER ME */}
         <label style={rememberRow}>
           <input
             type="checkbox"
@@ -133,6 +149,16 @@ export default function Login() {
           />
           Remember Me
         </label>
+
+        <div style={forgotWrap}>
+          <button
+            type="button"
+            onClick={() => navigate("/forgot-password")}
+            style={forgotButton}
+          >
+            Forgot password?
+          </button>
+        </div>
 
         {error && <p style={errorText}>{error}</p>}
 
@@ -144,7 +170,8 @@ export default function Login() {
   )
 }
 
-/* STYLES */
+/* ================= STYLES ================= */
+
 const container = {
   minHeight: "100vh",
   background: "#020617",
@@ -164,7 +191,10 @@ const card = {
   color: "white"
 }
 
-const title = { textAlign: "center" }
+const title = {
+  textAlign: "center",
+  marginBottom: 10
+}
 
 const input = {
   padding: 12,
@@ -181,6 +211,20 @@ const rememberRow = {
   fontSize: 14
 }
 
+const forgotWrap = {
+  textAlign: "right",
+  marginTop: -4
+}
+
+const forgotButton = {
+  background: "transparent",
+  border: "none",
+  color: "#60a5fa",
+  fontSize: 13,
+  cursor: "pointer",
+  padding: 0
+}
+
 const button = {
   padding: 12,
   background: "#06b6d4",
@@ -193,5 +237,6 @@ const button = {
 
 const errorText = {
   color: "#ef4444",
-  textAlign: "center"
+  textAlign: "center",
+  fontSize: 14
 }
