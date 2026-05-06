@@ -110,19 +110,19 @@ export default function CustomerLogin() {
 
         {error && <p style={errorText}>{error}</p>}
 
-        <div style={forgotWrap}>
-          <button
-            type="button"
-            onClick={() => navigate("/forgot-password")}
-            style={forgotButton}
-          >
-            Forgot password?
-          </button>
-        </div>
+       <div style={forgotWrap}>
+  <button
+    type="button"
+    onClick={() => navigate("/forgot-password")}
+    style={forgotButton}
+  >
+    Forgot password?
+  </button>
+</div>
 
-        <button type="submit" style={button} disabled={loading}>
-          {loading ? "Logging in..." : "Continue"}
-        </button>
+<button type="submit" style={button} disabled={loading}>
+  {loading ? "Logging in..." : "Continue"}
+</button>
       </form>
     </div>
   )
@@ -198,15 +198,18 @@ const eye = {
 }
 
 const forgotWrap = {
+  width: "100%",
   textAlign: "right",
-  marginBottom: "14px"
+  marginTop: "-2px",
+  marginBottom: "16px"
 }
 
 const forgotButton = {
   background: "transparent",
   border: "none",
   color: "#60a5fa",
-  fontSize: "13px",
+  fontSize: "14px",
+  fontWeight: "500",
   cursor: "pointer",
-  padding: 0
+  padding: "4px 0"
 }

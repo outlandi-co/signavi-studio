@@ -3,11 +3,12 @@ import { useNavigate } from "react-router-dom"
 import api from "../../services/api"
 
 export default function CustomerLogin() {
-
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+
   const navigate = useNavigate()
 
   /* ================= SAFE REDIRECT ================= */
@@ -20,28 +21,33 @@ export default function CustomerLogin() {
   }, [navigate])
 
   /* ================= LOGIN ================= */
-  const handleLogin = async () => {
+  const handleLogin = async (e) => {
+    if (e) e.preventDefault()
+
     setError("")
 
-    if (!email || !password) {
+    const cleanEmail = email.trim().toLowerCase()
+
+    if (!cleanEmail || !password) {
       setError("Please enter email and password")
       return
     }
 
     try {
+      setLoading(true)
+
       const res = await api.post("/auth/login", {
-        email,
+        email: cleanEmail,
         password
       })
 
-      const user = res.data.user
-      const token = res.data.token
+      const user = res.data?.user
+      const token = res.data?.token
 
-      if (!user?.email) {
-        throw new Error("Email missing from response")
+      if (!user?.email || !token) {
+        throw new Error("Invalid login response")
       }
 
-      /* 🔥 CLEAN STANDARDIZED STORAGE */
       const cleanUser = {
         email: user.email,
         name: user.name || "Customer"
@@ -49,23 +55,27 @@ export default function CustomerLogin() {
 
       localStorage.setItem("customerToken", token)
       localStorage.setItem("customerUser", JSON.stringify(cleanUser))
-
-      /* 🔥 IMPORTANT BACKUP (used in other files) */
       localStorage.setItem("customerEmail", user.email)
 
       console.log("✅ CUSTOMER LOGGED IN:", cleanUser)
 
       navigate("/dashboard")
-
     } catch (err) {
-      console.error("❌ LOGIN ERROR:", err)
-      setError("Invalid email or password")
+      console.error("❌ LOGIN ERROR:", err.response?.data || err)
+
+      setError(
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Invalid email or password"
+      )
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
     <div style={container}>
-      <div style={card}>
+      <form style={card} onSubmit={handleLogin}>
         <h1 style={title}>Customer Login</h1>
 
         <p style={subtitle}>
@@ -77,7 +87,7 @@ export default function CustomerLogin() {
           type="email"
           placeholder="Enter your email"
           value={email}
-          onChange={(e)=>setEmail(e.target.value)}
+          onChange={(e) => setEmail(e.target.value)}
           style={input}
         />
 
@@ -87,7 +97,7 @@ export default function CustomerLogin() {
             type={showPassword ? "text" : "password"}
             placeholder="Enter your password"
             value={password}
-            onChange={(e)=>setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
             style={input}
           />
 
@@ -99,12 +109,25 @@ export default function CustomerLogin() {
           </span>
         </div>
 
+        {/* ERROR */}
         {error && <p style={errorText}>{error}</p>}
 
-        <button onClick={handleLogin} style={button}>
-          Continue
+        {/* 🔥 FORGOT PASSWORD (NOW VISIBLE) */}
+        <div style={forgotWrap}>
+          <button
+            type="button"
+            onClick={() => navigate("/forgot-password")}
+            style={forgotButton}
+          >
+            Forgot password?
+          </button>
+        </div>
+
+        {/* SUBMIT */}
+        <button type="submit" style={button} disabled={loading}>
+          {loading ? "Logging in..." : "Continue"}
         </button>
-      </div>
+      </form>
     </div>
   )
 }
@@ -130,7 +153,9 @@ const card = {
 }
 
 const title = {
-  marginBottom: "10px"
+  marginBottom: "10px",
+  fontSize: "32px",
+  fontWeight: "bold"
 }
 
 const subtitle = {
@@ -172,4 +197,18 @@ const eye = {
   top: 12,
   cursor: "pointer",
   color: "#94a3b8"
+}
+
+const forgotWrap = {
+  width: "100%",
+  textAlign: "right",
+  marginBottom: "14px"
+}
+
+const forgotButton = {
+  background: "transparent",
+  border: "none",
+  color: "#60a5fa",
+  fontSize: "13px",
+  cursor: "pointer"
 }
