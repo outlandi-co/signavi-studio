@@ -9,75 +9,118 @@ import { useEffect, useState } from "react"
 
 import api from "./services/api"
 
-/* CONTEXT */
+/* ================= CONTEXT ================= */
+
 import ToastProvider from "./context/ToastProvider"
 import LoadingProvider from "./context/LoadingProvider"
 import { CartProvider } from "./context/CartContext"
 import { useToast } from "./hooks/useToast"
 
-/* COMPONENTS */
+/* ================= COMPONENTS ================= */
+
 import Navbar from "./components/Navbar"
 import CartDrawer from "./components/CartDrawer"
 import AccountDrawer from "./components/AccountDrawer"
+
 import AdminLayout from "./components/admin/AdminLayout"
+
 import CustomerRoute from "./components/guards/CustomerRoute"
 import AdminRoute from "./components/admin/AdminRoute"
 
-/* LAYOUT */
+/* ================= LAYOUT ================= */
+
 import CustomerLayout from "./layouts/CustomerLayout"
 
-/* PAGES */
+/* ================= PAGES ================= */
+
 import Home from "./pages/Home"
+
 import ForgotPassword from "./pages/ForgotPassword"
 import ResetPassword from "./pages/ResetPassword"
+
 import Store from "./pages/Store"
 import ProductDetail from "./pages/ProductDetail"
+
 import ProductionBoard from "./pages/ProductionBoard"
+
 import CustomQuote from "./pages/CustomQuote"
+
 import Login from "./pages/Login"
+
 import QuoteResponse from "./pages/QuoteResponse"
+
 import Success from "./pages/Success"
+
 import TrackingPage from "./pages/TrackingPage"
+
 import ClientOrder from "./pages/ClientOrder"
 
-/* CUSTOMER */
+/* ================= CUSTOMER ================= */
+
 import CustomerLogin from "./pages/customer/CustomerLogin"
+
 import CustomerRegister from "./pages/CustomerRegister"
+
 import CustomerDashboard from "./pages/customer/CustomerDashboard"
+
 import CustomerOrders from "./pages/customer/CustomerOrders"
+
 import OrderDetail from "./pages/customer/OrderDetail"
+
 import Security from "./pages/customer/Security"
 
-/* ADMIN */
+/* ================= ADMIN ================= */
+
 import Dashboard from "./pages/Dashboard"
+
 import AdminRevenue from "./pages/admin/AdminRevenue"
+
 import Orders from "./pages/admin/Orders"
+
 import AdminCustomers from "./pages/admin/AdminCustomers"
+
 import AdminCustomerDetail from "./pages/admin/AdminCustomerDetail"
 
-/* PRODUCTS */
+import AdminEmails from "./pages/admin/AdminEmails"
+
+/* ================= PRODUCTS ================= */
+
 import Products from "./pages/admin/Products"
+
 import CreateProduct from "./pages/admin/CreateProduct"
+
 import EditProduct from "./pages/admin/EditProduct"
 
-/* FLOW */
+/* ================= FLOW ================= */
+
 import ApproveMockup from "./pages/ApproveMockup"
+
 import CheckoutRedirect from "./pages/CheckoutRedirect"
+
 import ClientCheckout from "./pages/ClientCheckout"
 
 function AppContent() {
+
   const location = useLocation()
+
   const path = location.pathname
+
   const { addToast } = useToast()
 
   const [cartOpen, setCartOpen] = useState(false)
+
   const [accountOpen, setAccountOpen] = useState(false)
+
   const [isRedirecting, setIsRedirecting] = useState(false)
 
+  /* ================= CHECKOUT ================= */
+
   const handleCheckout = async (cart) => {
+
     if (isRedirecting) return
 
     try {
+
       setIsRedirecting(true)
 
       let email = null
@@ -86,9 +129,14 @@ function AppContent() {
         localStorage.getItem("customerUser")
 
       if (storedUser) {
+
         try {
-          email = JSON.parse(storedUser)?.email
+
+          email =
+            JSON.parse(storedUser)?.email
+
         } catch (err) {
+
           console.warn(
             "⚠️ Failed to parse customerUser:",
             err
@@ -97,17 +145,25 @@ function AppContent() {
       }
 
       if (!email) {
-        email = localStorage.getItem("customerEmail")
+        email =
+          localStorage.getItem("customerEmail")
       }
 
       if (!email) {
+
         email = prompt(
           "Enter your email to continue checkout:"
         )
 
         if (!email) {
-          addToast("Email required", "error")
+
+          addToast(
+            "Email required",
+            "error"
+          )
+
           setIsRedirecting(false)
+
           return
         }
 
@@ -117,15 +173,21 @@ function AppContent() {
         )
       }
 
-      const res = await api.post("/orders", {
-        email,
-        items: cart
-      })
+      const res = await api.post(
+        "/orders",
+        {
+          email,
+          items: cart
+        }
+      )
 
-      const orderId = res.data?.data?._id
+      const orderId =
+        res.data?.data?._id
 
       if (!orderId) {
-        throw new Error("Missing order ID")
+        throw new Error(
+          "Missing order ID"
+        )
       }
 
       window.location.assign(
@@ -133,13 +195,22 @@ function AppContent() {
       )
 
     } catch (err) {
-      console.error("❌ CHECKOUT ERROR:", err)
 
-      addToast("Checkout failed", "error")
+      console.error(
+        "❌ CHECKOUT ERROR:",
+        err
+      )
+
+      addToast(
+        "Checkout failed",
+        "error"
+      )
 
       setIsRedirecting(false)
     }
   }
+
+  /* ================= HIDE NAVBAR ================= */
 
   const hideNavbarRoutes = [
     "/login",
@@ -155,50 +226,90 @@ function AppContent() {
       path.startsWith(r)
     )
 
+  /* ================= ADMIN AUTH ================= */
+
   useEffect(() => {
-    const token = localStorage.getItem("adminToken")
+
+    const token =
+      localStorage.getItem("adminToken")
 
     if (!token) return
 
     api.get("/auth/profile")
+
       .then(res => {
+
         localStorage.setItem(
           "adminUser",
           JSON.stringify(res.data.user)
         )
+
       })
+
       .catch(() => {
-        localStorage.removeItem("adminToken")
-        localStorage.removeItem("adminUser")
+
+        localStorage.removeItem(
+          "adminToken"
+        )
+
+        localStorage.removeItem(
+          "adminUser"
+        )
       })
+
   }, [])
 
   return (
     <>
+
+      {/* ================= NAVBAR ================= */}
+
       {!shouldHideNavbar && (
+
         <Navbar
           setCartOpen={setCartOpen}
           setAccountOpen={setAccountOpen}
         />
+
       )}
+
+      {/* ================= CART ================= */}
 
       <CartDrawer
         isOpen={cartOpen}
-        onClose={() => setCartOpen(false)}
+        onClose={() =>
+          setCartOpen(false)
+        }
         onCheckout={handleCheckout}
       />
 
+      {/* ================= ACCOUNT ================= */}
+
       <AccountDrawer
         open={accountOpen}
-        onClose={() => setAccountOpen(false)}
+        onClose={() =>
+          setAccountOpen(false)
+        }
       />
 
+      {/* ================= ROUTES ================= */}
+
       <Routes>
-        <Route path="/" element={<Home />} />
+
+        {/* ================= PUBLIC ================= */}
+
+        <Route
+          path="/"
+          element={<Home />}
+        />
 
         <Route
           path="/store"
-          element={<Store setCartOpen={setCartOpen} />}
+          element={
+            <Store
+              setCartOpen={setCartOpen}
+            />
+          }
         />
 
         <Route
@@ -206,7 +317,10 @@ function AppContent() {
           element={<ProductDetail />}
         />
 
-        <Route path="/login" element={<Login />} />
+        <Route
+          path="/login"
+          element={<Login />}
+        />
 
         <Route
           path="/forgot-password"
@@ -238,6 +352,8 @@ function AppContent() {
           element={<TrackingPage />}
         />
 
+        {/* ================= CUSTOMER ================= */}
+
         <Route
           path="/customer-login"
           element={<CustomerLogin />}
@@ -249,7 +365,9 @@ function AppContent() {
         />
 
         <Route element={<CustomerRoute />}>
+
           <Route element={<CustomerLayout />}>
+
             <Route
               path="/dashboard"
               element={<CustomerDashboard />}
@@ -269,8 +387,12 @@ function AppContent() {
               path="/security"
               element={<Security />}
             />
+
           </Route>
+
         </Route>
+
+        {/* ================= CHECKOUT ================= */}
 
         <Route
           path="/client-checkout/:id"
@@ -297,9 +419,19 @@ function AppContent() {
           element={<ApproveMockup />}
         />
 
-        <Route path="/admin" element={<AdminRoute />}>
+        {/* ================= ADMIN ================= */}
+
+        <Route
+          path="/admin"
+          element={<AdminRoute />}
+        >
+
           <Route element={<AdminLayout />}>
-            <Route index element={<Dashboard />} />
+
+            <Route
+              index
+              element={<Dashboard />}
+            />
 
             <Route
               path="production"
@@ -321,6 +453,13 @@ function AppContent() {
               element={<AdminCustomerDetail />}
             />
 
+            {/* 🔥 NEW EMAIL PAGE */}
+
+            <Route
+              path="emails"
+              element={<AdminEmails />}
+            />
+
             <Route
               path="revenue"
               element={<AdminRevenue />}
@@ -340,28 +479,44 @@ function AppContent() {
               path="products/edit/:id"
               element={<EditProduct />}
             />
+
           </Route>
+
         </Route>
+
+        {/* ================= 404 ================= */}
 
         <Route
           path="*"
           element={<h2>Page not found</h2>}
         />
+
       </Routes>
+
     </>
   )
 }
 
 export default function App() {
+
   return (
+
     <ToastProvider>
+
       <LoadingProvider>
+
         <CartProvider>
+
           <BrowserRouter>
+
             <AppContent />
+
           </BrowserRouter>
+
         </CartProvider>
+
       </LoadingProvider>
+
     </ToastProvider>
   )
 }
