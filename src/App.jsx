@@ -4,12 +4,15 @@ import {
   Route,
   useLocation
 } from "react-router-dom"
+
 import { useEffect, useState } from "react"
+
 import api from "./services/api"
 
 /* CONTEXT */
 import ToastProvider from "./context/ToastProvider"
-import LoadingProvider from "./context/LoadingProvider" // ✅ FIXED IMPORT
+import LoadingProvider from "./context/LoadingProvider"
+import { CartProvider } from "./context/CartContext"
 import { useToast } from "./hooks/useToast"
 
 /* COMPONENTS */
@@ -78,26 +81,40 @@ function AppContent() {
       setIsRedirecting(true)
 
       let email = null
-      const storedUser = localStorage.getItem("customerUser")
+
+      const storedUser =
+        localStorage.getItem("customerUser")
 
       if (storedUser) {
-       try {
-  email = JSON.parse(storedUser)?.email
-} catch (err) {
-  console.warn("⚠️ Failed to parse customerUser:", err)
-}
+        try {
+          email = JSON.parse(storedUser)?.email
+        } catch (err) {
+          console.warn(
+            "⚠️ Failed to parse customerUser:",
+            err
+          )
+        }
       }
 
-      if (!email) email = localStorage.getItem("customerEmail")
+      if (!email) {
+        email = localStorage.getItem("customerEmail")
+      }
 
       if (!email) {
-        email = prompt("Enter your email to continue checkout:")
+        email = prompt(
+          "Enter your email to continue checkout:"
+        )
+
         if (!email) {
           addToast("Email required", "error")
           setIsRedirecting(false)
           return
         }
-        localStorage.setItem("customerEmail", email)
+
+        localStorage.setItem(
+          "customerEmail",
+          email
+        )
       }
 
       const res = await api.post("/orders", {
@@ -106,13 +123,20 @@ function AppContent() {
       })
 
       const orderId = res.data?.data?._id
-      if (!orderId) throw new Error("Missing order ID")
 
-      window.location.assign(`/client-checkout/${orderId}`)
+      if (!orderId) {
+        throw new Error("Missing order ID")
+      }
+
+      window.location.assign(
+        `/client-checkout/${orderId}`
+      )
 
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err)
+
       addToast("Checkout failed", "error")
+
       setIsRedirecting(false)
     }
   }
@@ -126,17 +150,22 @@ function AppContent() {
     "/reset-password"
   ]
 
-  const shouldHideNavbar = hideNavbarRoutes.some(r =>
-    path.startsWith(r)
-  )
+  const shouldHideNavbar =
+    hideNavbarRoutes.some(r =>
+      path.startsWith(r)
+    )
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken")
+
     if (!token) return
 
     api.get("/auth/profile")
       .then(res => {
-        localStorage.setItem("adminUser", JSON.stringify(res.data.user))
+        localStorage.setItem(
+          "adminUser",
+          JSON.stringify(res.data.user)
+        )
       })
       .catch(() => {
         localStorage.removeItem("adminToken")
@@ -166,53 +195,158 @@ function AppContent() {
 
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/store" element={<Store setCartOpen={setCartOpen} />} />
-        <Route path="/product/:id" element={<ProductDetail />} />
+
+        <Route
+          path="/store"
+          element={<Store setCartOpen={setCartOpen} />}
+        />
+
+        <Route
+          path="/product/:id"
+          element={<ProductDetail />}
+        />
+
         <Route path="/login" element={<Login />} />
 
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <Route
+          path="/forgot-password"
+          element={<ForgotPassword />}
+        />
 
-        <Route path="/quote" element={<CustomQuote />} />
-        <Route path="/quote/:id" element={<QuoteResponse />} />
+        <Route
+          path="/reset-password/:token"
+          element={<ResetPassword />}
+        />
 
-        <Route path="/track" element={<TrackingPage />} />
-        <Route path="/track/:id" element={<TrackingPage />} />
+        <Route
+          path="/quote"
+          element={<CustomQuote />}
+        />
 
-        <Route path="/customer-login" element={<CustomerLogin />} />
-        <Route path="/customer-register" element={<CustomerRegister />} />
+        <Route
+          path="/quote/:id"
+          element={<QuoteResponse />}
+        />
+
+        <Route
+          path="/track"
+          element={<TrackingPage />}
+        />
+
+        <Route
+          path="/track/:id"
+          element={<TrackingPage />}
+        />
+
+        <Route
+          path="/customer-login"
+          element={<CustomerLogin />}
+        />
+
+        <Route
+          path="/customer-register"
+          element={<CustomerRegister />}
+        />
 
         <Route element={<CustomerRoute />}>
           <Route element={<CustomerLayout />}>
-            <Route path="/dashboard" element={<CustomerDashboard />} />
-            <Route path="/my-orders" element={<CustomerOrders />} />
-            <Route path="/order/:id" element={<OrderDetail />} />
-            <Route path="/security" element={<Security />} />
+            <Route
+              path="/dashboard"
+              element={<CustomerDashboard />}
+            />
+
+            <Route
+              path="/my-orders"
+              element={<CustomerOrders />}
+            />
+
+            <Route
+              path="/order/:id"
+              element={<OrderDetail />}
+            />
+
+            <Route
+              path="/security"
+              element={<Security />}
+            />
           </Route>
         </Route>
 
-        <Route path="/client-checkout/:id" element={<ClientCheckout />} />
-        <Route path="/checkout/:id" element={<CheckoutRedirect />} />
+        <Route
+          path="/client-checkout/:id"
+          element={<ClientCheckout />}
+        />
 
-        <Route path="/client-order/:id" element={<ClientOrder />} />
-        <Route path="/success/:id" element={<Success />} />
-        <Route path="/approve/:id" element={<ApproveMockup />} />
+        <Route
+          path="/checkout/:id"
+          element={<CheckoutRedirect />}
+        />
+
+        <Route
+          path="/client-order/:id"
+          element={<ClientOrder />}
+        />
+
+        <Route
+          path="/success/:id"
+          element={<Success />}
+        />
+
+        <Route
+          path="/approve/:id"
+          element={<ApproveMockup />}
+        />
 
         <Route path="/admin" element={<AdminRoute />}>
           <Route element={<AdminLayout />}>
             <Route index element={<Dashboard />} />
-            <Route path="production" element={<ProductionBoard />} />
-            <Route path="orders" element={<Orders />} />
-            <Route path="customers" element={<AdminCustomers />} />
-            <Route path="customers/:id" element={<AdminCustomerDetail />} />
-            <Route path="revenue" element={<AdminRevenue />} />
-            <Route path="products" element={<Products />} />
-            <Route path="products/new" element={<CreateProduct />} />
-            <Route path="products/edit/:id" element={<EditProduct />} />
+
+            <Route
+              path="production"
+              element={<ProductionBoard />}
+            />
+
+            <Route
+              path="orders"
+              element={<Orders />}
+            />
+
+            <Route
+              path="customers"
+              element={<AdminCustomers />}
+            />
+
+            <Route
+              path="customers/:id"
+              element={<AdminCustomerDetail />}
+            />
+
+            <Route
+              path="revenue"
+              element={<AdminRevenue />}
+            />
+
+            <Route
+              path="products"
+              element={<Products />}
+            />
+
+            <Route
+              path="products/new"
+              element={<CreateProduct />}
+            />
+
+            <Route
+              path="products/edit/:id"
+              element={<EditProduct />}
+            />
           </Route>
         </Route>
 
-        <Route path="*" element={<h2>Page not found</h2>} />
+        <Route
+          path="*"
+          element={<h2>Page not found</h2>}
+        />
       </Routes>
     </>
   )
@@ -222,10 +356,11 @@ export default function App() {
   return (
     <ToastProvider>
       <LoadingProvider>
-        {/* ❌ REMOVED duplicate CartProvider */}
-        <BrowserRouter>
-          <AppContent />
-        </BrowserRouter>
+        <CartProvider>
+          <BrowserRouter>
+            <AppContent />
+          </BrowserRouter>
+        </CartProvider>
       </LoadingProvider>
     </ToastProvider>
   )
