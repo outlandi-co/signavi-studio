@@ -3,112 +3,210 @@ import { useNavigate } from "react-router-dom"
 import api from "../../services/api"
 
 export default function CustomerLogin() {
-
-  const navigate = useNavigate()
-
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
 
+  const navigate = useNavigate()
+
+  /* ================= SAFE REDIRECT ================= */
   useEffect(() => {
     const token = localStorage.getItem("customerToken")
-    if (token) navigate("/store")
+
+    if (token && window.location.pathname !== "/dashboard") {
+      navigate("/dashboard")
+    }
   }, [navigate])
 
-  const handleLogin = async () => {
-    if (loading) return
+  /* ================= LOGIN ================= */
+  const handleLogin = async (e) => {
+    e.preventDefault()
+
     setError("")
 
-    if (!email || !password) {
-      return setError("Please enter email and password")
+    const cleanEmail = email.trim().toLowerCase()
+
+    if (!cleanEmail || !password) {
+      setError("Please enter email and password")
+      return
     }
 
     try {
       setLoading(true)
 
-      const res = await api.post("/auth/login", { email, password })
-      const { token, user } = res.data
+      const res = await api.post("/auth/login", {
+        email: cleanEmail,
+        password
+      })
+
+      const user = res.data?.user
+      const token = res.data?.token
+
+      if (!user?.email || !token) {
+        throw new Error("Missing user or token from login response")
+      }
+
+      const cleanUser = {
+        email: user.email,
+        name: user.name || "Customer",
+        role: user.role || "customer"
+      }
 
       localStorage.setItem("customerToken", token)
-      localStorage.setItem("customerUser", JSON.stringify(user))
+      localStorage.setItem("customerUser", JSON.stringify(cleanUser))
+      localStorage.setItem("customerEmail", user.email)
 
-      navigate("/store")
+      console.log("✅ CUSTOMER LOGGED IN:", cleanUser)
 
+      navigate("/dashboard")
     } catch (err) {
-      setError(err?.response?.data?.message || "Login failed")
+      console.error("❌ LOGIN ERROR:", err.response?.data || err)
+
+      setError(
+        err.response?.data?.message ||
+          err.response?.data?.error ||
+          "Invalid email or password"
+      )
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#020617] text-white">
+    <div style={container}>
+      <form style={card} onSubmit={handleLogin}>
+        <h1 style={title}>Customer Login</h1>
 
-      <div className="w-full max-w-md p-8 rounded-xl bg-[#0f172a] border border-white/10 shadow-xl">
-
-        <h1 className="text-2xl font-semibold text-center mb-2">
-          Customer Login
-        </h1>
-
-        <p className="text-sm text-gray-400 text-center mb-6">
-          Access your orders
+        <p style={subtitle}>
+          Enter your email and password to view your orders
         </p>
 
-        {/* EMAIL */}
         <input
           type="email"
-          placeholder="Email"
+          placeholder="Enter your email"
           value={email}
-          onChange={(e)=>setEmail(e.target.value)}
-          className="w-full p-3 mb-3 rounded-md bg-[#020617] border border-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+          onChange={(e) => setEmail(e.target.value)}
+          style={input}
         />
 
-        {/* PASSWORD */}
-        <div className="relative mb-2">
+        <div style={{ position: "relative" }}>
           <input
             type={showPassword ? "text" : "password"}
-            placeholder="Password"
+            placeholder="Enter your password"
             value={password}
-            onChange={(e)=>setPassword(e.target.value)}
-            className="w-full p-3 rounded-md bg-[#020617] border border-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            onChange={(e) => setPassword(e.target.value)}
+            style={input}
           />
 
           <span
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-3 cursor-pointer text-gray-400"
+            style={eye}
           >
             {showPassword ? "🙈" : "👁"}
           </span>
         </div>
 
-        {/* FORGOT */}
-        <p
-          onClick={() => navigate("/forgot-password")}
-          className="text-right text-sm text-cyan-400 cursor-pointer mb-4"
-        >
-          Forgot Password?
-        </p>
+        {error && <p style={errorText}>{error}</p>}
 
-        {/* ERROR */}
-        {error && (
-          <p className="text-red-400 text-sm text-center mb-3">
-            {error}
-          </p>
-        )}
+        <div style={forgotWrap}>
+          <button
+            type="button"
+            onClick={() => navigate("/forgot-password")}
+            style={forgotButton}
+          >
+            Forgot password?
+          </button>
+        </div>
 
-        {/* BUTTON */}
-        <button
-          onClick={handleLogin}
-          disabled={loading}
-          className="w-full py-3 rounded-lg font-semibold bg-gradient-to-r from-cyan-500 to-blue-600 hover:opacity-90 transition"
-        >
-          {loading ? "Signing in..." : "Sign In"}
+        <button type="submit" style={button} disabled={loading}>
+          {loading ? "Logging in..." : "Continue"}
         </button>
-
-      </div>
-
+      </form>
     </div>
   )
+}
+
+/* ================= STYLES ================= */
+
+const container = {
+  minHeight: "100vh",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  background: "#020617",
+  color: "white"
+}
+
+const card = {
+  background: "#0f172a",
+  padding: "40px",
+  borderRadius: "12px",
+  width: "100%",
+  maxWidth: "400px",
+  boxShadow: "0 10px 30px rgba(0,0,0,0.4)"
+}
+
+const title = {
+  marginBottom: "10px",
+  fontSize: "36px",
+  fontWeight: "bold",
+  lineHeight: "34px"
+}
+
+const subtitle = {
+  marginBottom: "20px",
+  fontSize: "14px",
+  opacity: 0.7
+}
+
+const input = {
+  width: "100%",
+  padding: "12px",
+  marginBottom: "10px",
+  borderRadius: "6px",
+  border: "1px solid #334155",
+  background: "#020617",
+  color: "white",
+  boxSizing: "border-box"
+}
+
+const button = {
+  width: "100%",
+  padding: "12px",
+  background: "#22c55e",
+  border: "none",
+  borderRadius: "6px",
+  color: "#000",
+  fontWeight: "bold",
+  cursor: "pointer"
+}
+
+const errorText = {
+  color: "#ef4444",
+  marginBottom: "10px",
+  fontSize: "14px"
+}
+
+const eye = {
+  position: "absolute",
+  right: 12,
+  top: 12,
+  cursor: "pointer",
+  color: "#94a3b8"
+}
+
+const forgotWrap = {
+  textAlign: "right",
+  marginBottom: "14px"
+}
+
+const forgotButton = {
+  background: "transparent",
+  border: "none",
+  color: "#60a5fa",
+  fontSize: "13px",
+  cursor: "pointer",
+  padding: 0
 }
