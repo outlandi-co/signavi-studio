@@ -6,59 +6,115 @@ export default function AdminEmails() {
   const [customers, setCustomers] = useState([])
   const [selectedCustomer, setSelectedCustomer] = useState(null)
 
+  const [to, setTo] = useState("")
+  const [cc, setCc] = useState("")
+
   const [subject, setSubject] = useState("")
   const [message, setMessage] = useState("")
+
+  const [history, setHistory] = useState([])
 
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
 
   /* ================= LOAD CUSTOMERS ================= */
 
+  const loadCustomers = async () => {
+
+    try {
+
+      const token =
+        localStorage.getItem("adminToken")
+
+      const res = await api.get(
+        "/customers",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      )
+
+      setCustomers(
+        res.data?.data || []
+      )
+
+    } catch (err) {
+
+      console.error(
+        "❌ CUSTOMER LOAD ERROR:",
+        err.response?.data || err.message
+      )
+
+    } finally {
+
+      setLoading(false)
+    }
+  }
+
+  /* ================= LOAD HISTORY ================= */
+
+  const loadHistory = async () => {
+
+    try {
+
+      const token =
+        localStorage.getItem("adminToken")
+
+      const res = await api.get(
+        "/admin-email/history",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      )
+
+      setHistory(
+        res.data?.data || []
+      )
+
+    } catch (err) {
+
+      console.error(
+        "❌ HISTORY ERROR:",
+        err.response?.data || err.message
+      )
+    }
+  }
+
+  /* ================= EFFECT ================= */
+
   useEffect(() => {
 
-    const loadCustomers = async () => {
+  const init = async () => {
 
-      try {
+    await loadCustomers()
+    await loadHistory()
 
-        const token =
-          localStorage.getItem("adminToken")
+  }
 
-        const res = await api.get(
-          "/customers",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
-        )
+  init()
 
-        const data =
-          res.data?.data || []
+}, [])
 
-        setCustomers(data)
+  /* ================= SELECT CUSTOMER ================= */
 
-      } catch (err) {
+  const handleSelectCustomer = (
+    customer
+  ) => {
 
-        console.error(
-          "❌ CUSTOMER LOAD ERROR:",
-          err.response?.data || err.message
-        )
+    setSelectedCustomer(customer)
 
-      } finally {
-        setLoading(false)
-      }
-    }
+    setTo(customer.email || "")
+  }
 
-    loadCustomers()
-
-  }, [])
-
-  /* ================= SEND EMAIL ================= */
+  /* ================= SEND ================= */
 
   const handleSend = async () => {
 
-    if (!selectedCustomer) {
-      alert("Select a customer")
+    if (!to.trim()) {
+      alert("Recipient required")
       return
     }
 
@@ -80,12 +136,22 @@ export default function AdminEmails() {
         localStorage.getItem("adminToken")
 
       const res = await api.post(
+
         "/admin-email/send-email",
+
         {
-          to: selectedCustomer.email,
+          to,
+          cc,
           subject,
-          message
+          message,
+
+          customerId:
+            selectedCustomer?._id,
+
+          customerName:
+            selectedCustomer?.name
         },
+
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -102,6 +168,9 @@ export default function AdminEmails() {
 
       setSubject("")
       setMessage("")
+      setCc("")
+
+      loadHistory()
 
     } catch (err) {
 
@@ -116,14 +185,49 @@ export default function AdminEmails() {
       )
 
     } finally {
+
       setSending(false)
     }
   }
 
+  /* ================= ARCHIVE ================= */
+
+  const archiveEmail = async (id) => {
+
+    try {
+
+      const token =
+        localStorage.getItem("adminToken")
+
+      await api.patch(
+
+        `/admin-email/archive/${id}`,
+
+        {},
+
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      )
+
+      loadHistory()
+
+    } catch (err) {
+
+      console.error(
+        "❌ ARCHIVE ERROR:",
+        err.response?.data || err.message
+      )
+    }
+  }
+
   if (loading) {
+
     return (
       <div style={loadingStyle}>
-        <h2>Loading customers...</h2>
+        <h2>Loading...</h2>
       </div>
     )
   }
@@ -137,11 +241,11 @@ export default function AdminEmails() {
 
       <div style={layout}>
 
-        {/* ================= LEFT ================= */}
+        {/* ================= CUSTOMERS ================= */}
 
         <div style={sidebar}>
 
-          <h3 style={{ marginBottom: 20 }}>
+          <h3 style={sectionTitle}>
             Customers
           </h3>
 
@@ -149,9 +253,11 @@ export default function AdminEmails() {
 
             <button
               key={customer._id}
+
               onClick={() =>
-                setSelectedCustomer(customer)
+                handleSelectCustomer(customer)
               }
+
               style={{
                 ...customerButton,
 
@@ -176,33 +282,52 @@ export default function AdminEmails() {
 
         </div>
 
-        {/* ================= RIGHT ================= */}
+        {/* ================= COMPOSE ================= */}
 
         <div style={emailPanel}>
 
-          <h2 style={{ marginBottom: 20 }}>
+          <h2 style={sectionTitle}>
             Compose Email
           </h2>
 
           <div style={field}>
-            <label style={label}>To</label>
+            <label style={label}>
+              To
+            </label>
 
             <input
               type="text"
-              disabled
-              value={
-                selectedCustomer?.email || ""
+              value={to}
+              onChange={(e) =>
+                setTo(e.target.value)
               }
-              style={inputDisabled}
+              style={input}
             />
           </div>
 
           <div style={field}>
-            <label style={label}>Subject</label>
+            <label style={label}>
+              CC
+            </label>
 
             <input
               type="text"
-              placeholder="Enter subject..."
+              value={cc}
+              onChange={(e) =>
+                setCc(e.target.value)
+              }
+              placeholder="Optional CC"
+              style={input}
+            />
+          </div>
+
+          <div style={field}>
+            <label style={label}>
+              Subject
+            </label>
+
+            <input
+              type="text"
               value={subject}
               onChange={(e) =>
                 setSubject(e.target.value)
@@ -212,11 +337,12 @@ export default function AdminEmails() {
           </div>
 
           <div style={field}>
-            <label style={label}>Message</label>
+            <label style={label}>
+              Message
+            </label>
 
             <textarea
-              rows={10}
-              placeholder="Write your email..."
+              rows={12}
               value={message}
               onChange={(e) =>
                 setMessage(e.target.value)
@@ -234,6 +360,60 @@ export default function AdminEmails() {
               ? "Sending..."
               : "Send Email"}
           </button>
+
+        </div>
+
+        {/* ================= HISTORY ================= */}
+
+        <div style={historyPanel}>
+
+          <h2 style={sectionTitle}>
+            📨 Email History
+          </h2>
+
+          {history.map(email => (
+
+            <div
+              key={email._id}
+              style={historyCard}
+            >
+
+              <div style={historyTop}>
+
+                <div>
+
+                  <strong>
+                    {email.subject}
+                  </strong>
+
+                  <p style={historyEmail}>
+                    To: {email.to}
+                  </p>
+
+                </div>
+
+                {!email.archived && (
+
+                  <button
+                    onClick={() =>
+                      archiveEmail(email._id)
+                    }
+                    style={archiveButton}
+                  >
+                    Archive
+                  </button>
+
+                )}
+
+              </div>
+
+              <p style={messagePreview}>
+                {email.message}
+              </p>
+
+            </div>
+
+          ))}
 
         </div>
 
@@ -263,7 +443,7 @@ const title = {
 
 const layout = {
   display: "grid",
-  gridTemplateColumns: "320px 1fr",
+  gridTemplateColumns: "280px 1fr 420px",
   gap: 24
 }
 
@@ -276,6 +456,26 @@ const sidebar = {
   overflowY: "auto"
 }
 
+const emailPanel = {
+  background: "#0f172a",
+  borderRadius: 16,
+  padding: 24,
+  border: "1px solid #1e293b"
+}
+
+const historyPanel = {
+  background: "#0f172a",
+  borderRadius: 16,
+  padding: 20,
+  border: "1px solid #1e293b",
+  height: "80vh",
+  overflowY: "auto"
+}
+
+const sectionTitle = {
+  marginBottom: 20
+}
+
 const customerButton = {
   width: "100%",
   border: "none",
@@ -286,20 +486,13 @@ const customerButton = {
   textAlign: "left",
   cursor: "pointer",
   display: "flex",
-  flexDirection: "column"
+ flexDirection: "column"
 }
 
 const emailStyle = {
   fontSize: 12,
   opacity: 0.7,
   marginTop: 4
-}
-
-const emailPanel = {
-  background: "#0f172a",
-  borderRadius: 16,
-  padding: 24,
-  border: "1px solid #1e293b"
 }
 
 const field = {
@@ -321,11 +514,6 @@ const input = {
   color: "#fff"
 }
 
-const inputDisabled = {
-  ...input,
-  opacity: 0.7
-}
-
 const textarea = {
   width: "100%",
   padding: 12,
@@ -344,5 +532,39 @@ const sendButton = {
   background: "#22c55e",
   color: "#fff",
   fontWeight: "700",
+  cursor: "pointer"
+}
+
+const historyCard = {
+  background: "#111827",
+  borderRadius: 12,
+  padding: 16,
+  marginBottom: 16,
+  border: "1px solid #1f2937"
+}
+
+const historyTop = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 12
+}
+
+const historyEmail = {
+  fontSize: 12,
+  opacity: 0.7,
+  marginTop: 4
+}
+
+const messagePreview = {
+  marginTop: 14,
+  whiteSpace: "pre-wrap"
+}
+
+const archiveButton = {
+  border: "none",
+  background: "#f59e0b",
+  color: "#fff",
+  borderRadius: 8,
+  padding: "8px 12px",
   cursor: "pointer"
 }
