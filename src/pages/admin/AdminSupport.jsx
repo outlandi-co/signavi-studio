@@ -37,7 +37,7 @@ export default function AdminSupport() {
     }
   }
 
-  /* ================= FIXED EFFECT ================= */
+  /* ================= EFFECT ================= */
 
   useEffect(() => {
 
@@ -64,6 +64,8 @@ export default function AdminSupport() {
       await api.post(
         `/support/${selected._id}/reply`,
         {
+          sender: "admin",
+
           message: reply
         }
       )
