@@ -55,48 +55,96 @@ export function NotificationProvider({
 
     /* ================= SUPPORT ================= */
 
-    const handleSupport =
-      (data) => {
+const handleSupport =
+  (data) => {
 
-        console.log(
-          "🛟 SUPPORT EVENT:",
-          data
-        )
+    console.log(
+      "🛟 SUPPORT EVENT RECEIVED:",
+      data
+    )
 
-        const sender =
-          data?.sender
-            ? String(data.sender)
-                .trim()
-                .toLowerCase()
-            : "unknown"
+    const sender =
+      String(
+        data?.sender || ""
+      )
+        .trim()
+        .toLowerCase()
 
-        const adminUser =
-          JSON.parse(
-            localStorage.getItem("adminUser")
-          )
+    const adminUser =
+      JSON.parse(
+        localStorage.getItem("adminUser")
+      )
 
-        const customerUser =
-          JSON.parse(
-            localStorage.getItem("customerUser")
-          )
+    const customerUser =
+      JSON.parse(
+        localStorage.getItem("customerUser")
+      )
 
-        const currentRole =
-          adminUser
-            ? "admin"
-            : customerUser
-              ? "customer"
-              : null
+    const currentRole =
+      adminUser?.role
+        ? "admin"
+        : customerUser
+          ? "customer"
+          : "guest"
 
-        console.log(
-          "👤 CURRENT ROLE:",
-          currentRole
-        )
+    console.log(
+      "👤 CURRENT ROLE:",
+      currentRole
+    )
 
-        console.log(
-          "📨 EVENT SENDER:",
-          sender
-        )
+    console.log(
+      "📨 EVENT SENDER:",
+      sender
+    )
 
+    /* ================= IGNORE SELF ================= */
+
+    if (sender === currentRole) {
+
+      console.log(
+        "🚫 Ignoring own notification"
+      )
+
+      return
+    }
+
+    console.log(
+      "✅ APPLYING NOTIFICATION"
+    )
+
+    /* ================= FORCE UPDATE ================= */
+
+    setSupportUnread(prev => {
+
+      const updated =
+        Number(prev || 0) + 1
+
+      console.log(
+        "🔴 SUPPORT UNREAD:",
+        updated
+      )
+
+      return updated
+    })
+
+    setAlerts(prev => [
+
+      {
+        id: Date.now(),
+
+        type: "support",
+
+        message:
+          data?.message ||
+          "New support activity",
+
+        timestamp:
+          Date.now()
+      },
+
+      ...prev
+    ])
+  
         /* ================= IGNORE OWN EVENTS ================= */
 
         if (
