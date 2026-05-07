@@ -55,43 +55,79 @@ export function NotificationProvider({
 
     /* ================= SUPPORT ================= */
 
-    const handleSupport =
-      (data) => {
+const handleSupport =
+  (data) => {
 
-        console.log(
-          "🛟 SUPPORT EVENT:",
-          data
-        )
+    console.log(
+      "🛟 SUPPORT EVENT:",
+      data
+    )
 
-        setSupportUnread(prev => {
+    const adminUser =
+      JSON.parse(
+        localStorage.getItem("adminUser")
+      )
 
-          const next =
-            prev + 1
+    const customerUser =
+      JSON.parse(
+        localStorage.getItem("customerUser")
+      )
 
-          console.log(
-            "🔴 SUPPORT UNREAD:",
-            next
-          )
+    const isAdmin =
+      adminUser?.role === "admin"
 
-          return next
-        })
+    const isCustomer =
+      !!customerUser
 
-        setAlerts(prev => [
+    /* ================= IGNORE OWN MESSAGE ================= */
 
-          {
-            type: "support",
+    if (
+      data.sender === "customer" &&
+      isCustomer
+    ) {
 
-            message:
-              data.message,
+      return
+    }
 
-            timestamp:
-              Date.now()
-          },
+    if (
+      data.sender === "admin" &&
+      isAdmin
+    ) {
 
-          ...prev
-        ])
-      }
+      return
+    }
 
+    /* ================= UPDATE BADGE ================= */
+
+    setSupportUnread(prev => {
+
+      const next =
+        prev + 1
+
+      console.log(
+        "🔴 SUPPORT UNREAD:",
+        next
+      )
+
+      return next
+    })
+
+    setAlerts(prev => [
+
+      {
+        type: "support",
+
+        message:
+          data.message,
+
+        timestamp:
+          Date.now()
+      },
+
+      ...prev
+    ])
+  }
+  
     /* ================= EMAIL ================= */
 
     const handleEmail =
