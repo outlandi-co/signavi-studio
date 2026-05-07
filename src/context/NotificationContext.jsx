@@ -4,9 +4,10 @@ let socket = null
 
 export const getSocket = () => {
 
-  /* ================= EXISTING ================= */
+  /* ================= REUSE ================= */
 
   if (socket) {
+
     return socket
   }
 
@@ -22,20 +23,22 @@ export const getSocket = () => {
     URL
   )
 
-  /* ================= CREATE SOCKET ================= */
+  /* ================= SOCKET ================= */
 
   socket = io(
     URL,
     {
       transports: ["websocket"],
 
-      reconnectionAttempts: 5,
-
-      reconnectionDelay: 1000,
-
       withCredentials: true,
 
-      autoConnect: true
+      autoConnect: true,
+
+      reconnection: true,
+
+      reconnectionAttempts: 5,
+
+      reconnectionDelay: 1000
     }
   )
 
@@ -81,17 +84,6 @@ export const getSocket = () => {
   /* ================= RECONNECT ================= */
 
   socket.io.on(
-    "reconnect",
-    (attempt) => {
-
-      console.log(
-        "🟡 Socket reconnected:",
-        attempt
-      )
-    }
-  )
-
-  socket.io.on(
     "reconnect_attempt",
     (attempt) => {
 
@@ -102,7 +94,16 @@ export const getSocket = () => {
     }
   )
 
+  socket.io.on(
+    "reconnect",
+    (attempt) => {
+
+      console.log(
+        "🟡 Socket reconnected:",
+        attempt
+      )
+    }
+  )
+
   return socket
 }
-
-export default getSocket
