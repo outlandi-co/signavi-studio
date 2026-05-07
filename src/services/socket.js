@@ -8,7 +8,7 @@ export const getSocket = () => {
   const URL = import.meta.env.VITE_API_URL.replace("/api", "")
 
   socket = io(URL, {
-    transports: ["websocket"],
+    transports: ["polling", "websocket"],
     reconnectionAttempts: 5
   })
 

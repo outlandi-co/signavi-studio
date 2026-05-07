@@ -51,6 +51,11 @@ export function NotificationProvider({
 
     /* ================= SUPPORT ================= */
 
+    console.log(
+  "👂 Listening for support:new-message"
+)
+
+
     const handleSupport =
       (data) => {
 
