@@ -3,26 +3,114 @@ import { io } from "socket.io-client"
 let socket = null
 
 export const getSocket = () => {
-  if (socket) return socket
 
-  const URL = import.meta.env.VITE_API_URL.replace("/api", "")
+  /* ================= EXISTING ================= */
 
-  socket = io(URL, {
-    transports: ["polling", "websocket"],
-    reconnectionAttempts: 5
-  })
+  if (socket) {
 
-  socket.on("connect", () => {
-    console.log("🟢 Socket connected:", socket.id)
-  })
+    return socket
+  }
 
-  socket.on("disconnect", () => {
-    console.log("🔴 Socket disconnected")
-  })
+  /* ================= URL ================= */
 
-  socket.on("connect_error", (err) => {
-    console.warn("⚠️ Socket error:", err.message)
-  })
+  const URL = (
+    import.meta.env.VITE_API_URL ||
+    "https://signavi-backend.onrender.com/api"
+  ).replace("/api", "")
+
+  console.log(
+    "🌐 SOCKET URL:",
+    URL
+  )
+
+  /* ================= SOCKET ================= */
+
+  socket = io(
+    URL,
+    {
+      transports: [
+        "polling",
+        "websocket"
+      ],
+
+      upgrade: true,
+
+      autoConnect: true,
+
+      withCredentials: true,
+
+      reconnection: true,
+
+      reconnectionAttempts: 10,
+
+      reconnectionDelay: 1000,
+
+      timeout: 20000
+    }
+  )
+
+  /* ================= CONNECT ================= */
+
+  socket.on(
+    "connect",
+    () => {
+
+      console.log(
+        "🟢 Socket connected:",
+        socket.id
+      )
+    }
+  )
+
+  /* ================= DISCONNECT ================= */
+
+  socket.on(
+    "disconnect",
+    (reason) => {
+
+      console.log(
+        "🔴 Socket disconnected:",
+        reason
+      )
+    }
+  )
+
+  /* ================= ERROR ================= */
+
+  socket.on(
+    "connect_error",
+    (err) => {
+
+      console.warn(
+        "⚠️ Socket error:",
+        err.message
+      )
+    }
+  )
+
+  /* ================= RECONNECT ================= */
+
+  socket.io.on(
+    "reconnect_attempt",
+    (attempt) => {
+
+      console.log(
+        "🔄 Reconnect attempt:",
+        attempt
+      )
+    }
+  )
+
+  socket.io.on(
+    "reconnect",
+    (attempt) => {
+
+      console.log(
+        "🟡 Socket reconnected:",
+        attempt
+      )
+    }
+  )
 
   return socket
 }
