@@ -64,11 +64,11 @@ export function NotificationProvider({
         )
 
         const sender =
-          String(
-            data?.sender || ""
-          )
-            .trim()
-            .toLowerCase()
+          data?.sender
+            ? String(data.sender)
+                .trim()
+                .toLowerCase()
+            : "unknown"
 
         const adminUser =
           JSON.parse(
@@ -100,7 +100,7 @@ export function NotificationProvider({
         /* ================= IGNORE OWN EVENTS ================= */
 
         if (
-          sender &&
+          sender !== "unknown" &&
           sender === currentRole
         ) {
 
@@ -132,7 +132,8 @@ export function NotificationProvider({
             type: "support",
 
             message:
-              data.message,
+              data?.message ||
+              "New support activity",
 
             timestamp:
               Date.now()
@@ -171,7 +172,8 @@ export function NotificationProvider({
             type: "email",
 
             message:
-              data.message,
+              data?.message ||
+              "New email received",
 
             timestamp:
               Date.now()
