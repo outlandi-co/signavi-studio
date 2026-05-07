@@ -1,109 +1,181 @@
-import { io } from "socket.io-client"
+import {
+  useEffect,
+  useMemo,
+  useState
+} from "react"
 
-let socket = null
+import {
+  NotificationContext
+} from "./NotificationContextObject"
 
-export const getSocket = () => {
+import {
+  getSocket
+} from "../services/socket"
 
-  /* ================= REUSE ================= */
+export function NotificationProvider({
+  children
+}) {
 
-  if (socket) {
+  const [supportUnread, setSupportUnread] =
+    useState(0)
 
-    return socket
-  }
+  const [emailUnread, setEmailUnread] =
+    useState(0)
 
-  /* ================= URL ================= */
-
-  const URL = (
-    import.meta.env.VITE_API_URL ||
-    "https://signavi-backend.onrender.com/api"
-  ).replace("/api", "")
-
-  console.log(
-    "🌐 SOCKET URL:",
-    URL
-  )
+  const [alerts, setAlerts] =
+    useState([])
 
   /* ================= SOCKET ================= */
 
-  socket = io(
-    URL,
-    {
-      transports: ["websocket"],
+  useEffect(() => {
 
-      withCredentials: true,
+    console.log(
+      "🟡 NotificationProvider mounted"
+    )
 
-      autoConnect: true,
+    const socket =
+      getSocket()
 
-      reconnection: true,
-
-      reconnectionAttempts: 5,
-
-      reconnectionDelay: 1000
-    }
-  )
-
-  /* ================= CONNECT ================= */
-
-  socket.on(
-    "connect",
-    () => {
-
-      console.log(
-        "🟢 Socket connected:",
-        socket.id
-      )
-    }
-  )
-
-  /* ================= DISCONNECT ================= */
-
-  socket.on(
-    "disconnect",
-    (reason) => {
-
-      console.log(
-        "🔴 Socket disconnected:",
-        reason
-      )
-    }
-  )
-
-  /* ================= ERROR ================= */
-
-  socket.on(
-    "connect_error",
-    (err) => {
+    if (!socket) {
 
       console.warn(
-        "⚠️ Socket error:",
-        err.message
+        "❌ SOCKET FAILED"
+      )
+
+      return
+    }
+
+    console.log(
+      "✅ SOCKET INSTANCE READY"
+    )
+
+    /* ================= SUPPORT ================= */
+
+    const handleSupport =
+      (data) => {
+
+        console.log(
+          "🛟 SUPPORT EVENT:",
+          data
+        )
+
+        setSupportUnread(prev =>
+          prev + 1
+        )
+
+        setAlerts(prev => [
+
+          {
+            type: "support",
+
+            message:
+              data.message,
+
+            timestamp:
+              Date.now()
+          },
+
+          ...prev
+        ])
+      }
+
+    /* ================= EMAIL ================= */
+
+    const handleEmail =
+      (data) => {
+
+        console.log(
+          "📧 EMAIL EVENT:",
+          data
+        )
+
+        setEmailUnread(prev =>
+          prev + 1
+        )
+
+        setAlerts(prev => [
+
+          {
+            type: "email",
+
+            message:
+              data.message,
+
+            timestamp:
+              Date.now()
+          },
+
+          ...prev
+        ])
+      }
+
+    socket.on(
+      "support:new-message",
+      handleSupport
+    )
+
+    socket.on(
+      "email:new",
+      handleEmail
+    )
+
+    /* ================= CLEANUP ================= */
+
+    return () => {
+
+      socket.off(
+        "support:new-message",
+        handleSupport
+      )
+
+      socket.off(
+        "email:new",
+        handleEmail
       )
     }
-  )
 
-  /* ================= RECONNECT ================= */
+  }, [])
 
-  socket.io.on(
-    "reconnect_attempt",
-    (attempt) => {
+  /* ================= CLEAR ================= */
 
-      console.log(
-        "🔄 Reconnect attempt:",
-        attempt
-      )
+  const clearSupportUnread =
+    () => {
+
+      setSupportUnread(0)
     }
-  )
 
-  socket.io.on(
-    "reconnect",
-    (attempt) => {
+  const clearEmailUnread =
+    () => {
 
-      console.log(
-        "🟡 Socket reconnected:",
-        attempt
-      )
+      setEmailUnread(0)
     }
-  )
 
-  return socket
+  const value = useMemo(() => ({
+
+    supportUnread,
+
+    emailUnread,
+
+    alerts,
+
+    clearSupportUnread,
+
+    clearEmailUnread
+
+  }), [
+
+    supportUnread,
+
+    emailUnread,
+
+    alerts
+  ])
+
+  return (
+    <NotificationContext.Provider
+      value={value}
+    >
+      {children}
+    </NotificationContext.Provider>
+  )
 }

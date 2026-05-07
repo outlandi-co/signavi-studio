@@ -10,9 +10,7 @@ import {
   useCartContext
 } from "../context/useCartContext"
 
-import {
-  useNotifications
-} from "../context/NotificationContext"
+import useNotifications from "../hooks/useNotifications"
 
 function Navbar({
   setCartOpen,
