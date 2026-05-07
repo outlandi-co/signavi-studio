@@ -1,8 +1,21 @@
-import { Outlet, Link, useLocation } from "react-router-dom"
+import {
+  Outlet,
+  Link,
+  useLocation
+} from "react-router-dom"
+
+import {
+  useNotifications
+} from "../context/NotificationContext"
 
 export default function CustomerLayout() {
 
   const location = useLocation()
+
+  const {
+    supportUnread,
+    clearSupportUnread
+  } = useNotifications()
 
   const isActive = (path) => {
     return location.pathname === path
@@ -37,12 +50,30 @@ export default function CustomerLayout() {
             My Orders
           </NavItem>
 
-          <NavItem
-            to="/my-support"
-            active={isActive("/my-support")}
+          <div
+            onClick={clearSupportUnread}
           >
-            My Support
-          </NavItem>
+            <NavItem
+              to="/my-support"
+              active={isActive("/my-support")}
+            >
+
+              <div style={supportRow}>
+
+                <span>
+                  My Support
+                </span>
+
+                {supportUnread > 0 && (
+                  <span style={badge}>
+                    {supportUnread}
+                  </span>
+                )}
+
+              </div>
+
+            </NavItem>
+          </div>
 
           <NavItem
             to="/security"
@@ -150,7 +181,9 @@ const navItem = {
 
   fontWeight: "500",
 
-  transition: "0.2s ease"
+  transition: "0.2s ease",
+
+  display: "block"
 }
 
 const content = {
@@ -162,4 +195,38 @@ const content = {
   padding: 20,
 
   border: "1px solid #1e293b"
+}
+
+const supportRow = {
+
+  display: "flex",
+
+  gap: 8,
+
+  alignItems: "center"
+}
+
+const badge = {
+
+  minWidth: 20,
+
+  height: 20,
+
+  borderRadius: "999px",
+
+  background: "#ef4444",
+
+  color: "white",
+
+  fontSize: 11,
+
+  fontWeight: "bold",
+
+  display: "flex",
+
+  alignItems: "center",
+
+  justifyContent: "center",
+
+  padding: "0 6px"
 }

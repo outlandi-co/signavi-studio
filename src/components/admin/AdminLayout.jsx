@@ -1,6 +1,20 @@
-import { Outlet, NavLink } from "react-router-dom"
+import {
+  Outlet,
+  NavLink
+} from "react-router-dom"
+
+import {
+  useNotifications
+} from "../../context/NotificationContext"
 
 export default function AdminLayout() {
+
+  const {
+    supportUnread,
+    emailUnread,
+    clearSupportUnread,
+    clearEmailUnread
+  } = useNotifications()
 
   return (
     <div style={wrapper}>
@@ -25,15 +39,53 @@ export default function AdminLayout() {
           👥 Customers
         </SideLink>
 
-        <SideLink to="/admin/emails">
-          📧 Emails
-        </SideLink>
+        {/* ================= EMAILS ================= */}
 
-        {/* 🔥 NEW SUPPORT CENTER */}
+        <div
+          onClick={clearEmailUnread}
+        >
+          <SideLink to="/admin/emails">
 
-        <SideLink to="/admin/support">
-          🛟 Support
-        </SideLink>
+            <div style={linkRow}>
+
+              <span>
+                📧 Emails
+              </span>
+
+              {emailUnread > 0 && (
+                <span style={badge}>
+                  {emailUnread}
+                </span>
+              )}
+
+            </div>
+
+          </SideLink>
+        </div>
+
+        {/* ================= SUPPORT ================= */}
+
+        <div
+          onClick={clearSupportUnread}
+        >
+          <SideLink to="/admin/support">
+
+            <div style={linkRow}>
+
+              <span>
+                🛟 Support
+              </span>
+
+              {supportUnread > 0 && (
+                <span style={badge}>
+                  {supportUnread}
+                </span>
+              )}
+
+            </div>
+
+          </SideLink>
+        </div>
 
         <SideLink to="/admin/revenue">
           💰 Revenue
@@ -138,5 +190,41 @@ const link = {
 
   fontWeight: "500",
 
-  transition: "0.2s ease"
+  transition: "0.2s ease",
+
+  display: "block"
+}
+
+const linkRow = {
+
+  display: "flex",
+
+  justifyContent: "space-between",
+
+  alignItems: "center"
+}
+
+const badge = {
+
+  minWidth: 22,
+
+  height: 22,
+
+  borderRadius: "999px",
+
+  background: "#ef4444",
+
+  color: "white",
+
+  fontSize: 12,
+
+  fontWeight: "bold",
+
+  display: "flex",
+
+  alignItems: "center",
+
+  justifyContent: "center",
+
+  padding: "0 6px"
 }
