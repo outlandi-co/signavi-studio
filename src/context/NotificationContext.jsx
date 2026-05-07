@@ -49,12 +49,11 @@ export function NotificationProvider({
       "✅ SOCKET INSTANCE READY"
     )
 
-    /* ================= SUPPORT ================= */
-
     console.log(
-  "👂 Listening for support:new-message"
-)
+      "👂 Listening for support:new-message"
+    )
 
+    /* ================= SUPPORT ================= */
 
     const handleSupport =
       (data) => {
@@ -64,9 +63,18 @@ export function NotificationProvider({
           data
         )
 
-        setSupportUnread(prev =>
-          prev + 1
-        )
+        setSupportUnread(prev => {
+
+          const next =
+            prev + 1
+
+          console.log(
+            "🔴 SUPPORT UNREAD:",
+            next
+          )
+
+          return next
+        })
 
         setAlerts(prev => [
 
@@ -94,9 +102,18 @@ export function NotificationProvider({
           data
         )
 
-        setEmailUnread(prev =>
-          prev + 1
-        )
+        setEmailUnread(prev => {
+
+          const next =
+            prev + 1
+
+          console.log(
+            "📧 EMAIL UNREAD:",
+            next
+          )
+
+          return next
+        })
 
         setAlerts(prev => [
 
@@ -113,6 +130,8 @@ export function NotificationProvider({
           ...prev
         ])
       }
+
+    /* ================= LISTENERS ================= */
 
     socket.on(
       "support:new-message",
@@ -146,14 +165,24 @@ export function NotificationProvider({
   const clearSupportUnread =
     () => {
 
+      console.log(
+        "🧹 CLEAR SUPPORT BADGE"
+      )
+
       setSupportUnread(0)
     }
 
   const clearEmailUnread =
     () => {
 
+      console.log(
+        "🧹 CLEAR EMAIL BADGE"
+      )
+
       setEmailUnread(0)
     }
+
+  /* ================= CONTEXT VALUE ================= */
 
   const value = useMemo(() => ({
 
