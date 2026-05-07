@@ -55,79 +55,101 @@ export function NotificationProvider({
 
     /* ================= SUPPORT ================= */
 
-const handleSupport =
-  (data) => {
+    const handleSupport =
+      (data) => {
 
-    console.log(
-      "🛟 SUPPORT EVENT:",
-      data
-    )
+        console.log(
+          "🛟 SUPPORT EVENT:",
+          data
+        )
 
-    const adminUser =
-      JSON.parse(
-        localStorage.getItem("adminUser")
-      )
+        const sender =
+          String(
+            data?.sender || ""
+          ).toLowerCase()
 
-    const customerUser =
-      JSON.parse(
-        localStorage.getItem("customerUser")
-      )
+        const adminUser =
+          JSON.parse(
+            localStorage.getItem("adminUser")
+          )
 
-    const isAdmin =
-      adminUser?.role === "admin"
+        const customerUser =
+          JSON.parse(
+            localStorage.getItem("customerUser")
+          )
 
-    const isCustomer =
-      !!customerUser
+        const isAdmin =
+          adminUser?.role === "admin"
 
-    /* ================= IGNORE OWN MESSAGE ================= */
+        const isCustomer =
+          !!customerUser
 
-    if (
-      data.sender === "customer" &&
-      isCustomer
-    ) {
+        console.log(
+          "👤 CURRENT ROLE:",
+          {
+            sender,
+            isAdmin,
+            isCustomer
+          }
+        )
 
-      return
-    }
+        /* ================= IGNORE OWN EVENTS ================= */
 
-    if (
-      data.sender === "admin" &&
-      isAdmin
-    ) {
+        if (
+          sender === "customer" &&
+          isCustomer
+        ) {
 
-      return
-    }
+          console.log(
+            "🚫 Ignoring customer self-event"
+          )
 
-    /* ================= UPDATE BADGE ================= */
+          return
+        }
 
-    setSupportUnread(prev => {
+        if (
+          sender === "admin" &&
+          isAdmin
+        ) {
 
-      const next =
-        prev + 1
+          console.log(
+            "🚫 Ignoring admin self-event"
+          )
 
-      console.log(
-        "🔴 SUPPORT UNREAD:",
-        next
-      )
+          return
+        }
 
-      return next
-    })
+        /* ================= UPDATE BADGE ================= */
 
-    setAlerts(prev => [
+        setSupportUnread(prev => {
 
-      {
-        type: "support",
+          const next =
+            prev + 1
 
-        message:
-          data.message,
+          console.log(
+            "🔴 SUPPORT UNREAD:",
+            next
+          )
 
-        timestamp:
-          Date.now()
-      },
+          return next
+        })
 
-      ...prev
-    ])
-  }
-  
+        setAlerts(prev => [
+
+          {
+            type: "support",
+
+            message:
+              data.message,
+
+            timestamp:
+              Date.now()
+          },
+
+          ...prev
+        ])
+      }
+
     /* ================= EMAIL ================= */
 
     const handleEmail =
