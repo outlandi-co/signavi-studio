@@ -73,9 +73,7 @@ export default function AdminSupport() {
       await loadTickets()
 
       const updated =
-        await api.get(
-          `/support`
-        )
+        await api.get("/support")
 
       const fresh =
         updated.data?.data?.find(
