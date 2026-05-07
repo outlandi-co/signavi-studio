@@ -4,9 +4,7 @@ import {
   useLocation
 } from "react-router-dom"
 
-import {
-  useNotifications
-} from "../context/NotificationContext"
+import useNotifications from "../hooks/useNotifications"
 
 export default function CustomerLayout() {
 
@@ -53,6 +51,7 @@ export default function CustomerLayout() {
           <div
             onClick={clearSupportUnread}
           >
+
             <NavItem
               to="/my-support"
               active={isActive("/my-support")}
@@ -65,6 +64,7 @@ export default function CustomerLayout() {
                 </span>
 
                 {supportUnread > 0 && (
+
                   <span style={badge}>
                     {supportUnread}
                   </span>
@@ -73,6 +73,7 @@ export default function CustomerLayout() {
               </div>
 
             </NavItem>
+
           </div>
 
           <NavItem

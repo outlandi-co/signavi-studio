@@ -3,9 +3,7 @@ import {
   NavLink
 } from "react-router-dom"
 
-import {
-  useNotifications
-} from "../../context/NotificationContext"
+import useNotifications from "../../hooks/useNotifications"
 
 export default function AdminLayout() {
 
@@ -41,9 +39,8 @@ export default function AdminLayout() {
 
         {/* ================= EMAILS ================= */}
 
-        <div
-          onClick={clearEmailUnread}
-        >
+        <div onClick={clearEmailUnread}>
+
           <SideLink to="/admin/emails">
 
             <div style={linkRow}>
@@ -53,6 +50,7 @@ export default function AdminLayout() {
               </span>
 
               {emailUnread > 0 && (
+
                 <span style={badge}>
                   {emailUnread}
                 </span>
@@ -61,13 +59,13 @@ export default function AdminLayout() {
             </div>
 
           </SideLink>
+
         </div>
 
         {/* ================= SUPPORT ================= */}
 
-        <div
-          onClick={clearSupportUnread}
-        >
+        <div onClick={clearSupportUnread}>
+
           <SideLink to="/admin/support">
 
             <div style={linkRow}>
@@ -77,6 +75,7 @@ export default function AdminLayout() {
               </span>
 
               {supportUnread > 0 && (
+
                 <span style={badge}>
                   {supportUnread}
                 </span>
@@ -85,6 +84,7 @@ export default function AdminLayout() {
             </div>
 
           </SideLink>
+
         </div>
 
         <SideLink to="/admin/revenue">
