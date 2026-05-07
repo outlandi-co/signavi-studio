@@ -71,6 +71,8 @@ import OrderDetail from "./pages/customer/OrderDetail"
 
 import Security from "./pages/customer/Security"
 
+import CustomerSupport from "./pages/customer/CustomerSupport"
+
 /* ================= ADMIN ================= */
 
 import Dashboard from "./pages/Dashboard"
@@ -397,6 +399,11 @@ function AppContent() {
             <Route
               path="/security"
               element={<Security />}
+            />
+
+            <Route
+              path="/my-support"
+              element={<CustomerSupport />}
             />
 
           </Route>
