@@ -13,7 +13,15 @@ import api from "./services/api"
 
 import ToastProvider from "./context/ToastProvider"
 import LoadingProvider from "./context/LoadingProvider"
-import { CartProvider } from "./context/CartContext"
+
+import {
+  CartProvider
+} from "./context/CartContext"
+
+import {
+  NotificationProvider
+} from "./context/NotificationContext"
+
 import { useToast } from "./hooks/useToast"
 
 /* ================= COMPONENTS ================= */
@@ -113,11 +121,14 @@ function AppContent() {
 
   const { addToast } = useToast()
 
-  const [cartOpen, setCartOpen] = useState(false)
+  const [cartOpen, setCartOpen] =
+    useState(false)
 
-  const [accountOpen, setAccountOpen] = useState(false)
+  const [accountOpen, setAccountOpen] =
+    useState(false)
 
-  const [isRedirecting, setIsRedirecting] = useState(false)
+  const [isRedirecting, setIsRedirecting] =
+    useState(false)
 
   /* ================= CHECKOUT ================= */
 
@@ -270,8 +281,6 @@ function AppContent() {
   return (
     <>
 
-      {/* ================= NAVBAR ================= */}
-
       {!shouldHideNavbar && (
 
         <Navbar
@@ -281,8 +290,6 @@ function AppContent() {
 
       )}
 
-      {/* ================= CART ================= */}
-
       <CartDrawer
         isOpen={cartOpen}
         onClose={() =>
@@ -291,16 +298,12 @@ function AppContent() {
         onCheckout={handleCheckout}
       />
 
-      {/* ================= ACCOUNT ================= */}
-
       <AccountDrawer
         open={accountOpen}
         onClose={() =>
           setAccountOpen(false)
         }
       />
-
-      {/* ================= ROUTES ================= */}
 
       <Routes>
 
@@ -526,15 +529,19 @@ export default function App() {
 
       <LoadingProvider>
 
-        <CartProvider>
+        <NotificationProvider>
 
-          <BrowserRouter>
+          <CartProvider>
 
-            <AppContent />
+            <BrowserRouter>
 
-          </BrowserRouter>
+              <AppContent />
 
-        </CartProvider>
+            </BrowserRouter>
+
+          </CartProvider>
+
+        </NotificationProvider>
 
       </LoadingProvider>
 
