@@ -66,7 +66,9 @@ export function NotificationProvider({
         const sender =
           String(
             data?.sender || ""
-          ).toLowerCase()
+          )
+            .trim()
+            .toLowerCase()
 
         const adminUser =
           JSON.parse(
@@ -78,54 +80,32 @@ export function NotificationProvider({
             localStorage.getItem("customerUser")
           )
 
-        console.log(
-          "👤 ADMIN USER:",
+        const currentRole =
           adminUser
-        )
-
-        const isAdmin =
-          String(
-            adminUser?.role || ""
-          ).toLowerCase() === "admin"
-
-        console.log(
-          "🛡️ isAdmin:",
-          isAdmin
-        )
-
-        const isCustomer =
-          !!customerUser
+            ? "admin"
+            : customerUser
+              ? "customer"
+              : null
 
         console.log(
           "👤 CURRENT ROLE:",
-          {
-            sender,
-            isAdmin,
-            isCustomer
-          }
+          currentRole
+        )
+
+        console.log(
+          "📨 EVENT SENDER:",
+          sender
         )
 
         /* ================= IGNORE OWN EVENTS ================= */
 
         if (
-          sender === "customer" &&
-          isCustomer
+          sender &&
+          sender === currentRole
         ) {
 
           console.log(
-            "🚫 Ignoring customer self-event"
-          )
-
-          return
-        }
-
-        if (
-          sender === "admin" &&
-          isAdmin
-        ) {
-
-          console.log(
-            "🚫 Ignoring admin self-event"
+            "🚫 Ignoring self notification"
           )
 
           return
