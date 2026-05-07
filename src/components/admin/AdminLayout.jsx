@@ -25,9 +25,14 @@ export default function AdminLayout() {
           👥 Customers
         </SideLink>
 
-        {/* 🔥 NEW EMAIL CENTER */}
         <SideLink to="/admin/emails">
           📧 Emails
+        </SideLink>
+
+        {/* 🔥 NEW SUPPORT CENTER */}
+
+        <SideLink to="/admin/support">
+          🛟 Support
         </SideLink>
 
         <SideLink to="/admin/revenue">
@@ -48,25 +53,34 @@ export default function AdminLayout() {
 
 /* ================= LINK ================= */
 
-function SideLink({ to, children }) {
+function SideLink({
+  to,
+  children
+}) {
 
   return (
     <NavLink
+
       to={to}
+
       style={({ isActive }) => ({
+
         ...link,
 
-        background: isActive
-          ? "#0f172a"
-          : "transparent",
+        background:
+          isActive
+            ? "#0f172a"
+            : "transparent",
 
-        border: isActive
-          ? "1px solid #22d3ee"
-          : "1px solid transparent",
+        border:
+          isActive
+            ? "1px solid #22d3ee"
+            : "1px solid transparent",
 
-        color: isActive
-          ? "#22d3ee"
-          : "#cbd5f5"
+        color:
+          isActive
+            ? "#22d3ee"
+            : "#cbd5f5"
       })}
     >
       {children}
@@ -77,24 +91,32 @@ function SideLink({ to, children }) {
 /* ================= STYLES ================= */
 
 const wrapper = {
+
   display: "flex",
+
   minHeight: "100vh",
+
   background: "#020617"
 }
 
 const sidebar = {
+
   width: 240,
+
   background: "#020617",
+
   color: "#fff",
 
   display: "flex",
+
   flexDirection: "column",
 
   gap: 14,
 
   padding: 20,
 
-  borderRight: "1px solid #1e293b"
+  borderRight:
+    "1px solid #1e293b"
 }
 
 const title = {
@@ -107,6 +129,7 @@ const content = {
 }
 
 const link = {
+
   padding: "12px 14px",
 
   borderRadius: 10,
