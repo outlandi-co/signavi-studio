@@ -78,8 +78,20 @@ export function NotificationProvider({
             localStorage.getItem("customerUser")
           )
 
+        console.log(
+          "👤 ADMIN USER:",
+          adminUser
+        )
+
         const isAdmin =
-          adminUser?.role === "admin"
+          String(
+            adminUser?.role || ""
+          ).toLowerCase() === "admin"
+
+        console.log(
+          "🛡️ isAdmin:",
+          isAdmin
+        )
 
         const isCustomer =
           !!customerUser
