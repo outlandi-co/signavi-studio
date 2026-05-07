@@ -55,6 +55,8 @@ import TrackingPage from "./pages/TrackingPage"
 
 import ClientOrder from "./pages/ClientOrder"
 
+import Support from "./pages/Support"
+
 /* ================= CUSTOMER ================= */
 
 import CustomerLogin from "./pages/customer/CustomerLogin"
@@ -82,6 +84,8 @@ import AdminCustomers from "./pages/admin/AdminCustomers"
 import AdminCustomerDetail from "./pages/admin/AdminCustomerDetail"
 
 import AdminEmails from "./pages/admin/AdminEmails"
+
+import AdminSupport from "./pages/admin/AdminSupport"
 
 /* ================= PRODUCTS ================= */
 
@@ -145,6 +149,7 @@ function AppContent() {
       }
 
       if (!email) {
+
         email =
           localStorage.getItem("customerEmail")
       }
@@ -185,6 +190,7 @@ function AppContent() {
         res.data?.data?._id
 
       if (!orderId) {
+
         throw new Error(
           "Missing order ID"
         )
@@ -338,6 +344,11 @@ function AppContent() {
         />
 
         <Route
+          path="/support"
+          element={<Support />}
+        />
+
+        <Route
           path="/quote/:id"
           element={<QuoteResponse />}
         />
@@ -453,11 +464,14 @@ function AppContent() {
               element={<AdminCustomerDetail />}
             />
 
-            {/* 🔥 NEW EMAIL PAGE */}
-
             <Route
               path="emails"
               element={<AdminEmails />}
+            />
+
+            <Route
+              path="support"
+              element={<AdminSupport />}
             />
 
             <Route
