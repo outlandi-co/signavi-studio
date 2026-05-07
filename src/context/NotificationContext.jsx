@@ -4,12 +4,25 @@ let socket = null
 
 export const getSocket = () => {
 
-  if (socket) return socket
+  /* ================= EXISTING ================= */
+
+  if (socket) {
+    return socket
+  }
+
+  /* ================= URL ================= */
 
   const URL = (
     import.meta.env.VITE_API_URL ||
     "https://signavi-backend.onrender.com/api"
   ).replace("/api", "")
+
+  console.log(
+    "🌐 SOCKET URL:",
+    URL
+  )
+
+  /* ================= CREATE SOCKET ================= */
 
   socket = io(
     URL,
@@ -18,24 +31,41 @@ export const getSocket = () => {
 
       reconnectionAttempts: 5,
 
-      withCredentials: true
+      reconnectionDelay: 1000,
+
+      withCredentials: true,
+
+      autoConnect: true
     }
   )
 
-  socket.on("connect", () => {
+  /* ================= CONNECT ================= */
 
-    console.log(
-      "🟢 Socket connected:",
-      socket.id
-    )
-  })
+  socket.on(
+    "connect",
+    () => {
 
-  socket.on("disconnect", () => {
+      console.log(
+        "🟢 Socket connected:",
+        socket.id
+      )
+    }
+  )
 
-    console.log(
-      "🔴 Socket disconnected"
-    )
-  })
+  /* ================= DISCONNECT ================= */
+
+  socket.on(
+    "disconnect",
+    (reason) => {
+
+      console.log(
+        "🔴 Socket disconnected:",
+        reason
+      )
+    }
+  )
+
+  /* ================= ERROR ================= */
 
   socket.on(
     "connect_error",
@@ -48,5 +78,31 @@ export const getSocket = () => {
     }
   )
 
+  /* ================= RECONNECT ================= */
+
+  socket.io.on(
+    "reconnect",
+    (attempt) => {
+
+      console.log(
+        "🟡 Socket reconnected:",
+        attempt
+      )
+    }
+  )
+
+  socket.io.on(
+    "reconnect_attempt",
+    (attempt) => {
+
+      console.log(
+        "🔄 Reconnect attempt:",
+        attempt
+      )
+    }
+  )
+
   return socket
 }
+
+export default getSocket
