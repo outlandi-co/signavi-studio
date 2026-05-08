@@ -33,6 +33,10 @@ export default function AdminLayout() {
           📦 Orders
         </SideLink>
 
+        <SideLink to="/admin/products">
+          🛒 Products
+        </SideLink>
+
         <SideLink to="/admin/customers">
           👥 Customers
         </SideLink>
