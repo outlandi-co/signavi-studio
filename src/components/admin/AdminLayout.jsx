@@ -19,7 +19,7 @@ export default function AdminLayout() {
 
       {/* ================= SIDEBAR ================= */}
 
-      <div style={sidebar}>
+      <aside style={sidebar}>
 
         <h2 style={title}>
           Admin Panel
@@ -95,13 +95,13 @@ export default function AdminLayout() {
           💰 Revenue
         </SideLink>
 
-      </div>
+      </aside>
 
       {/* ================= CONTENT ================= */}
 
-      <div style={content}>
+      <main style={content}>
         <Outlet />
-      </div>
+      </main>
 
     </div>
   )
@@ -159,6 +159,8 @@ const sidebar = {
 
   width: 240,
 
+  minWidth: 240,
+
   background: "#020617",
 
   color: "#fff",
@@ -172,16 +174,31 @@ const sidebar = {
   padding: 20,
 
   borderRight:
-    "1px solid #1e293b"
+    "1px solid #1e293b",
+
+  position: "sticky",
+
+  top: 0,
+
+  height: "100vh",
+
+  boxSizing: "border-box"
 }
 
 const title = {
-  marginBottom: 12
+
+  marginBottom: 12,
+
+  fontSize: 22
 }
 
 const content = {
+
   flex: 1,
-  padding: 20
+
+  padding: 20,
+
+  minWidth: 0
 }
 
 const link = {
@@ -205,7 +222,9 @@ const linkRow = {
 
   justifyContent: "space-between",
 
-  alignItems: "center"
+  alignItems: "center",
+
+  gap: 10
 }
 
 const badge = {
