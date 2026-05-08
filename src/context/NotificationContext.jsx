@@ -191,9 +191,9 @@ export function NotificationProvider({
     /* ================= LISTENERS ================= */
 
     socket.on(
-      "support:new-message",
-      handleSupport
-    )
+  "support:new-message",
+  handleSupport
+)
 
     socket.on(
       "email:new",
