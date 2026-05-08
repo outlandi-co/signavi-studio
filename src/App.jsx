@@ -65,6 +65,8 @@ import ClientOrder from "./pages/ClientOrder"
 
 import Support from "./pages/Support"
 
+import AdminProducts from "./pages/AdminProducts"
+
 /* ================= CUSTOMER ================= */
 
 import CustomerLogin from "./pages/customer/CustomerLogin"
