@@ -49,134 +49,89 @@ export function NotificationProvider({
       "✅ SOCKET INSTANCE READY"
     )
 
-    console.log(
-      "👂 Listening for support:new-message"
-    )
-
     /* ================= SUPPORT ================= */
 
-const handleSupport =
-  (data) => {
+    const handleSupport =
+      (data) => {
 
-    console.log(
-      "🛟 SUPPORT EVENT RECEIVED:",
-      data
-    )
+        console.log(
+          "🛟 SUPPORT EVENT RECEIVED:",
+          data
+        )
 
-    const sender =
-      String(
-        data?.sender || ""
-      )
-        .trim()
-        .toLowerCase()
+        const sender =
+          String(
+            data?.sender || ""
+          )
+            .trim()
+            .toLowerCase()
 
-    const adminUser =
-      JSON.parse(
-        localStorage.getItem("adminUser")
-      )
+        const adminUser =
+          JSON.parse(
+            localStorage.getItem("adminUser")
+          )
 
-    const customerUser =
-      JSON.parse(
-        localStorage.getItem("customerUser")
-      )
+        const customerUser =
+          JSON.parse(
+            localStorage.getItem("customerUser")
+          )
 
-    const currentRole =
-      adminUser?.role
-        ? "admin"
-        : customerUser
-          ? "customer"
-          : "guest"
+        const currentRole =
+          adminUser?.role
+            ? "admin"
+            : customerUser
+              ? "customer"
+              : "guest"
 
-    console.log(
-      "👤 CURRENT ROLE:",
-      currentRole
-    )
+        console.log(
+          "👤 CURRENT ROLE:",
+          currentRole
+        )
 
-    console.log(
-      "📨 EVENT SENDER:",
-      sender
-    )
+        console.log(
+          "📨 EVENT SENDER:",
+          sender
+        )
 
-    /* ================= IGNORE SELF ================= */
-
-    if (sender === currentRole) {
-
-      console.log(
-        "🚫 Ignoring own notification"
-      )
-
-      return
-    }
-
-    console.log(
-      "✅ APPLYING NOTIFICATION"
-    )
-
-    /* ================= FORCE UPDATE ================= */
-
-    setSupportUnread(prev => {
-
-      const updated =
-        Number(prev || 0) + 1
-
-      console.log(
-        "🔴 SUPPORT UNREAD:",
-        updated
-      )
-
-      return updated
-    })
-
-    setAlerts(prev => [
-
-      {
-        id: Date.now(),
-
-        type: "support",
-
-        message:
-          data?.message ||
-          "New support activity",
-
-        timestamp:
-          Date.now()
-      },
-
-      ...prev
-    ])
-  
-        /* ================= IGNORE OWN EVENTS ================= */
+        /* ================= IGNORE SELF ================= */
 
         if (
-          sender !== "unknown" &&
           sender === currentRole
         ) {
 
           console.log(
-            "🚫 Ignoring self notification"
+            "🚫 Ignoring own notification"
           )
 
           return
         }
 
+        console.log(
+          "✅ APPLYING NOTIFICATION"
+        )
+
         /* ================= UPDATE BADGE ================= */
 
         setSupportUnread(prev => {
 
-          const next =
-            prev + 1
+          const updated =
+            Number(prev || 0) + 1
 
           console.log(
             "🔴 SUPPORT UNREAD:",
-            next
+            updated
           )
 
-          return next
+          return updated
         })
+
+        /* ================= ALERTS ================= */
 
         setAlerts(prev => [
 
           {
+            id: Date.now(),
+
             type: "support",
 
             message:
@@ -203,20 +158,22 @@ const handleSupport =
 
         setEmailUnread(prev => {
 
-          const next =
-            prev + 1
+          const updated =
+            Number(prev || 0) + 1
 
           console.log(
             "📧 EMAIL UNREAD:",
-            next
+            updated
           )
 
-          return next
+          return updated
         })
 
         setAlerts(prev => [
 
           {
+            id: Date.now(),
+
             type: "email",
 
             message:
