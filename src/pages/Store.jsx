@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react"
 import api from "../services/api"
 import { useCartContext } from "../context/useCartContext"
@@ -8,9 +7,6 @@ export default function Store() {
 
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
-
-  /* ================= SELECTED ================= */
-
   const [selected, setSelected] = useState({})
 
   const { addToCart } = useCartContext()
@@ -50,52 +46,42 @@ export default function Store() {
 
   /* ================= HELPERS ================= */
 
-  const getVariants = (product) =>
-    product.variants || []
+  const getVariants = (product) => {
+    return product.variants || []
+  }
 
-  const getColors = (product) =>
-
-    [...new Set(
-      getVariants(product)
-        .map(v => v.color)
-    )]
-
-  const getSizes = (
-    product,
-    color
-  ) =>
-
-    getVariants(product)
-      .filter(v =>
-        v.color === color
+  const getColors = (product) => {
+    return [
+      ...new Set(
+        getVariants(product)
+          .map(v => v.color)
+          .filter(Boolean)
       )
+    ]
+  }
+
+  const getSizes = (product, color) => {
+    return getVariants(product)
+      .filter(v => v.color === color)
       .map(v => v.size)
+      .filter(Boolean)
+  }
 
-  const getVariant = (
-    product,
-    color,
-    size
-  ) =>
-
-    getVariants(product)
-      .find(v =>
-
+  const getVariant = (product, color, size) => {
+    return getVariants(product).find(
+      v =>
         v.color === color &&
         v.size === size
-      )
+    )
+  }
 
   /* ================= LOADING ================= */
 
   if (loading) {
 
     return (
-
       <div style={loadingWrap}>
-
-        <h2>
-          Loading Store...
-        </h2>
-
+        <h2>Loading Store...</h2>
       </div>
     )
   }
@@ -103,12 +89,27 @@ export default function Store() {
   /* ================= RENDER ================= */
 
   return (
-
     <div style={page}>
 
-      <h1 style={title}>
-        Store
-      </h1>
+      <div style={header}>
+        <p style={eyebrow}>
+          SignaVi Studio
+        </p>
+
+        <h1 style={title}>
+          Store
+        </h1>
+
+        <p style={subtitle}>
+          Custom apparel, print products, and creative production items.
+        </p>
+      </div>
+
+      {products.length === 0 && (
+        <p style={emptyText}>
+          No products available yet.
+        </p>
+      )}
 
       <div style={grid}>
 
@@ -122,10 +123,7 @@ export default function Store() {
 
           const sizes =
             sel.color
-              ? getSizes(
-                  product,
-                  sel.color
-                )
+              ? getSizes(product, sel.color)
               : []
 
           const variant =
@@ -136,19 +134,12 @@ export default function Store() {
             )
 
           const safePrice =
-
-            Number(
-              variant?.price
-            ) ||
-
-            Number(
-              product?.price
-            ) ||
-
+            Number(variant?.price) ||
+            Number(product?.price) ||
+            Number(product?.basePrice) ||
             0
 
           return (
-
             <div
               key={product._id}
               style={card}
@@ -156,36 +147,50 @@ export default function Store() {
 
               {/* ================= IMAGE ================= */}
 
-              <img
-                src={
-                  product.image ||
-                  "/placeholder.png"
-                }
+              {product.image ? (
 
-                alt={product.name}
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  style={image}
+                  onError={(e) => {
+                    e.target.style.display = "none"
+                  }}
+                />
 
-                style={image}
+              ) : (
 
-                onError={(e) => {
-                  e.target.src =
-                    "/placeholder.png"
-                }}
-              />
+                <div style={imagePlaceholder}>
+                  No Image
+                </div>
+              )}
 
               {/* ================= CONTENT ================= */}
 
               <div style={content}>
 
-                <h3 style={productName}>
-                  {product.name}
-                </h3>
+                <div>
+
+                  <p style={category}>
+                    {product.category || "general"}
+                  </p>
+
+                  <h2 style={productName}>
+                    {product.name}
+                  </h2>
+
+                  {product.description && (
+                    <p style={description}>
+                      {product.description}
+                    </p>
+                  )}
+
+                </div>
 
                 <p style={price}>
-
                   {safePrice > 0
                     ? "$" + safePrice.toFixed(2)
                     : "No price"}
-
                 </p>
 
                 {/* ================= COLORS ================= */}
@@ -196,7 +201,13 @@ export default function Store() {
                     Color
                   </p>
 
-                  <div style={buttonRow}>
+                  <div style={optionRow}>
+
+                    {colors.length === 0 && (
+                      <span style={muted}>
+                        No colors
+                      </span>
+                    )}
 
                     {colors.map(color => (
 
@@ -206,7 +217,6 @@ export default function Store() {
                         onClick={() =>
                           setSelected(prev => ({
                             ...prev,
-
                             [product._id]: {
                               color,
                               size: ""
@@ -215,12 +225,15 @@ export default function Store() {
                         }
 
                         style={{
-                          ...variantButton,
-
+                          ...optionButton,
                           border:
                             sel.color === color
                               ? "2px solid #22c55e"
-                              : "1px solid #475569"
+                              : "1px solid #334155",
+                          color:
+                            sel.color === color
+                              ? "#22c55e"
+                              : "white"
                         }}
                       >
                         {color}
@@ -239,7 +252,13 @@ export default function Store() {
                     Size
                   </p>
 
-                  <div style={buttonRow}>
+                  <div style={optionRow}>
+
+                    {!sel.color && (
+                      <span style={muted}>
+                        Choose color first
+                      </span>
+                    )}
 
                     {sizes.map(size => (
 
@@ -249,23 +268,23 @@ export default function Store() {
                         onClick={() =>
                           setSelected(prev => ({
                             ...prev,
-
                             [product._id]: {
-
                               ...prev[product._id],
-
                               size
                             }
                           }))
                         }
 
                         style={{
-                          ...variantButton,
-
+                          ...optionButton,
                           border:
                             sel.size === size
-                              ? "2px solid #22c55e"
-                              : "1px solid #475569"
+                              ? "2px solid #38bdf8"
+                              : "1px solid #334155",
+                          color:
+                            sel.size === size
+                              ? "#38bdf8"
+                              : "white"
                         }}
                       >
                         {size}
@@ -276,56 +295,34 @@ export default function Store() {
 
                 </div>
 
-                {/* ================= BUTTON ================= */}
+                {/* ================= ADD TO CART ================= */}
 
                 <button
-
                   onClick={() => {
 
                     if (!variant) {
-
                       toast.error(
-                        "Select color and size"
+                        "Please select color and size"
                       )
-
                       return
                     }
 
-                    if (
-                      !safePrice ||
-                      safePrice <= 0
-                    ) {
-
+                    if (!safePrice || safePrice <= 0) {
                       toast.error(
-                        "Invalid price"
+                        "Invalid product price"
                       )
-
                       return
                     }
 
                     addToCart({
-
-                      productId:
-                        product._id,
-
-                      name:
-                        product.name,
-
-                      image:
-                        product.image,
-
+                      productId: product._id,
+                      name: product.name,
+                      image: product.image,
                       quantity: 1,
-
                       selectedVariant: {
-
-                        color:
-                          variant.color,
-
-                        size:
-                          variant.size,
-
-                        price:
-                          safePrice
+                        color: variant.color,
+                        size: variant.size,
+                        price: safePrice
                       }
                     })
 
@@ -333,10 +330,9 @@ export default function Store() {
                       "Added to cart"
                     )
                   }}
-
                   style={addButton}
                 >
-                  Add To Cart
+                  Add to Cart
                 </button>
 
               </div>
@@ -354,159 +350,157 @@ export default function Store() {
 /* ================= STYLES ================= */
 
 const page = {
-
-  padding: 30,
-
-  background: "#020617",
-
   minHeight: "100vh",
-
-  color: "white"
+  background: "#020617",
+  color: "white",
+  padding: "40px 30px"
 }
 
 const loadingWrap = {
-
   minHeight: "100vh",
-
-  display: "flex",
-
-  justifyContent: "center",
-
-  alignItems: "center",
-
   background: "#020617",
+  color: "white",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center"
+}
 
-  color: "white"
+const header = {
+  marginBottom: 34
+}
+
+const eyebrow = {
+  margin: 0,
+  color: "#22c55e",
+  fontSize: 13,
+  fontWeight: "bold",
+  letterSpacing: 1,
+  textTransform: "uppercase"
 }
 
 const title = {
+  margin: "6px 0",
+  fontSize: 44,
+  lineHeight: 1.1
+}
 
-  fontSize: 38,
+const subtitle = {
+  margin: 0,
+  color: "#94a3b8",
+  maxWidth: 640
+}
 
-  fontWeight: "bold",
-
-  marginBottom: 30
+const emptyText = {
+  color: "#94a3b8"
 }
 
 const grid = {
-
   display: "grid",
-
-  gridTemplateColumns:
-    "repeat(auto-fit, minmax(320px, 1fr))",
-
-  gap: 24
+  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 340px))",
+  gap: 26,
+  alignItems: "start"
 }
 
 const card = {
-
   background: "#0f172a",
-
-  border:
-    "1px solid #1e293b",
-
-  borderRadius: 20,
-
+  border: "1px solid #1e293b",
+  borderRadius: 22,
   overflow: "hidden",
-
-  boxShadow:
-    "0 6px 24px rgba(0,0,0,0.35)",
-
+  boxShadow: "0 8px 28px rgba(0,0,0,0.35)",
   display: "flex",
-
-  flexDirection: "column"
+  flexDirection: "column",
+  maxWidth: 340,
+  width: "100%"
 }
 
 const image = {
-
   width: "100%",
-
-  height: 280,
-
+  height: 250,
   objectFit: "cover",
+  background: "#111827",
+  borderBottom: "1px solid #1e293b"
+}
 
-  background: "#111827"
+const imagePlaceholder = {
+  height: 250,
+  background: "#111827",
+  borderBottom: "1px solid #1e293b",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: "#64748b"
 }
 
 const content = {
-
   padding: 20,
-
   display: "flex",
-
   flexDirection: "column",
-
   gap: 16
 }
 
-const productName = {
-
-  margin: 0,
-
-  fontSize: 22
-}
-
-const price = {
-
-  margin: 0,
-
-  fontSize: 20,
-
-  fontWeight: "bold",
-
-  color: "#22c55e"
-}
-
-const label = {
-
-  marginBottom: 8,
-
-  fontSize: 14,
-
+const category = {
+  margin: "0 0 6px",
+  color: "#38bdf8",
+  fontSize: 12,
+  textTransform: "uppercase",
+  letterSpacing: 1,
   fontWeight: "bold"
 }
 
-const buttonRow = {
+const productName = {
+  margin: 0,
+  fontSize: 22,
+  lineHeight: 1.2
+}
 
+const description = {
+  margin: "10px 0 0",
+  color: "#94a3b8",
+  fontSize: 14,
+  lineHeight: 1.45
+}
+
+const price = {
+  margin: 0,
+  color: "#22c55e",
+  fontSize: 22,
+  fontWeight: "bold"
+}
+
+const label = {
+  margin: "0 0 8px",
+  fontSize: 13,
+  color: "#cbd5e1",
+  fontWeight: "bold"
+}
+
+const optionRow = {
   display: "flex",
-
   flexWrap: "wrap",
-
   gap: 8
 }
 
-const variantButton = {
-
-  padding: "8px 12px",
-
+const optionButton = {
+  padding: "7px 10px",
   borderRadius: 10,
+  background: "#020617",
+  cursor: "pointer",
+  fontSize: 13
+}
 
-  background: "#111827",
-
-  color: "white",
-
-  cursor: "pointer"
+const muted = {
+  color: "#64748b",
+  fontSize: 13
 }
 
 const addButton = {
-
-  marginTop: 10,
-
+  marginTop: 4,
   padding: "14px 18px",
-
   borderRadius: 14,
-
   border: "none",
-
-  background:
-    "linear-gradient(to right, #22c55e, #16a34a)",
-
+  background: "linear-gradient(to right, #22c55e, #16a34a)",
   color: "white",
-
   fontWeight: "bold",
-
   fontSize: 15,
-
   cursor: "pointer"
 }
-
