@@ -133,20 +133,35 @@ useEffect(() => {
           "✅ CUSTOMER REPLY API HIT"
         )
 
-        setReply("")
+      
+const newReply = {
+  sender: "customer",
+  message: reply
+}
 
-        await loadTickets()
+const updatedTicket = {
 
-        const updated =
-          await api.get("/support")
+  ...selected,
 
-        const fresh =
-          updated.data?.data?.find(
-            t =>
-              t._id === selected._id
-          )
+  replies: [
+    ...(selected.replies || []),
+    newReply
+  ]
+}
 
-        setSelected(fresh)
+setSelected(updatedTicket)
+
+setTickets(prev =>
+  prev.map(ticket =>
+    ticket._id === selected._id
+      ? updatedTicket
+      : ticket
+  )
+)
+
+setReply("")
+
+
 
       } catch (err) {
 

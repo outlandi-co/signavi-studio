@@ -75,19 +75,34 @@ console.log(
   "✅ ADMIN REPLY API HIT"
 )
 
+
+const newReply = {
+  sender: "admin",
+  message: reply
+}
+
+const updatedTicket = {
+
+  ...selected,
+
+  replies: [
+    ...(selected.replies || []),
+    newReply
+  ]
+}
+
+setSelected(updatedTicket)
+
+setTickets(prev =>
+  prev.map(ticket =>
+    ticket._id === selected._id
+      ? updatedTicket
+      : ticket
+  )
+)
+
 setReply("")
 
-await loadTickets()
-
-const updated =
-  await api.get("/support")
-
-const fresh =
-  updated.data?.data?.find(
-    t => t._id === selected._id
-  )
-
-      setSelected(fresh)
 
     } catch (err) {
 
