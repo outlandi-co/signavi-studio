@@ -1,3 +1,4 @@
+```jsx
 import {
   useEffect,
   useMemo,
@@ -33,12 +34,68 @@ export function NotificationProvider({
     setAlerts
   ] = useState([])
 
+  /* ================= SAFE STORAGE ================= */
+
+  const getStoredUser = (key) => {
+
+    try {
+
+      const raw =
+        localStorage.getItem(key)
+
+      return raw
+        ? JSON.parse(raw)
+        : null
+
+    } catch (err) {
+
+      console.warn(
+        "Failed parsing storage:",
+        key,
+        err
+      )
+
+      return null
+    }
+  }
+
+  /* ================= ALERT ADDER ================= */
+
+  const addAlert = (
+    type,
+    message
+  ) => {
+
+    const newAlert = {
+
+      id:
+        crypto.randomUUID(),
+
+      type,
+
+      message,
+
+      timestamp:
+        Date.now()
+    }
+
+    setAlerts(prev => {
+
+      const updated = [
+        newAlert,
+        ...prev
+      ]
+
+      return updated.slice(0, 20)
+    })
+  }
+
   /* ================= SOCKET ================= */
 
   useEffect(() => {
 
     console.log(
-      "🟡 NotificationProvider mounted"
+      "NotificationProvider mounted"
     )
 
     const socket =
@@ -47,14 +104,14 @@ export function NotificationProvider({
     if (!socket) {
 
       console.warn(
-        "❌ SOCKET FAILED"
+        "Socket failed"
       )
 
       return
     }
 
     console.log(
-      "✅ SOCKET INSTANCE READY"
+      "Socket ready"
     )
 
     /* ================= SUPPORT ================= */
@@ -63,7 +120,7 @@ export function NotificationProvider({
       (data) => {
 
         console.log(
-          "🚨 FRONTEND GOT SOCKET EVENT:",
+          "Support socket event:",
           data
         )
 
@@ -74,20 +131,14 @@ export function NotificationProvider({
             .trim()
             .toLowerCase()
 
-        /* ================= CURRENT ROLE ================= */
-
         const adminUser =
-          JSON.parse(
-            localStorage.getItem(
-              "adminUser"
-            )
+          getStoredUser(
+            "adminUser"
           )
 
         const customerUser =
-          JSON.parse(
-            localStorage.getItem(
-              "customerUser"
-            )
+          getStoredUser(
+            "customerUser"
           )
 
         let currentRole =
@@ -110,12 +161,12 @@ export function NotificationProvider({
         }
 
         console.log(
-          "👤 CURRENT ROLE:",
+          "Current role:",
           currentRole
         )
 
         console.log(
-          "📨 EVENT SENDER:",
+          "Sender:",
           sender
         )
 
@@ -126,50 +177,23 @@ export function NotificationProvider({
         ) {
 
           console.log(
-            "🚫 Ignoring own message"
+            "Ignoring own message"
           )
 
           return
         }
 
-        /* ================= APPLY ================= */
+        /* ================= UPDATE ================= */
 
-        console.log(
-          "✅ INCREMENTING BADGE"
+        setSupportUnread(
+          prev => prev + 1
         )
 
-        setSupportUnread(prev => {
-
-          const updated =
-            Number(prev || 0) + 1
-
-          console.log(
-            "🔴 NEW BADGE:",
-            updated
-          )
-
-          return updated
-        })
-
-        /* ================= ALERTS ================= */
-
-        setAlerts(prev => [
-
-          {
-            id: Date.now(),
-
-            type: "support",
-
-            message:
-              data?.message ||
-              "New support reply",
-
-            timestamp:
-              Date.now()
-          },
-
-          ...prev
-        ])
+        addAlert(
+          "support",
+          data?.message ||
+          "New support reply"
+        )
       }
 
     /* ================= EMAIL ================= */
@@ -178,40 +202,19 @@ export function NotificationProvider({
       (data) => {
 
         console.log(
-          "📧 EMAIL EVENT:",
+          "Email socket event:",
           data
         )
 
-        setEmailUnread(prev => {
+        setEmailUnread(
+          prev => prev + 1
+        )
 
-          const updated =
-            Number(prev || 0) + 1
-
-          console.log(
-            "📧 EMAIL BADGE:",
-            updated
-          )
-
-          return updated
-        })
-
-        setAlerts(prev => [
-
-          {
-            id: Date.now(),
-
-            type: "email",
-
-            message:
-              data?.message ||
-              "New email received",
-
-            timestamp:
-              Date.now()
-          },
-
-          ...prev
-        ])
+        addAlert(
+          "email",
+          data?.message ||
+          "New email received"
+        )
       }
 
     /* ================= LISTENERS ================= */
@@ -227,7 +230,7 @@ export function NotificationProvider({
     )
 
     console.log(
-      "👂 SOCKET LISTENERS ATTACHED"
+      "Socket listeners attached"
     )
 
     /* ================= CLEANUP ================= */
@@ -235,7 +238,7 @@ export function NotificationProvider({
     return () => {
 
       console.log(
-        "🧹 REMOVING SOCKET LISTENERS"
+        "Removing socket listeners"
       )
 
       socket.off(
@@ -256,19 +259,11 @@ export function NotificationProvider({
   const clearSupportUnread =
     () => {
 
-      console.log(
-        "🧹 CLEAR SUPPORT BADGE"
-      )
-
       setSupportUnread(0)
     }
 
   const clearEmailUnread =
     () => {
-
-      console.log(
-        "🧹 CLEAR EMAIL BADGE"
-      )
 
       setEmailUnread(0)
     }
@@ -307,3 +302,4 @@ export function NotificationProvider({
     </NotificationContext.Provider>
   )
 }
+```
