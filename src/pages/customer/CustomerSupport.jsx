@@ -1,4 +1,8 @@
-import { useEffect, useState } from "react"
+import {
+  useEffect,
+  useState
+} from "react"
+
 import api from "../../services/api"
 
 export default function CustomerSupport() {
@@ -33,8 +37,9 @@ export default function CustomerSupport() {
         try {
 
           email =
-            JSON.parse(customerUser)
-              ?.email
+            JSON.parse(
+              customerUser
+            )?.email
 
         } catch (err) {
 
@@ -62,15 +67,18 @@ export default function CustomerSupport() {
         res.data?.data || []
 
       const myTickets =
-        allTickets.filter(ticket =>
-          ticket.email === email
+        allTickets.filter(
+          ticket =>
+            ticket.email === email
         )
 
       setTickets(myTickets)
 
       if (myTickets.length > 0) {
 
-        setSelected(myTickets[0])
+        setSelected(
+          myTickets[0]
+        )
       }
 
     } catch (err) {
@@ -88,63 +96,87 @@ export default function CustomerSupport() {
 
   /* ================= EFFECT ================= */
 
-  useEffect(() => {
+useEffect(() => {
 
-    const init = async () => {
+  const init = async () => {
 
-      await loadTickets()
+    await loadTickets()
+  }
 
-    }
+  init()
 
-    init()
-
-  }, [])
-
+}, [])
   /* ================= REPLY ================= */
 
-  const sendReply = async () => {
+  const sendReply =
+    async () => {
 
-    if (!reply.trim()) return
+      if (!reply.trim()) return
 
-    if (!selected?._id) return
+      if (!selected?._id) return
 
-    try {
+      try {
 
-      await api.post(
-        `/support/${selected._id}/reply`,
-        {
-          sender: "customer",
-          message: reply
-        }
-      )
+        await api.post(
+          `/support/${selected._id}/reply`,
+          {
 
-      setReply("")
+            sender:
+              "customer",
 
-      await loadTickets()
+            message:
+              reply
+          }
+        )
 
-    } catch (err) {
+        console.log(
+          "✅ CUSTOMER REPLY API HIT"
+        )
 
-      console.error(
-        "❌ REPLY ERROR:",
-        err
-      )
+        setReply("")
+
+        await loadTickets()
+
+        const updated =
+          await api.get("/support")
+
+        const fresh =
+          updated.data?.data?.find(
+            t =>
+              t._id === selected._id
+          )
+
+        setSelected(fresh)
+
+      } catch (err) {
+
+        console.error(
+          "❌ REPLY ERROR:",
+          err
+        )
+      }
     }
-  }
+
+  /* ================= LOADING ================= */
 
   if (loading) {
 
     return (
+
       <div style={loadingStyle}>
-        Loading support tickets...
+        Loading support...
       </div>
     )
   }
 
+  /* ================= RENDER ================= */
+
   return (
+
     <div style={page}>
 
       <h1 style={title}>
-        🛟 My Support Tickets
+        My Support
       </h1>
 
       <div style={layout}>
@@ -155,7 +187,9 @@ export default function CustomerSupport() {
 
           {tickets.length === 0 && (
 
-            <p style={{ color: "#94a3b8" }}>
+            <p style={{
+              color: "#94a3b8"
+            }}>
               No support tickets found.
             </p>
           )}
@@ -188,7 +222,6 @@ export default function CustomerSupport() {
               </small>
 
             </button>
-
           ))}
 
         </div>
@@ -205,6 +238,7 @@ export default function CustomerSupport() {
           )}
 
           {selected && (
+
             <>
 
               {/* HEADER */}
@@ -220,20 +254,14 @@ export default function CustomerSupport() {
                   <p>
                     Ticket Status:
                     {" "}
+
                     <span style={{
-                      color: "#22c55e"
+                      color:
+                        "#22c55e"
                     }}>
                       {selected.status}
                     </span>
                   </p>
-
-                  {selected.orderNumber && (
-                    <p>
-                      Order:
-                      {" "}
-                      {selected.orderNumber}
-                    </p>
-                  )}
 
                 </div>
 
@@ -248,18 +276,23 @@ export default function CustomerSupport() {
                 </div>
 
                 {selected.replies?.map(
-                  (reply, index) => (
+                  (
+                    item,
+                    index
+                  ) => (
 
                     <div
                       key={index}
 
                       style={
-                        reply.sender === "admin"
+                        item.sender === "admin"
                           ? adminBubble
                           : customerBubble
                       }
                     >
-                      {reply.message}
+
+                      {item.message}
+
                     </div>
                   )
                 )}
@@ -317,6 +350,7 @@ const page = {
 }
 
 const title = {
+
   marginBottom: 20
 }
 
@@ -375,6 +409,7 @@ const ticketBtn = {
 }
 
 const header = {
+
   marginBottom: 20
 }
 

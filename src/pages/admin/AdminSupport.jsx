@@ -62,25 +62,30 @@ export default function AdminSupport() {
     try {
 
       await api.post(
-        `/support/${selected._id}/reply`,
-        {
-          sender: "admin",
+  `/support/${selected._id}/reply`,
+  {
 
-          message: reply
-        }
-      )
+    sender: "admin",
 
-      setReply("")
+    message: reply
+  }
+)
 
-      await loadTickets()
+console.log(
+  "✅ ADMIN REPLY API HIT"
+)
 
-      const updated =
-        await api.get("/support")
+setReply("")
 
-      const fresh =
-        updated.data?.data?.find(
-          t => t._id === selected._id
-        )
+await loadTickets()
+
+const updated =
+  await api.get("/support")
+
+const fresh =
+  updated.data?.data?.find(
+    t => t._id === selected._id
+  )
 
       setSelected(fresh)
 
