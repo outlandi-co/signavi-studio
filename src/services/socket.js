@@ -33,37 +33,47 @@ export const getSocket =
           "websocket"
         ],
 
+        upgrade: false,
+
         reconnection: true,
 
-        reconnectionAttempts: 999,
+        reconnectionAttempts: Infinity,
 
         reconnectionDelay: 1000,
+
+        timeout: 20000,
 
         autoConnect: true
       }
     )
+
+    /* ================= CONNECT ================= */
 
     socket.on(
       "connect",
       () => {
 
         console.log(
-          "🟢 Socket connected:",
+          "🟢 SOCKET CONNECTED:",
           socket.id
         )
       }
     )
+
+    /* ================= DISCONNECT ================= */
 
     socket.on(
       "disconnect",
       (reason) => {
 
         console.log(
-          "🔴 Socket disconnected:",
+          "🔴 SOCKET DISCONNECTED:",
           reason
         )
       }
     )
+
+    /* ================= ERROR ================= */
 
     socket.on(
       "connect_error",
