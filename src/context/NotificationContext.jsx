@@ -63,7 +63,7 @@ export function NotificationProvider({
       (data) => {
 
         console.log(
-          "🛟 SUPPORT EVENT RECEIVED:",
+          "🚨 FRONTEND GOT SOCKET EVENT:",
           data
         )
 
@@ -126,7 +126,7 @@ export function NotificationProvider({
         ) {
 
           console.log(
-            "🚫 Ignoring own notification"
+            "🚫 Ignoring own message"
           )
 
           return
@@ -135,7 +135,7 @@ export function NotificationProvider({
         /* ================= APPLY ================= */
 
         console.log(
-          "✅ APPLYING SUPPORT NOTIFICATION"
+          "✅ INCREMENTING BADGE"
         )
 
         setSupportUnread(prev => {
@@ -144,12 +144,14 @@ export function NotificationProvider({
             Number(prev || 0) + 1
 
           console.log(
-            "🔴 SUPPORT UNREAD:",
+            "🔴 NEW BADGE:",
             updated
           )
 
           return updated
         })
+
+        /* ================= ALERTS ================= */
 
         setAlerts(prev => [
 
@@ -185,6 +187,11 @@ export function NotificationProvider({
           const updated =
             Number(prev || 0) + 1
 
+          console.log(
+            "📧 EMAIL BADGE:",
+            updated
+          )
+
           return updated
         })
 
@@ -219,9 +226,17 @@ export function NotificationProvider({
       handleEmail
     )
 
+    console.log(
+      "👂 SOCKET LISTENERS ATTACHED"
+    )
+
     /* ================= CLEANUP ================= */
 
     return () => {
+
+      console.log(
+        "🧹 REMOVING SOCKET LISTENERS"
+      )
 
       socket.off(
         "support:new-message",
