@@ -490,9 +490,9 @@ function AppContent() {
             />
 
             <Route
-              path="products"
-              element={<Products />}
-            />
+  path="products"
+  element={<AdminProducts />}
+/>
 
             <Route
               path="products/new"
