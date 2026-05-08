@@ -11,14 +11,17 @@ export default function Store() {
 
   const { addToCart } = useCartContext()
 
+  const BASE_URL =
+    import.meta.env.VITE_API_URL?.replace("/api", "") ||
+    "https://signavi-backend.onrender.com"
+
+  const PLACEHOLDER = "/image_placeholder/placeholder.png"
+
   /* ================= LOAD PRODUCTS ================= */
 
   useEffect(() => {
-
     const load = async () => {
-
       try {
-
         const res = await api.get("/products")
 
         const list = Array.isArray(res.data)
@@ -28,57 +31,41 @@ export default function Store() {
         setProducts(list)
 
       } catch (err) {
-
-        console.error(
-          "FAILED TO LOAD PRODUCTS:",
-          err
-        )
-
+        console.error("FAILED TO LOAD PRODUCTS:", err)
       } finally {
-
         setLoading(false)
       }
     }
 
     load()
-
   }, [])
 
   /* ================= HELPERS ================= */
 
-  const getVariants = (product) => {
-    return product.variants || []
-  }
+  const getVariants = (product) => product.variants || []
 
-  const getColors = (product) => {
-    return [
-      ...new Set(
-        getVariants(product)
-          .map(v => v.color)
-          .filter(Boolean)
-      )
-    ]
-  }
+  const getColors = (product) => [
+    ...new Set(
+      getVariants(product)
+        .map(v => v.color)
+        .filter(Boolean)
+    )
+  ]
 
-  const getSizes = (product, color) => {
-    return getVariants(product)
+  const getSizes = (product, color) =>
+    getVariants(product)
       .filter(v => v.color === color)
       .map(v => v.size)
       .filter(Boolean)
-  }
 
-  const getVariant = (product, color, size) => {
-    return getVariants(product).find(
-      v =>
-        v.color === color &&
-        v.size === size
+  const getVariant = (product, color, size) =>
+    getVariants(product).find(
+      v => v.color === color && v.size === size
     )
-  }
 
   /* ================= LOADING ================= */
 
   if (loading) {
-
     return (
       <div style={loadingWrap}>
         <h2>Loading Store...</h2>
@@ -92,46 +79,30 @@ export default function Store() {
     <div style={page}>
 
       <div style={header}>
-        <p style={eyebrow}>
-          SignaVi Studio
-        </p>
-
-        <h1 style={title}>
-          Store
-        </h1>
-
+        <p style={eyebrow}>SignaVi Studio</p>
+        <h1 style={title}>Store</h1>
         <p style={subtitle}>
           Custom apparel, print products, and creative production items.
         </p>
       </div>
 
       {products.length === 0 && (
-        <p style={emptyText}>
-          No products available yet.
-        </p>
+        <p style={emptyText}>No products available yet.</p>
       )}
 
       <div style={grid}>
 
         {products.map(product => {
 
-          const sel =
-            selected[product._id] || {}
+          const sel = selected[product._id] || {}
 
-          const colors =
-            getColors(product)
+          const colors = getColors(product)
 
-          const sizes =
-            sel.color
-              ? getSizes(product, sel.color)
-              : []
+          const sizes = sel.color
+            ? getSizes(product, sel.color)
+            : []
 
-          const variant =
-            getVariant(
-              product,
-              sel.color,
-              sel.size
-            )
+          const variant = getVariant(product, sel.color, sel.size)
 
           const safePrice =
             Number(variant?.price) ||
@@ -139,38 +110,35 @@ export default function Store() {
             Number(product?.basePrice) ||
             0
 
+          /* ================= IMAGE FIX ================= */
+
+          let imageUrl = PLACEHOLDER
+
+          if (product.image) {
+            imageUrl = product.image.startsWith("http")
+              ? product.image
+              : `${BASE_URL}${product.image}`
+          }
+
           return (
-            <div
-              key={product._id}
-              style={card}
-            >
+            <div key={product._id} style={card}>
 
               {/* ================= IMAGE ================= */}
 
-              {product.image ? (
-
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  style={image}
-                  onError={(e) => {
-                    e.target.style.display = "none"
-                  }}
-                />
-
-              ) : (
-
-                <div style={imagePlaceholder}>
-                  No Image
-                </div>
-              )}
+              <img
+                src={imageUrl}
+                alt={product.name}
+                style={image}
+                onError={(e) => {
+                  e.target.src = PLACEHOLDER
+                }}
+              />
 
               {/* ================= CONTENT ================= */}
 
               <div style={content}>
 
                 <div>
-
                   <p style={category}>
                     {product.category || "general"}
                   </p>
@@ -184,7 +152,6 @@ export default function Store() {
                       {product.description}
                     </p>
                   )}
-
                 </div>
 
                 <p style={price}>
@@ -196,24 +163,16 @@ export default function Store() {
                 {/* ================= COLORS ================= */}
 
                 <div>
-
-                  <p style={label}>
-                    Color
-                  </p>
+                  <p style={label}>Color</p>
 
                   <div style={optionRow}>
-
                     {colors.length === 0 && (
-                      <span style={muted}>
-                        No colors
-                      </span>
+                      <span style={muted}>No colors</span>
                     )}
 
                     {colors.map(color => (
-
                       <button
                         key={color}
-
                         onClick={() =>
                           setSelected(prev => ({
                             ...prev,
@@ -223,7 +182,6 @@ export default function Store() {
                             }
                           }))
                         }
-
                         style={{
                           ...optionButton,
                           border:
@@ -239,18 +197,13 @@ export default function Store() {
                         {color}
                       </button>
                     ))}
-
                   </div>
-
                 </div>
 
                 {/* ================= SIZES ================= */}
 
                 <div>
-
-                  <p style={label}>
-                    Size
-                  </p>
+                  <p style={label}>Size</p>
 
                   <div style={optionRow}>
 
@@ -261,10 +214,8 @@ export default function Store() {
                     )}
 
                     {sizes.map(size => (
-
                       <button
                         key={size}
-
                         onClick={() =>
                           setSelected(prev => ({
                             ...prev,
@@ -274,7 +225,6 @@ export default function Store() {
                             }
                           }))
                         }
-
                         style={{
                           ...optionButton,
                           border:
@@ -290,9 +240,7 @@ export default function Store() {
                         {size}
                       </button>
                     ))}
-
                   </div>
-
                 </div>
 
                 {/* ================= ADD TO CART ================= */}
@@ -301,23 +249,19 @@ export default function Store() {
                   onClick={() => {
 
                     if (!variant) {
-                      toast.error(
-                        "Please select color and size"
-                      )
+                      toast.error("Please select color and size")
                       return
                     }
 
                     if (!safePrice || safePrice <= 0) {
-                      toast.error(
-                        "Invalid product price"
-                      )
+                      toast.error("Invalid product price")
                       return
                     }
 
                     addToCart({
                       productId: product._id,
                       name: product.name,
-                      image: product.image,
+                      image: imageUrl,
                       quantity: 1,
                       selectedVariant: {
                         color: variant.color,
@@ -326,9 +270,7 @@ export default function Store() {
                       }
                     })
 
-                    toast.success(
-                      "Added to cart"
-                    )
+                    toast.success("Added to cart")
                   }}
                   style={addButton}
                 >
@@ -419,16 +361,6 @@ const image = {
   objectFit: "cover",
   background: "#111827",
   borderBottom: "1px solid #1e293b"
-}
-
-const imagePlaceholder = {
-  height: 250,
-  background: "#111827",
-  borderBottom: "1px solid #1e293b",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  color: "#64748b"
 }
 
 const content = {
