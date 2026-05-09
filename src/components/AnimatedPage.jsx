@@ -1,21 +1,22 @@
-import { useEffect, useState } from "react"
-
 export default function AnimatedPage({ children }) {
-  const [visible, setVisible] = useState(false)
-
-  useEffect(() => {
-    setVisible(true)
-  }, [])
-
   return (
-    <div
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0px)" : "translateY(10px)",
-        transition: "all 0.4s ease"
-      }}
-    >
+    <div className="page-enter">
       {children}
+
+      <style>{`
+        .page-enter {
+          opacity: 0;
+          transform: translateY(10px);
+          animation: pageFadeIn 0.4s ease forwards;
+        }
+
+        @keyframes pageFadeIn {
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>
   )
 }

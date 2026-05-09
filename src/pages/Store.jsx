@@ -17,63 +17,47 @@ export default function Store() {
 
   const PLACEHOLDER = "/image_placeholder/placeholder.png"
 
-  /* ================= LOAD PRODUCTS ================= */
-
   useEffect(() => {
     const load = async () => {
       try {
         const res = await api.get("/products")
-
         const list = Array.isArray(res.data)
           ? res.data
           : res.data?.data || []
-
         setProducts(list)
-
       } catch (err) {
-        console.error("FAILED TO LOAD PRODUCTS:", err)
+        console.error(err)
       } finally {
         setLoading(false)
       }
     }
-
     load()
   }, [])
-
-  /* ================= HELPERS ================= */
 
   const getVariants = (product) => product.variants || []
 
   const getColors = (product) => [
-    ...new Set(
-      getVariants(product)
-        .map(v => v.color)
-        .filter(Boolean)
-    )
+    ...new Set(getVariants(product).map(v => v.color).filter(Boolean))
   ]
 
   const getSizes = (product, color) =>
     getVariants(product)
       .filter(v => v.color === color)
       .map(v => v.size)
-      .filter(Boolean)
 
   const getVariant = (product, color, size) =>
     getVariants(product).find(
       v => v.color === color && v.size === size
     )
 
-  /* ================= LOADING ================= */
-
-  if (loading) {
-    return (
-      <div style={loadingWrap}>
-        <h2>Loading Store...</h2>
-      </div>
-    )
+  const resolveImage = (img) => {
+    if (!img) return PLACEHOLDER
+    if (img.startsWith("http")) return img
+    const safe = img.startsWith("/") ? img : `/${img}`
+    return `${BASE_URL}${safe}`
   }
 
-  /* ================= RENDER ================= */
+  if (loading) return <div style={loadingWrap}>Loading...</div>
 
   return (
     <div style={page}>
@@ -81,212 +65,100 @@ export default function Store() {
       <div style={header}>
         <p style={eyebrow}>SignaVi Studio</p>
         <h1 style={title}>Store</h1>
-        <p style={subtitle}>
-          Custom apparel, print products, and creative production items.
-        </p>
       </div>
-
-      {products.length === 0 && (
-        <p style={emptyText}>No products available yet.</p>
-      )}
 
       <div style={grid}>
 
         {products.map(product => {
 
           const sel = selected[product._id] || {}
-
           const colors = getColors(product)
-
-          const sizes = sel.color
-            ? getSizes(product, sel.color)
-            : []
-
+          const sizes = sel.color ? getSizes(product, sel.color) : []
           const variant = getVariant(product, sel.color, sel.size)
 
-          const safePrice =
+          let imageUrl = resolveImage(product.image)
+          if (variant?.image) imageUrl = resolveImage(variant.image)
+
+          const price =
             Number(variant?.price) ||
             Number(product?.price) ||
             Number(product?.basePrice) ||
             0
 
-          /* ================= IMAGE FIX ================= */
-
-          let imageUrl = PLACEHOLDER
-
-          if (product.image) {
-            imageUrl = product.image.startsWith("http")
-              ? product.image
-              : `${BASE_URL}${product.image}`
-          }
-
           return (
-            <div
-  key={product._id}
-  style={card}
-  onMouseEnter={(e) => {
-    e.currentTarget.style.transform = "translateY(-8px) scale(1.03)"
-    e.currentTarget.style.boxShadow = "0 20px 40px rgba(0,0,0,0.5)"
-  }}
-  onMouseLeave={(e) => {
-    e.currentTarget.style.transform = "translateY(0) scale(1)"
-    e.currentTarget.style.boxShadow = "none"
-  }}
->
+            <div key={product._id} className="product-card">
 
-              {/* ================= IMAGE ================= */}
-
-              <img
-                src={imageUrl}
-                alt={product.name}
-                style={image}
-                onError={(e) => {
-                  e.target.src = PLACEHOLDER
-                }}
-              />
-
-              {/* ================= CONTENT ================= */}
-
-              <div style={content}>
-
-                <div>
-                  <p style={category}>
-                    {product.category || "general"}
-                  </p>
-
-                  <h2 style={productName}>
-                    {product.name}
-                  </h2>
-
-                  {product.description && (
-                    <p style={description}>
-                      {product.description}
-                    </p>
-                  )}
-                </div>
-
-                <p style={price}>
-                  {safePrice > 0
-                    ? "$" + safePrice.toFixed(2)
-                    : "No price"}
-                </p>
-
-                {/* ================= COLORS ================= */}
-
-                <div>
-                  <p style={label}>Color</p>
-
-                  <div style={optionRow}>
-                    {colors.length === 0 && (
-                      <span style={muted}>No colors</span>
-                    )}
-
-                    {colors.map(color => (
-                      <button
-                        key={color}
-                        onClick={() =>
-                          setSelected(prev => ({
-                            ...prev,
-                            [product._id]: {
-                              color,
-                              size: ""
-                            }
-                          }))
-                        }
-                        style={{
-                          ...optionButton,
-                          border:
-                            sel.color === color
-                              ? "2px solid #22c55e"
-                              : "1px solid #334155",
-                          color:
-                            sel.color === color
-                              ? "#22c55e"
-                              : "white"
-                        }}
-                      >
-                        {color}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* ================= SIZES ================= */}
-
-                <div>
-                  <p style={label}>Size</p>
-
-                  <div style={optionRow}>
-
-                    {!sel.color && (
-                      <span style={muted}>
-                        Choose color first
-                      </span>
-                    )}
-
-                    {sizes.map(size => (
-                      <button
-                        key={size}
-                        onClick={() =>
-                          setSelected(prev => ({
-                            ...prev,
-                            [product._id]: {
-                              ...prev[product._id],
-                              size
-                            }
-                          }))
-                        }
-                        style={{
-                          ...optionButton,
-                          border:
-                            sel.size === size
-                              ? "2px solid #38bdf8"
-                              : "1px solid #334155",
-                          color:
-                            sel.size === size
-                              ? "#38bdf8"
-                              : "white"
-                        }}
-                      >
-                        {size}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* ================= ADD TO CART ================= */}
+              <div className="img-wrap">
+                <img
+                  src={imageUrl}
+                  alt=""
+                  onError={(e) => (e.currentTarget.src = PLACEHOLDER)}
+                />
 
                 <button
+                  className="quick-add"
                   onClick={() => {
-
-                    if (!variant) {
-                      toast.error("Please select color and size")
-                      return
-                    }
-
-                    if (!safePrice || safePrice <= 0) {
-                      toast.error("Invalid product price")
-                      return
-                    }
-
+                    if (!variant) return toast.error("Select options")
                     addToCart({
                       productId: product._id,
                       name: product.name,
                       image: imageUrl,
                       quantity: 1,
-                      selectedVariant: {
-                        color: variant.color,
-                        size: variant.size,
-                        price: safePrice
-                      }
+                      selectedVariant: variant
                     })
-
-                    toast.success("Added to cart")
+                    toast.success("Added")
                   }}
-                  style={addButton}
                 >
-                  Add to Cart
+                  Add
                 </button>
+              </div>
+
+              <div className="content">
+
+                <h3>{product.name}</h3>
+
+                <p className="price">
+                  ${price.toFixed(2)}
+                </p>
+
+                {/* COLORS */}
+                <div className="options">
+                  {colors.map(color => (
+                    <button
+                      key={color}
+                      className={sel.color === color ? "active" : ""}
+                      onClick={() =>
+                        setSelected(prev => ({
+                          ...prev,
+                          [product._id]: { color }
+                        }))
+                      }
+                    >
+                      {color}
+                    </button>
+                  ))}
+                </div>
+
+                {/* SIZES */}
+                <div className="options">
+                  {sizes.map(size => (
+                    <button
+                      key={size}
+                      className={sel.size === size ? "active" : ""}
+                      onClick={() =>
+                        setSelected(prev => ({
+                          ...prev,
+                          [product._id]: {
+                            ...prev[product._id],
+                            size
+                          }
+                        }))
+                      }
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
 
               </div>
 
@@ -296,159 +168,96 @@ export default function Store() {
 
       </div>
 
+      {/* 🔥 CLEAN CSS */}
+      <style>{`
+        .product-card {
+          width: 220px;
+          background:#0f172a;
+          border-radius:16px;
+          overflow:hidden;
+          transition:0.25s;
+        }
+
+        .product-card:hover {
+          transform:translateY(-6px);
+          box-shadow:0 20px 40px rgba(0,0,0,0.5);
+        }
+
+        .img-wrap {
+          position:relative;
+          overflow:hidden;
+        }
+
+        .img-wrap img {
+          width:100%;
+          height:130px;
+          object-fit:cover;
+          transition:0.3s;
+        }
+
+        .product-card:hover img {
+          transform:scale(1.1);
+        }
+
+        .quick-add {
+          position:absolute;
+          bottom:10px;
+          left:50%;
+          transform:translateX(-50%) translateY(20px);
+          opacity:0;
+          background:#22c55e;
+          border:none;
+          padding:6px 12px;
+          border-radius:20px;
+          color:white;
+          transition:0.25s;
+          cursor:pointer;
+        }
+
+        .product-card:hover .quick-add {
+          opacity:1;
+          transform:translateX(-50%) translateY(0);
+        }
+
+        .content {
+          padding:10px;
+        }
+
+        .price {
+          color:#22c55e;
+          font-weight:bold;
+        }
+
+        .options button {
+          margin:3px;
+          padding:4px 8px;
+          font-size:11px;
+          border-radius:8px;
+          border:1px solid #334155;
+          background:#020617;
+          color:white;
+          cursor:pointer;
+        }
+
+        .options .active {
+          border:2px solid #22c55e;
+        }
+      `}</style>
+
     </div>
   )
 }
 
-/* ================= STYLES ================= */
-
-const page = {
-  minHeight: "100vh",
-  background: "#020617",
-  color: "white",
-  padding: "40px 30px"
-}
-
-const loadingWrap = {
-  minHeight: "100vh",
-  background: "#020617",
-  color: "white",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center"
-}
-
-const header = {
-  marginBottom: 34
-}
-
-const eyebrow = {
-  margin: 0,
-  color: "#22c55e",
-  fontSize: 13,
-  fontWeight: "bold",
-  letterSpacing: 1,
-  textTransform: "uppercase"
-}
-
-const title = {
-  margin: "6px 0",
-  fontSize: 44,
-  lineHeight: 1.1
-}
-
-const subtitle = {
-  margin: 0,
-  color: "#94a3b8",
-  maxWidth: 640
-}
-
-const emptyText = {
-  color: "#94a3b8"
-}
-
+/* layout */
 const grid = {
   display: "grid",
-  gridTemplateColumns: "repeat(4, 240px)",
-  gap: 24,
-  justifyContent: "center", // 👈 THIS CENTERS EVERYTHING
+  gridTemplateColumns: "repeat(4, 220px)",
+  justifyContent: "center",
+  gap: 20
 }
 
-const card = {
-  background: "#0f172a",
-  border: "1px solid #1e293b",
-  borderRadius: 18,
-  overflow: "hidden",
-  boxShadow: "0 6px 18px rgba(0,0,0,0.25)",
-  display: "flex",
-  flexDirection: "column",
-  width: "80%",
-  height: 320,
-  maxWidth: 200,
-
-  /* ✨ animation */
-  transition: "all 0.25s ease",
-  cursor: "pointer"
-}
-
-const image = {
-  width: "100%",
-  height: 200,
-  objectFit: "cover",
-  background: "#111827",
-  borderBottom: "1px solid #1e293b"
-}
-
-const content = {
-  padding: 20,
-  display: "flex",
-  flexDirection: "column",
-  gap: 16
-}
-
-const category = {
-  margin: "0 0 6px",
-  color: "#38bdf8",
-  fontSize: 12,
-  textTransform: "uppercase",
-  letterSpacing: 1,
-  fontWeight: "bold"
-}
-
-const productName = {
-  margin: 0,
-  fontSize: 22,
-  lineHeight: 1.2
-}
-
-const description = {
-  margin: "10px 0 0",
-  color: "#94a3b8",
-  fontSize: 14,
-  lineHeight: 1.45
-}
-
-const price = {
-  margin: 0,
-  color: "#22c55e",
-  fontSize: 22,
-  fontWeight: "bold"
-}
-
-const label = {
-  margin: "0 0 8px",
-  fontSize: 13,
-  color: "#cbd5e1",
-  fontWeight: "bold"
-}
-
-const optionRow = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: 8
-}
-
-const optionButton = {
-  padding: "7px 10px",
-  borderRadius: 10,
-  background: "#020617",
-  cursor: "pointer",
-  fontSize: 13
-}
-
-const muted = {
-  color: "#64748b",
-  fontSize: 13
-}
-
-const addButton = {
-  marginTop: 4,
-  padding: "14px 18px",
-  borderRadius: 14,
-  border: "none",
-  background: "linear-gradient(to right, #22c55e, #16a34a)",
-  color: "white",
-  fontWeight: "bold",
-  fontSize: 15,
-  cursor: "pointer"
-}
+const page = { padding: 30 }
+const header = { marginBottom: 20 }
+const title = { fontSize: 32 }
+const eyebrow = { color: "#22c55e" }
+const loadingWrap = { padding: 50 }
