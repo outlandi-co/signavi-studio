@@ -22,15 +22,22 @@ export default function Card({ order, job, onDelete, onUpdate }) {
     import.meta.env.VITE_API_URL?.replace("/api", "") ||
     "https://signavi-backend.onrender.com"
 
+  const PLACEHOLDER = "/image_placeholder/placeholder.png"
+
   const formatMoney = (v) => Number(v || 0).toFixed(2)
 
-  /* ================= ARTWORK URL ================= */
-  const artworkUrl =
-    data.artwork
-      ? data.artwork.startsWith("http")
-        ? data.artwork
-        : `${BASE_URL}${data.artwork.startsWith("/uploads") ? "" : "/uploads/"}${data.artwork}`
-      : "/placeholder.png"
+  /* ================= IMAGE RESOLVER ================= */
+  const resolveImage = (img) => {
+    if (!img) return PLACEHOLDER
+
+    if (img.startsWith("http")) return img
+
+    const safePath = img.startsWith("/") ? img : `/${img}`
+
+    return `${BASE_URL}${safePath}`
+  }
+
+  const artworkUrl = resolveImage(data.artwork)
 
   /* ================= STATUS ================= */
   const updateStatus = async (status) => {
@@ -104,7 +111,7 @@ export default function Card({ order, job, onDelete, onUpdate }) {
     statusColors[data.status] || "bg-gray-200 text-gray-700"
 
   return (
-    <div className="bg-white border rounded-xl p-4 shadow-sm hover:shadow-xl transition relative">
+    <div className="bg-white border rounded-xl p-4 shadow-sm transition duration-300 hover:shadow-2xl hover:-translate-y-1 relative">
 
       {/* DELETE */}
       <button
@@ -135,14 +142,14 @@ export default function Card({ order, job, onDelete, onUpdate }) {
         {data.status || "unknown"}
       </span>
 
-      {/* ================= IMAGE + PREVIEW ================= */}
+      {/* IMAGE */}
       <img
         src={artworkUrl}
         alt="Artwork"
         className="mt-2 w-full h-32 object-cover rounded border cursor-pointer"
         onClick={() => window.open(artworkUrl, "_blank")}
         onError={(e) => {
-          e.target.src = "/placeholder.png"
+          e.currentTarget.src = PLACEHOLDER
         }}
       />
 
@@ -155,7 +162,7 @@ export default function Card({ order, job, onDelete, onUpdate }) {
         ⬇ Download Artwork
       </a>
 
-      {/* ================= PRICE DISPLAY ================= */}
+      {/* PRICE */}
       <div className="mt-2">
         <p className="text-green-600 font-bold">
           💰 ${formatMoney(final)}
@@ -168,7 +175,7 @@ export default function Card({ order, job, onDelete, onUpdate }) {
         )}
       </div>
 
-      {/* ================= PRICE EDIT ================= */}
+      {/* PRICE EDIT */}
       <div className="mt-2">
         <input
           value={price}
@@ -185,7 +192,7 @@ export default function Card({ order, job, onDelete, onUpdate }) {
         </button>
       </div>
 
-      {/* ================= APPROVE / DENY ================= */}
+      {/* APPROVE / DENY */}
       {data.source === "quote" && (
         <div className="flex gap-2 mt-3">
           <button
@@ -204,7 +211,7 @@ export default function Card({ order, job, onDelete, onUpdate }) {
         </div>
       )}
 
-      {/* ================= ITEMS ================= */}
+      {/* ITEMS */}
       <div className="text-sm mt-2">
         {data.items?.map((item, i) => (
           <p key={i}>

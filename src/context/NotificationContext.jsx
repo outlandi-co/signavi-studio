@@ -1,4 +1,4 @@
-```jsx
+
 import {
   useEffect,
   useMemo,
@@ -302,4 +302,3 @@ export function NotificationProvider({
     </NotificationContext.Provider>
   )
 }
-```

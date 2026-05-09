@@ -121,7 +121,18 @@ export default function Store() {
           }
 
           return (
-            <div key={product._id} style={card}>
+            <div
+  key={product._id}
+  style={card}
+  onMouseEnter={(e) => {
+    e.currentTarget.style.transform = "translateY(-8px) scale(1.03)"
+    e.currentTarget.style.boxShadow = "0 20px 40px rgba(0,0,0,0.5)"
+  }}
+  onMouseLeave={(e) => {
+    e.currentTarget.style.transform = "translateY(0) scale(1)"
+    e.currentTarget.style.boxShadow = "none"
+  }}
+>
 
               {/* ================= IMAGE ================= */}
 
@@ -338,26 +349,31 @@ const emptyText = {
 
 const grid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 340px))",
-  gap: 26,
-  alignItems: "start"
+  gridTemplateColumns: "repeat(4, 240px)",
+  gap: 24,
+  justifyContent: "center", // 👈 THIS CENTERS EVERYTHING
 }
 
 const card = {
   background: "#0f172a",
   border: "1px solid #1e293b",
-  borderRadius: 22,
+  borderRadius: 18,
   overflow: "hidden",
-  boxShadow: "0 8px 28px rgba(0,0,0,0.35)",
+  boxShadow: "0 6px 18px rgba(0,0,0,0.25)",
   display: "flex",
   flexDirection: "column",
-  maxWidth: 340,
-  width: "100%"
+  width: "80%",
+  height: 320,
+  maxWidth: 200,
+
+  /* ✨ animation */
+  transition: "all 0.25s ease",
+  cursor: "pointer"
 }
 
 const image = {
   width: "100%",
-  height: 250,
+  height: 200,
   objectFit: "cover",
   background: "#111827",
   borderBottom: "1px solid #1e293b"
