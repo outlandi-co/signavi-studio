@@ -333,9 +333,7 @@ useEffect(() => {
     }
   }}
   style={input}
-/>git add .
-git commit -m "frontend: replace image URL with upload button + preview"
-git push origin main
+/>
 
         <input
           name="category"
