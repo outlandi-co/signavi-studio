@@ -303,13 +303,39 @@ useEffect(() => {
           style={input}
         />
 
-        <input
-          name="image"
-          placeholder="Image URL"
-          value={form.image}
-          onChange={handleChange}
-          style={input}
-        />
+       <input
+  type="file"
+  accept="image/*"
+  onChange={async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    try {
+      const formData = new FormData()
+      formData.append("image", file)
+
+      const res = await api.post("/upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data"
+        }
+      })
+
+      setForm(prev => ({
+        ...prev,
+        image: res.data.url
+      }))
+
+      toast.success("Image uploaded")
+
+    } catch (err) {
+      console.error("UPLOAD ERROR:", err)
+      toast.error("Upload failed")
+    }
+  }}
+  style={input}
+/>git add .
+git commit -m "frontend: replace image URL with upload button + preview"
+git push origin main
 
         <input
           name="category"
