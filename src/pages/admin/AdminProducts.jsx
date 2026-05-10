@@ -1,58 +1,75 @@
 import { useEffect, useState } from "react"
-import api from "../services/api"
+import api from "../../services/api"
 import toast from "react-hot-toast"
+
+const SIZE_OPTIONS = ["S", "M", "L", "XL", "XXL"]
+
+const API_IMAGE_BASE = "https://signavi-backend.onrender.com"
+
+const normalizeSize = (s) => {
+  if (!s) return null
+
+  const map = {
+    SMALL: "S",
+    MEDIUM: "M",
+    LARGE: "L",
+    "EXTRA-LARGE": "XL",
+    "X-LARGE": "XL",
+    S: "S",
+    M: "M",
+    L: "L",
+    XL: "XL",
+    XXL: "XXL"
+  }
+
+  return map[s.toUpperCase()] || null
+}
 
 const defaultForm = {
   name: "",
   description: "",
   basePrice: "",
   stock: "",
-  image: "",
   category: "",
   colors: "",
-  sizes: ""
+  sizes: [],
+  colorImages: {}
 }
 
-function AdminProducts() {
+export default function AdminProducts() {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [creating, setCreating] = useState(false)
   const [form, setForm] = useState(defaultForm)
 
-  /* ================= LOAD PRODUCTS ================= */
-
-  const loadProducts = () => {
-    setLoading(true)
+  useEffect(() => {
+    let isMounted = true
 
     api.get("/products")
       .then((res) => {
-        const list = Array.isArray(res.data)
+        if (!isMounted) return
+
+        const productData = Array.isArray(res.data)
           ? res.data
           : res.data?.data || []
 
-        setProducts(list)
+        setProducts(productData)
       })
-      .catch((error) => {
-        console.error("Failed to load products:", error)
+      .catch((err) => {
+        if (!isMounted) return
+
+        console.error("❌ LOAD PRODUCTS ERROR:", err.response?.data || err)
         toast.error("Failed to load products")
       })
       .finally(() => {
+        if (!isMounted) return
         setLoading(false)
       })
-  }
 
-  useEffect(() => {
-
-  const init = async () => {
-
-    await loadProducts()
-  }
-
-  init()
-
-}, [])
-
-  /* ================= FORM ================= */
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -66,30 +83,59 @@ function AdminProducts() {
   const getColorList = () => {
     return form.colors
       .split(",")
-      .map(color => color.trim())
+      .map(c => c.trim())
       .filter(Boolean)
   }
 
-  const getSizeList = () => {
-    return form.sizes
-      .split(",")
-      .map(size => size.trim().toUpperCase())
-      .filter(Boolean)
+  const handleImageUpload = (e, color) => {
+    const files = Array.from(e.target.files || [])
+
+    if (!files.length) return
+
+    setForm(prev => ({
+      ...prev,
+      colorImages: {
+        ...prev.colorImages,
+        [color]: [
+          ...(prev.colorImages[color] || []),
+          ...files
+        ]
+      }
+    }))
+
+    e.target.value = null
+    toast.success(`${color} images added`)
+  }
+
+  const removePreviewImage = (color, index) => {
+    setForm(prev => ({
+      ...prev,
+      colorImages: {
+        ...prev.colorImages,
+        [color]: prev.colorImages[color].filter((_, i) => i !== index)
+      }
+    }))
   }
 
   const buildVariants = () => {
-    const colorList = getColorList()
-    const sizeList = getSizeList()
-
     const variants = []
 
-    colorList.forEach(color => {
-      sizeList.forEach(size => {
+    const colors = getColorList()
+
+    const sizes = form.sizes
+      .map(s => normalizeSize(s))
+      .filter(Boolean)
+
+    colors.forEach(color => {
+      sizes.forEach(size => {
         variants.push({
           color,
           size,
           stock: Number(form.stock) || 0,
-          price: Number(form.basePrice) || 0
+          quantity: Number(form.stock) || 0,
+          price: Number(form.basePrice) || 0,
+          basePrice: Number(form.basePrice) || 0,
+          listPrice: Number(form.basePrice) || 0
         })
       })
     })
@@ -98,98 +144,104 @@ function AdminProducts() {
   }
 
   const createProduct = async () => {
+    const colors = getColorList()
+
+    const sizes = form.sizes
+      .map(s => normalizeSize(s))
+      .filter(Boolean)
+
+    const variants = buildVariants()
+
+    if (!form.name.trim()) return toast.error("Name required")
+    if (!form.basePrice) return toast.error("Price required")
+    if (!colors.length) return toast.error("Add colors")
+    if (!sizes.length) return toast.error("Select sizes")
+
+    const price = Number(form.basePrice) || 0
+    const stock = Number(form.stock) || 0
+
+    const formData = new FormData()
+
+    formData.append("name", form.name.trim())
+    formData.append("description", form.description)
+    formData.append("category", form.category)
+
+    // ✅ Send multiple price field names for backend compatibility
+    formData.append("price", price)
+    formData.append("basePrice", price)
+    formData.append("listPrice", price)
+
+    // ✅ Send multiple stock field names for backend compatibility
+    formData.append("stock", stock)
+    formData.append("quantity", stock)
+
+    formData.append("sizes", JSON.stringify(sizes))
+    formData.append("colors", JSON.stringify(colors.map(name => ({ name }))))
+    formData.append("variants", JSON.stringify(variants))
+
+    Object.entries(form.colorImages).forEach(([color, files]) => {
+      files.forEach(file => {
+        formData.append("images", file)
+        formData.append("imageColors", color)
+      })
+    })
+
     try {
-      if (!form.name.trim()) {
-        toast.error("Product name is required")
-        return
-      }
+      setCreating(true)
 
-      if (!form.basePrice || Number(form.basePrice) <= 0) {
-        toast.error("Base price is required")
-        return
-      }
-
-      const colorList = getColorList()
-      const sizeList = getSizeList()
-
-      if (!colorList.length) {
-        toast.error("Add at least one color")
-        return
-      }
-
-      if (!sizeList.length) {
-        toast.error("Add at least one size")
-        return
-      }
-
-      setSaving(true)
-
-      const variants = buildVariants()
-
-      const colors = colorList.map(color => ({
-        name: color
-      }))
-
-      await api.post("/products", {
-        name: form.name.trim(),
-        description: form.description.trim(),
-        image: form.image.trim(),
-        category: form.category.trim() || "general",
-        price: Number(form.basePrice),
-        stock: Number(form.stock) || 0,
-        sizes: sizeList,
-        colors,
-        variants,
-        active: true
+      const res = await api.post("/products", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data"
+        }
       })
 
+      const createdProduct = res.data?.data || res.data
+
+      if (createdProduct?._id) {
+        setProducts(prev => [createdProduct, ...prev])
+      } else {
+        const refresh = await api.get("/products")
+
+        const productData = Array.isArray(refresh.data)
+          ? refresh.data
+          : refresh.data?.data || []
+
+        setProducts(productData)
+      }
+
       toast.success("Product created")
-
       setForm(defaultForm)
-
-      loadProducts()
-
     } catch (err) {
-      console.error("Create product error:", err)
-      toast.error("Failed to create product")
-    } finally {
-      setSaving(false)
-    }
-  }
+      console.error("❌ PRODUCT ERROR STATUS:", err.response?.status)
+      console.error("❌ PRODUCT ERROR DATA:", err.response?.data)
+      console.error("❌ PRODUCT ERROR FULL:", err)
 
-  const deleteProduct = async (id) => {
-    try {
-      const confirmed = window.confirm(
-        "Delete this product?"
+      toast.error(
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Create failed"
       )
-
-      if (!confirmed) return
-
-      await api.delete(`/products/${id}`)
-
-      toast.success("Product deleted")
-
-      loadProducts()
-
-    } catch (err) {
-      console.error("Delete product error:", err)
-      toast.error("Failed to delete product")
+    } finally {
+      setCreating(false)
     }
   }
 
-  const resetForm = () => {
-    setForm(defaultForm)
+  const getProductImage = (product) => {
+    const variantImage = product.variants?.[0]?.images?.[0]
+    const productImage = product.images?.[0]
+    const image = variantImage || productImage
+
+    if (!image) return "/image_placeholder/placeholder.png"
+
+    if (image.startsWith("http")) return image
+
+    return `${API_IMAGE_BASE}${image}`
   }
-
-  const previewPrice = Number(form.basePrice || 0)
-  const previewVariants = buildVariants()
-
-  /* ================= RENDER ================= */
 
   if (loading) {
     return (
-      <div style={loadingWrap}>
-        <h2>Loading products...</h2>
+      <div style={loadingPage}>
+        <p>Loading products...</p>
       </div>
     )
   }
@@ -198,654 +250,436 @@ function AdminProducts() {
     <div style={page}>
       <div style={header}>
         <div>
-          <p style={eyebrow}>
-            Store Admin
-          </p>
-
-          <h1 style={title}>
-            Product Manager
-          </h1>
-
-          <p style={subtitle}>
-            Add products, generate variants, and manage the store cards.
+          <h1 style={heading}>Admin Products</h1>
+          <p style={subheading}>
+            Add products, upload color-based images, and manage your product cards.
           </p>
         </div>
+      </div>
+
+      <div style={card}>
+        <h2 style={sectionTitle}>Add New Product</h2>
+
+        <input
+          name="name"
+          value={form.name}
+          placeholder="Product Name"
+          onChange={handleChange}
+          style={input}
+        />
+
+        <input
+          name="category"
+          value={form.category}
+          placeholder="Category"
+          onChange={handleChange}
+          style={input}
+        />
+
+        <input
+          name="basePrice"
+          value={form.basePrice}
+          placeholder="Price"
+          type="number"
+          min="0"
+          onChange={handleChange}
+          style={input}
+        />
+
+        <input
+          name="stock"
+          value={form.stock}
+          placeholder="Stock"
+          type="number"
+          min="0"
+          onChange={handleChange}
+          style={input}
+        />
+
+        <input
+          name="colors"
+          value={form.colors}
+          placeholder="Colors: Black, White, Red"
+          onChange={handleChange}
+          style={input}
+        />
+
+        <textarea
+          name="description"
+          value={form.description}
+          placeholder="Description"
+          onChange={handleChange}
+          style={textarea}
+        />
+
+        <h4 style={label}>Sizes</h4>
+
+        <div style={sizeWrap}>
+          {SIZE_OPTIONS.map(size => {
+            const active = form.sizes.includes(size)
+
+            return (
+              <button
+                key={size}
+                type="button"
+                onClick={() => {
+                  setForm(prev => ({
+                    ...prev,
+                    sizes: active
+                      ? prev.sizes.filter(s => s !== size)
+                      : [...prev.sizes, size]
+                  }))
+                }}
+                style={{
+                  ...sizeBtn,
+                  background: active ? "#22c55e" : "#1e293b",
+                  color: active ? "#020617" : "#fff"
+                }}
+              >
+                {size}
+              </button>
+            )
+          })}
+        </div>
+
+        {getColorList().length > 0 && (
+          <div style={uploadSection}>
+            <h4 style={label}>Color Images</h4>
+
+            {getColorList().map(color => (
+              <div key={color} style={colorUploadBox}>
+                <p style={colorName}>{color}</p>
+
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e, color)}
+                  style={fileInput}
+                />
+
+                <div style={previewWrap}>
+                  {(form.colorImages[color] || []).map((file, i) => (
+                    <div key={`${color}-${i}`} style={previewBox}>
+                      <img
+                        src={URL.createObjectURL(file)}
+                        alt={`${color} preview ${i + 1}`}
+                        style={previewImage}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => removePreviewImage(color, i)}
+                        style={removeBtn}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         <button
-          onClick={loadProducts}
-          style={refreshButton}
+          type="button"
+          onClick={createProduct}
+          disabled={creating}
+          style={{
+            ...btn,
+            opacity: creating ? 0.7 : 1,
+            cursor: creating ? "not-allowed" : "pointer"
+          }}
         >
-          Refresh
+          {creating ? "Creating Product..." : "Add Product"}
         </button>
       </div>
 
-      <div style={topGrid}>
-        {/* ================= FORM ================= */}
-
-        <div style={formCard}>
-          <h2 style={sectionTitle}>
-            Add Product
-          </h2>
-
-          <div style={fieldGrid}>
-            <div style={field}>
-              <label style={label}>
-                Product Name
-              </label>
-
-              <input
-                name="name"
-                placeholder="Classic Logo Hoodie"
-                value={form.name}
-                onChange={handleChange}
-                style={input}
-              />
-            </div>
-
-            <div style={field}>
-              <label style={label}>
-                Category
-              </label>
-
-              <input
-                name="category"
-                placeholder="apparel"
-                value={form.category}
-                onChange={handleChange}
-                style={input}
-              />
-            </div>
-
-            <div style={field}>
-              <label style={label}>
-                Base Price
-              </label>
-
-              <input
-                name="basePrice"
-                placeholder="45"
-                value={form.basePrice}
-                onChange={handleChange}
-                style={input}
-              />
-            </div>
-
-            <div style={field}>
-              <label style={label}>
-                Stock Per Variant
-              </label>
-
-              <input
-                name="stock"
-                placeholder="12"
-                value={form.stock}
-                onChange={handleChange}
-                style={input}
-              />
-            </div>
-          </div>
-
-          <div style={field}>
-            <label style={label}>
-              Image URL
-            </label>
-
-            <input
-              name="image"
-              placeholder="https://..."
-              value={form.image}
-              onChange={handleChange}
-              style={input}
-            />
-          </div>
-
-          <div style={field}>
-            <label style={label}>
-              Description
-            </label>
-
-            <textarea
-              name="description"
-              placeholder="Describe the product..."
-              value={form.description}
-              onChange={handleChange}
-              style={textarea}
-            />
-          </div>
-
-          <div style={fieldGrid}>
-            <div style={field}>
-              <label style={label}>
-                Colors
-              </label>
-
-              <input
-                name="colors"
-                placeholder="Black, White, Red"
-                value={form.colors}
-                onChange={handleChange}
-                style={input}
-              />
-            </div>
-
-            <div style={field}>
-              <label style={label}>
-                Sizes
-              </label>
-
-              <input
-                name="sizes"
-                placeholder="S, M, L, XL, 2XL"
-                value={form.sizes}
-                onChange={handleChange}
-                style={input}
-              />
-            </div>
-          </div>
-
-          <div style={variantInfo}>
-            <strong>
-              Variants to create:
-            </strong>
-
-            <span>
-              {previewVariants.length}
-            </span>
-          </div>
-
-          <div style={actionRow}>
-            <button
-              onClick={createProduct}
-              disabled={saving}
-              style={{
-                ...createButton,
-                opacity: saving ? 0.65 : 1
-              }}
-            >
-              {saving ? "Saving..." : "Add Product"}
-            </button>
-
-            <button
-              onClick={resetForm}
-              type="button"
-              style={secondaryButton}
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-
-        {/* ================= LIVE PREVIEW ================= */}
-
-        <div style={previewCard}>
-          <h2 style={sectionTitle}>
-            Store Card Preview
-          </h2>
-
-          <div style={mockCard}>
-            {form.image ? (
-              <img
-                src={form.image}
-                alt="Product preview"
-                style={mockImage}
-                onError={(e) => {
-                  e.target.style.display = "none"
-                }}
-              />
-            ) : (
-              <div style={mockImageEmpty}>
-                Image Preview
-              </div>
-            )}
-
-            <div style={mockContent}>
-              <h3 style={mockName}>
-                {form.name || "Product Name"}
-              </h3>
-
-              <p style={mockPrice}>
-                {previewPrice > 0
-                  ? "$" + previewPrice.toFixed(2)
-                  : "$0.00"}
-              </p>
-
-              <p style={mockDescription}>
-                {form.description || "Product description will appear here."}
-              </p>
-
-              <div style={pillRow}>
-                {getColorList().slice(0, 5).map(color => (
-                  <span
-                    key={color}
-                    style={pill}
-                  >
-                    {color}
-                  </span>
-                ))}
-              </div>
-
-              <div style={pillRow}>
-                {getSizeList().slice(0, 8).map(size => (
-                  <span
-                    key={size}
-                    style={pill}
-                  >
-                    {size}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+      <div style={productsHeader}>
+        <h2 style={sectionTitle}>Current Products</h2>
+        <p style={countText}>{products.length} products loaded</p>
       </div>
 
-      {/* ================= EXISTING PRODUCTS ================= */}
-
-      <div style={productSection}>
-        <h2 style={sectionTitle}>
-          Existing Products
-        </h2>
-
-        {products.length === 0 && (
-          <p style={emptyText}>
-            No products added yet.
-          </p>
-        )}
-
+      {products.length === 0 ? (
+        <div style={emptyBox}>
+          No products found yet.
+        </div>
+      ) : (
         <div style={grid}>
           {products.map(product => (
-            <div
-              key={product._id}
-              style={productCard}
-            >
-              {product.image ? (
+            <div key={product._id} style={productCard}>
+              <div style={imageBox}>
                 <img
-                  src={product.image}
+                  src={getProductImage(product)}
                   alt={product.name}
                   style={productImage}
-                  onError={(e) => {
-                    e.target.style.display = "none"
-                  }}
                 />
-              ) : (
-                <div style={productImageEmpty}>
-                  No Image
-                </div>
-              )}
+              </div>
 
               <div style={productContent}>
-                <div>
-                  <h3 style={productName}>
-                    {product.name}
-                  </h3>
+                <h4 style={productName}>{product.name}</h4>
 
-                  <p style={productCategory}>
-                    {product.category || "general"}
-                  </p>
-                </div>
-
-                <p style={productPrice}>
-                  {"$" + Number(product.price || 0).toFixed(2)}
+                <p style={productCategory}>
+                  {product.category || "No category"}
                 </p>
 
-                <div style={metaGrid}>
-                  <div style={metaBox}>
-                    <span style={metaLabel}>
-                      Stock
-                    </span>
+                <p style={productPrice}>
+                  ${Number(product.price || product.basePrice || product.listPrice || 0).toFixed(2)}
+                </p>
 
-                    <strong>
-                      {product.stock || 0}
-                    </strong>
-                  </div>
-
-                  <div style={metaBox}>
-                    <span style={metaLabel}>
-                      Variants
-                    </span>
-
-                    <strong>
-                      {product.variants?.length || 0}
-                    </strong>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => deleteProduct(product._id)}
-                  style={deleteButton}
-                >
-                  Delete Product
-                </button>
+                <p style={productStock}>
+                  Stock: {product.stock ?? product.quantity ?? 0}
+                </p>
               </div>
             </div>
           ))}
         </div>
-      </div>
+      )}
     </div>
   )
 }
 
-export default AdminProducts
-
 /* ================= STYLES ================= */
 
-const page = {
-  minHeight: "100vh",
-  padding: 30,
+const loadingPage = {
+  padding: 40,
   background: "#020617",
-  color: "white"
+  color: "white",
+  minHeight: "100vh"
 }
 
-const loadingWrap = {
-  minHeight: "100vh",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
+const page = {
+  padding: 24,
   background: "#020617",
-  color: "white"
+  color: "white",
+  minHeight: "100vh"
 }
 
 const header = {
   display: "flex",
   justifyContent: "space-between",
-  alignItems: "flex-start",
-  gap: 20,
-  marginBottom: 30
+  alignItems: "center",
+  marginBottom: 20
 }
 
-const eyebrow = {
+const heading = {
   margin: 0,
-  color: "#22c55e",
-  fontWeight: "bold",
-  letterSpacing: 1,
-  textTransform: "uppercase",
-  fontSize: 12
+  fontSize: 32
 }
 
-const title = {
-  margin: "6px 0",
-  fontSize: 40,
-  lineHeight: 1.1
+const subheading = {
+  marginTop: 6,
+  color: "#94a3b8"
 }
 
-const subtitle = {
-  margin: 0,
-  color: "#94a3b8",
-  maxWidth: 620
-}
-
-const refreshButton = {
-  padding: "10px 14px",
-  borderRadius: 12,
-  border: "1px solid #334155",
+const card = {
   background: "#0f172a",
-  color: "white",
-  cursor: "pointer"
-}
-
-const topGrid = {
-  display: "grid",
-  gridTemplateColumns: "minmax(320px, 1.3fr) minmax(280px, 0.7fr)",
-  gap: 24,
-  alignItems: "start",
-  marginBottom: 40
-}
-
-const formCard = {
-  background: "#0f172a",
+  padding: 20,
+  borderRadius: 16,
+  marginBottom: 28,
   border: "1px solid #1e293b",
-  borderRadius: 22,
-  padding: 24,
-  boxShadow: "0 8px 30px rgba(0,0,0,0.35)"
-}
-
-const previewCard = {
-  background: "#0f172a",
-  border: "1px solid #1e293b",
-  borderRadius: 22,
-  padding: 24,
-  boxShadow: "0 8px 30px rgba(0,0,0,0.35)"
+  maxWidth: 900
 }
 
 const sectionTitle = {
-  margin: "0 0 18px",
-  fontSize: 22
-}
-
-const fieldGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: 14
-}
-
-const field = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 8,
+  marginTop: 0,
   marginBottom: 14
 }
 
-const label = {
-  color: "#cbd5e1",
-  fontSize: 13,
-  fontWeight: "bold"
-}
-
 const input = {
+  display: "block",
+  marginBottom: 12,
+  padding: 12,
   width: "100%",
-  boxSizing: "border-box",
-  padding: 14,
-  borderRadius: 12,
-  border: "1px solid #334155",
-  background: "#111827",
-  color: "white",
-  fontSize: 14,
-  outline: "none"
+  background: "#fff",
+  color: "#000",
+  border: "none",
+  borderRadius: 8,
+  boxSizing: "border-box"
 }
 
 const textarea = {
+  display: "block",
+  marginBottom: 12,
+  padding: 12,
   width: "100%",
-  minHeight: 110,
-  boxSizing: "border-box",
-  padding: 14,
-  borderRadius: 12,
-  border: "1px solid #334155",
-  background: "#111827",
-  color: "white",
-  fontSize: 14,
-  outline: "none",
-  resize: "vertical"
-}
-
-const variantInfo = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  padding: 14,
-  borderRadius: 12,
-  background: "#020617",
-  border: "1px solid #1e293b",
-  marginTop: 6,
-  marginBottom: 16
-}
-
-const actionRow = {
-  display: "flex",
-  gap: 12,
-  flexWrap: "wrap"
-}
-
-const createButton = {
-  flex: 1,
-  minWidth: 180,
-  padding: "14px 20px",
-  borderRadius: 14,
+  minHeight: 90,
+  background: "#fff",
+  color: "#000",
   border: "none",
-  background: "linear-gradient(to right, #22c55e, #16a34a)",
-  color: "white",
-  fontWeight: "bold",
-  cursor: "pointer"
+  borderRadius: 8,
+  resize: "vertical",
+  boxSizing: "border-box"
 }
 
-const secondaryButton = {
-  padding: "14px 20px",
-  borderRadius: 14,
-  border: "1px solid #334155",
-  background: "#111827",
-  color: "white",
-  fontWeight: "bold",
-  cursor: "pointer"
-}
-
-const mockCard = {
-  background: "#020617",
-  border: "1px solid #1e293b",
-  borderRadius: 18,
-  overflow: "hidden"
-}
-
-const mockImage = {
-  width: "100%",
-  height: 250,
-  objectFit: "cover",
-  background: "#111827"
-}
-
-const mockImageEmpty = {
-  height: 250,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "#111827",
-  color: "#64748b"
-}
-
-const mockContent = {
-  padding: 18
-}
-
-const mockName = {
-  margin: "0 0 8px",
-  fontSize: 22
-}
-
-const mockPrice = {
-  margin: "0 0 12px",
-  color: "#22c55e",
-  fontWeight: "bold",
-  fontSize: 20
-}
-
-const mockDescription = {
-  margin: "0 0 14px",
-  color: "#94a3b8",
-  fontSize: 14
-}
-
-const pillRow = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: 8,
+const label = {
   marginBottom: 8
 }
 
-const pill = {
-  padding: "6px 9px",
-  borderRadius: 999,
-  background: "#111827",
-  border: "1px solid #334155",
-  color: "#e5e7eb",
-  fontSize: 12
+const sizeWrap = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+  marginBottom: 16
 }
 
-const productSection = {
-  marginTop: 10
+const sizeBtn = {
+  padding: "8px 14px",
+  border: "none",
+  borderRadius: 8,
+  cursor: "pointer",
+  fontWeight: 700
 }
 
-const emptyText = {
+const uploadSection = {
+  marginTop: 18,
+  marginBottom: 18
+}
+
+const colorUploadBox = {
+  background: "#020617",
+  padding: 12,
+  borderRadius: 12,
+  marginBottom: 12,
+  border: "1px solid #1e293b"
+}
+
+const colorName = {
+  marginTop: 0,
+  marginBottom: 8,
+  fontWeight: 700
+}
+
+const fileInput = {
+  display: "block",
+  marginBottom: 10,
+  padding: 10,
+  width: "100%",
+  background: "#fff",
+  color: "#000",
+  borderRadius: 8,
+  boxSizing: "border-box"
+}
+
+const previewWrap = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap"
+}
+
+const previewBox = {
+  position: "relative",
+  width: 64,
+  height: 64
+}
+
+const previewImage = {
+  width: 64,
+  height: 64,
+  objectFit: "cover",
+  borderRadius: 8,
+  border: "1px solid #334155"
+}
+
+const removeBtn = {
+  position: "absolute",
+  top: -6,
+  right: -6,
+  width: 22,
+  height: 22,
+  borderRadius: "50%",
+  border: "none",
+  background: "#ef4444",
+  color: "#fff",
+  cursor: "pointer",
+  fontWeight: 700
+}
+
+const btn = {
+  padding: 14,
+  background: "#22c55e",
+  color: "#020617",
+  border: "none",
+  width: "100%",
+  borderRadius: 10,
+  fontWeight: 800,
+  fontSize: 16
+}
+
+const productsHeader = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  marginBottom: 14
+}
+
+const countText = {
+  color: "#94a3b8",
+  margin: 0
+}
+
+const emptyBox = {
+  background: "#0f172a",
+  padding: 20,
+  borderRadius: 12,
+  border: "1px solid #1e293b",
   color: "#94a3b8"
 }
 
 const grid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-  gap: 24
+  gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+  gap: 20,
+  alignItems: "stretch"
 }
 
 const productCard = {
   background: "#0f172a",
-  border: "1px solid #1e293b",
-  borderRadius: 20,
+  borderRadius: 16,
   overflow: "hidden",
-  boxShadow: "0 6px 24px rgba(0,0,0,0.3)"
+  border: "1px solid #1e293b",
+  boxShadow: "0 12px 30px rgba(0,0,0,0.25)"
+}
+
+const imageBox = {
+  width: "100%",
+  height: 180,
+  background: "#020617",
+  overflow: "hidden"
 }
 
 const productImage = {
   width: "100%",
-  height: 230,
+  height: "100%",
   objectFit: "cover",
-  background: "#111827"
-}
-
-const productImageEmpty = {
-  height: 230,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "#111827",
-  color: "#64748b"
+  display: "block"
 }
 
 const productContent = {
-  padding: 18
+  padding: 14
 }
 
 const productName = {
-  margin: "0 0 4px",
-  fontSize: 20
+  margin: "0 0 6px",
+  fontSize: 17
 }
 
 const productCategory = {
-  margin: 0,
+  margin: "0 0 8px",
   color: "#94a3b8",
-  fontSize: 13
+  fontSize: 14
 }
 
 const productPrice = {
+  margin: "0 0 6px",
   color: "#22c55e",
-  fontSize: 20,
-  fontWeight: "bold",
-  margin: "14px 0"
+  fontWeight: 800
 }
 
-const metaGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(2, 1fr)",
-  gap: 10
-}
-
-const metaBox = {
-  padding: 10,
-  borderRadius: 12,
-  background: "#020617",
-  border: "1px solid #1e293b"
-}
-
-const metaLabel = {
-  display: "block",
-  color: "#94a3b8",
-  fontSize: 11,
-  marginBottom: 4
-}
-
-const deleteButton = {
-  marginTop: 16,
-  width: "100%",
-  padding: "11px 14px",
-  borderRadius: 12,
-  border: "none",
-  background: "#dc2626",
-  color: "white",
-  fontWeight: "bold",
-  cursor: "pointer"
+const productStock = {
+  margin: 0,
+  color: "#cbd5e1",
+  fontSize: 14
 }

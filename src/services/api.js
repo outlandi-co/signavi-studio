@@ -8,10 +8,7 @@ const BASE_URL =
   "https://signavi-backend.onrender.com/api"
 
 const api = axios.create({
-  baseURL: BASE_URL.replace(/\/$/, ""),
-  headers: {
-    "Content-Type": "application/json" // 🔥 CRITICAL FIX
-  }
+  baseURL: BASE_URL.replace(/\/$/, "")
 })
 
 console.log("🌐 API BASE:", api.defaults.baseURL)
@@ -32,7 +29,6 @@ export const setLoadingHandlers = (start, stop) => {
 ========================================================= */
 api.interceptors.request.use((config) => {
 
-  /* 🔥 START LOADING */
   if (startLoading) startLoading()
 
   const adminToken =
@@ -45,19 +41,22 @@ api.interceptors.request.use((config) => {
 
   const token = adminToken || customerToken
 
-  /* 🔥 DO NOT WIPE HEADERS — MERGE INSTEAD */
-  config.headers = {
-    "Content-Type": "application/json", // 🔥 FORCE JSON
-    ...(config.headers || {})
+  /* 🔥 ONLY SET JSON IF NOT FORMDATA */
+  if (!(config.data instanceof FormData)) {
+    config.headers = {
+      ...(config.headers || {}),
+      "Content-Type": "application/json"
+    }
+  } else {
+    /* 🔥 LET BROWSER HANDLE FORM DATA */
+    delete config.headers?.["Content-Type"]
   }
 
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-
-  /* ✅ HANDLE FORM DATA PROPERLY */
-  if (config.data instanceof FormData) {
-    delete config.headers["Content-Type"]
+    config.headers = {
+      ...(config.headers || {}),
+      Authorization: `Bearer ${token}`
+    }
   }
 
   console.log("🔥 REQUEST:", config.baseURL + config.url, config.data)
@@ -70,9 +69,7 @@ api.interceptors.request.use((config) => {
 ========================================================= */
 api.interceptors.response.use(
   (res) => {
-
     if (stopLoading) stopLoading()
-
     console.log("✅ RESPONSE:", res.config.url, res.data)
     return res
   },
@@ -101,11 +98,8 @@ api.interceptors.response.use(
 
     const isSafeRoute = safeRoutes.some((r) => url.includes(r))
 
-    /* 🔁 RETRY ONCE */
     if (status === 401 && !isSafeRoute && !originalRequest._retry) {
       originalRequest._retry = true
-
-      console.warn("🔁 Retrying request once...")
 
       try {
         return await api(originalRequest)
@@ -114,7 +108,6 @@ api.interceptors.response.use(
       }
     }
 
-    /* 🔒 LOGOUT ON FAIL */
     if (status === 401 && !isSafeRoute) {
       const isCheckout = url.includes("/square")
 
@@ -126,8 +119,6 @@ api.interceptors.response.use(
       sessionStorage.clear()
 
       if (!isCheckout) {
-        console.warn("🔒 Redirecting to login")
-
         window.location.href = wasAdmin
           ? "/login"
           : "/customer-login"
