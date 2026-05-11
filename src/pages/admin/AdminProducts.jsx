@@ -25,6 +25,7 @@ const CATEGORY_OPTIONS = [
   { value: "decal", label: "Decal" },
   { value: "digital-art", label: "Digital Art" },
   { value: "printable", label: "Printable" },
+  { value: "photography", label: "Photography" },
   { value: "service", label: "Service" },
   { value: "custom", label: "Custom" }
 ]
