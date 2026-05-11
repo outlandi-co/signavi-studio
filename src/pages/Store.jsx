@@ -4,7 +4,6 @@ import { useCartContext } from "../context/useCartContext"
 import toast from "react-hot-toast"
 
 export default function Store() {
-
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState({})
@@ -20,40 +19,68 @@ export default function Store() {
     "https://signavi-backend.onrender.com"
 
   const resolve = (img) => {
-  if (!img) return "/image_placeholder/placeholder.png"
+    if (!img) return "/image_placeholder/placeholder.png"
 
-  // ✅ BASE64 (your current system)
-  if (img.startsWith("data:image")) return img
+    if (typeof img !== "string") {
+      return "/image_placeholder/placeholder.png"
+    }
 
-  // ✅ FULL URL
-  if (img.startsWith("http")) return img
+    // ✅ BASE64
+    if (img.startsWith("data:image")) return img
 
-  // ✅ BACKEND PATH (future proof)
-  return `${BASE_URL}${img}`
-}
+    // ✅ FULL URL
+    if (img.startsWith("http")) return img
+
+    // ✅ BACKEND PATH
+    if (img.startsWith("/uploads")) {
+      return `${BASE_URL}${img}`
+    }
+
+    if (img.startsWith("uploads")) {
+      return `${BASE_URL}/${img}`
+    }
+
+    return img
+  }
 
   useEffect(() => {
+    let isMounted = true
+
     const load = async () => {
       try {
         const res = await api.get("/products")
 
-const productData = Array.isArray(res.data)
-  ? res.data
-  : res.data?.data || []
+        const productData = Array.isArray(res.data)
+          ? res.data
+          : res.data?.data || []
 
-setProducts(productData)
+        if (isMounted) {
+          setProducts(productData)
+        }
       } catch (err) {
-        console.error(err)
+        console.error("❌ STORE PRODUCTS ERROR:", err.response?.data || err)
+
+        if (isMounted) {
+          setProducts([])
+        }
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
+
     load()
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   const scroll = (id, dir) => {
     const el = scrollerRefs.current[id]
     if (!el) return
+
     el.scrollBy({
       left: dir === "left" ? -120 : 120,
       behavior: "smooth"
@@ -87,18 +114,16 @@ setProducts(productData)
     }
   }
 
-  if (loading) return <div style={{ padding: 40 }}>Loading...</div>
+  if (loading) {
+    return <div style={{ padding: 40 }}>Loading...</div>
+  }
 
   return (
     <div style={grid}>
-
       {products.map(product => {
-
         const variants = product.variants || []
-
         const current = selected[product._id] || {}
 
-        /* 🔥 SAFE COLORS */
         const colors = [
           ...new Set(variants.map(v => v.color))
         ].filter(Boolean)
@@ -109,7 +134,6 @@ setProducts(productData)
           v => v.color === activeColor
         )
 
-        /* 🔥 FIXED SIZES (DEDUPED) */
         const sizes = [
           ...new Set(colorVariants.map(v => v.size))
         ].filter(Boolean)
@@ -120,43 +144,59 @@ setProducts(productData)
           v => v.color === activeColor && v.size === activeSize
         )
 
-        /* 🔥 CLEAN IMAGES */
         const images = [
-  ...new Set(
-    variants
-      .filter(v => v.color === activeColor)
-      .flatMap(v => v.images || [])
-  )
-]
+          ...new Set(
+            variants
+              .filter(v => v.color === activeColor)
+              .flatMap(v => v.images || [])
+          )
+        ]
 
-// fallback if somehow empty
-if (images.length === 0 && product.image) {
-  images.push(product.image)
-}
+        if (images.length === 0 && product.image) {
+          images.push(product.image)
+        }
+
+        if (images.length === 0 && product.images?.length) {
+          images.push(product.images[0])
+        }
 
         const idx = imageIndex[product._id] || 0
         const safeIdx = idx >= images.length ? 0 : idx
 
         const mainImage = resolve(images[safeIdx] || images[0])
+
         const price = Number(
-  variant?.price ||
-  variant?.basePrice ||
-  variant?.listPrice ||
-  product.price ||
-  product.basePrice ||
-  product.listPrice ||
-  0
-)
+          variant?.price ||
+          variant?.basePrice ||
+          variant?.listPrice ||
+          product.price ||
+          product.basePrice ||
+          product.listPrice ||
+          0
+        )
 
         return (
           <div key={product._id} className="card">
-
-            <img src={mainImage} />
+            <div className="productImageBox">
+              <img
+                src={mainImage}
+                alt={product.name || "Product"}
+                className="productImage"
+                onError={(e) => {
+                  e.currentTarget.src = "/image_placeholder/placeholder.png"
+                }}
+              />
+            </div>
 
             {images.length > 1 && (
               <div className="carouselWrap">
-
-                <button onClick={() => scroll(product._id, "left")}>◀</button>
+                <button
+                  type="button"
+                  className="carouselBtn"
+                  onClick={() => scroll(product._id, "left")}
+                >
+                  ◀
+                </button>
 
                 <div
                   className="thumbScroller"
@@ -170,8 +210,9 @@ if (images.length === 0 && product.image) {
                 >
                   {images.map((img, i) => (
                     <img
-                      key={i}
+                      key={`${img}-${i}`}
                       src={resolve(img)}
+                      alt={`${product.name || "Product"} thumbnail ${i + 1}`}
                       onClick={() =>
                         setImageIndex(prev => ({
                           ...prev,
@@ -179,23 +220,31 @@ if (images.length === 0 && product.image) {
                         }))
                       }
                       className={i === safeIdx ? "activeThumb" : ""}
+                      onError={(e) => {
+                        e.currentTarget.src = "/image_placeholder/placeholder.png"
+                      }}
                     />
                   ))}
                 </div>
 
-                <button onClick={() => scroll(product._id, "right")}>▶</button>
-
+                <button
+                  type="button"
+                  className="carouselBtn"
+                  onClick={() => scroll(product._id, "right")}
+                >
+                  ▶
+                </button>
               </div>
             )}
 
             <h3>{product.name}</h3>
             <p>${price.toFixed(2)}</p>
 
-            {/* COLORS */}
             <div className="row">
               {colors.map(c => (
                 <button
                   key={c}
+                  type="button"
                   onClick={() => {
                     const firstSize = variants.find(v => v.color === c)?.size
 
@@ -207,7 +256,6 @@ if (images.length === 0 && product.image) {
                       }
                     }))
 
-                    /* 🔥 RESET IMAGE ON COLOR CHANGE */
                     setImageIndex(prev => ({
                       ...prev,
                       [product._id]: 0
@@ -220,18 +268,18 @@ if (images.length === 0 && product.image) {
               ))}
             </div>
 
-            {/* SIZES */}
             <div className="row">
               {sizes.map(s => {
                 const v = variants.find(
                   v => v.color === activeColor && v.size === s
                 )
 
-                const out = v?.stock === 0
+                const out = Number(v?.stock || 0) === 0
 
                 return (
                   <button
                     key={s}
+                    type="button"
                     disabled={out}
                     onClick={() =>
                       setSelected(prev => ({
@@ -251,6 +299,7 @@ if (images.length === 0 && product.image) {
             </div>
 
             <button
+              type="button"
               className="add"
               onClick={() => {
                 if (!variant) {
@@ -258,23 +307,22 @@ if (images.length === 0 && product.image) {
                 }
 
                 addToCart({
-  productId: product._id,
-  name: product.name,
-  image: mainImage,
-  quantity: 1,
-  price,
-  selectedVariant: {
-    ...variant,
-    price
-  }
-})
+                  productId: product._id,
+                  name: product.name,
+                  image: mainImage,
+                  quantity: 1,
+                  price,
+                  selectedVariant: {
+                    ...variant,
+                    price
+                  }
+                })
 
                 toast.success("Added")
               }}
             >
               Add to Cart
             </button>
-
           </div>
         )
       })}
@@ -288,15 +336,43 @@ if (images.length === 0 && product.image) {
           color: white;
         }
 
-        img {
+        .productImageBox {
           width: 100%;
-          height: 150px;
-          object-fit: cover;
+          height: 170px;
+          background: #ffffff;
+          border-radius: 8px;
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid #1e293b;
+          margin-bottom: 10px;
+        }
+
+        .productImage {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          object-position: center;
+          display: block;
+          padding: 6px;
+          box-sizing: border-box;
         }
 
         .carouselWrap {
           display: flex;
           align-items: center;
+          gap: 6px;
+          margin-bottom: 8px;
+        }
+
+        .carouselBtn {
+          background: #1e293b;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          padding: 4px 6px;
         }
 
         .thumbScroller {
@@ -304,6 +380,7 @@ if (images.length === 0 && product.image) {
           overflow-x: auto;
           gap: 6px;
           cursor: grab;
+          max-width: 170px;
         }
 
         .thumbScroller img {
@@ -311,6 +388,10 @@ if (images.length === 0 && product.image) {
           height: 40px;
           border-radius: 6px;
           cursor: pointer;
+          object-fit: contain;
+          background: #ffffff;
+          padding: 2px;
+          box-sizing: border-box;
         }
 
         .activeThumb {
@@ -321,6 +402,13 @@ if (images.length === 0 && product.image) {
           display: flex;
           gap: 6px;
           margin-top: 8px;
+          flex-wrap: wrap;
+        }
+
+        button {
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
         }
 
         button.active {
@@ -336,9 +424,11 @@ if (images.length === 0 && product.image) {
           margin-top: 10px;
           width: 100%;
           background: #22c55e;
+          padding: 8px;
+          color: white;
+          font-weight: 700;
         }
       `}</style>
-
     </div>
   )
 }
