@@ -58,7 +58,7 @@ import CheckoutRedirect from "./pages/CheckoutRedirect"
 
 import ApproveMockup from "./pages/ApproveMockup"
 
-import AdminProducts from "./pages/AdminProducts"
+import AdminProducts from "./pages/admin/AdminProducts"
 
 /* ================= CUSTOMER ================= */
 

@@ -1,46 +1,24 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import api from "../../services/api"
 import toast from "react-hot-toast"
 
-const SIZE_OPTIONS = ["S", "M", "L", "XL", "XXL"]
+const CATEGORY_OPTIONS = [
+  { value: "", label: "Select Category" },
+  { value: "apparel", label: "Apparel" },
+  { value: "cutting-board", label: "Cutting Board" },
+  { value: "mug", label: "Mug" },
+  { value: "hat", label: "Hat" },
+  { value: "decal", label: "Decal" },
+  { value: "custom", label: "Custom" }
+]
 
-const API_IMAGE_BASE = "https://signavi-backend.onrender.com"
-
-const normalizeSize = (s) => {
-  if (!s) return null
-
-  const value = String(s).trim()
-  const key = value.toUpperCase()
-
-  const map = {
-    SMALL: "Small",
-    MEDIUM: "Medium",
-    LARGE: "Large",
-
-    S: "S",
-    M: "M",
-    L: "L",
-    XL: "XL",
-    XXL: "XXL",
-
-    "3XL": "3XL",
-    "3X": "3XL",
-    XXXL: "3XL",
-    "XXX-LARGE": "3XL",
-    "XXX LARGE": "3XL",
-
-    "ONE SIZE": "One Size",
-
-    "12 INCH": "12 inch",
-    "18 INCH": "18 inch",
-    "24 INCH": "24 inch",
-
-    "11 OZ": "11 oz",
-    "15 OZ": "15 oz",
-    "20 OZ": "20 oz"
-  }
-
-  return map[key] || value
+const CATEGORY_VARIANTS = {
+  apparel: ["S", "M", "L", "XL", "XXL", "3XL"],
+  "cutting-board": ["12 inch", "18 inch", "24 inch"],
+  mug: ["11 oz", "15 oz", "20 oz"],
+  hat: ["One Size"],
+  decal: ["Small", "Medium", "Large"],
+  custom: []
 }
 
 const defaultForm = {
@@ -49,53 +27,39 @@ const defaultForm = {
   basePrice: "",
   stock: "",
   category: "",
+  customVariant: "",
   colors: "",
   sizes: [],
+  sizePrices: {},
   colorImages: {}
 }
 
 export default function AdminProducts() {
-  const [products, setProducts] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [creating, setCreating] = useState(false)
   const [form, setForm] = useState(defaultForm)
+  const [creating, setCreating] = useState(false)
 
-  useEffect(() => {
-    let isMounted = true
-
-    api.get("/products")
-      .then((res) => {
-        if (!isMounted) return
-
-        const productData = Array.isArray(res.data)
-          ? res.data
-          : res.data?.data || []
-
-        setProducts(productData)
-      })
-      .catch((err) => {
-        if (!isMounted) return
-
-        console.error("❌ LOAD PRODUCTS ERROR:", err.response?.data || err)
-        toast.error("Failed to load products")
-      })
-      .finally(() => {
-        if (!isMounted) return
-        setLoading(false)
-      })
-
-    return () => {
-      isMounted = false
-    }
-  }, [])
+  const selectedCategory = String(form.category || "").trim().toLowerCase()
+  const variantOptions = CATEGORY_VARIANTS[selectedCategory] || []
 
   const handleChange = (e) => {
     const { name, value } = e.target
 
-    setForm(prev => ({
-      ...prev,
-      [name]: value
-    }))
+    setForm(prev => {
+      if (name === "category") {
+        return {
+          ...prev,
+          category: value,
+          sizes: [],
+          sizePrices: {},
+          customVariant: ""
+        }
+      }
+
+      return {
+        ...prev,
+        [name]: value
+      }
+    })
   }
 
   const getColorList = () => {
@@ -103,6 +67,54 @@ export default function AdminProducts() {
       .split(",")
       .map(c => c.trim())
       .filter(Boolean)
+  }
+
+  const toggleVariantOption = (size) => {
+    setForm(prev => {
+      const active = prev.sizes.includes(size)
+
+      const updatedSizes = active
+        ? prev.sizes.filter(s => s !== size)
+        : [...prev.sizes, size]
+
+      const updatedSizePrices = { ...prev.sizePrices }
+
+      if (active) {
+        delete updatedSizePrices[size]
+      } else {
+        updatedSizePrices[size] = prev.basePrice || ""
+      }
+
+      return {
+        ...prev,
+        sizes: updatedSizes,
+        sizePrices: updatedSizePrices
+      }
+    })
+  }
+
+  const addCustomVariant = () => {
+    const customValue = form.customVariant.trim()
+
+    if (!customValue) {
+      toast.error("Enter a custom option first")
+      return
+    }
+
+    if (form.sizes.includes(customValue)) {
+      toast.error("That option already exists")
+      return
+    }
+
+    setForm(prev => ({
+      ...prev,
+      sizes: [...prev.sizes, customValue],
+      sizePrices: {
+        ...prev.sizePrices,
+        [customValue]: prev.basePrice || ""
+      },
+      customVariant: ""
+    }))
   }
 
   const handleImageUpload = (e, color) => {
@@ -121,39 +133,41 @@ export default function AdminProducts() {
       }
     }))
 
-    e.target.value = null
+    e.target.value = ""
     toast.success(`${color} images added`)
   }
 
-  const removePreviewImage = (color, index) => {
-    setForm(prev => ({
-      ...prev,
-      colorImages: {
-        ...prev.colorImages,
-        [color]: prev.colorImages[color].filter((_, i) => i !== index)
+  const removeImage = (color, index) => {
+    setForm(prev => {
+      const arr = [...(prev.colorImages[color] || [])]
+      arr.splice(index, 1)
+
+      return {
+        ...prev,
+        colorImages: {
+          ...prev.colorImages,
+          [color]: arr
+        }
       }
-    }))
+    })
   }
 
   const buildVariants = () => {
     const variants = []
-
     const colors = getColorList()
 
-    const sizes = form.sizes
-      .map(s => normalizeSize(s))
-      .filter(Boolean)
-
     colors.forEach(color => {
-      sizes.forEach(size => {
+      form.sizes.forEach(size => {
+        const variantPrice = Number(form.sizePrices[size] || form.basePrice) || 0
+
         variants.push({
           color,
           size,
           stock: Number(form.stock) || 0,
           quantity: Number(form.stock) || 0,
-          price: Number(form.basePrice) || 0,
-          basePrice: Number(form.basePrice) || 0,
-          listPrice: Number(form.basePrice) || 0
+          price: variantPrice,
+          basePrice: variantPrice,
+          listPrice: variantPrice
         })
       })
     })
@@ -163,17 +177,22 @@ export default function AdminProducts() {
 
   const createProduct = async () => {
     const colors = getColorList()
-
-    const sizes = form.sizes
-      .map(s => normalizeSize(s))
-      .filter(Boolean)
-
     const variants = buildVariants()
 
     if (!form.name.trim()) return toast.error("Name required")
-    if (!form.basePrice) return toast.error("Price required")
-    if (!colors.length) return toast.error("Add colors")
-    if (!sizes.length) return toast.error("Select sizes")
+    if (!form.category) return toast.error("Select a category")
+    if (!form.basePrice) return toast.error("Base price required")
+    if (!form.stock) return toast.error("Stock required")
+    if (!colors.length) return toast.error("Add at least one color")
+    if (!form.sizes.length) return toast.error("Select at least one variant option")
+
+    const missingPrice = form.sizes.find(size => {
+      return !form.sizePrices[size] && !form.basePrice
+    })
+
+    if (missingPrice) {
+      return toast.error(`Add a price for ${missingPrice}`)
+    }
 
     const price = Number(form.basePrice) || 0
     const stock = Number(form.stock) || 0
@@ -182,19 +201,20 @@ export default function AdminProducts() {
 
     formData.append("name", form.name.trim())
     formData.append("description", form.description)
-    formData.append("category", form.category)
+    formData.append("category", selectedCategory)
 
-    // ✅ Send multiple price field names for backend compatibility
     formData.append("price", price)
     formData.append("basePrice", price)
     formData.append("listPrice", price)
 
-    // ✅ Send multiple stock field names for backend compatibility
     formData.append("stock", stock)
     formData.append("quantity", stock)
 
-    formData.append("sizes", JSON.stringify(sizes))
-    formData.append("colors", JSON.stringify(colors.map(name => ({ name }))))
+    formData.append("sizes", JSON.stringify(form.sizes))
+    formData.append(
+      "colors",
+      JSON.stringify(colors.map(name => ({ name })))
+    )
     formData.append("variants", JSON.stringify(variants))
 
     Object.entries(form.colorImages).forEach(([color, files]) => {
@@ -207,25 +227,11 @@ export default function AdminProducts() {
     try {
       setCreating(true)
 
-      const res = await api.post("/products", formData, {
+      await api.post("/products", formData, {
         headers: {
           "Content-Type": "multipart/form-data"
         }
       })
-
-      const createdProduct = res.data?.data || res.data
-
-      if (createdProduct?._id) {
-        setProducts(prev => [createdProduct, ...prev])
-      } else {
-        const refresh = await api.get("/products")
-
-        const productData = Array.isArray(refresh.data)
-          ? refresh.data
-          : refresh.data?.data || []
-
-        setProducts(productData)
-      }
 
       toast.success("Product created")
       setForm(defaultForm)
@@ -244,40 +250,11 @@ export default function AdminProducts() {
     }
   }
 
-  const getProductImage = (product) => {
-    const variantImage = product.variants?.[0]?.images?.[0]
-    const productImage = product.images?.[0]
-    const image = variantImage || productImage
-
-    if (!image) return "/image_placeholder/placeholder.png"
-
-    if (image.startsWith("http")) return image
-
-    return `${API_IMAGE_BASE}${image}`
-  }
-
-  if (loading) {
-    return (
-      <div style={loadingPage}>
-        <p>Loading products...</p>
-      </div>
-    )
-  }
-
   return (
     <div style={page}>
-      <div style={header}>
-        <div>
-          <h1 style={heading}>Admin Products</h1>
-          <p style={subheading}>
-            Add products, upload color-based images, and manage your product cards.
-          </p>
-        </div>
-      </div>
+      <h1 style={heading}>Admin Products</h1>
 
       <div style={card}>
-        <h2 style={sectionTitle}>Add New Product</h2>
-
         <input
           name="name"
           value={form.name}
@@ -286,18 +263,29 @@ export default function AdminProducts() {
           style={input}
         />
 
-        <input
+        <select
           name="category"
           value={form.category}
-          placeholder="Category"
           onChange={handleChange}
           style={input}
-        />
+        >
+          {CATEGORY_OPTIONS.map(option => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+
+        {form.category && (
+          <p style={selectedText}>
+            Selected Category: <strong>{selectedCategory}</strong>
+          </p>
+        )}
 
         <input
           name="basePrice"
           value={form.basePrice}
-          placeholder="Price"
+          placeholder="Base Price"
           type="number"
           min="0"
           onChange={handleChange}
@@ -330,75 +318,125 @@ export default function AdminProducts() {
           style={textarea}
         />
 
-        <h4 style={label}>Sizes</h4>
+        <h3 style={sectionTitle}>Variant Options</h3>
 
-        <div style={sizeWrap}>
-          {SIZE_OPTIONS.map(size => {
-            const active = form.sizes.includes(size)
+        {!selectedCategory ? (
+          <p style={helperText}>Choose a category to show variant options.</p>
+        ) : (
+          <>
+            {variantOptions.length > 0 ? (
+              <div style={variantButtonWrap}>
+                {variantOptions.map(size => {
+                  const active = form.sizes.includes(size)
 
-            return (
-              <button
-                key={size}
-                type="button"
-                onClick={() => {
-                  setForm(prev => ({
-                    ...prev,
-                    sizes: active
-                      ? prev.sizes.filter(s => s !== size)
-                      : [...prev.sizes, size]
-                  }))
-                }}
-                style={{
-                  ...sizeBtn,
-                  background: active ? "#22c55e" : "#1e293b",
-                  color: active ? "#020617" : "#fff"
-                }}
-              >
-                {size}
-              </button>
-            )
-          })}
-        </div>
+                  return (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => toggleVariantOption(size)}
+                      style={{
+                        ...variantBtn,
+                        background: active ? "#22c55e" : "#1e293b",
+                        color: active ? "#020617" : "#fff"
+                      }}
+                    >
+                      {size}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : selectedCategory !== "custom" ? (
+              <p style={helperText}>
+                No preset variants found for this category.
+              </p>
+            ) : null}
 
-        {getColorList().length > 0 && (
-          <div style={uploadSection}>
-            <h4 style={label}>Color Images</h4>
-
-            {getColorList().map(color => (
-              <div key={color} style={colorUploadBox}>
-                <p style={colorName}>{color}</p>
-
+            {selectedCategory === "custom" && (
+              <div style={customWrap}>
                 <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={(e) => handleImageUpload(e, color)}
-                  style={fileInput}
+                  name="customVariant"
+                  value={form.customVariant}
+                  placeholder="Add custom option, example: 30 inch, Jumbo, Bundle"
+                  onChange={handleChange}
+                  style={input}
                 />
 
-                <div style={previewWrap}>
-                  {(form.colorImages[color] || []).map((file, i) => (
-                    <div key={`${color}-${i}`} style={previewBox}>
-                      <img
-                        src={URL.createObjectURL(file)}
-                        alt={`${color} preview ${i + 1}`}
-                        style={previewImage}
-                      />
+                <button
+                  type="button"
+                  onClick={addCustomVariant}
+                  style={secondaryBtn}
+                >
+                  Add Custom Option
+                </button>
+              </div>
+            )}
+          </>
+        )}
 
-                      <button
-                        type="button"
-                        onClick={() => removePreviewImage(color, i)}
-                        style={removeBtn}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
+        {form.sizes.length > 0 && (
+          <div style={variantPriceBox}>
+            <h3 style={sectionTitle}>Variant Prices</h3>
+
+            {form.sizes.map(size => (
+              <div key={size} style={variantPriceRow}>
+                <span style={variantSizeLabel}>{size}</span>
+
+                <input
+                  type="number"
+                  min="0"
+                  placeholder={`Price for ${size}`}
+                  value={form.sizePrices[size] || ""}
+                  onChange={(e) => {
+                    const { value } = e.target
+
+                    setForm(prev => ({
+                      ...prev,
+                      sizePrices: {
+                        ...prev.sizePrices,
+                        [size]: value
+                      }
+                    }))
+                  }}
+                  style={variantPriceInput}
+                />
               </div>
             ))}
           </div>
         )}
+
+        {getColorList().map(color => (
+          <div key={color} style={uploadBox}>
+            <h4 style={colorTitle}>{color} Images</h4>
+
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={(e) => handleImageUpload(e, color)}
+              style={fileInput}
+            />
+
+            <div style={previewWrap}>
+              {(form.colorImages[color] || []).map((file, i) => (
+                <div key={`${color}-${i}`} style={previewItem}>
+                  <img
+                    src={URL.createObjectURL(file)}
+                    alt={`${color} preview ${i + 1}`}
+                    style={previewImage}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => removeImage(color, i)}
+                    style={removeBtn}
+                  >
+                    X
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
 
         <button
           type="button"
@@ -413,291 +451,192 @@ export default function AdminProducts() {
           {creating ? "Creating Product..." : "Add Product"}
         </button>
       </div>
-
-      <div style={productsHeader}>
-        <h2 style={sectionTitle}>Current Products</h2>
-        <p style={countText}>{products.length} products loaded</p>
-      </div>
-
-      {products.length === 0 ? (
-        <div style={emptyBox}>
-          No products found yet.
-        </div>
-      ) : (
-        <div style={grid}>
-          {products.map(product => (
-            <div key={product._id} style={productCard}>
-              <div style={imageBox}>
-                <img
-                  src={getProductImage(product)}
-                  alt={product.name}
-                  style={productImage}
-                />
-              </div>
-
-              <div style={productContent}>
-                <h4 style={productName}>{product.name}</h4>
-
-                <p style={productCategory}>
-                  {product.category || "No category"}
-                </p>
-
-                <p style={productPrice}>
-                  ${Number(product.price || product.basePrice || product.listPrice || 0).toFixed(2)}
-                </p>
-
-                <p style={productStock}>
-                  Stock: {product.stock ?? product.quantity ?? 0}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   )
 }
 
-/* ================= STYLES ================= */
-
-const loadingPage = {
-  padding: 40,
-  background: "#020617",
-  color: "white",
-  minHeight: "100vh"
-}
-
 const page = {
-  padding: 24,
-  background: "#020617",
+  padding: 20,
   color: "white",
+  background: "#020617",
   minHeight: "100vh"
-}
-
-const header = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: 20
 }
 
 const heading = {
-  margin: 0,
-  fontSize: 32
-}
-
-const subheading = {
-  marginTop: 6,
-  color: "#94a3b8"
+  marginTop: 0,
+  marginBottom: 20
 }
 
 const card = {
   background: "#0f172a",
   padding: 20,
-  borderRadius: 16,
-  marginBottom: 28,
+  borderRadius: 14,
   border: "1px solid #1e293b",
   maxWidth: 900
 }
 
-const sectionTitle = {
-  marginTop: 0,
-  marginBottom: 14
-}
-
 const input = {
   display: "block",
-  marginBottom: 12,
+  marginBottom: 10,
   padding: 12,
   width: "100%",
-  background: "#fff",
-  color: "#000",
-  border: "none",
   borderRadius: 8,
-  boxSizing: "border-box"
+  border: "none",
+  boxSizing: "border-box",
+  background: "#fff",
+  color: "#000"
 }
 
 const textarea = {
   display: "block",
-  marginBottom: 12,
+  marginBottom: 10,
   padding: 12,
   width: "100%",
   minHeight: 90,
+  borderRadius: 8,
+  border: "none",
+  boxSizing: "border-box",
   background: "#fff",
   color: "#000",
-  border: "none",
-  borderRadius: 8,
-  resize: "vertical",
-  boxSizing: "border-box"
+  resize: "vertical"
 }
 
-const label = {
-  marginBottom: 8
+const selectedText = {
+  marginTop: -4,
+  marginBottom: 12,
+  color: "#38bdf8"
 }
 
-const sizeWrap = {
+const sectionTitle = {
+  marginTop: 18,
+  marginBottom: 10
+}
+
+const helperText = {
+  color: "#94a3b8",
+  marginTop: 0
+}
+
+const variantButtonWrap = {
   display: "flex",
-  gap: 8,
   flexWrap: "wrap",
+  gap: 8,
   marginBottom: 16
 }
 
-const sizeBtn = {
+const variantBtn = {
   padding: "8px 14px",
   border: "none",
   borderRadius: 8,
-  cursor: "pointer",
-  fontWeight: 700
+  fontWeight: 700,
+  cursor: "pointer"
 }
 
-const uploadSection = {
-  marginTop: 18,
-  marginBottom: 18
+const customWrap = {
+  display: "grid",
+  gridTemplateColumns: "1fr 180px",
+  gap: 10,
+  alignItems: "start",
+  marginBottom: 16
 }
 
-const colorUploadBox = {
-  background: "#020617",
+const secondaryBtn = {
   padding: 12,
+  background: "#38bdf8",
+  color: "#020617",
+  border: "none",
+  borderRadius: 10,
+  fontWeight: 800,
+  cursor: "pointer"
+}
+
+const variantPriceBox = {
+  background: "#020617",
+  padding: 14,
   borderRadius: 12,
-  marginBottom: 12,
+  marginBottom: 18,
   border: "1px solid #1e293b"
 }
 
-const colorName = {
-  marginTop: 0,
-  marginBottom: 8,
-  fontWeight: 700
+const variantPriceRow = {
+  display: "grid",
+  gridTemplateColumns: "120px 1fr",
+  gap: 10,
+  alignItems: "center",
+  marginBottom: 10
 }
 
-const fileInput = {
-  display: "block",
-  marginBottom: 10,
+const variantSizeLabel = {
+  fontWeight: 700,
+  color: "#e5e7eb"
+}
+
+const variantPriceInput = {
   padding: 10,
   width: "100%",
   background: "#fff",
   color: "#000",
+  border: "none",
   borderRadius: 8,
   boxSizing: "border-box"
 }
 
+const uploadBox = {
+  marginTop: 20,
+  padding: 12,
+  background: "#020617",
+  borderRadius: 12,
+  border: "1px solid #1e293b"
+}
+
+const colorTitle = {
+  marginTop: 0
+}
+
+const fileInput = {
+  ...input,
+  background: "#fff",
+  color: "#000"
+}
+
 const previewWrap = {
   display: "flex",
-  gap: 8,
+  gap: 10,
   flexWrap: "wrap"
 }
 
-const previewBox = {
-  position: "relative",
-  width: 64,
-  height: 64
+const previewItem = {
+  position: "relative"
 }
 
 const previewImage = {
-  width: 64,
-  height: 64,
+  width: 80,
+  height: 80,
   objectFit: "cover",
   borderRadius: 8,
   border: "1px solid #334155"
 }
 
 const removeBtn = {
-  position: "absolute",
-  top: -6,
-  right: -6,
-  width: 22,
-  height: 22,
-  borderRadius: "50%",
-  border: "none",
+  display: "block",
+  marginTop: 4,
+  width: "100%",
   background: "#ef4444",
   color: "#fff",
-  cursor: "pointer",
-  fontWeight: 700
+  border: "none",
+  borderRadius: 6,
+  padding: 4,
+  cursor: "pointer"
 }
 
 const btn = {
   padding: 14,
+  marginTop: 20,
   background: "#22c55e",
   color: "#020617",
   border: "none",
-  width: "100%",
   borderRadius: 10,
+  width: "100%",
   fontWeight: 800,
   fontSize: 16
-}
-
-const productsHeader = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 14
-}
-
-const countText = {
-  color: "#94a3b8",
-  margin: 0
-}
-
-const emptyBox = {
-  background: "#0f172a",
-  padding: 20,
-  borderRadius: 12,
-  border: "1px solid #1e293b",
-  color: "#94a3b8"
-}
-
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-  gap: 20,
-  alignItems: "stretch"
-}
-
-const productCard = {
-  background: "#0f172a",
-  borderRadius: 16,
-  overflow: "hidden",
-  border: "1px solid #1e293b",
-  boxShadow: "0 12px 30px rgba(0,0,0,0.25)"
-}
-
-const imageBox = {
-  width: "100%",
-  height: 180,
-  background: "#020617",
-  overflow: "hidden"
-}
-
-const productImage = {
-  width: "100%",
-  height: "100%",
-  objectFit: "cover",
-  display: "block"
-}
-
-const productContent = {
-  padding: 14
-}
-
-const productName = {
-  margin: "0 0 6px",
-  fontSize: 17
-}
-
-const productCategory = {
-  margin: "0 0 8px",
-  color: "#94a3b8",
-  fontSize: 14
-}
-
-const productPrice = {
-  margin: "0 0 6px",
-  color: "#22c55e",
-  fontWeight: 800
-}
-
-const productStock = {
-  margin: 0,
-  color: "#cbd5e1",
-  fontSize: 14
 }
