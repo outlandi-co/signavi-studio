@@ -367,25 +367,29 @@ export default function Store() {
                   return toast.error("Select options")
                 }
 
-                addToCart({
-                  productId: product._id,
-                  name: product.name,
-                  image: mainImage,
-                  quantity: 1,
-                  price,
-                  productType,
-                  selectedVariant: isPhysical
-                    ? {
-                        ...variant,
-                        price
-                      }
-                    : null,
-                  digitalProduct: isDigital
-                    ? product.digitalProduct
-                    : null
-                })
+                const added = addToCart({
+  productId: product._id,
+  name: product.name,
+  image: mainImage,
+  quantity: 1,
+  price,
+  productType,
+  selectedVariant: isPhysical
+    ? {
+        ...variant,
+        price
+      }
+    : null,
+  digitalProduct: isDigital
+    ? product.digitalProduct
+    : null
+})
 
-                toast.success("Added")
+if (added) {
+  toast.success("Added")
+} else {
+  toast.error("Could not add item to cart")
+}
               }}
             >
               Add to Cart

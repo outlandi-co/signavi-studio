@@ -14,7 +14,6 @@ const getCartItemPrice = (item) => {
   return Number(
     item.price ||
     item.selectedVariant?.price ||
-    item.digitalProduct?.price ||
     0
   )
 }
@@ -25,7 +24,6 @@ const isSameCartItem = (item, product) => {
 
   if (item.productId !== productId) return false
 
-  // Digital/service products do not need color/size matching
   if (productType === "digital" || productType === "service") {
     return item.productType === productType
   }
@@ -39,8 +37,6 @@ const isSameCartItem = (item, product) => {
 }
 
 export function CartProvider({ children }) {
-  /* ================= LOAD ================= */
-
   const [cart, setCart] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("cart") || "[]")
@@ -49,13 +45,9 @@ export function CartProvider({ children }) {
     }
   })
 
-  /* ================= SAVE ================= */
-
   useEffect(() => {
     localStorage.setItem("cart", JSON.stringify(cart))
   }, [cart])
-
-  /* ================= ADD ================= */
 
   const addToCart = (product) => {
     const productId = getProductId(product)
@@ -64,14 +56,13 @@ export function CartProvider({ children }) {
 
     if (!productId) {
       console.warn("❌ Missing product ID:", product)
-      return
+      return false
     }
 
-    // Physical products still need color + size
     if (productType === "physical") {
       if (!variant?.color || !variant?.size) {
         console.warn("❌ Missing variant:", product)
-        return
+        return false
       }
     }
 
@@ -85,36 +76,34 @@ export function CartProvider({ children }) {
 
     if (!price || price <= 0) {
       console.warn("❌ Invalid price:", product)
-      return
+      return false
     }
 
     setCart(prev => {
       const existing = prev.find(item => isSameCartItem(item, product))
 
-      /* ================= EXISTS ================= */
-
       if (existing) {
         return prev.map(item => {
           if (!isSameCartItem(item, product)) return item
 
-          // Digital products usually stay quantity 1
           if (productType === "digital") {
             return {
               ...item,
               quantity: 1,
-              price
+              price,
+              image: product.image || item.image,
+              digitalProduct: product.digitalProduct || item.digitalProduct
             }
           }
 
           return {
             ...item,
             quantity: Number(item.quantity || 1) + 1,
-            price
+            price,
+            image: product.image || item.image
           }
         })
       }
-
-      /* ================= NEW ITEM ================= */
 
       return [
         ...prev,
@@ -124,7 +113,6 @@ export function CartProvider({ children }) {
           image: product.image,
           productType,
           price,
-
           selectedVariant: productType === "physical"
             ? {
                 color: variant.color,
@@ -132,18 +120,16 @@ export function CartProvider({ children }) {
                 price
               }
             : null,
-
           digitalProduct: productType === "digital"
             ? product.digitalProduct || null
             : null,
-
           quantity: 1
         }
       ]
     })
-  }
 
-  /* ================= UPDATE ================= */
+    return true
+  }
 
   const updateQuantity = (productId, variantOrType, delta) => {
     setCart(prev =>
@@ -155,7 +141,7 @@ export function CartProvider({ children }) {
 
           const isMatch =
             itemType === "digital" || itemType === "service"
-              ? variantOrType === itemType || !variantOrType
+              ? itemType === variantOrType
               : (
                   item.selectedVariant?.color === variantOrType?.color &&
                   item.selectedVariant?.size === variantOrType?.size
@@ -163,7 +149,6 @@ export function CartProvider({ children }) {
 
           if (!isMatch) return item
 
-          // Keep digital products locked at 1 for now
           if (itemType === "digital" && delta > 0) {
             return {
               ...item,
@@ -184,8 +169,6 @@ export function CartProvider({ children }) {
     )
   }
 
-  /* ================= REMOVE ================= */
-
   const removeFromCart = (productId, variantOrType) => {
     setCart(prev =>
       prev.filter(item => {
@@ -194,7 +177,7 @@ export function CartProvider({ children }) {
         const itemType = item.productType || "physical"
 
         if (itemType === "digital" || itemType === "service") {
-          return !(variantOrType === itemType || !variantOrType)
+          return itemType !== variantOrType
         }
 
         return !(
@@ -205,13 +188,9 @@ export function CartProvider({ children }) {
     )
   }
 
-  /* ================= CLEAR ================= */
-
   const clearCart = () => {
     setCart([])
   }
-
-  /* ================= TOTALS ================= */
 
   const subtotal = cart.reduce((sum, item) => {
     const price = getCartItemPrice(item)
@@ -221,12 +200,8 @@ export function CartProvider({ children }) {
   }, 0)
 
   const tax = subtotal * 0.0825
-
   const shipping = 0
-
   const total = subtotal + tax + shipping
-
-  /* ================= CART COUNT ================= */
 
   const cartCount = cart.reduce(
     (sum, item) => sum + Number(item.quantity || 1),
@@ -241,12 +216,10 @@ export function CartProvider({ children }) {
         updateQuantity,
         removeFromCart,
         clearCart,
-
         subtotal,
         tax,
         shipping,
         total,
-
         cartCount
       }}
     >

@@ -75,6 +75,7 @@ const defaultForm = {
 
   digitalProduct: {
     previewImage: "",
+    previewFiles: [],
     downloadFile: "",
     licenseType: "personal-use",
     dpi: "300",
@@ -143,6 +144,33 @@ export default function AdminProducts() {
       digitalProduct: {
         ...prev.digitalProduct,
         [name]: type === "checkbox" ? checked : value
+      }
+    }))
+  }
+
+  const handleDigitalPreviewUpload = (e) => {
+    const files = Array.from(e.target.files || [])
+
+    if (!files.length) return
+
+    setForm(prev => ({
+      ...prev,
+      digitalProduct: {
+        ...prev.digitalProduct,
+        previewFiles: files
+      }
+    }))
+
+    e.target.value = ""
+    toast.success("Digital artwork preview added")
+  }
+
+  const removeDigitalPreview = () => {
+    setForm(prev => ({
+      ...prev,
+      digitalProduct: {
+        ...prev.digitalProduct,
+        previewFiles: []
       }
     }))
   }
@@ -326,6 +354,13 @@ export default function AdminProducts() {
       if (!form.digitalProduct.fileFormats) {
         return toast.error("Add file formats")
       }
+
+      if (
+        !form.digitalProduct.previewImage &&
+        !form.digitalProduct.previewFiles?.length
+      ) {
+        return toast.error("Add a digital artwork preview image")
+      }
     }
 
     const price = Number(form.basePrice) || 0
@@ -362,6 +397,13 @@ export default function AdminProducts() {
           formData.append("images", file)
           formData.append("imageColors", color)
         })
+      })
+    }
+
+    if (isDigital && form.digitalProduct.previewFiles?.length > 0) {
+      form.digitalProduct.previewFiles.forEach(file => {
+        formData.append("images", file)
+        formData.append("imageColors", "__digital_preview__")
       })
     }
 
@@ -531,6 +573,36 @@ export default function AdminProducts() {
               onChange={handleDigitalChange}
               style={input}
             />
+
+            <label style={label}>Digital Artwork Preview Image</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleDigitalPreviewUpload}
+              style={fileInput}
+            />
+
+            {form.digitalProduct.previewFiles?.length > 0 && (
+              <div style={previewWrap}>
+                {form.digitalProduct.previewFiles.map((file, i) => (
+                  <div key={`${file.name}-${i}`} style={previewItem}>
+                    <img
+                      src={URL.createObjectURL(file)}
+                      alt={`Digital preview ${i + 1}`}
+                      style={previewImage}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={removeDigitalPreview}
+                      style={removeBtn}
+                    >
+                      X
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <input
               name="previewImage"
@@ -892,7 +964,8 @@ const fileInput = {
 const previewWrap = {
   display: "flex",
   gap: 10,
-  flexWrap: "wrap"
+  flexWrap: "wrap",
+  marginBottom: 10
 }
 
 const previewItem = {
