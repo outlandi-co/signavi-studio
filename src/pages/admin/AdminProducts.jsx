@@ -2,6 +2,20 @@ import { useState } from "react"
 import api from "../../services/api"
 import toast from "react-hot-toast"
 
+const PRODUCT_TYPE_OPTIONS = [
+  { value: "physical", label: "Physical Product" },
+  { value: "digital", label: "Digital Product" },
+  { value: "service", label: "Service" }
+]
+
+const LICENSE_OPTIONS = [
+  { value: "personal-use", label: "Personal Use" },
+  { value: "small-business", label: "Small Business" },
+  { value: "commercial", label: "Commercial" },
+  { value: "extended-commercial", label: "Extended Commercial" },
+  { value: "exclusive", label: "Exclusive" }
+]
+
 const CATEGORY_OPTIONS = [
   { value: "", label: "Select Category" },
   { value: "apparel", label: "Apparel" },
@@ -9,11 +23,14 @@ const CATEGORY_OPTIONS = [
   { value: "mug", label: "Mug" },
   { value: "hat", label: "Hat" },
   { value: "decal", label: "Decal" },
+  { value: "digital-art", label: "Digital Art" },
+  { value: "printable", label: "Printable" },
+  { value: "service", label: "Service" },
   { value: "custom", label: "Custom" }
 ]
 
 const CATEGORY_VARIANTS = {
-  apparel: ["S", "M", "L", "XL", "XXL", "XXXL"],
+  apparel: ["S", "M", "L", "XL", "XXL", "3XL"],
   "cutting-board": ["12 inch", "18 inch", "24 inch"],
   mug: ["11 oz", "15 oz", "20 oz"],
   hat: ["One Size"],
@@ -25,14 +42,18 @@ const normalizeVariantSize = (size) => {
   const value = String(size || "").trim()
 
   const map = {
-    "3XL": "XXXL",
-    "3X": "XXXL",
-    XXXL: "XXXL",
+    "3XL": "3XL",
+    "3X": "3XL",
+    XXXL: "3XL",
     XXL: "XXL",
     XL: "XL",
     L: "L",
     M: "M",
-    S: "S"
+    S: "S",
+    SMALL: "Small",
+    MEDIUM: "Medium",
+    LARGE: "Large",
+    "ONE SIZE": "One Size"
   }
 
   return map[value.toUpperCase()] || value
@@ -44,11 +65,24 @@ const defaultForm = {
   basePrice: "",
   stock: "",
   category: "",
+  productType: "physical",
+
   customVariant: "",
   colors: "",
   sizes: [],
   sizePrices: {},
-  colorImages: {}
+  colorImages: {},
+
+  digitalProduct: {
+    previewImage: "",
+    downloadFile: "",
+    licenseType: "personal-use",
+    dpi: "300",
+    printSize: "",
+    fileFormats: "",
+    downloadLimit: "3",
+    licenseRequired: true
+  }
 }
 
 export default function AdminProducts() {
@@ -56,7 +90,12 @@ export default function AdminProducts() {
   const [creating, setCreating] = useState(false)
 
   const selectedCategory = String(form.category || "").trim().toLowerCase()
+  const selectedProductType = String(form.productType || "physical").trim().toLowerCase()
   const variantOptions = CATEGORY_VARIANTS[selectedCategory] || []
+
+  const isPhysical = selectedProductType === "physical"
+  const isDigital = selectedProductType === "digital"
+  const isService = selectedProductType === "service"
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -72,11 +111,40 @@ export default function AdminProducts() {
         }
       }
 
+      if (name === "productType") {
+        return {
+          ...prev,
+          productType: value,
+          category: value === "digital"
+            ? "digital-art"
+            : value === "service"
+              ? "service"
+              : prev.category,
+          sizes: value === "physical" ? prev.sizes : [],
+          sizePrices: value === "physical" ? prev.sizePrices : {},
+          customVariant: value === "physical" ? prev.customVariant : "",
+          colors: value === "physical" ? prev.colors : "",
+          colorImages: value === "physical" ? prev.colorImages : {}
+        }
+      }
+
       return {
         ...prev,
         [name]: value
       }
     })
+  }
+
+  const handleDigitalChange = (e) => {
+    const { name, value, type, checked } = e.target
+
+    setForm(prev => ({
+      ...prev,
+      digitalProduct: {
+        ...prev.digitalProduct,
+        [name]: type === "checkbox" ? checked : value
+      }
+    }))
   }
 
   const getColorList = () => {
@@ -201,6 +269,24 @@ export default function AdminProducts() {
     return variants
   }
 
+  const buildDigitalProductPayload = () => {
+    const fileFormats = form.digitalProduct.fileFormats
+      .split(",")
+      .map(format => format.trim())
+      .filter(Boolean)
+
+    return {
+      previewImage: form.digitalProduct.previewImage,
+      downloadFile: form.digitalProduct.downloadFile,
+      licenseType: form.digitalProduct.licenseType,
+      dpi: Number(form.digitalProduct.dpi) || 300,
+      printSize: form.digitalProduct.printSize,
+      fileFormats,
+      downloadLimit: Number(form.digitalProduct.downloadLimit) || 3,
+      licenseRequired: Boolean(form.digitalProduct.licenseRequired)
+    }
+  }
+
   const createProduct = async () => {
     const colors = getColorList()
     const cleanSizes = getCleanSizes()
@@ -209,26 +295,52 @@ export default function AdminProducts() {
     if (!form.name.trim()) return toast.error("Name required")
     if (!form.category) return toast.error("Select a category")
     if (!form.basePrice) return toast.error("Base price required")
-    if (!form.stock) return toast.error("Stock required")
-    if (!colors.length) return toast.error("Add at least one color")
-    if (!cleanSizes.length) return toast.error("Select at least one variant option")
 
-    const missingPrice = cleanSizes.find(size => {
-      return !form.sizePrices[size] && !form.basePrice
-    })
+    if (isPhysical) {
+      if (!form.stock) return toast.error("Stock required")
+      if (!colors.length) return toast.error("Add at least one color")
+      if (!cleanSizes.length) return toast.error("Select at least one variant option")
 
-    if (missingPrice) {
-      return toast.error(`Add a price for ${missingPrice}`)
+      const missingPrice = cleanSizes.find(size => {
+        return !form.sizePrices[size] && !form.basePrice
+      })
+
+      if (missingPrice) {
+        return toast.error(`Add a price for ${missingPrice}`)
+      }
+    }
+
+    if (isDigital) {
+      if (!form.digitalProduct.licenseType) {
+        return toast.error("Select a license type")
+      }
+
+      if (!form.digitalProduct.dpi) {
+        return toast.error("Add DPI")
+      }
+
+      if (!form.digitalProduct.printSize) {
+        return toast.error("Add print size")
+      }
+
+      if (!form.digitalProduct.fileFormats) {
+        return toast.error("Add file formats")
+      }
     }
 
     const price = Number(form.basePrice) || 0
-    const stock = Number(form.stock) || 0
+    const stock = isPhysical ? Number(form.stock) || 0 : 999999
 
     const formData = new FormData()
 
     formData.append("name", form.name.trim())
     formData.append("description", form.description)
     formData.append("category", selectedCategory)
+
+    formData.append("productType", selectedProductType)
+    formData.append("digitalProduct", JSON.stringify(
+      isDigital ? buildDigitalProductPayload() : {}
+    ))
 
     formData.append("price", price)
     formData.append("basePrice", price)
@@ -237,19 +349,21 @@ export default function AdminProducts() {
     formData.append("stock", stock)
     formData.append("quantity", stock)
 
-    formData.append("sizes", JSON.stringify(cleanSizes))
+    formData.append("sizes", JSON.stringify(isPhysical ? cleanSizes : []))
     formData.append(
       "colors",
-      JSON.stringify(colors.map(name => ({ name })))
+      JSON.stringify(isPhysical ? colors.map(name => ({ name })) : [])
     )
-    formData.append("variants", JSON.stringify(variants))
+    formData.append("variants", JSON.stringify(isPhysical ? variants : []))
 
-    Object.entries(form.colorImages).forEach(([color, files]) => {
-      files.forEach(file => {
-        formData.append("images", file)
-        formData.append("imageColors", color)
+    if (isPhysical) {
+      Object.entries(form.colorImages).forEach(([color, files]) => {
+        files.forEach(file => {
+          formData.append("images", file)
+          formData.append("imageColors", color)
+        })
       })
-    })
+    }
 
     try {
       setCreating(true)
@@ -282,6 +396,22 @@ export default function AdminProducts() {
       <h1 style={heading}>Admin Products</h1>
 
       <div style={card}>
+        <h2 style={sectionHeading}>Create Product</h2>
+
+        <label style={label}>Product Type</label>
+        <select
+          name="productType"
+          value={form.productType}
+          onChange={handleChange}
+          style={input}
+        >
+          {PRODUCT_TYPE_OPTIONS.map(option => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+
         <input
           name="name"
           value={form.name}
@@ -312,30 +442,34 @@ export default function AdminProducts() {
         <input
           name="basePrice"
           value={form.basePrice}
-          placeholder="Base Price"
+          placeholder={isDigital ? "Digital Product Price" : isService ? "Service Price" : "Base Price"}
           type="number"
           min="0"
           onChange={handleChange}
           style={input}
         />
 
-        <input
-          name="stock"
-          value={form.stock}
-          placeholder="Stock"
-          type="number"
-          min="0"
-          onChange={handleChange}
-          style={input}
-        />
+        {isPhysical && (
+          <input
+            name="stock"
+            value={form.stock}
+            placeholder="Stock"
+            type="number"
+            min="0"
+            onChange={handleChange}
+            style={input}
+          />
+        )}
 
-        <input
-          name="colors"
-          value={form.colors}
-          placeholder="Colors: Black, White, Red"
-          onChange={handleChange}
-          style={input}
-        />
+        {isPhysical && (
+          <input
+            name="colors"
+            value={form.colors}
+            placeholder="Colors: Black, White, Red"
+            onChange={handleChange}
+            style={input}
+          />
+        )}
 
         <textarea
           name="description"
@@ -345,126 +479,224 @@ export default function AdminProducts() {
           style={textarea}
         />
 
-        <h3 style={sectionTitle}>Variant Options</h3>
+        {isDigital && (
+          <div style={digitalBox}>
+            <h3 style={sectionTitle}>Digital Product Details</h3>
 
-        {!selectedCategory ? (
-          <p style={helperText}>Choose a category to show variant options.</p>
-        ) : (
+            <select
+              name="licenseType"
+              value={form.digitalProduct.licenseType}
+              onChange={handleDigitalChange}
+              style={input}
+            >
+              {LICENSE_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            <input
+              name="dpi"
+              value={form.digitalProduct.dpi}
+              placeholder="DPI, example: 300"
+              type="number"
+              min="72"
+              onChange={handleDigitalChange}
+              style={input}
+            />
+
+            <input
+              name="printSize"
+              value={form.digitalProduct.printSize}
+              placeholder='Print Size, example: 12"x18" or 8"x10"'
+              onChange={handleDigitalChange}
+              style={input}
+            />
+
+            <input
+              name="fileFormats"
+              value={form.digitalProduct.fileFormats}
+              placeholder="File Formats, example: PNG, PDF, SVG"
+              onChange={handleDigitalChange}
+              style={input}
+            />
+
+            <input
+              name="downloadLimit"
+              value={form.digitalProduct.downloadLimit}
+              placeholder="Download Limit"
+              type="number"
+              min="1"
+              onChange={handleDigitalChange}
+              style={input}
+            />
+
+            <input
+              name="previewImage"
+              value={form.digitalProduct.previewImage}
+              placeholder="Preview Image URL/path, optional"
+              onChange={handleDigitalChange}
+              style={input}
+            />
+
+            <input
+              name="downloadFile"
+              value={form.digitalProduct.downloadFile}
+              placeholder="High-res Download File path, add later"
+              onChange={handleDigitalChange}
+              style={input}
+            />
+
+            <label style={checkboxRow}>
+              <input
+                name="licenseRequired"
+                type="checkbox"
+                checked={form.digitalProduct.licenseRequired}
+                onChange={handleDigitalChange}
+              />
+              License agreement required before download
+            </label>
+
+            <p style={helperText}>
+              Store preview should be low-res or watermarked. The download file should be the high-res 300 DPI+ version after payment.
+            </p>
+          </div>
+        )}
+
+        {isPhysical && (
           <>
-            {variantOptions.length > 0 ? (
-              <div style={variantButtonWrap}>
-                {variantOptions.map(size => {
-                  const normalizedSize = normalizeVariantSize(size)
-                  const active = form.sizes.includes(normalizedSize)
+            <h3 style={sectionTitle}>Variant Options</h3>
 
-                  return (
+            {!selectedCategory ? (
+              <p style={helperText}>Choose a category to show variant options.</p>
+            ) : (
+              <>
+                {variantOptions.length > 0 ? (
+                  <div style={variantButtonWrap}>
+                    {variantOptions.map(size => {
+                      const normalizedSize = normalizeVariantSize(size)
+                      const active = form.sizes.includes(normalizedSize)
+
+                      return (
+                        <button
+                          key={normalizedSize}
+                          type="button"
+                          onClick={() => toggleVariantOption(normalizedSize)}
+                          style={{
+                            ...variantBtn,
+                            background: active ? "#22c55e" : "#1e293b",
+                            color: active ? "#020617" : "#fff"
+                          }}
+                        >
+                          {normalizedSize}
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : selectedCategory !== "custom" ? (
+                  <p style={helperText}>
+                    No preset variants found for this category.
+                  </p>
+                ) : null}
+
+                {selectedCategory === "custom" && (
+                  <div style={customWrap}>
+                    <input
+                      name="customVariant"
+                      value={form.customVariant}
+                      placeholder="Add custom option, example: 30 inch, Jumbo, Bundle"
+                      onChange={handleChange}
+                      style={input}
+                    />
+
                     <button
-                      key={normalizedSize}
                       type="button"
-                      onClick={() => toggleVariantOption(normalizedSize)}
-                      style={{
-                        ...variantBtn,
-                        background: active ? "#22c55e" : "#1e293b",
-                        color: active ? "#020617" : "#fff"
-                      }}
+                      onClick={addCustomVariant}
+                      style={secondaryBtn}
                     >
-                      {normalizedSize}
+                      Add Custom Option
                     </button>
-                  )
-                })}
-              </div>
-            ) : selectedCategory !== "custom" ? (
-              <p style={helperText}>
-                No preset variants found for this category.
-              </p>
-            ) : null}
+                  </div>
+                )}
+              </>
+            )}
 
-            {selectedCategory === "custom" && (
-              <div style={customWrap}>
-                <input
-                  name="customVariant"
-                  value={form.customVariant}
-                  placeholder="Add custom option, example: 30 inch, Jumbo, Bundle"
-                  onChange={handleChange}
-                  style={input}
-                />
+            {form.sizes.length > 0 && (
+              <div style={variantPriceBox}>
+                <h3 style={sectionTitle}>Variant Prices</h3>
 
-                <button
-                  type="button"
-                  onClick={addCustomVariant}
-                  style={secondaryBtn}
-                >
-                  Add Custom Option
-                </button>
+                {form.sizes.map(size => (
+                  <div key={size} style={variantPriceRow}>
+                    <span style={variantSizeLabel}>{size}</span>
+
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder={`Price for ${size}`}
+                      value={form.sizePrices[size] || ""}
+                      onChange={(e) => {
+                        const { value } = e.target
+
+                        setForm(prev => ({
+                          ...prev,
+                          sizePrices: {
+                            ...prev.sizePrices,
+                            [size]: value
+                          }
+                        }))
+                      }}
+                      style={variantPriceInput}
+                    />
+                  </div>
+                ))}
               </div>
             )}
+
+            {getColorList().map(color => (
+              <div key={color} style={uploadBox}>
+                <h4 style={colorTitle}>{color} Images</h4>
+
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e, color)}
+                  style={fileInput}
+                />
+
+                <div style={previewWrap}>
+                  {(form.colorImages[color] || []).map((file, i) => (
+                    <div key={`${color}-${i}`} style={previewItem}>
+                      <img
+                        src={URL.createObjectURL(file)}
+                        alt={`${color} preview ${i + 1}`}
+                        style={previewImage}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => removeImage(color, i)}
+                        style={removeBtn}
+                      >
+                        X
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </>
         )}
 
-        {form.sizes.length > 0 && (
-          <div style={variantPriceBox}>
-            <h3 style={sectionTitle}>Variant Prices</h3>
-
-            {form.sizes.map(size => (
-              <div key={size} style={variantPriceRow}>
-                <span style={variantSizeLabel}>{size}</span>
-
-                <input
-                  type="number"
-                  min="0"
-                  placeholder={`Price for ${size}`}
-                  value={form.sizePrices[size] || ""}
-                  onChange={(e) => {
-                    const { value } = e.target
-
-                    setForm(prev => ({
-                      ...prev,
-                      sizePrices: {
-                        ...prev.sizePrices,
-                        [size]: value
-                      }
-                    }))
-                  }}
-                  style={variantPriceInput}
-                />
-              </div>
-            ))}
+        {isService && (
+          <div style={digitalBox}>
+            <h3 style={sectionTitle}>Service Product</h3>
+            <p style={helperText}>
+              This product is saved as a service. Later, we can connect this to quote requests, project scheduling, and custom agreements.
+            </p>
           </div>
         )}
-
-        {getColorList().map(color => (
-          <div key={color} style={uploadBox}>
-            <h4 style={colorTitle}>{color} Images</h4>
-
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={(e) => handleImageUpload(e, color)}
-              style={fileInput}
-            />
-
-            <div style={previewWrap}>
-              {(form.colorImages[color] || []).map((file, i) => (
-                <div key={`${color}-${i}`} style={previewItem}>
-                  <img
-                    src={URL.createObjectURL(file)}
-                    alt={`${color} preview ${i + 1}`}
-                    style={previewImage}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => removeImage(color, i)}
-                    style={removeBtn}
-                  >
-                    X
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
 
         <button
           type="button"
@@ -501,6 +733,18 @@ const card = {
   borderRadius: 14,
   border: "1px solid #1e293b",
   maxWidth: 900
+}
+
+const sectionHeading = {
+  marginTop: 0,
+  marginBottom: 16
+}
+
+const label = {
+  display: "block",
+  marginBottom: 6,
+  color: "#cbd5e1",
+  fontWeight: 700
 }
 
 const input = {
@@ -543,6 +787,24 @@ const sectionTitle = {
 const helperText = {
   color: "#94a3b8",
   marginTop: 0
+}
+
+const digitalBox = {
+  background: "#020617",
+  padding: 14,
+  borderRadius: 12,
+  marginTop: 16,
+  marginBottom: 18,
+  border: "1px solid #1e293b"
+}
+
+const checkboxRow = {
+  display: "flex",
+  gap: 8,
+  alignItems: "center",
+  marginTop: 8,
+  marginBottom: 12,
+  color: "#e5e7eb"
 }
 
 const variantButtonWrap = {
