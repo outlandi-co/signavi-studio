@@ -13,12 +13,29 @@ const CATEGORY_OPTIONS = [
 ]
 
 const CATEGORY_VARIANTS = {
-  apparel: ["S", "M", "L", "XL", "XXL", "3XL"],
+  apparel: ["S", "M", "L", "XL", "XXL", "XXXL"],
   "cutting-board": ["12 inch", "18 inch", "24 inch"],
   mug: ["11 oz", "15 oz", "20 oz"],
   hat: ["One Size"],
   decal: ["Small", "Medium", "Large"],
   custom: []
+}
+
+const normalizeVariantSize = (size) => {
+  const value = String(size || "").trim()
+
+  const map = {
+    "3XL": "XXXL",
+    "3X": "XXXL",
+    XXXL: "XXXL",
+    XXL: "XXL",
+    XL: "XL",
+    L: "L",
+    M: "M",
+    S: "S"
+  }
+
+  return map[value.toUpperCase()] || value
 }
 
 const defaultForm = {
@@ -69,20 +86,28 @@ export default function AdminProducts() {
       .filter(Boolean)
   }
 
+  const getCleanSizes = () => {
+    return form.sizes
+      .map(size => normalizeVariantSize(size))
+      .filter(Boolean)
+  }
+
   const toggleVariantOption = (size) => {
+    const normalizedSize = normalizeVariantSize(size)
+
     setForm(prev => {
-      const active = prev.sizes.includes(size)
+      const active = prev.sizes.includes(normalizedSize)
 
       const updatedSizes = active
-        ? prev.sizes.filter(s => s !== size)
-        : [...prev.sizes, size]
+        ? prev.sizes.filter(s => s !== normalizedSize)
+        : [...prev.sizes, normalizedSize]
 
       const updatedSizePrices = { ...prev.sizePrices }
 
       if (active) {
-        delete updatedSizePrices[size]
+        delete updatedSizePrices[normalizedSize]
       } else {
-        updatedSizePrices[size] = prev.basePrice || ""
+        updatedSizePrices[normalizedSize] = prev.basePrice || ""
       }
 
       return {
@@ -94,7 +119,7 @@ export default function AdminProducts() {
   }
 
   const addCustomVariant = () => {
-    const customValue = form.customVariant.trim()
+    const customValue = normalizeVariantSize(form.customVariant)
 
     if (!customValue) {
       toast.error("Enter a custom option first")
@@ -155,9 +180,10 @@ export default function AdminProducts() {
   const buildVariants = () => {
     const variants = []
     const colors = getColorList()
+    const cleanSizes = getCleanSizes()
 
     colors.forEach(color => {
-      form.sizes.forEach(size => {
+      cleanSizes.forEach(size => {
         const variantPrice = Number(form.sizePrices[size] || form.basePrice) || 0
 
         variants.push({
@@ -177,6 +203,7 @@ export default function AdminProducts() {
 
   const createProduct = async () => {
     const colors = getColorList()
+    const cleanSizes = getCleanSizes()
     const variants = buildVariants()
 
     if (!form.name.trim()) return toast.error("Name required")
@@ -184,9 +211,9 @@ export default function AdminProducts() {
     if (!form.basePrice) return toast.error("Base price required")
     if (!form.stock) return toast.error("Stock required")
     if (!colors.length) return toast.error("Add at least one color")
-    if (!form.sizes.length) return toast.error("Select at least one variant option")
+    if (!cleanSizes.length) return toast.error("Select at least one variant option")
 
-    const missingPrice = form.sizes.find(size => {
+    const missingPrice = cleanSizes.find(size => {
       return !form.sizePrices[size] && !form.basePrice
     })
 
@@ -210,7 +237,7 @@ export default function AdminProducts() {
     formData.append("stock", stock)
     formData.append("quantity", stock)
 
-    formData.append("sizes", JSON.stringify(form.sizes))
+    formData.append("sizes", JSON.stringify(cleanSizes))
     formData.append(
       "colors",
       JSON.stringify(colors.map(name => ({ name })))
@@ -327,20 +354,21 @@ export default function AdminProducts() {
             {variantOptions.length > 0 ? (
               <div style={variantButtonWrap}>
                 {variantOptions.map(size => {
-                  const active = form.sizes.includes(size)
+                  const normalizedSize = normalizeVariantSize(size)
+                  const active = form.sizes.includes(normalizedSize)
 
                   return (
                     <button
-                      key={size}
+                      key={normalizedSize}
                       type="button"
-                      onClick={() => toggleVariantOption(size)}
+                      onClick={() => toggleVariantOption(normalizedSize)}
                       style={{
                         ...variantBtn,
                         background: active ? "#22c55e" : "#1e293b",
                         color: active ? "#020617" : "#fff"
                       }}
                     >
-                      {size}
+                      {normalizedSize}
                     </button>
                   )
                 })}
