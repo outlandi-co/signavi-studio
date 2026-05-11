@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import api from "../../services/api"
 import toast from "react-hot-toast"
 
@@ -39,6 +39,10 @@ const CATEGORY_VARIANTS = {
   custom: []
 }
 
+const API_IMAGE_BASE =
+  import.meta.env.VITE_API_URL?.replace("/api", "") ||
+  "https://signavi-backend.onrender.com"
+
 const normalizeVariantSize = (size) => {
   const value = String(size || "").trim()
 
@@ -73,6 +77,7 @@ const defaultForm = {
   sizes: [],
   sizePrices: {},
   colorImages: {},
+  existingVariantImages: {},
 
   digitalProduct: {
     previewImage: "",
@@ -91,6 +96,10 @@ export default function AdminProducts() {
   const [form, setForm] = useState(defaultForm)
   const [creating, setCreating] = useState(false)
 
+  const [products, setProducts] = useState([])
+  const [loadingProducts, setLoadingProducts] = useState(true)
+  const [editingProduct, setEditingProduct] = useState(null)
+
   const selectedCategory = String(form.category || "").trim().toLowerCase()
   const selectedProductType = String(form.productType || "physical").trim().toLowerCase()
   const variantOptions = CATEGORY_VARIANTS[selectedCategory] || []
@@ -98,6 +107,50 @@ export default function AdminProducts() {
   const isPhysical = selectedProductType === "physical"
   const isDigital = selectedProductType === "digital"
   const isService = selectedProductType === "service"
+
+function loadProducts(showLoader = true) {
+  if (showLoader) {
+    setLoadingProducts(true)
+  }
+
+  api.get("/products")
+    .then(res => {
+      const productData = Array.isArray(res.data)
+        ? res.data
+        : res.data?.data || []
+
+      setProducts(productData)
+    })
+    .catch(err => {
+      console.error("❌ LOAD PRODUCTS ERROR:", err.response?.data || err)
+      toast.error("Failed to load products")
+    })
+    .finally(() => {
+      setLoadingProducts(false)
+    })
+}
+
+useEffect(() => {
+  api.get("/products")
+    .then(res => {
+      const productData = Array.isArray(res.data)
+        ? res.data
+        : res.data?.data || []
+
+      setProducts(productData)
+    })
+    .catch(err => {
+      console.error("❌ LOAD PRODUCTS ERROR:", err.response?.data || err)
+      toast.error("Failed to load products")
+    })
+    .finally(() => {
+      setLoadingProducts(false)
+    })
+}, [])
+  const resetForm = () => {
+    setForm(defaultForm)
+    setEditingProduct(null)
+  }
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -109,7 +162,8 @@ export default function AdminProducts() {
           category: value,
           sizes: [],
           sizePrices: {},
-          customVariant: ""
+          customVariant: "",
+          existingVariantImages: {}
         }
       }
 
@@ -126,7 +180,8 @@ export default function AdminProducts() {
           sizePrices: value === "physical" ? prev.sizePrices : {},
           customVariant: value === "physical" ? prev.customVariant : "",
           colors: value === "physical" ? prev.colors : "",
-          colorImages: value === "physical" ? prev.colorImages : {}
+          colorImages: value === "physical" ? prev.colorImages : {},
+          existingVariantImages: value === "physical" ? prev.existingVariantImages : {}
         }
       }
 
@@ -187,6 +242,10 @@ export default function AdminProducts() {
     return form.sizes
       .map(size => normalizeVariantSize(size))
       .filter(Boolean)
+  }
+
+  const getVariantImageKey = (color, size) => {
+    return `${color}__${size}`
   }
 
   const toggleVariantOption = (size) => {
@@ -282,6 +341,8 @@ export default function AdminProducts() {
     colors.forEach(color => {
       cleanSizes.forEach(size => {
         const variantPrice = Number(form.sizePrices[size] || form.basePrice) || 0
+        const existingImages =
+          form.existingVariantImages[getVariantImageKey(color, size)] || []
 
         variants.push({
           color,
@@ -290,7 +351,8 @@ export default function AdminProducts() {
           quantity: Number(form.stock) || 0,
           price: variantPrice,
           basePrice: variantPrice,
-          listPrice: variantPrice
+          listPrice: variantPrice,
+          images: existingImages
         })
       })
     })
@@ -299,7 +361,7 @@ export default function AdminProducts() {
   }
 
   const buildDigitalProductPayload = () => {
-    const fileFormats = form.digitalProduct.fileFormats
+    const fileFormats = String(form.digitalProduct.fileFormats || "")
       .split(",")
       .map(format => format.trim())
       .filter(Boolean)
@@ -316,53 +378,79 @@ export default function AdminProducts() {
     }
   }
 
-  const createProduct = async () => {
+  const validateForm = () => {
     const colors = getColorList()
     const cleanSizes = getCleanSizes()
-    const variants = buildVariants()
 
-    if (!form.name.trim()) return toast.error("Name required")
-    if (!form.category) return toast.error("Select a category")
-    if (!form.basePrice) return toast.error("Base price required")
+    if (!form.name.trim()) {
+      toast.error("Name required")
+      return false
+    }
+
+    if (!form.category) {
+      toast.error("Select a category")
+      return false
+    }
+
+    if (!form.basePrice) {
+      toast.error("Base price required")
+      return false
+    }
 
     if (isPhysical) {
-      if (!form.stock) return toast.error("Stock required")
-      if (!colors.length) return toast.error("Add at least one color")
-      if (!cleanSizes.length) return toast.error("Select at least one variant option")
+      if (!form.stock) {
+        toast.error("Stock required")
+        return false
+      }
 
-      const missingPrice = cleanSizes.find(size => {
-        return !form.sizePrices[size] && !form.basePrice
-      })
+      if (!colors.length) {
+        toast.error("Add at least one color")
+        return false
+      }
 
-      if (missingPrice) {
-        return toast.error(`Add a price for ${missingPrice}`)
+      if (!cleanSizes.length) {
+        toast.error("Select at least one variant option")
+        return false
       }
     }
 
     if (isDigital) {
       if (!form.digitalProduct.licenseType) {
-        return toast.error("Select a license type")
+        toast.error("Select a license type")
+        return false
       }
 
       if (!form.digitalProduct.dpi) {
-        return toast.error("Add DPI")
+        toast.error("Add DPI")
+        return false
       }
 
       if (!form.digitalProduct.printSize) {
-        return toast.error("Add print size")
+        toast.error("Add print size")
+        return false
       }
 
       if (!form.digitalProduct.fileFormats) {
-        return toast.error("Add file formats")
+        toast.error("Add file formats")
+        return false
       }
 
       if (
         !form.digitalProduct.previewImage &&
         !form.digitalProduct.previewFiles?.length
       ) {
-        return toast.error("Add a digital artwork preview image")
+        toast.error("Add a digital artwork preview image")
+        return false
       }
     }
+
+    return true
+  }
+
+  const buildFormData = () => {
+    const colors = getColorList()
+    const cleanSizes = getCleanSizes()
+    const variants = buildVariants()
 
     const price = Number(form.basePrice) || 0
     const stock = isPhysical ? Number(form.stock) || 0 : 999999
@@ -408,17 +496,37 @@ export default function AdminProducts() {
       })
     }
 
+    return formData
+  }
+
+  const saveProduct = async () => {
+    if (!validateForm()) return
+
     try {
       setCreating(true)
 
-      await api.post("/products", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data"
-        }
-      })
+      const formData = buildFormData()
 
-      toast.success("Product created")
-      setForm(defaultForm)
+      if (editingProduct?._id) {
+        await api.patch(`/products/${editingProduct._id}`, formData, {
+          headers: {
+            "Content-Type": "multipart/form-data"
+          }
+        })
+
+        toast.success("Product updated")
+      } else {
+        await api.post("/products", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data"
+          }
+        })
+
+        toast.success("Product created")
+      }
+
+      resetForm()
+      loadProducts()
     } catch (err) {
       console.error("❌ PRODUCT ERROR STATUS:", err.response?.status)
       console.error("❌ PRODUCT ERROR DATA:", err.response?.data)
@@ -427,11 +535,144 @@ export default function AdminProducts() {
       toast.error(
         err.response?.data?.message ||
         err.response?.data?.error ||
-        "Create failed"
+        "Save failed"
       )
     } finally {
       setCreating(false)
     }
+  }
+
+  const startEdit = (product) => {
+    const productType = product.productType || "physical"
+    const variants = product.variants || []
+
+    const colors = product.colors?.length
+      ? product.colors.map(color => color.name).filter(Boolean)
+      : [...new Set(variants.map(variant => variant.color))].filter(Boolean)
+
+    const sizes = product.sizes?.length
+      ? product.sizes.map(normalizeVariantSize).filter(Boolean)
+      : [...new Set(variants.map(variant => normalizeVariantSize(variant.size)))].filter(Boolean)
+
+    const sizePrices = {}
+    const existingVariantImages = {}
+
+    variants.forEach(variant => {
+      const size = normalizeVariantSize(variant.size)
+
+      if (size && sizePrices[size] === undefined) {
+        sizePrices[size] = String(
+          variant.price ||
+          variant.basePrice ||
+          variant.listPrice ||
+          product.price ||
+          product.basePrice ||
+          product.listPrice ||
+          ""
+        )
+      }
+
+      if (variant.color && size) {
+        existingVariantImages[getVariantImageKey(variant.color, size)] =
+          Array.isArray(variant.images) ? variant.images : []
+      }
+    })
+
+    const digitalProduct = product.digitalProduct || {}
+
+    setEditingProduct(product)
+
+    setForm({
+      name: product.name || "",
+      description: product.description || "",
+      basePrice: String(product.price || product.basePrice || product.listPrice || ""),
+      stock: String(product.stock || product.quantity || ""),
+      category: product.category || "",
+      productType,
+
+      customVariant: "",
+      colors: colors.join(", "),
+      sizes,
+      sizePrices,
+      colorImages: {},
+      existingVariantImages,
+
+      digitalProduct: {
+        previewImage: digitalProduct.previewImage || product.image || "",
+        previewFiles: [],
+        downloadFile: digitalProduct.downloadFile || "",
+        licenseType: digitalProduct.licenseType || "personal-use",
+        dpi: String(digitalProduct.dpi || "300"),
+        printSize: digitalProduct.printSize || "",
+        fileFormats: Array.isArray(digitalProduct.fileFormats)
+          ? digitalProduct.fileFormats.join(", ")
+          : "",
+        downloadLimit: String(digitalProduct.downloadLimit || "3"),
+        licenseRequired: digitalProduct.licenseRequired !== false
+      }
+    })
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    })
+  }
+
+  const deleteProduct = async (product) => {
+    const confirmed = window.confirm(
+      `Delete "${product.name}"? This cannot be undone.`
+    )
+
+    if (!confirmed) return
+
+    try {
+      await api.delete(`/products/${product._id}`)
+
+      toast.success("Product deleted")
+
+      if (editingProduct?._id === product._id) {
+        resetForm()
+      }
+
+      loadProducts()
+    } catch (err) {
+      console.error("❌ DELETE PRODUCT ERROR:", err.response?.data || err)
+      toast.error(err.response?.data?.message || "Delete failed")
+    }
+  }
+
+  const resolveImage = (image) => {
+    if (!image) return "/image_placeholder/placeholder.png"
+    if (image.startsWith("http")) return image
+    if (image.startsWith("data:image")) return image
+    if (image.startsWith("/uploads")) return `${API_IMAGE_BASE}${image}`
+    if (image.startsWith("uploads")) return `${API_IMAGE_BASE}/${image}`
+
+    return image
+  }
+
+  const getProductImage = (product) => {
+    const variantImage = product.variants
+      ?.find(variant => variant.images?.length)
+      ?.images?.[0]
+
+    const image =
+      product.digitalProduct?.previewImage ||
+      product.image ||
+      product.images?.[0] ||
+      variantImage
+
+    return resolveImage(image)
+  }
+
+  const getProductPrice = (product) => {
+    return Number(
+      product.price ||
+      product.basePrice ||
+      product.listPrice ||
+      product.variants?.[0]?.price ||
+      0
+    )
   }
 
   return (
@@ -439,7 +680,25 @@ export default function AdminProducts() {
       <h1 style={heading}>Admin Products</h1>
 
       <div style={card}>
-        <h2 style={sectionHeading}>Create Product</h2>
+        <h2 style={sectionHeading}>
+          {editingProduct ? "Edit Product" : "Create Product"}
+        </h2>
+
+        {editingProduct && (
+          <div style={editNotice}>
+            <span>
+              <strong>Editing:</strong> {editingProduct.name}
+            </span>
+
+            <button
+              type="button"
+              onClick={resetForm}
+              style={cancelEditBtn}
+            >
+              Cancel Edit
+            </button>
+          </div>
+        )}
 
         <label style={label}>Product Type</label>
         <select
@@ -582,6 +841,18 @@ export default function AdminProducts() {
               onChange={handleDigitalPreviewUpload}
               style={fileInput}
             />
+
+            {form.digitalProduct.previewImage && (
+              <div style={existingPreviewBox}>
+                <p style={helperText}>Current Preview</p>
+
+                <img
+                  src={resolveImage(form.digitalProduct.previewImage)}
+                  alt="Current digital preview"
+                  style={existingPreviewImage}
+                />
+              </div>
+            )}
 
             {form.digitalProduct.previewFiles?.length > 0 && (
               <div style={previewWrap}>
@@ -773,7 +1044,7 @@ export default function AdminProducts() {
 
         <button
           type="button"
-          onClick={createProduct}
+          onClick={saveProduct}
           disabled={creating}
           style={{
             ...btn,
@@ -781,8 +1052,93 @@ export default function AdminProducts() {
             cursor: creating ? "not-allowed" : "pointer"
           }}
         >
-          {creating ? "Creating Product..." : "Add Product"}
+          {creating
+            ? editingProduct
+              ? "Updating Product..."
+              : "Creating Product..."
+            : editingProduct
+              ? "Update Product"
+              : "Add Product"}
         </button>
+      </div>
+
+      <div style={productsSection}>
+        <div style={productsHeader}>
+          <h2 style={sectionHeading}>Current Products</h2>
+
+          <button
+            type="button"
+            onClick={loadProducts}
+            style={refreshBtn}
+          >
+            Refresh
+          </button>
+        </div>
+
+        {loadingProducts ? (
+          <p style={helperText}>Loading products...</p>
+        ) : products.length === 0 ? (
+          <p style={helperText}>No products found.</p>
+        ) : (
+          <div style={productGrid}>
+            {products.map(product => (
+              <div key={product._id} style={productCard}>
+                <div style={productImageBox}>
+                  <img
+                    src={getProductImage(product)}
+                    alt={product.name || "Product"}
+                    style={productImage}
+                    onError={(e) => {
+                      e.currentTarget.src = "/image_placeholder/placeholder.png"
+                    }}
+                  />
+                </div>
+
+                <div style={productInfo}>
+                  <h3 style={productName}>{product.name}</h3>
+
+                  <p style={productMeta}>
+                    {product.productType || "physical"} • {product.category || "general"}
+                  </p>
+
+                  <p style={productPrice}>
+                    ${getProductPrice(product).toFixed(2)}
+                  </p>
+
+                  {product.productType === "digital" && (
+                    <p style={digitalBadge}>
+                      Digital Download
+                    </p>
+                  )}
+
+                  {product.variants?.length > 0 && (
+                    <p style={productMeta}>
+                      {product.variants.length} variants
+                    </p>
+                  )}
+                </div>
+
+                <div style={productActions}>
+                  <button
+                    type="button"
+                    onClick={() => startEdit(product)}
+                    style={editBtn}
+                  >
+                    Edit
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => deleteProduct(product)}
+                    style={deleteBtn}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -981,6 +1337,20 @@ const previewImage = {
   border: "1px solid #334155"
 }
 
+const existingPreviewBox = {
+  marginBottom: 12
+}
+
+const existingPreviewImage = {
+  width: 120,
+  height: 120,
+  objectFit: "contain",
+  background: "#fff",
+  borderRadius: 8,
+  padding: 6,
+  boxSizing: "border-box"
+}
+
 const removeBtn = {
   display: "block",
   marginTop: 4,
@@ -1003,4 +1373,138 @@ const btn = {
   width: "100%",
   fontWeight: 800,
   fontSize: 16
+}
+
+const editNotice = {
+  background: "#022c22",
+  border: "1px solid #22c55e",
+  color: "#dcfce7",
+  padding: 12,
+  borderRadius: 10,
+  marginBottom: 14,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12
+}
+
+const cancelEditBtn = {
+  background: "#ef4444",
+  color: "#fff",
+  border: "none",
+  borderRadius: 8,
+  padding: "8px 10px",
+  cursor: "pointer",
+  fontWeight: 700
+}
+
+const productsSection = {
+  marginTop: 30
+}
+
+const productsHeader = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  maxWidth: 1100,
+  marginBottom: 14
+}
+
+const refreshBtn = {
+  background: "#38bdf8",
+  color: "#020617",
+  border: "none",
+  borderRadius: 8,
+  padding: "8px 12px",
+  cursor: "pointer",
+  fontWeight: 700
+}
+
+const productGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))",
+  gap: 16,
+  maxWidth: 1100
+}
+
+const productCard = {
+  background: "#0f172a",
+  border: "1px solid #1e293b",
+  borderRadius: 14,
+  padding: 12
+}
+
+const productImageBox = {
+  width: "100%",
+  height: 150,
+  background: "#ffffff",
+  borderRadius: 10,
+  overflow: "hidden",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  marginBottom: 10
+}
+
+const productImage = {
+  width: "100%",
+  height: "100%",
+  objectFit: "contain",
+  padding: 6,
+  boxSizing: "border-box"
+}
+
+const productInfo = {
+  minHeight: 104
+}
+
+const productName = {
+  margin: "0 0 6px",
+  fontSize: 16
+}
+
+const productMeta = {
+  margin: "0 0 6px",
+  color: "#94a3b8",
+  fontSize: 13
+}
+
+const productPrice = {
+  margin: "0 0 6px",
+  color: "#22c55e",
+  fontWeight: 800
+}
+
+const digitalBadge = {
+  margin: "0 0 6px",
+  color: "#38bdf8",
+  fontSize: 13,
+  fontWeight: 700
+}
+
+const productActions = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 8,
+  marginTop: 10
+}
+
+const editBtn = {
+  background: "#38bdf8",
+  color: "#020617",
+  border: "none",
+  borderRadius: 8,
+  padding: 8,
+  cursor: "pointer",
+  fontWeight: 800
+}
+
+const deleteBtn = {
+  background: "#ef4444",
+  color: "#fff",
+  border: "none",
+  borderRadius: 8,
+  padding: 8,
+  cursor: "pointer",
+  fontWeight: 800
 }
