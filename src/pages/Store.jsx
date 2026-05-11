@@ -133,7 +133,15 @@ if (images.length === 0 && product.image) {
         const safeIdx = idx >= images.length ? 0 : idx
 
         const mainImage = resolve(images[safeIdx] || images[0])
-        const price = variant?.price || product.price || 0
+        const price = Number(
+  variant?.price ||
+  variant?.basePrice ||
+  variant?.listPrice ||
+  product.price ||
+  product.basePrice ||
+  product.listPrice ||
+  0
+)
 
         return (
           <div key={product._id} className="card">
@@ -245,12 +253,16 @@ if (images.length === 0 && product.image) {
                 }
 
                 addToCart({
-                  productId: product._id,
-                  name: product.name,
-                  image: mainImage,
-                  quantity: 1,
-                  selectedVariant: variant
-                })
+  productId: product._id,
+  name: product.name,
+  image: mainImage,
+  quantity: 1,
+  price,
+  selectedVariant: {
+    ...variant,
+    price
+  }
+})
 
                 toast.success("Added")
               }}

@@ -5,7 +5,6 @@ import { useCartContext } from "../context/useCartContext"
 import toast from "react-hot-toast"
 
 export default function ProductDetail() {
-
   const { id } = useParams()
   const { addToCart } = useCartContext()
 
@@ -22,32 +21,50 @@ export default function ProductDetail() {
 
   const resolve = (img) => {
     if (!img) return "/image_placeholder/placeholder.png"
-    return img.startsWith("http") ? img : `${BASE_URL}${img}`
+
+    if (img.startsWith("data:image")) return img
+
+    if (img.startsWith("http")) return img
+
+    return `${BASE_URL}${img}`
   }
 
   /* ================= LOAD ================= */
   useEffect(() => {
+    let isMounted = true
+
     const load = async () => {
       try {
         const res = await api.get(`/products/${id}`)
-        const p = res.data
+        const p = res.data?.data || res.data
+
+        if (!isMounted) return
 
         setProduct(p)
 
         if (p?.variants?.length) {
           const first = p.variants[0]
+
           setSelectedColor(first.color)
           setSelectedSize(first.size)
         }
-
       } catch (err) {
-        console.error(err)
+        if (!isMounted) return
+
+        console.error("❌ PRODUCT DETAIL ERROR:", err.response?.data || err)
+        toast.error("Failed to load product")
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
 
     load()
+
+    return () => {
+      isMounted = false
+    }
   }, [id])
 
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>
@@ -55,7 +72,7 @@ export default function ProductDetail() {
 
   const variants = product.variants || []
 
-  /* 🔥 SAFE COLORS */
+  /* ================= COLORS ================= */
   const colors = [
     ...new Set(variants.map(v => v.color))
   ].filter(Boolean)
@@ -66,7 +83,7 @@ export default function ProductDetail() {
     v => v.color === activeColor
   )
 
-  /* 🔥 SAFE SIZES */
+  /* ================= SIZES / VARIANTS ================= */
   const sizes = [
     ...new Set(colorVariants.map(v => v.size))
   ].filter(Boolean)
@@ -74,136 +91,195 @@ export default function ProductDetail() {
   const activeSize = selectedSize || sizes[0]
 
   const variant = variants.find(
-    v =>
-      v.color === activeColor &&
-      v.size === activeSize
-  )
+    v => v.color === activeColor && v.size === activeSize
+  ) || colorVariants[0]
 
-  /* 🔥 IMAGES */
- const images = [
-  ...new Set(
-    variants
-      .filter(v => v.color === activeColor)
-      .flatMap(v => v.images || [])
-  )
-]
+  /* ================= IMAGES ================= */
+  const images = [
+    ...new Set(
+      variants
+        .filter(v => v.color === activeColor)
+        .flatMap(v => v.images || [])
+    )
+  ]
 
-// fallback if somehow empty
-if (images.length === 0 && product.image) {
-  images.push(product.image)
-}
+  if (images.length === 0 && product.image) {
+    images.push(product.image)
+  }
 
-  const safeIndex =
-    imageIndex >= images.length ? 0 : imageIndex
+  if (images.length === 0 && product.images?.length) {
+    images.push(...product.images)
+  }
+
+  const safeIndex = imageIndex >= images.length ? 0 : imageIndex
 
   const mainImage = resolve(images[safeIndex] || images[0])
 
-  const price =
+  /* ✅ VARIANT PRICE FIX */
+  const price = Number(
     variant?.price ||
+    variant?.basePrice ||
+    variant?.listPrice ||
     product.price ||
+    product.basePrice ||
+    product.listPrice ||
     0
+  )
+
+  const stock = Number(
+    variant?.stock ??
+    variant?.quantity ??
+    product.stock ??
+    product.quantity ??
+    0
+  )
 
   return (
     <div style={wrap}>
 
       {/* LEFT */}
       <div>
+        <img
+          src={mainImage}
+          alt={product.name}
+          style={mainImg}
+        />
 
-        <img src={mainImage} style={mainImg} />
-
-        <div style={thumbRow}>
-          {images.map((img, i) => (
-            <img
-              key={i}
-              src={resolve(img)}
-              onClick={() => setImageIndex(i)}
-              style={{
-                ...thumb,
-                border:
-                  i === safeIndex
-                    ? "2px solid #22c55e"
-                    : "1px solid #334155"
-              }}
-            />
-          ))}
-        </div>
-
+        {images.length > 1 && (
+          <div style={thumbRow}>
+            {images.map((img, i) => (
+              <img
+                key={`${img}-${i}`}
+                src={resolve(img)}
+                alt={`${product.name} thumbnail ${i + 1}`}
+                onClick={() => setImageIndex(i)}
+                style={{
+                  ...thumb,
+                  border:
+                    i === safeIndex
+                      ? "2px solid #22c55e"
+                      : "1px solid #334155"
+                }}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* RIGHT */}
       <div>
-
         <h1>{product.name}</h1>
-        <p style={priceText}>${price.toFixed(2)}</p>
 
-        <p style={{ opacity: 0.7 }}>{product.description}</p>
+        <p style={priceText}>
+          ${price.toFixed(2)}
+        </p>
+
+        <p style={stockText}>
+          {stock > 0 ? `${stock} available` : "Out of stock"}
+        </p>
+
+        <p style={{ opacity: 0.7 }}>
+          {product.description}
+        </p>
 
         {/* COLORS */}
-        <h4>Color</h4>
-        <div style={row}>
-          {colors.map(c => (
-            <button
-              key={c}
-              onClick={() => {
-                const firstSize =
-                  variants.find(v => v.color === c)?.size
+        {colors.length > 0 && (
+          <>
+            <h4>Color</h4>
 
-                setSelectedColor(c)
-                setSelectedSize(firstSize)
+            <div style={row}>
+              {colors.map(color => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => {
+                    const firstSize =
+                      variants.find(v => v.color === color)?.size
 
-                /* 🔥 RESET IMAGE */
-                setImageIndex(0)
-              }}
-              style={{
-                ...btn,
-                background:
-                  activeColor === c
-                    ? "#22c55e"
-                    : "#1e293b"
-              }}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
+                    setSelectedColor(color)
+                    setSelectedSize(firstSize)
+                    setImageIndex(0)
+                  }}
+                  style={{
+                    ...btn,
+                    background:
+                      activeColor === color
+                        ? "#22c55e"
+                        : "#1e293b",
+                    color:
+                      activeColor === color
+                        ? "#020617"
+                        : "#ffffff"
+                  }}
+                >
+                  {color}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         {/* SIZES */}
-        <h4>Size</h4>
-        <div style={row}>
-          {sizes.map(s => {
-            const v = variants.find(
-              v => v.color === activeColor && v.size === s
-            )
+        {sizes.length > 0 && (
+          <>
+            <h4>Size</h4>
 
-            const out = v?.stock === 0
+            <div style={row}>
+              {sizes.map(size => {
+                const sizeVariant = variants.find(
+                  v => v.color === activeColor && v.size === size
+                )
 
-            return (
-              <button
-                key={s}
-                disabled={out}
-                onClick={() => setSelectedSize(s)}
-                style={{
-                  ...btn,
-                  background:
-                    activeSize === s
-                      ? "#22c55e"
-                      : "#1e293b",
-                  opacity: out ? 0.3 : 1
-                }}
-              >
-                {s}
-              </button>
-            )
-          })}
-        </div>
+                const out = Number(
+                  sizeVariant?.stock ??
+                  sizeVariant?.quantity ??
+                  0
+                ) <= 0
+
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    disabled={out}
+                    onClick={() => setSelectedSize(size)}
+                    style={{
+                      ...btn,
+                      background:
+                        activeSize === size
+                          ? "#22c55e"
+                          : "#1e293b",
+                      color:
+                        activeSize === size
+                          ? "#020617"
+                          : "#ffffff",
+                      opacity: out ? 0.3 : 1,
+                      cursor: out ? "not-allowed" : "pointer"
+                    }}
+                  >
+                    {size}
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )}
 
         {/* ADD */}
         <button
-          style={addBtn}
+          type="button"
+          style={{
+            ...addBtn,
+            opacity: !variant || stock <= 0 ? 0.5 : 1,
+            cursor: !variant || stock <= 0 ? "not-allowed" : "pointer"
+          }}
+          disabled={!variant || stock <= 0}
           onClick={() => {
-
             if (!variant) {
               return toast.error("Select color + size")
+            }
+
+            if (stock <= 0) {
+              return toast.error("This option is out of stock")
             }
 
             addToCart({
@@ -211,7 +287,11 @@ if (images.length === 0 && product.image) {
               name: product.name,
               image: mainImage,
               quantity: 1,
-              selectedVariant: variant
+              price,
+              selectedVariant: {
+                ...variant,
+                price
+              }
             })
 
             toast.success("Added to cart")
@@ -219,9 +299,7 @@ if (images.length === 0 && product.image) {
         >
           Add to Cart
         </button>
-
       </div>
-
     </div>
   )
 }
@@ -246,7 +324,8 @@ const mainImg = {
 const thumbRow = {
   display: "flex",
   gap: 10,
-  marginTop: 10
+  marginTop: 10,
+  flexWrap: "wrap"
 }
 
 const thumb = {
@@ -259,15 +338,23 @@ const thumb = {
 
 const priceText = {
   color: "#22c55e",
-  fontSize: 20,
-  fontWeight: "bold"
+  fontSize: 24,
+  fontWeight: "bold",
+  marginBottom: 6
+}
+
+const stockText = {
+  color: "#94a3b8",
+  marginTop: 0,
+  marginBottom: 16
 }
 
 const row = {
   display: "flex",
   gap: 8,
   marginTop: 10,
-  marginBottom: 20
+  marginBottom: 20,
+  flexWrap: "wrap"
 }
 
 const btn = {
@@ -275,7 +362,8 @@ const btn = {
   border: "none",
   color: "white",
   borderRadius: 6,
-  cursor: "pointer"
+  cursor: "pointer",
+  fontWeight: 700
 }
 
 const addBtn = {
@@ -283,8 +371,8 @@ const addBtn = {
   padding: 12,
   width: "100%",
   background: "#22c55e",
+  color: "#020617",
   border: "none",
   borderRadius: 8,
-  fontWeight: "bold",
-  cursor: "pointer"
+  fontWeight: "bold"
 }
