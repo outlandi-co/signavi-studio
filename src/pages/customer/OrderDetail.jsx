@@ -14,47 +14,57 @@ const SOCKET_URL = API_URL.replace("/api", "")
 export default function OrderDetail() {
   const { id } = useParams()
 
+  const invalidId = !id || id === "null" || id === "undefined"
+
   const [order, setOrder] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!invalidId)
 
   const socketRef = useRef(null)
 
-  /* ================= LOAD ================= */
+  /* ================= LOAD ORDER ================= */
   useEffect(() => {
-    if (!id || id === "null") {
+    if (invalidId) {
       console.warn("⚠️ Invalid order ID:", id)
-      setLoading(false)
       return
     }
 
     let isMounted = true
 
-    const load = async () => {
+    const loadOrder = async () => {
       try {
         const res = await api.get(`/orders/${id}`)
         const data = res.data?.data || res.data
 
-        if (isMounted) {
+        if (!isMounted) return
+
+        if (data?._id) {
           setOrder(data)
+        } else {
+          setOrder(null)
         }
       } catch (err) {
-        console.error("❌ ORDER LOAD ERROR:", err)
-        if (isMounted) setOrder(null)
+        console.error("❌ ORDER LOAD ERROR:", err.response?.data || err)
+
+        if (isMounted) {
+          setOrder(null)
+        }
       } finally {
-        if (isMounted) setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
 
-    load()
+    loadOrder()
 
     return () => {
       isMounted = false
     }
-  }, [id])
+  }, [id, invalidId])
 
-  /* ================= SOCKET ================= */
+  /* ================= SOCKET UPDATES ================= */
   useEffect(() => {
-    if (!id || id === "null") return
+    if (invalidId) return
 
     if (!socketRef.current) {
       socketRef.current = io(SOCKET_URL, {
@@ -66,19 +76,21 @@ export default function OrderDetail() {
 
     const handleSocketUpdate = (updatedOrder) => {
       if (updatedOrder?._id === id) {
-        console.log("🔄 Live update received")
+        console.log("🔄 Live order update received")
         setOrder(updatedOrder)
       }
     }
 
     socket.on("jobUpdated", handleSocketUpdate)
+    socket.on("orderUpdated", handleSocketUpdate)
 
     return () => {
       socket.off("jobUpdated", handleSocketUpdate)
+      socket.off("orderUpdated", handleSocketUpdate)
     }
-  }, [id])
+  }, [id, invalidId])
 
-  /* ================= PDF ================= */
+  /* ================= PDF DOWNLOAD ================= */
   const handleDownloadInvoice = async () => {
     if (!order) return
 
@@ -102,34 +114,39 @@ export default function OrderDetail() {
   }
 
   /* ================= STATES ================= */
+  if (invalidId) {
+    return (
+      <div style={page}>
+        <div style={errorBox}>
+          ⚠️ Order not found or invalid ID
+        </div>
+      </div>
+    )
+  }
+
   if (loading) {
-    return <p style={{ padding: 20 }}>Loading...</p>
+    return (
+      <div style={page}>
+        <p>Loading order...</p>
+      </div>
+    )
   }
 
   if (!order) {
     return (
-      <p style={{ padding: 20, color: "red" }}>
-        ⚠️ Order not found or invalid ID
-      </p>
+      <div style={page}>
+        <div style={errorBox}>
+          ⚠️ Order not found or invalid ID
+        </div>
+      </div>
     )
   }
 
-  /* ================= UI ================= */
   return (
-    <div style={{ padding: 20, color: "white" }}>
+    <div style={page}>
       <h1>📦 Order Detail</h1>
 
-      {/* ================= INVOICE ================= */}
-      <div
-        id="invoice"
-        style={{
-          background: "white",
-          color: "black",
-          padding: 30,
-          borderRadius: 10,
-          marginTop: 20
-        }}
-      >
+      <div id="invoice" style={invoice}>
         <div style={header}>
           <div>
             <h1 style={{ margin: 0 }}>SignaVi Studio</h1>
@@ -139,9 +156,11 @@ export default function OrderDetail() {
 
           <div style={{ textAlign: "right" }}>
             <h2 style={{ margin: 0 }}>INVOICE</h2>
+
             <p style={{ margin: 0 }}>
               #{order._id?.slice(-6) || "N/A"}
             </p>
+
             <p style={{ margin: 0 }}>
               {order.createdAt
                 ? new Date(order.createdAt).toLocaleDateString()
@@ -150,15 +169,32 @@ export default function OrderDetail() {
           </div>
         </div>
 
-        <p><strong>Customer:</strong> {order.customerName}</p>
-        <p><strong>Email:</strong> {order.email}</p>
-        <p><strong>Status:</strong> {order.status}</p>
+        <p>
+          <strong>Customer:</strong>{" "}
+          {order.customerName || "Customer"}
+        </p>
 
-        {/* SHIPPING */}
+        <p>
+          <strong>Email:</strong>{" "}
+          {order.email || "N/A"}
+        </p>
+
+        <p>
+          <strong>Status:</strong>{" "}
+          {order.status || "N/A"}
+        </p>
+
         {order.trackingNumber && (
           <div style={{ marginTop: 10 }}>
-            <p><strong>Carrier:</strong> {order.carrier}</p>
-            <p><strong>Tracking:</strong> {order.trackingNumber}</p>
+            <p>
+              <strong>Carrier:</strong>{" "}
+              {order.carrier || "N/A"}
+            </p>
+
+            <p>
+              <strong>Tracking:</strong>{" "}
+              {order.trackingNumber}
+            </p>
 
             {order.trackingLink && (
               <a
@@ -174,34 +210,61 @@ export default function OrderDetail() {
 
         <hr />
 
-        {order.items?.map((item, i) => (
-          <div key={i} style={{ marginBottom: 10 }}>
-            <p><strong>{item.name}</strong></p>
-            <p>
-              {item.variant?.color || "N/A"} /{" "}
-              {item.variant?.size || "N/A"}
-            </p>
-            <p>
-              Qty: {item.quantity} × $
-              {Number(item.price || 0).toFixed(2)}
-            </p>
-            <p>
-              Line Total: $
-              {(item.quantity * item.price).toFixed(2)}
-            </p>
-          </div>
-        ))}
+        {order.items?.length > 0 ? (
+          order.items.map((item, i) => {
+            const quantity = Number(item.quantity || 1)
+            const price = Number(item.price || 0)
+            const lineTotal = quantity * price
+
+            return (
+              <div key={`${item.name}-${i}`} style={itemRow}>
+                <p>
+                  <strong>{item.name || "Item"}</strong>
+                </p>
+
+                <p>
+                  {item.variant?.color || item.selectedVariant?.color || "N/A"} /{" "}
+                  {item.variant?.size || item.selectedVariant?.size || "N/A"}
+                </p>
+
+                <p>
+                  Qty: {quantity} × ${price.toFixed(2)}
+                </p>
+
+                <p>
+                  Line Total: ${lineTotal.toFixed(2)}
+                </p>
+              </div>
+            )
+          })
+        ) : (
+          <p>No order items found.</p>
+        )}
 
         <hr />
 
-        <p>Subtotal: ${Number(order.subtotal || 0).toFixed(2)}</p>
-        <p>Tax: ${Number(order.tax || 0).toFixed(2)}</p>
-        <p>Shipping: ${Number(order.shippingCost || 0).toFixed(2)}</p>
+        <p>
+          Subtotal: ${Number(order.subtotal || 0).toFixed(2)}
+        </p>
 
-        <h3>Total: ${Number(order.finalPrice || 0).toFixed(2)}</h3>
+        <p>
+          Tax: ${Number(order.tax || 0).toFixed(2)}
+        </p>
+
+        <p>
+          Shipping: ${Number(order.shippingCost || 0).toFixed(2)}
+        </p>
+
+        <h3>
+          Total: ${Number(order.finalPrice || 0).toFixed(2)}
+        </h3>
       </div>
 
-      <button onClick={handleDownloadInvoice} style={downloadBtn}>
+      <button
+        type="button"
+        onClick={handleDownloadInvoice}
+        style={downloadBtn}
+      >
         📄 Download Invoice
       </button>
     </div>
@@ -209,12 +272,38 @@ export default function OrderDetail() {
 }
 
 /* ================= STYLES ================= */
+
+const page = {
+  padding: 20,
+  color: "white"
+}
+
+const errorBox = {
+  padding: 20,
+  color: "red",
+  background: "#0f172a",
+  borderRadius: 10
+}
+
+const invoice = {
+  background: "white",
+  color: "black",
+  padding: 30,
+  borderRadius: 10,
+  marginTop: 20
+}
+
 const header = {
   marginBottom: 25,
   borderBottom: "2px solid #000",
   paddingBottom: 12,
   display: "flex",
-  justifyContent: "space-between"
+  justifyContent: "space-between",
+  gap: 20
+}
+
+const itemRow = {
+  marginBottom: 10
 }
 
 const downloadBtn = {
@@ -224,5 +313,6 @@ const downloadBtn = {
   borderRadius: 6,
   color: "black",
   border: "none",
-  cursor: "pointer"
+  cursor: "pointer",
+  fontWeight: 700
 }
