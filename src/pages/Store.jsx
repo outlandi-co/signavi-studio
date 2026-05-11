@@ -25,13 +25,10 @@ export default function Store() {
       return "/image_placeholder/placeholder.png"
     }
 
-    // ✅ BASE64
     if (img.startsWith("data:image")) return img
 
-    // ✅ FULL URL
     if (img.startsWith("http")) return img
 
-    // ✅ BACKEND PATH
     if (img.startsWith("/uploads")) {
       return `${BASE_URL}${img}`
     }
@@ -114,6 +111,13 @@ export default function Store() {
     }
   }
 
+  const formatLicense = (licenseType = "") => {
+    return String(licenseType)
+      .split("-")
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
+  }
+
   if (loading) {
     return <div style={{ padding: 40 }}>Loading...</div>
   }
@@ -121,6 +125,11 @@ export default function Store() {
   return (
     <div style={grid}>
       {products.map(product => {
+        const productType = product.productType || "physical"
+        const isPhysical = productType === "physical"
+        const isDigital = productType === "digital"
+        const isService = productType === "service"
+
         const variants = product.variants || []
         const current = selected[product._id] || {}
 
@@ -152,6 +161,10 @@ export default function Store() {
           )
         ]
 
+        if (images.length === 0 && product.digitalProduct?.previewImage) {
+          images.push(product.digitalProduct.previewImage)
+        }
+
         if (images.length === 0 && product.image) {
           images.push(product.image)
         }
@@ -166,13 +179,22 @@ export default function Store() {
         const mainImage = resolve(images[safeIdx] || images[0])
 
         const price = Number(
-          variant?.price ||
-          variant?.basePrice ||
-          variant?.listPrice ||
-          product.price ||
-          product.basePrice ||
-          product.listPrice ||
-          0
+          isPhysical
+            ? (
+                variant?.price ||
+                variant?.basePrice ||
+                variant?.listPrice ||
+                product.price ||
+                product.basePrice ||
+                product.listPrice ||
+                0
+              )
+            : (
+                product.price ||
+                product.basePrice ||
+                product.listPrice ||
+                0
+              )
         )
 
         return (
@@ -238,71 +260,110 @@ export default function Store() {
             )}
 
             <h3>{product.name}</h3>
-            <p>${price.toFixed(2)}</p>
 
-            <div className="row">
-              {colors.map(c => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => {
-                    const firstSize = variants.find(v => v.color === c)?.size
+            <p className="priceText">
+              ${price.toFixed(2)}
+            </p>
 
-                    setSelected(prev => ({
-                      ...prev,
-                      [product._id]: {
-                        color: c,
-                        size: firstSize
-                      }
-                    }))
+            {isDigital && (
+              <div className="digitalInfo">
+                <p className="digitalBadge">
+                  Digital Download • {product.digitalProduct?.dpi || 300} DPI
+                </p>
 
-                    setImageIndex(prev => ({
-                      ...prev,
-                      [product._id]: 0
-                    }))
-                  }}
-                  className={activeColor === c ? "active" : ""}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
+                {product.digitalProduct?.printSize && (
+                  <p className="licenseText">
+                    Print Size: {product.digitalProduct.printSize}
+                  </p>
+                )}
 
-            <div className="row">
-              {sizes.map(s => {
-                const v = variants.find(
-                  v => v.color === activeColor && v.size === s
-                )
+                {product.digitalProduct?.licenseType && (
+                  <p className="licenseText">
+                    License: {formatLicense(product.digitalProduct.licenseType)}
+                  </p>
+                )}
 
-                const out = Number(v?.stock || 0) === 0
+                {product.digitalProduct?.fileFormats?.length > 0 && (
+                  <p className="licenseText">
+                    Files: {product.digitalProduct.fileFormats.join(", ")}
+                  </p>
+                )}
+              </div>
+            )}
 
-                return (
+            {isService && (
+              <p className="serviceBadge">
+                Service Product
+              </p>
+            )}
+
+            {isPhysical && (
+              <div className="row">
+                {colors.map(c => (
                   <button
-                    key={s}
+                    key={c}
                     type="button"
-                    disabled={out}
-                    onClick={() =>
+                    onClick={() => {
+                      const firstSize = variants.find(v => v.color === c)?.size
+
                       setSelected(prev => ({
                         ...prev,
                         [product._id]: {
-                          ...prev[product._id],
-                          size: s
+                          color: c,
+                          size: firstSize
                         }
                       }))
-                    }
-                    className={`${activeSize === s ? "active" : ""} ${out ? "disabled" : ""}`}
+
+                      setImageIndex(prev => ({
+                        ...prev,
+                        [product._id]: 0
+                      }))
+                    }}
+                    className={activeColor === c ? "active" : ""}
                   >
-                    {s}
+                    {c}
                   </button>
-                )
-              })}
-            </div>
+                ))}
+              </div>
+            )}
+
+            {isPhysical && (
+              <div className="row">
+                {sizes.map(s => {
+                  const v = variants.find(
+                    v => v.color === activeColor && v.size === s
+                  )
+
+                  const out = Number(v?.stock || 0) === 0
+
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      disabled={out}
+                      onClick={() =>
+                        setSelected(prev => ({
+                          ...prev,
+                          [product._id]: {
+                            ...prev[product._id],
+                            size: s
+                          }
+                        }))
+                      }
+                      className={`${activeSize === s ? "active" : ""} ${out ? "disabled" : ""}`}
+                    >
+                      {s}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
 
             <button
               type="button"
               className="add"
               onClick={() => {
-                if (!variant) {
+                if (isPhysical && !variant) {
                   return toast.error("Select options")
                 }
 
@@ -312,10 +373,16 @@ export default function Store() {
                   image: mainImage,
                   quantity: 1,
                   price,
-                  selectedVariant: {
-                    ...variant,
-                    price
-                  }
+                  productType,
+                  selectedVariant: isPhysical
+                    ? {
+                        ...variant,
+                        price
+                      }
+                    : null,
+                  digitalProduct: isDigital
+                    ? product.digitalProduct
+                    : null
                 })
 
                 toast.success("Added")
@@ -396,6 +463,41 @@ export default function Store() {
 
         .activeThumb {
           border: 2px solid #22c55e;
+        }
+
+        .priceText {
+          margin: 6px 0;
+          color: #22c55e;
+          font-weight: 800;
+        }
+
+        .digitalInfo {
+          background: #020617;
+          border: 1px solid #1e293b;
+          border-radius: 8px;
+          padding: 8px;
+          margin-top: 8px;
+          margin-bottom: 8px;
+        }
+
+        .digitalBadge {
+          margin: 0 0 4px;
+          color: #38bdf8;
+          font-size: 13px;
+          font-weight: 800;
+        }
+
+        .serviceBadge {
+          margin: 6px 0;
+          color: #facc15;
+          font-size: 13px;
+          font-weight: 800;
+        }
+
+        .licenseText {
+          margin: 3px 0;
+          color: #cbd5e1;
+          font-size: 12px;
         }
 
         .row {
