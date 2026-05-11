@@ -36,7 +36,12 @@ export default function Store() {
     const load = async () => {
       try {
         const res = await api.get("/products")
-        setProducts(res.data)
+
+const productData = Array.isArray(res.data)
+  ? res.data
+  : res.data?.data || []
+
+setProducts(productData)
       } catch (err) {
         console.error(err)
       } finally {
