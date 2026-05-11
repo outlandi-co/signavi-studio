@@ -108,45 +108,58 @@ export default function AdminProducts() {
   const isDigital = selectedProductType === "digital"
   const isService = selectedProductType === "service"
 
-function loadProducts(showLoader = true) {
-  if (showLoader) {
-    setLoadingProducts(true)
+  function loadProducts(showLoader = true) {
+    if (showLoader) {
+      setLoadingProducts(true)
+    }
+
+    api.get("/products")
+      .then(res => {
+        const productData = Array.isArray(res.data)
+          ? res.data
+          : res.data?.data || []
+
+        setProducts(productData)
+      })
+      .catch(err => {
+        console.error("❌ LOAD PRODUCTS ERROR:", err.response?.data || err)
+        toast.error("Failed to load products")
+      })
+      .finally(() => {
+        setLoadingProducts(false)
+      })
   }
 
-  api.get("/products")
-    .then(res => {
-      const productData = Array.isArray(res.data)
-        ? res.data
-        : res.data?.data || []
+  useEffect(() => {
+    let active = true
 
-      setProducts(productData)
-    })
-    .catch(err => {
-      console.error("❌ LOAD PRODUCTS ERROR:", err.response?.data || err)
-      toast.error("Failed to load products")
-    })
-    .finally(() => {
-      setLoadingProducts(false)
-    })
-}
+    api.get("/products")
+      .then(res => {
+        if (!active) return
 
-useEffect(() => {
-  api.get("/products")
-    .then(res => {
-      const productData = Array.isArray(res.data)
-        ? res.data
-        : res.data?.data || []
+        const productData = Array.isArray(res.data)
+          ? res.data
+          : res.data?.data || []
 
-      setProducts(productData)
-    })
-    .catch(err => {
-      console.error("❌ LOAD PRODUCTS ERROR:", err.response?.data || err)
-      toast.error("Failed to load products")
-    })
-    .finally(() => {
-      setLoadingProducts(false)
-    })
-}, [])
+        setProducts(productData)
+      })
+      .catch(err => {
+        if (!active) return
+
+        console.error("❌ LOAD PRODUCTS ERROR:", err.response?.data || err)
+        toast.error("Failed to load products")
+      })
+      .finally(() => {
+        if (!active) return
+
+        setLoadingProducts(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
   const resetForm = () => {
     setForm(defaultForm)
     setEditingProduct(null)
@@ -643,6 +656,8 @@ useEffect(() => {
 
   const resolveImage = (image) => {
     if (!image) return "/image_placeholder/placeholder.png"
+    if (typeof image !== "string") return "/image_placeholder/placeholder.png"
+
     if (image.startsWith("http")) return image
     if (image.startsWith("data:image")) return image
     if (image.startsWith("/uploads")) return `${API_IMAGE_BASE}${image}`
