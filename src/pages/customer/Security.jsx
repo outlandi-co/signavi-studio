@@ -1,24 +1,21 @@
 import { useState } from "react"
-import CustomerLayout from "../../layouts/CustomerLayout"
 import api from "../../services/api"
 
 export default function Security() {
-
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-
   const [show, setShow] = useState(false)
 
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
 
-  /* 🔥 PASSWORD STRENGTH */
   const getStrength = (pwd) => {
     if (!pwd) return ""
 
     let score = 0
+
     if (pwd.length >= 6) score++
     if (/[A-Z]/.test(pwd)) score++
     if (/[0-9]/.test(pwd)) score++
@@ -36,11 +33,13 @@ export default function Security() {
     setMessage("")
 
     if (!currentPassword || !newPassword || !confirmPassword) {
-      return setError("All fields required")
+      setError("All fields required")
+      return
     }
 
     if (newPassword !== confirmPassword) {
-      return setError("Passwords do not match")
+      setError("Passwords do not match")
+      return
     }
 
     try {
@@ -51,12 +50,11 @@ export default function Security() {
         newPassword
       })
 
-      setMessage(res.data.message)
+      setMessage(res.data.message || "Password updated successfully")
 
       setCurrentPassword("")
       setNewPassword("")
       setConfirmPassword("")
-
     } catch (err) {
       setError(err?.response?.data?.message || "Error updating password")
     } finally {
@@ -65,78 +63,77 @@ export default function Security() {
   }
 
   return (
-    <CustomerLayout>
-
+    <div>
       <h2>🔐 Change Password</h2>
 
       <div style={form}>
-
-        {/* CURRENT */}
         <input
           type={show ? "text" : "password"}
           placeholder="Current Password"
           value={currentPassword}
-          onChange={(e)=>setCurrentPassword(e.target.value)}
+          onChange={(e) => setCurrentPassword(e.target.value)}
           style={input}
         />
 
-        {/* NEW */}
         <input
           type={show ? "text" : "password"}
           placeholder="New Password"
           value={newPassword}
-          onChange={(e)=>setNewPassword(e.target.value)}
+          onChange={(e) => setNewPassword(e.target.value)}
           style={input}
         />
 
-        {/* STRENGTH */}
         {newPassword && (
-          <p style={{
-            color:
-              strength === "Strong" ? "#22c55e" :
-              strength === "Medium" ? "#facc15" :
-              "#ef4444"
-          }}>
+          <p
+            style={{
+              color:
+                strength === "Strong"
+                  ? "#22c55e"
+                  : strength === "Medium"
+                    ? "#facc15"
+                    : "#ef4444"
+            }}
+          >
             Strength: {strength}
           </p>
         )}
 
-        {/* CONFIRM */}
         <input
           type={show ? "text" : "password"}
           placeholder="Confirm Password"
           value={confirmPassword}
-          onChange={(e)=>setConfirmPassword(e.target.value)}
+          onChange={(e) => setConfirmPassword(e.target.value)}
           style={input}
         />
 
-        {/* TOGGLE */}
         <button
-          onClick={()=>setShow(!show)}
+          type="button"
+          onClick={() => setShow(!show)}
           style={toggleBtn}
         >
           {show ? "🙈 Hide Passwords" : "👁 Show Passwords"}
         </button>
 
-        {/* SUBMIT */}
         <button
+          type="button"
           onClick={handleSubmit}
           disabled={loading}
-          style={button}
+          style={{
+            ...button,
+            opacity: loading ? 0.7 : 1,
+            cursor: loading ? "not-allowed" : "pointer"
+          }}
         >
           {loading ? "Updating..." : "Update Password"}
         </button>
 
         {message && <p style={{ color: "#22c55e" }}>{message}</p>}
         {error && <p style={{ color: "#ef4444" }}>{error}</p>}
-
       </div>
-
-    </CustomerLayout>
+    </div>
   )
 }
 
-/* STYLES */
 const form = {
   display: "flex",
   flexDirection: "column",
@@ -158,7 +155,8 @@ const button = {
   background: "#22c55e",
   color: "black",
   borderRadius: 6,
-  cursor: "pointer"
+  border: "none",
+  fontWeight: 700
 }
 
 const toggleBtn = {
@@ -166,5 +164,6 @@ const toggleBtn = {
   background: "#1e293b",
   color: "white",
   borderRadius: 6,
+  border: "none",
   cursor: "pointer"
 }

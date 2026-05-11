@@ -9,20 +9,38 @@ const API_IMAGE_BASE = "https://signavi-backend.onrender.com"
 const normalizeSize = (s) => {
   if (!s) return null
 
+  const value = String(s).trim()
+  const key = value.toUpperCase()
+
   const map = {
-    SMALL: "S",
-    MEDIUM: "M",
-    LARGE: "L",
-    "EXTRA-LARGE": "XL",
-    "X-LARGE": "XL",
+    SMALL: "Small",
+    MEDIUM: "Medium",
+    LARGE: "Large",
+
     S: "S",
     M: "M",
     L: "L",
     XL: "XL",
-    XXL: "XXL"
+    XXL: "XXL",
+
+    "3XL": "3XL",
+    "3X": "3XL",
+    XXXL: "3XL",
+    "XXX-LARGE": "3XL",
+    "XXX LARGE": "3XL",
+
+    "ONE SIZE": "One Size",
+
+    "12 INCH": "12 inch",
+    "18 INCH": "18 inch",
+    "24 INCH": "24 inch",
+
+    "11 OZ": "11 oz",
+    "15 OZ": "15 oz",
+    "20 OZ": "20 oz"
   }
 
-  return map[s.toUpperCase()] || null
+  return map[key] || value
 }
 
 const defaultForm = {
