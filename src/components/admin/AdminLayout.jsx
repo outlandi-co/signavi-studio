@@ -40,6 +40,10 @@ export default function AdminLayout() {
           📦 Orders
         </SideLink>
 
+        <SideLink to="/admin/custom-order/new">
+          🧾 New Custom Order
+        </SideLink>
+
         <SideLink to="/admin/products">
           🛒 Products
         </SideLink>
@@ -141,7 +145,8 @@ const sidebar = {
   position: "sticky",
   top: 0,
   height: "100vh",
-  boxSizing: "border-box"
+  boxSizing: "border-box",
+  overflowY: "auto"
 }
 
 const title = {

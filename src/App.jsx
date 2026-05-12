@@ -78,6 +78,7 @@ import AdminEmails from "./pages/admin/AdminEmails"
 import AdminSupport from "./pages/admin/AdminSupport"
 import AdminRevenue from "./pages/admin/AdminRevenue"
 import AdminProducts from "./pages/admin/AdminProducts"
+import CreateCustomOrder from "./pages/admin/CreateCustomOrder"
 
 import CreateProduct from "./pages/admin/CreateProduct"
 import EditProduct from "./pages/admin/EditProduct"
@@ -443,6 +444,11 @@ function AppContent() {
             <Route
               path="orders"
               element={<Orders />}
+            />
+
+            <Route
+              path="custom-order/new"
+              element={<CreateCustomOrder />}
             />
 
             <Route
