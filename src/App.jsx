@@ -433,7 +433,7 @@ function AppContent() {
 
             <Route
               index
-              element={<Dashboard />}
+              element={<ProductionBoard />}
             />
 
             <Route
