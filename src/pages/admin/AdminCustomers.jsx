@@ -1,15 +1,16 @@
-import { useEffect, useState, useRef, useCallback } from "react"
+import { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import api from "../../services/api"
 import { useNavigate } from "react-router-dom"
 import { io } from "socket.io-client"
 
-const API_URL = import.meta.env.VITE_API_URL || "https://signavi-backend.onrender.com/api"
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://signavi-backend.onrender.com/api"
+
 const SOCKET_URL = API_URL.replace("/api", "")
 
 export default function AdminCustomers() {
-
   const [customers, setCustomers] = useState([])
-  const [filtered, setFiltered] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [sort, setSort] = useState("latest")
@@ -18,13 +19,12 @@ export default function AdminCustomers() {
   const navigate = useNavigate()
 
   /* ================= LOAD ================= */
+
   const loadCustomers = useCallback(async () => {
     try {
       setLoading(true)
 
       const res = await api.get("/customers")
-
-      // 🔥 FIX: correct API shape
       const data = Array.isArray(res.data?.data) ? res.data.data : []
 
       setCustomers(data)
@@ -32,18 +32,23 @@ export default function AdminCustomers() {
     } catch (err) {
       console.error("❌ CUSTOMER LOAD ERROR:", err)
       setCustomers([])
+
     } finally {
       setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    loadCustomers()
+    const timer = setTimeout(() => {
+      loadCustomers()
+    }, 0)
+
+    return () => clearTimeout(timer)
   }, [loadCustomers])
 
   /* ================= SOCKET ================= */
-  useEffect(() => {
 
+  useEffect(() => {
     if (!socketRef.current) {
       socketRef.current = io(SOCKET_URL, {
         transports: ["websocket"]
@@ -58,68 +63,90 @@ export default function AdminCustomers() {
     }
 
     socket.on("customerUpdated", handleUpdate)
+    socket.on("jobCreated", handleUpdate)
+    socket.on("jobUpdated", handleUpdate)
 
     return () => {
       socket.off("customerUpdated", handleUpdate)
+      socket.off("jobCreated", handleUpdate)
+      socket.off("jobUpdated", handleUpdate)
     }
-
   }, [loadCustomers])
 
-  /* ================= FILTER ================= */
-  useEffect(() => {
+  /* ================= FILTERED CUSTOMERS ================= */
+
+  const filtered = useMemo(() => {
     let data = [...customers]
 
-    if (search) {
-      data = data.filter(c =>
-        (c.email || "").toLowerCase().includes(search.toLowerCase())
+    if (search.trim()) {
+      const term = search.toLowerCase().trim()
+
+      data = data.filter(customer =>
+        String(customer.email || "").toLowerCase().includes(term) ||
+        String(customer.customerName || "").toLowerCase().includes(term) ||
+        String(customer.name || "").toLowerCase().includes(term)
       )
     }
 
     if (sort === "spent") {
-      data.sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0))
+      data.sort((a, b) => Number(b.totalSpent || 0) - Number(a.totalSpent || 0))
     }
 
     if (sort === "orders") {
-      data.sort((a, b) => (b.totalOrders || 0) - (a.totalOrders || 0))
+      data.sort((a, b) => Number(b.totalOrders || 0) - Number(a.totalOrders || 0))
     }
 
-    setFiltered(data)
+    if (sort === "latest") {
+      data.sort((a, b) => {
+        const dateA = new Date(a.updatedAt || a.createdAt || 0).getTime()
+        const dateB = new Date(b.updatedAt || b.createdAt || 0).getTime()
+        return dateB - dateA
+      })
+    }
 
-  }, [search, sort, customers])
+    return data
+  }, [customers, search, sort])
 
   /* ================= VIP ================= */
+
   const toggleVIP = async (id, current) => {
     try {
       await api.patch(`/customers/${id}`, {
         isVIP: !current
       })
-      loadCustomers() // 🔥 refresh UI
+
+      loadCustomers()
+
     } catch (err) {
       console.error("VIP ERROR:", err)
     }
   }
 
   /* ================= NOTES ================= */
+
   const updateNotes = async (id, notes) => {
     try {
       await api.patch(`/customers/${id}`, { notes })
+
     } catch (err) {
       console.error("NOTES ERROR:", err)
     }
   }
 
-  if (loading) return <p className="text-white p-4">Loading...</p>
+  if (loading) {
+    return <p className="text-white p-4">Loading...</p>
+  }
 
   return (
     <div>
-
-      <h1 className="text-2xl font-bold mb-6">👥 Customers CRM</h1>
+      <h1 className="text-2xl font-bold mb-6">
+        👥 Customers CRM
+      </h1>
 
       {/* SEARCH + SORT */}
       <div className="flex gap-4 mb-6">
-
         <input
-          placeholder="Search by email..."
+          placeholder="Search by email or name..."
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="bg-gray-900 border border-gray-700 px-3 py-2 rounded-lg w-full"
@@ -134,26 +161,36 @@ export default function AdminCustomers() {
           <option value="spent">Top Spenders</option>
           <option value="orders">Most Orders</option>
         </select>
-
       </div>
+
+      {/* EMPTY */}
+      {filtered.length === 0 && (
+        <div className="bg-gray-900 border border-gray-800 p-4 rounded-lg">
+          <p className="text-gray-400">No customers found.</p>
+        </div>
+      )}
 
       {/* LIST */}
       <div className="grid gap-4">
-
-        {Array.isArray(filtered) && filtered.map(customer => (
+        {filtered.map(customer => (
           <div
             key={customer._id}
             className="bg-gray-900 border border-gray-800 p-4 rounded-lg"
           >
-
             {/* HEADER */}
             <div className="flex justify-between items-center">
-
               <div
                 className="cursor-pointer"
                 onClick={() => navigate(`/admin/customers/${customer._id}`)}
               >
-                <p className="text-sm text-gray-400">{customer.email}</p>
+                <p className="font-semibold text-white">
+                  {customer.customerName || customer.name || "Customer"}
+                </p>
+
+                <p className="text-sm text-gray-400">
+                  {customer.email}
+                </p>
+
                 <p className="text-xs text-gray-500">
                   {customer.isVIP ? "⭐ VIP" : "Standard"}
                 </p>
@@ -169,30 +206,32 @@ export default function AdminCustomers() {
               >
                 VIP
               </button>
-
             </div>
 
             {/* STATS */}
             <div className="flex justify-between mt-3">
-              <p>Orders: <strong>{customer.totalOrders || 0}</strong></p>
-              <p>Spent: <strong>${Number(customer.totalSpent || 0).toFixed(2)}</strong></p>
+              <p>
+                Orders: <strong>{customer.totalOrders || 0}</strong>
+              </p>
+
+              <p>
+                Spent:{" "}
+                <strong>
+                  ${Number(customer.totalSpent || 0).toFixed(2)}
+                </strong>
+              </p>
             </div>
 
             {/* NOTES */}
             <textarea
               defaultValue={customer.notes || ""}
-              onBlur={(e) =>
-                updateNotes(customer._id, e.target.value)
-              }
+              onBlur={(e) => updateNotes(customer._id, e.target.value)}
               placeholder="Add notes..."
               className="w-full mt-3 bg-gray-800 p-2 rounded text-sm"
             />
-
           </div>
         ))}
-
       </div>
-
     </div>
   )
 }

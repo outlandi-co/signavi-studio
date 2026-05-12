@@ -14,8 +14,6 @@ import ToastProvider from "./context/ToastProvider"
 import LoadingProvider from "./context/LoadingProvider"
 import { CartProvider } from "./context/CartContext"
 import { NotificationProvider } from "./context/NotificationContext"
-
-/* 🔥 ADD THIS */
 import { ProductProvider } from "./context/ProductContext"
 
 import { useToast } from "./hooks/useToast"
@@ -58,8 +56,6 @@ import CheckoutRedirect from "./pages/CheckoutRedirect"
 
 import ApproveMockup from "./pages/ApproveMockup"
 
-import AdminProducts from "./pages/admin/AdminProducts"
-
 /* ================= CUSTOMER ================= */
 
 import CustomerLogin from "./pages/customer/CustomerLogin"
@@ -75,11 +71,13 @@ import CustomerSupport from "./pages/customer/CustomerSupport"
 import Dashboard from "./pages/Dashboard"
 import ProductionBoard from "./pages/ProductionBoard"
 import Orders from "./pages/admin/Orders"
+import AdminOrderDetail from "./pages/admin/AdminOrderDetail"
 import AdminCustomers from "./pages/admin/AdminCustomers"
 import AdminCustomerDetail from "./pages/admin/AdminCustomerDetail"
 import AdminEmails from "./pages/admin/AdminEmails"
 import AdminSupport from "./pages/admin/AdminSupport"
 import AdminRevenue from "./pages/admin/AdminRevenue"
+import AdminProducts from "./pages/admin/AdminProducts"
 
 import CreateProduct from "./pages/admin/CreateProduct"
 import EditProduct from "./pages/admin/EditProduct"
@@ -87,7 +85,6 @@ import EditProduct from "./pages/admin/EditProduct"
 /* ================= APP ================= */
 
 function AppContent() {
-
   const location = useLocation()
   const path = location.pathname
   const { addToast } = useToast()
@@ -98,51 +95,70 @@ function AppContent() {
 
   /* ================= CHECKOUT ================= */
 
-  const handleCheckout = async (cart) => {
-
+  const handleCheckout = async (cart, customerInfo) => {
     if (isRedirecting) return
 
     try {
       setIsRedirecting(true)
 
-      let email = null
-      const storedUser = localStorage.getItem("customerUser")
+      const customerName = String(
+        customerInfo?.customerName || ""
+      ).trim()
 
-      if (storedUser) {
-  try {
-    email = JSON.parse(storedUser)?.email
-  } catch (err) {
-    console.warn("⚠️ Failed to parse customerUser:", err)
-  }
-}
+      const email = String(
+        customerInfo?.email || ""
+      ).trim().toLowerCase()
 
-      if (!email) {
-        email = localStorage.getItem("customerEmail")
+      const phone = String(
+        customerInfo?.phone || ""
+      ).trim()
+
+      if (!customerName) {
+        addToast("Customer name required", "error")
+        setIsRedirecting(false)
+        return
       }
 
       if (!email) {
-        email = prompt("Enter your email:")
-        if (!email) {
-          addToast("Email required", "error")
-          setIsRedirecting(false)
-          return
-        }
-        localStorage.setItem("customerEmail", email)
+        addToast("Email required", "error")
+        setIsRedirecting(false)
+        return
       }
+
+      localStorage.setItem("customerEmail", email)
 
       const res = await api.post("/orders", {
+        customerName,
         email,
+        phone,
+
+        address: {
+          street: customerInfo?.address?.street || "",
+          city: customerInfo?.address?.city || "",
+          state: customerInfo?.address?.state || "",
+          zip: customerInfo?.address?.zip || "",
+          country: customerInfo?.address?.country || "US"
+        },
+
         items: cart
       })
 
       const orderId = res.data?.data?._id
-      if (!orderId) throw new Error("Missing order ID")
+
+      if (!orderId) {
+        throw new Error("Missing order ID")
+      }
 
       window.location.assign(`/client-checkout/${orderId}`)
 
     } catch (err) {
       console.error(err)
-      addToast("Checkout failed", "error")
+
+      addToast(
+        err?.response?.data?.message || "Checkout failed",
+        "error"
+      )
+
       setIsRedirecting(false)
     }
   }
@@ -159,7 +175,7 @@ function AppContent() {
   ]
 
   const shouldHideNavbar =
-    hideNavbarRoutes.some(r => path.startsWith(r))
+    hideNavbarRoutes.some(route => path.startsWith(route))
 
   /* ================= ADMIN AUTH ================= */
 
@@ -236,7 +252,10 @@ function AppContent() {
           <Route element={<AdminLayout />}>
             <Route index element={<Dashboard />} />
             <Route path="production" element={<ProductionBoard />} />
+
             <Route path="orders" element={<Orders />} />
+            <Route path="orders/:id" element={<AdminOrderDetail />} />
+
             <Route path="customers" element={<AdminCustomers />} />
             <Route path="customers/:id" element={<AdminCustomerDetail />} />
             <Route path="emails" element={<AdminEmails />} />
@@ -263,16 +282,11 @@ export default function App() {
       <LoadingProvider>
         <NotificationProvider>
           <CartProvider>
-
-            {/* 🔥 THIS IS THE KEY FIX */}
             <ProductProvider>
-
               <BrowserRouter>
                 <AppContent />
               </BrowserRouter>
-
             </ProductProvider>
-
           </CartProvider>
         </NotificationProvider>
       </LoadingProvider>

@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom"
+import { useState } from "react"
 import { useCartContext } from "../context/useCartContext"
 
 const money = (v) => Number(v || 0).toFixed(2)
@@ -21,12 +22,77 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
     total
   } = useCartContext()
 
+  const getInitialCustomerInfo = () => {
+  const storedUser = localStorage.getItem("customerUser")
+  const storedEmail = localStorage.getItem("customerEmail")
+
+  let parsedUser = null
+
+  if (storedUser) {
+    try {
+      parsedUser = JSON.parse(storedUser)
+    } catch (err) {
+      console.warn("⚠️ Failed to parse customerUser:", err)
+    }
+  }
+
+  return {
+    customerName: parsedUser?.name || "",
+    email: parsedUser?.email || storedEmail || "",
+    phone: "",
+    street: "",
+    city: "",
+    state: "",
+    zip: "",
+    country: "US"
+  }
+}
+
+const [customerInfo, setCustomerInfo] = useState(getInitialCustomerInfo)
+const [formError, setFormError] = useState("")
+
   if (!isOpen) return null
+
+  const handleChange = (field, value) => {
+    setCustomerInfo(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  const handleCheckoutClick = () => {
+    if (cart.length === 0) return
+
+    if (!customerInfo.customerName.trim()) {
+      setFormError("Customer name is required.")
+      return
+    }
+
+    if (!customerInfo.email.trim()) {
+      setFormError("Email is required.")
+      return
+    }
+
+    setFormError("")
+
+    localStorage.setItem("customerEmail", customerInfo.email.trim())
+
+    onCheckout(cart, {
+      customerName: customerInfo.customerName.trim(),
+      email: customerInfo.email.trim(),
+      phone: customerInfo.phone.trim(),
+      address: {
+        street: customerInfo.street.trim(),
+        city: customerInfo.city.trim(),
+        state: customerInfo.state.trim(),
+        zip: customerInfo.zip.trim(),
+        country: customerInfo.country.trim() || "US"
+      }
+    })
+  }
 
   return createPortal(
     <div style={{ position: "fixed", inset: 0, zIndex: 9999 }}>
-
-      {/* OVERLAY */}
       <div
         onClick={onClose}
         style={{
@@ -37,14 +103,13 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
         }}
       />
 
-      {/* DRAWER */}
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
           position: "absolute",
           right: 0,
           top: 0,
-          width: 360,
+          width: 380,
           height: "100%",
           background: "#0f172a",
           padding: 20,
@@ -55,12 +120,10 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
       >
         <h2 style={{ marginBottom: 20 }}>Cart</h2>
 
-        {/* EMPTY */}
         {cart.length === 0 && (
           <p style={{ opacity: 0.7 }}>Your cart is empty</p>
         )}
 
-        {/* ITEMS */}
         {cart.map((item, index) => {
           const productType = item.productType || "physical"
           const isDigital = productType === "digital"
@@ -79,14 +142,7 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
           const key = `${item.productId}-${item?.selectedVariant?.color || productType}-${item?.selectedVariant?.size || "single"}-${index}`
 
           return (
-            <div
-              key={key}
-              style={{
-                marginBottom: 20,
-                borderBottom: "1px solid rgba(255,255,255,0.1)",
-                paddingBottom: 15
-              }}
-            >
+            <div key={key} style={cartItem}>
               <div style={itemRow}>
                 <div style={thumbBox}>
                   <img
@@ -113,9 +169,7 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
 
                   {isDigital && (
                     <>
-                      <p style={digitalText}>
-                        Digital Download
-                      </p>
+                      <p style={digitalText}>Digital Download</p>
 
                       {item.digitalProduct?.licenseType && (
                         <p style={subText}>
@@ -132,15 +186,12 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
                   )}
 
                   {isService && (
-                    <p style={serviceText}>
-                      Service
-                    </p>
+                    <p style={serviceText}>Service</p>
                   )}
                 </div>
               </div>
 
-              {/* QUANTITY */}
-              <div style={{ display: "flex", gap: 10, marginTop: 12, alignItems: "center" }}>
+              <div style={quantityRow}>
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
@@ -181,12 +232,10 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
                 )}
               </div>
 
-              {/* PRICE */}
               <p style={{ marginTop: 8 }}>
                 ${money(itemTotal)}
               </p>
 
-              {/* REMOVE */}
               <button
                 onClick={(e) => {
                   e.stopPropagation()
@@ -195,14 +244,7 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
                     isPhysical ? item.selectedVariant : productType
                   )
                 }}
-                style={{
-                  marginTop: 5,
-                  fontSize: 12,
-                  color: "#ef4444",
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer"
-                }}
+                style={removeBtn}
               >
                 Remove
               </button>
@@ -210,23 +252,87 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
           )
         })}
 
-        {/* TOTALS */}
-        <div style={{ marginTop: 20 }}>
-          <p>Subtotal: ${money(subtotal)}</p>
-          <p>Tax: ${money(tax)}</p>
-          <p>Shipping: ${money(shipping || 0)}</p>
+        {cart.length > 0 && (
+          <>
+            <div style={{ marginTop: 20 }}>
+              <p>Subtotal: ${money(subtotal)}</p>
+              <p>Tax: ${money(tax)}</p>
+              <p>Shipping: ${money(shipping || 0)}</p>
 
-          <h3 style={{ marginTop: 10 }}>
-            Total: ${money(total)}
-          </h3>
-        </div>
+              <h3 style={{ marginTop: 10 }}>
+                Total: ${money(total)}
+              </h3>
+            </div>
 
-        {/* CHECKOUT */}
+            <div style={formBox}>
+              <h3 style={{ marginTop: 0 }}>Customer Info</h3>
+
+              <input
+                style={input}
+                value={customerInfo.customerName}
+                onChange={(e) => handleChange("customerName", e.target.value)}
+                placeholder="Full Name *"
+              />
+
+              <input
+                style={input}
+                value={customerInfo.email}
+                onChange={(e) => handleChange("email", e.target.value)}
+                placeholder="Email *"
+                type="email"
+              />
+
+              <input
+                style={input}
+                value={customerInfo.phone}
+                onChange={(e) => handleChange("phone", e.target.value)}
+                placeholder="Phone Number"
+                type="tel"
+              />
+
+              <h4 style={{ marginBottom: 8 }}>Shipping Address</h4>
+
+              <input
+                style={input}
+                value={customerInfo.street}
+                onChange={(e) => handleChange("street", e.target.value)}
+                placeholder="Street Address"
+              />
+
+              <input
+                style={input}
+                value={customerInfo.city}
+                onChange={(e) => handleChange("city", e.target.value)}
+                placeholder="City"
+              />
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  style={{ ...input, flex: 1 }}
+                  value={customerInfo.state}
+                  onChange={(e) => handleChange("state", e.target.value)}
+                  placeholder="State"
+                />
+
+                <input
+                  style={{ ...input, flex: 1 }}
+                  value={customerInfo.zip}
+                  onChange={(e) => handleChange("zip", e.target.value)}
+                  placeholder="ZIP"
+                />
+              </div>
+
+              {formError && (
+                <p style={{ color: "#f87171", fontSize: 13 }}>
+                  {formError}
+                </p>
+              )}
+            </div>
+          </>
+        )}
+
         <button
-          onClick={() => {
-            if (cart.length === 0) return
-            onCheckout(cart)
-          }}
+          onClick={handleCheckoutClick}
           disabled={cart.length === 0}
           style={{
             marginTop: 20,
@@ -236,7 +342,8 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
             color: "#fff",
             border: "none",
             cursor: cart.length === 0 ? "not-allowed" : "pointer",
-            fontWeight: "bold"
+            fontWeight: "bold",
+            borderRadius: 8
           }}
         >
           Checkout
@@ -247,9 +354,22 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
   )
 }
 
+const cartItem = {
+  marginBottom: 20,
+  borderBottom: "1px solid rgba(255,255,255,0.1)",
+  paddingBottom: 15
+}
+
 const itemRow = {
   display: "flex",
   gap: 12,
+  alignItems: "center"
+}
+
+const quantityRow = {
+  display: "flex",
+  gap: 10,
+  marginTop: 12,
   alignItems: "center"
 }
 
@@ -292,4 +412,32 @@ const serviceText = {
   color: "#facc15",
   fontWeight: 700,
   margin: "4px 0 0"
+}
+
+const removeBtn = {
+  marginTop: 5,
+  fontSize: 12,
+  color: "#ef4444",
+  background: "transparent",
+  border: "none",
+  cursor: "pointer"
+}
+
+const formBox = {
+  marginTop: 20,
+  padding: 14,
+  borderRadius: 10,
+  background: "rgba(255,255,255,0.06)",
+  border: "1px solid rgba(255,255,255,0.1)"
+}
+
+const input = {
+  width: "100%",
+  marginBottom: 10,
+  padding: "10px 12px",
+  borderRadius: 8,
+  border: "1px solid rgba(255,255,255,0.2)",
+  background: "#020617",
+  color: "#fff",
+  boxSizing: "border-box"
 }
