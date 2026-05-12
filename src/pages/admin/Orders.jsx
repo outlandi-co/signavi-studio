@@ -3,15 +3,17 @@ import { useNavigate } from "react-router-dom"
 import api from "../../services/api"
 
 const STATUS_LIST = [
-  "pending",
   "payment_required",
+  "paid",
   "production",
   "shipping",
   "shipped",
+  "delivered",
   "archive"
 ]
 
 function Orders() {
+
   const navigate = useNavigate()
 
   const [orders, setOrders] = useState([])
@@ -21,8 +23,11 @@ function Orders() {
   /* ================= LOAD ================= */
 
   useEffect(() => {
+
     const timer = setTimeout(async () => {
+
       try {
+
         const res = await api.get("/orders")
 
         const safeOrders = Array.isArray(res.data)
@@ -34,29 +39,57 @@ function Orders() {
         setOrders(safeOrders)
 
       } catch (err) {
-        console.error("❌ LOAD ERROR:", err)
+
+        console.error(
+          "❌ LOAD ERROR:",
+          err
+        )
+
         setOrders([])
 
       } finally {
+
         setLoading(false)
       }
+
     }, 0)
 
     return () => clearTimeout(timer)
+
   }, [])
 
-  const safeOrders = Array.isArray(orders) ? orders : []
+  const safeOrders =
+    Array.isArray(orders)
+      ? orders
+      : []
+
+  /* ================= FORMAT ================= */
+
+  const formatDate = value => {
+
+    if (!value) return "-"
+
+    return new Date(value)
+      .toLocaleString()
+  }
 
   /* ================= UPDATE STATUS ================= */
 
-  const updateStatus = async (id, status) => {
+  const updateStatus = async (
+    id,
+    status
+  ) => {
+
     try {
-      const res = await api.patch(`/orders/${id}/status`, {
-        status
-      })
+
+      const res = await api.patch(
+        `/orders/${id}/status`,
+        { status }
+      )
 
       const updatedOrder =
-        res.data?.data || res.data?.order
+        res.data?.data ||
+        res.data?.order
 
       if (!updatedOrder) return
 
@@ -69,42 +102,20 @@ function Orders() {
       )
 
     } catch (err) {
-      console.error("❌ STATUS ERROR:", err)
-    }
-  }
 
-  /* ================= BULK LABELS ================= */
-
-  const handleBulkPrint = async () => {
-    try {
-      if (!selected.length) {
-        return alert("Select orders first")
-      }
-
-      const res = await api.post(
-        "/orders/bulk-labels",
-        { ids: selected },
-        { responseType: "blob" }
-      )
-
-      const url =
-        window.URL.createObjectURL(res.data)
-
-      window.open(url)
-
-    } catch (err) {
-      console.error("❌ BULK PRINT ERROR:", err)
-
-      alert(
-        "Bulk labels route not ready yet."
+      console.error(
+        "❌ STATUS ERROR:",
+        err
       )
     }
   }
 
-  /* ================= PRINT ================= */
+  /* ================= PRINT ALL ================= */
 
-  const printAll = async (id) => {
+  const printAll = async id => {
+
     try {
+
       const res = await api.get(
         `/orders/${id}/print-all`
       )
@@ -117,35 +128,31 @@ function Orders() {
         window.open(res.data.packingSlip)
       }
 
-      if (
-        !res.data?.label &&
-        !res.data?.packingSlip
-      ) {
-        alert(
-          "No shipping label or packing slip has been generated yet."
-        )
-      }
-
     } catch (err) {
-      console.error("❌ PRINT ERROR:", err)
 
-      if (err?.response?.status === 404) {
-        alert(
-          "Print route is not built on backend yet."
-        )
-      } else {
-        alert(
-          "Failed to load print assets."
-        )
-      }
+      console.error(
+        "❌ PRINT ERROR:",
+        err
+      )
     }
   }
 
-  /* ================= PRINT INVOICE ================= */
+  /* ================= INVOICE ================= */
 
-  const printInvoice = (id) => {
+  const printInvoice = id => {
+
     window.open(
-      `/api/orders/${id}/invoice`,
+      `https://signavi-backend.onrender.com/api/orders/${id}/invoice`,
+      "_blank"
+    )
+  }
+
+  /* ================= RECEIPT ================= */
+
+  const printReceipt = id => {
+
+    window.open(
+      `https://signavi-backend.onrender.com/api/orders/${id}/receipt`,
       "_blank"
     )
   }
@@ -153,117 +160,123 @@ function Orders() {
   /* ================= UI ================= */
 
   if (loading) {
+
     return (
       <div style={center}>
-        <h2>⏳ Loading orders...</h2>
+        <h2>
+          ⏳ Loading orders...
+        </h2>
       </div>
     )
   }
 
   return (
+
     <div style={container}>
-      <h1>📦 Orders</h1>
 
-      {/* ================= TOOLBAR ================= */}
-
-      <div style={toolbar}>
-        <button
-          onClick={handleBulkPrint}
-          style={{
-            ...button,
-            background: selected.length
-              ? "#22c55e"
-              : "#374151",
-
-            color: selected.length
-              ? "#000"
-              : "#9ca3af"
-          }}
-        >
-          🧾 Bulk Labels ({selected.length})
-        </button>
-
-        {selected.length > 0 && (
-          <button
-            onClick={() => setSelected([])}
-            style={{
-              ...button,
-              background: "#ef4444"
-            }}
-          >
-            ❌ Clear
-          </button>
-        )}
-      </div>
+      <h1>
+        📦 Orders
+      </h1>
 
       {/* ================= TABLE ================= */}
 
       {safeOrders.length === 0 ? (
-        <p>No orders found.</p>
+
+        <p>
+          No orders found.
+        </p>
+
       ) : (
+
         <table style={table}>
+
           <thead>
+
             <tr>
+
               <th></th>
+
               <th>ID</th>
-              <th>Customer / Items</th>
+
+              <th>Customer</th>
+
               <th>Status</th>
+
+              <th>Created</th>
+
+              <th>Paid</th>
+
+              <th>Updated</th>
+
               <th>Tracking</th>
+
               <th>Actions</th>
+
             </tr>
+
           </thead>
 
           <tbody>
+
             {safeOrders.map(order => (
+
               <tr
                 key={order._id}
                 style={row}
               >
+
                 {/* ================= SELECT ================= */}
 
                 <td>
+
                   <input
                     type="checkbox"
+
                     checked={selected.includes(order._id)}
+
                     onChange={() =>
+
                       setSelected(prev =>
+
                         prev.includes(order._id)
+
                           ? prev.filter(
                               id => id !== order._id
                             )
+
                           : [...prev, order._id]
                       )
                     }
                   />
+
                 </td>
 
                 {/* ================= ID ================= */}
 
                 <td>
+
                   <button
+
                     onClick={() =>
+
                       navigate(
                         `/admin/order/${order._id}`
                       )
                     }
+
                     style={linkButton}
                   >
+
                     #{order._id?.slice(-6)}
+
                   </button>
+
                 </td>
 
                 {/* ================= CUSTOMER ================= */}
 
-                <td
-                  onClick={() =>
-                    navigate(
-                      `/admin/order/${order._id}`
-                    )
-                  }
-                  style={{
-                    cursor: "pointer"
-                  }}
-                >
+                <td>
+
                   <strong>
                     {order.customerName || "Unknown"}
                   </strong>
@@ -272,119 +285,169 @@ function Orders() {
                     {order.email || "No email"}
                   </div>
 
-                  {order.phone && (
-                    <div style={meta}>
-                      📞 {order.phone}
-                    </div>
-                  )}
+                  <div style={meta}>
+                    {order.orderType || "store"}
+                  </div>
 
-                  {(order.items || []).length > 0 && (
-                    <div style={items}>
-                      {order.items.map((item, index) => (
-                        <div
-                          key={`${item.name}-${index}`}
-                        >
-                          {item.name} × {item.quantity}
-
-                          {item.variant && (
-                            <span style={variantTag}>
-                              {item.variant.color || "-"} /{" "}
-                              {item.variant.size || "-"}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </td>
 
                 {/* ================= STATUS ================= */}
 
                 <td>
-                  {STATUS_LIST.map(status => (
-                    <button
-                      key={status}
-                      onClick={() =>
-                        updateStatus(
-                          order._id,
-                          status
-                        )
-                      }
-                      style={{
-                        marginRight: 4,
-                        marginBottom: 4,
-                        opacity:
-                          order.status === status
-                            ? 1
-                            : 0.4
-                      }}
-                    >
-                      {status}
-                    </button>
-                  ))}
+
+                  <div style={statusWrap}>
+
+                    {STATUS_LIST.map(status => (
+
+                      <button
+
+                        key={status}
+
+                        onClick={() =>
+                          updateStatus(
+                            order._id,
+                            status
+                          )
+                        }
+
+                        style={{
+                          ...statusButton,
+
+                          opacity:
+                            order.status === status
+                              ? 1
+                              : 0.4
+                        }}
+                      >
+
+                        {status}
+
+                      </button>
+
+                    ))}
+
+                  </div>
+
+                </td>
+
+                {/* ================= CREATED ================= */}
+
+                <td>
+
+                  <div style={date}>
+                    {formatDate(order.createdAt)}
+                  </div>
+
+                </td>
+
+                {/* ================= PAID ================= */}
+
+                <td>
+
+                  <div style={date}>
+                    {formatDate(order.paidAt)}
+                  </div>
+
+                </td>
+
+                {/* ================= UPDATED ================= */}
+
+                <td>
+
+                  <div style={date}>
+                    {formatDate(order.updatedAt)}
+                  </div>
+
                 </td>
 
                 {/* ================= TRACKING ================= */}
 
                 <td>
+
                   {order.trackingNumber ||
                     "Not shipped"}
+
                 </td>
 
                 {/* ================= ACTIONS ================= */}
 
                 <td>
-                  {order.status === "production" && (
-                    <button
-                      onClick={() =>
-                        updateStatus(
-                          order._id,
-                          "shipping"
-                        )
-                      }
-                    >
-                      🚚 Ship
-                    </button>
-                  )}
 
-                  {order.status === "shipping" && (
-                    <>
-                      <button
-                        onClick={() =>
-                          printAll(order._id)
-                        }
-                      >
-                        🚀 Print
-                      </button>
+                  <div style={actionWrap}>
+
+                    {order.orderType === "custom" ? (
 
                       <button
                         onClick={() =>
                           printInvoice(order._id)
                         }
-                      >
-                        🧾 Invoice
-                      </button>
-                    </>
-                  )}
 
-                  <button
-                    onClick={() =>
-                      navigate(
-                        `/admin/order/${order._id}`
-                      )
-                    }
-                    style={{
-                      marginLeft: 6
-                    }}
-                  >
-                    View
-                  </button>
+                        style={invoiceButton}
+                      >
+
+                        🧾 Invoice
+
+                      </button>
+
+                    ) : (
+
+                      <button
+                        onClick={() =>
+                          printReceipt(order._id)
+                        }
+
+                        style={receiptButton}
+                      >
+
+                        🧾 Receipt
+
+                      </button>
+
+                    )}
+
+                    <button
+
+                      onClick={() =>
+                        printAll(order._id)
+                      }
+
+                      style={shipButton}
+                    >
+
+                      🚚 Print
+
+                    </button>
+
+                    <button
+
+                      onClick={() =>
+
+                        navigate(
+                          `/admin/order/${order._id}`
+                        )
+                      }
+
+                      style={viewButton}
+                    >
+
+                      View
+
+                    </button>
+
+                  </div>
+
                 </td>
+
               </tr>
+
             ))}
+
           </tbody>
+
         </table>
+
       )}
+
     </div>
   )
 }
@@ -392,66 +455,167 @@ function Orders() {
 /* ================= STYLES ================= */
 
 const container = {
+
   padding: 20,
+
   background: "#020617",
+
   minHeight: "100vh",
+
   color: "white"
 }
 
 const table = {
+
   width: "100%",
+
   borderCollapse: "collapse"
 }
 
 const row = {
-  borderBottom: "1px solid #1e293b"
-}
 
-const toolbar = {
-  display: "flex",
-  gap: 10,
-  marginBottom: 12
-}
-
-const button = {
-  padding: "8px 14px",
-  border: "none",
-  borderRadius: 6,
-  fontWeight: "bold",
-  cursor: "pointer"
-}
-
-const linkButton = {
-  background: "transparent",
-  border: "none",
-  color: "#38bdf8",
-  cursor: "pointer",
-  fontWeight: "bold"
+  borderBottom:
+    "1px solid #1e293b"
 }
 
 const meta = {
+
   fontSize: 12,
+
   opacity: 0.7,
+
   marginTop: 2
 }
 
-const items = {
-  fontSize: "12px",
-  opacity: 0.7,
-  marginTop: 4
+const linkButton = {
+
+  background: "transparent",
+
+  border: "none",
+
+  color: "#38bdf8",
+
+  cursor: "pointer",
+
+  fontWeight: "bold"
 }
 
-const variantTag = {
-  marginLeft: 6,
-  color: "#38bdf8"
+const statusWrap = {
+
+  display: "flex",
+
+  flexWrap: "wrap",
+
+  gap: 4
+}
+
+const statusButton = {
+
+  border: "none",
+
+  borderRadius: 6,
+
+  padding: "6px 10px",
+
+  cursor: "pointer"
+}
+
+const actionWrap = {
+
+  display: "flex",
+
+  gap: 6,
+
+  flexWrap: "wrap"
+}
+
+const invoiceButton = {
+
+  background: "#22c55e",
+
+  color: "#020617",
+
+  border: "none",
+
+  padding: "6px 10px",
+
+  borderRadius: 6,
+
+  fontWeight: "bold",
+
+  cursor: "pointer"
+}
+
+const receiptButton = {
+
+  background: "#38bdf8",
+
+  color: "#020617",
+
+  border: "none",
+
+  padding: "6px 10px",
+
+  borderRadius: 6,
+
+  fontWeight: "bold",
+
+  cursor: "pointer"
+}
+
+const shipButton = {
+
+  background: "#f59e0b",
+
+  color: "#020617",
+
+  border: "none",
+
+  padding: "6px 10px",
+
+  borderRadius: 6,
+
+  fontWeight: "bold",
+
+  cursor: "pointer"
+}
+
+const viewButton = {
+
+  background: "#a855f7",
+
+  color: "white",
+
+  border: "none",
+
+  padding: "6px 10px",
+
+  borderRadius: 6,
+
+  cursor: "pointer"
+}
+
+const date = {
+
+  fontSize: 12,
+
+  whiteSpace: "nowrap",
+
+  opacity: 0.8
 }
 
 const center = {
+
   display: "flex",
+
   justifyContent: "center",
+
   alignItems: "center",
+
   height: "100vh",
+
   background: "#020617",
+
   color: "white"
 }
 
