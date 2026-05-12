@@ -81,8 +81,8 @@ export default function AdminEmailPanel({ customer }) {
     <div style={container}>
 
       <h2 style={title}>
-        📧 Send Customer Email
-      </h2>
+  Admin Panel TEST 123
+</h2>
 
       <div style={field}>
         <label style={label}>To</label>
