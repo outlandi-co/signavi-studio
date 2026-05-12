@@ -52,7 +52,7 @@ function Orders() {
           {orders.map(order => (
             <tr
               key={order._id}
-              onClick={() => navigate(`/admin/orders/${order._id}`)}
+              onClick={() => navigate(`/admin/order/${order._id}`)}
               style={{
                 borderBottom: "1px solid #1e293b",
                 cursor: "pointer"

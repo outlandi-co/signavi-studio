@@ -85,6 +85,7 @@ import EditProduct from "./pages/admin/EditProduct"
 /* ================= APP ================= */
 
 function AppContent() {
+
   const location = useLocation()
   const path = location.pathname
   const { addToast } = useToast()
@@ -95,11 +96,31 @@ function AppContent() {
 
   /* ================= CHECKOUT ================= */
 
-  const handleCheckout = async (cart, customerInfo) => {
+  const handleCheckout = async (
+    cart,
+    customerInfo
+  ) => {
+
     if (isRedirecting) return
 
     try {
+
       setIsRedirecting(true)
+
+      console.log("🛒 CART:", cart)
+      console.log("👤 CUSTOMER INFO:", customerInfo)
+
+      if (!cart || cart.length === 0) {
+
+        addToast(
+          "Cart is empty",
+          "error"
+        )
+
+        setIsRedirecting(false)
+
+        return
+      }
 
       const customerName = String(
         customerInfo?.customerName || ""
@@ -114,48 +135,98 @@ function AppContent() {
       ).trim()
 
       if (!customerName) {
-        addToast("Customer name required", "error")
+
+        addToast(
+          "Customer name required",
+          "error"
+        )
+
         setIsRedirecting(false)
+
         return
       }
 
       if (!email) {
-        addToast("Email required", "error")
+
+        addToast(
+          "Email required",
+          "error"
+        )
+
         setIsRedirecting(false)
+
         return
       }
 
-      localStorage.setItem("customerEmail", email)
+      localStorage.setItem(
+        "customerEmail",
+        email
+      )
 
-      const res = await api.post("/orders", {
-        customerName,
-        email,
-        phone,
+      const res = await api.post(
+        "/orders",
+        {
 
-        address: {
-          street: customerInfo?.address?.street || "",
-          city: customerInfo?.address?.city || "",
-          state: customerInfo?.address?.state || "",
-          zip: customerInfo?.address?.zip || "",
-          country: customerInfo?.address?.country || "US"
-        },
+          customerName,
+          email,
+          phone,
 
-        items: cart
-      })
+          address: {
 
-      const orderId = res.data?.data?._id
+            street:
+              customerInfo?.address?.street || "",
+
+            city:
+              customerInfo?.address?.city || "",
+
+            state:
+              customerInfo?.address?.state || "",
+
+            zip:
+              customerInfo?.address?.zip || "",
+
+            country:
+              customerInfo?.address?.country || "US"
+          },
+
+          items: cart
+        }
+      )
+
+      console.log(
+        "✅ ORDER RESPONSE:",
+        res.data
+      )
+
+      const orderId =
+        res.data?.data?._id
+
+      console.log(
+        "🆔 ORDER ID:",
+        orderId
+      )
 
       if (!orderId) {
-        throw new Error("Missing order ID")
+
+        throw new Error(
+          "Missing order ID"
+        )
       }
 
-      window.location.assign(`/client-checkout/${orderId}`)
+      window.location.assign(
+        `/client-checkout/${orderId}`
+      )
 
     } catch (err) {
-      console.error(err)
+
+      console.error(
+        "❌ CHECKOUT ERROR:",
+        err
+      )
 
       addToast(
-        err?.response?.data?.message || "Checkout failed",
+        err?.response?.data?.message ||
+        "Checkout failed",
         "error"
       )
 
@@ -175,27 +246,41 @@ function AppContent() {
   ]
 
   const shouldHideNavbar =
-    hideNavbarRoutes.some(route => path.startsWith(route))
+    hideNavbarRoutes.some(route =>
+      path.startsWith(route)
+    )
 
   /* ================= ADMIN AUTH ================= */
 
   useEffect(() => {
-    const token = localStorage.getItem("adminToken")
+
+    const token =
+      localStorage.getItem("adminToken")
+
     if (!token) return
 
     api.get("/auth/profile")
       .then(res => {
-        localStorage.setItem("adminUser", JSON.stringify(res.data.user))
+
+        localStorage.setItem(
+          "adminUser",
+          JSON.stringify(res.data.user)
+        )
       })
+
       .catch(() => {
+
         localStorage.removeItem("adminToken")
         localStorage.removeItem("adminUser")
       })
+
   }, [])
 
   return (
     <>
+
       {!shouldHideNavbar && (
+
         <Navbar
           setCartOpen={setCartOpen}
           setAccountOpen={setAccountOpen}
@@ -214,61 +299,206 @@ function AppContent() {
       />
 
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/store" element={<Store />} />
-        <Route path="/product/:id" element={<ProductDetail />} />
 
-        <Route path="/login" element={<Login />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <Route
+          path="/"
+          element={<Home />}
+        />
 
-        <Route path="/quote" element={<CustomQuote />} />
-        <Route path="/support" element={<Support />} />
-        <Route path="/quote/:id" element={<QuoteResponse />} />
+        <Route
+          path="/store"
+          element={<Store />}
+        />
 
-        <Route path="/track" element={<TrackingPage />} />
-        <Route path="/track/:id" element={<TrackingPage />} />
+        <Route
+          path="/product/:id"
+          element={<ProductDetail />}
+        />
 
-        <Route path="/customer-login" element={<CustomerLogin />} />
-        <Route path="/customer-register" element={<CustomerRegister />} />
+        <Route
+          path="/login"
+          element={<Login />}
+        />
+
+        <Route
+          path="/forgot-password"
+          element={<ForgotPassword />}
+        />
+
+        <Route
+          path="/reset-password/:token"
+          element={<ResetPassword />}
+        />
+
+        <Route
+          path="/quote"
+          element={<CustomQuote />}
+        />
+
+        <Route
+          path="/support"
+          element={<Support />}
+        />
+
+        <Route
+          path="/quote/:id"
+          element={<QuoteResponse />}
+        />
+
+        <Route
+          path="/track"
+          element={<TrackingPage />}
+        />
+
+        <Route
+          path="/track/:id"
+          element={<TrackingPage />}
+        />
+
+        <Route
+          path="/customer-login"
+          element={<CustomerLogin />}
+        />
+
+        <Route
+          path="/customer-register"
+          element={<CustomerRegister />}
+        />
 
         <Route element={<CustomerRoute />}>
+
           <Route element={<CustomerLayout />}>
-            <Route path="/dashboard" element={<CustomerDashboard />} />
-            <Route path="/my-orders" element={<CustomerOrders />} />
-            <Route path="/order/:id" element={<OrderDetail />} />
-            <Route path="/security" element={<Security />} />
-            <Route path="/my-support" element={<CustomerSupport />} />
+
+            <Route
+              path="/dashboard"
+              element={<CustomerDashboard />}
+            />
+
+            <Route
+              path="/my-orders"
+              element={<CustomerOrders />}
+            />
+
+            <Route
+              path="/order/:id"
+              element={<OrderDetail />}
+            />
+
+            <Route
+              path="/security"
+              element={<Security />}
+            />
+
+            <Route
+              path="/my-support"
+              element={<CustomerSupport />}
+            />
+
           </Route>
+
         </Route>
 
-        <Route path="/client-checkout/:id" element={<ClientCheckout />} />
-        <Route path="/checkout/:id" element={<CheckoutRedirect />} />
-        <Route path="/client-order/:id" element={<ClientOrder />} />
-        <Route path="/success/:id" element={<Success />} />
-        <Route path="/approve/:id" element={<ApproveMockup />} />
+        <Route
+          path="/client-checkout/:id"
+          element={<ClientCheckout />}
+        />
 
-        <Route path="/admin" element={<AdminRoute />}>
+        <Route
+          path="/checkout/:id"
+          element={<CheckoutRedirect />}
+        />
+
+        <Route
+          path="/client-order/:id"
+          element={<ClientOrder />}
+        />
+
+        <Route
+          path="/success/:id"
+          element={<Success />}
+        />
+
+        <Route
+          path="/approve/:id"
+          element={<ApproveMockup />}
+        />
+
+        <Route
+          path="/admin"
+          element={<AdminRoute />}
+        >
+
           <Route element={<AdminLayout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="production" element={<ProductionBoard />} />
 
-            <Route path="orders" element={<Orders />} />
-            <Route path="orders/:id" element={<AdminOrderDetail />} />
+            <Route
+              index
+              element={<Dashboard />}
+            />
 
-            <Route path="customers" element={<AdminCustomers />} />
-            <Route path="customers/:id" element={<AdminCustomerDetail />} />
-            <Route path="emails" element={<AdminEmails />} />
-            <Route path="support" element={<AdminSupport />} />
-            <Route path="revenue" element={<AdminRevenue />} />
+            <Route
+              path="production"
+              element={<ProductionBoard />}
+            />
 
-            <Route path="products" element={<AdminProducts />} />
-            <Route path="products/new" element={<CreateProduct />} />
-            <Route path="products/edit/:id" element={<EditProduct />} />
+            <Route
+              path="orders"
+              element={<Orders />}
+            />
+
+            <Route
+              path="order/:id"
+              element={<AdminOrderDetail />}
+            />
+
+            <Route
+              path="customers"
+              element={<AdminCustomers />}
+            />
+
+            <Route
+              path="customers/:id"
+              element={<AdminCustomerDetail />}
+            />
+
+            <Route
+              path="emails"
+              element={<AdminEmails />}
+            />
+
+            <Route
+              path="support"
+              element={<AdminSupport />}
+            />
+
+            <Route
+              path="revenue"
+              element={<AdminRevenue />}
+            />
+
+            <Route
+              path="products"
+              element={<AdminProducts />}
+            />
+
+            <Route
+              path="products/new"
+              element={<CreateProduct />}
+            />
+
+            <Route
+              path="products/edit/:id"
+              element={<EditProduct />}
+            />
+
           </Route>
+
         </Route>
 
-        <Route path="*" element={<h2>Page not found</h2>} />
+        <Route
+          path="*"
+          element={<h2>Page not found</h2>}
+        />
+
       </Routes>
     </>
   )
@@ -277,19 +507,33 @@ function AppContent() {
 /* ================= FINAL WRAPPER ================= */
 
 export default function App() {
+
   return (
+
     <ToastProvider>
+
       <LoadingProvider>
+
         <NotificationProvider>
+
           <CartProvider>
+
             <ProductProvider>
+
               <BrowserRouter>
+
                 <AppContent />
+
               </BrowserRouter>
+
             </ProductProvider>
+
           </CartProvider>
+
         </NotificationProvider>
+
       </LoadingProvider>
+
     </ToastProvider>
   )
 }

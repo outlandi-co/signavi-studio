@@ -145,7 +145,7 @@ export default function AdminCustomerDetail() {
             {orders.map(order => (
               <div
                 key={order._id}
-                onClick={() => navigate(`/admin/orders/${order._id}`)}
+                onClick={() => navigate(`/admin/order/${order._id}`)}
                 className="bg-gray-900 p-4 rounded-lg cursor-pointer hover:bg-gray-800 transition"
               >
                 <div className="flex justify-between">

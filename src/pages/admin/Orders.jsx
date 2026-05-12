@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import api from "../../services/api"
 
 const STATUS_LIST = [
@@ -11,57 +12,74 @@ const STATUS_LIST = [
 ]
 
 function Orders() {
+  const navigate = useNavigate()
 
   const [orders, setOrders] = useState([])
   const [selected, setSelected] = useState([])
   const [loading, setLoading] = useState(true)
 
   /* ================= LOAD ================= */
+
   useEffect(() => {
-    const load = async () => {
+    const timer = setTimeout(async () => {
       try {
         const res = await api.get("/orders")
 
         const safeOrders = Array.isArray(res.data)
           ? res.data
           : Array.isArray(res.data?.data)
-          ? res.data.data
-          : []
+            ? res.data.data
+            : []
 
         setOrders(safeOrders)
 
       } catch (err) {
         console.error("❌ LOAD ERROR:", err)
         setOrders([])
+
       } finally {
         setLoading(false)
       }
-    }
+    }, 0)
 
-    load()
+    return () => clearTimeout(timer)
   }, [])
 
   const safeOrders = Array.isArray(orders) ? orders : []
 
   /* ================= UPDATE STATUS ================= */
+
   const updateStatus = async (id, status) => {
     try {
-      const res = await api.patch(`/orders/${id}/status`, { status })
+      const res = await api.patch(`/orders/${id}/status`, {
+        status
+      })
 
-      const updatedOrder = res.data?.data || res.data?.order
+      const updatedOrder =
+        res.data?.data || res.data?.order
+
+      if (!updatedOrder) return
 
       setOrders(prev =>
-        prev.map(o => (o._id === id ? updatedOrder : o))
+        prev.map(order =>
+          order._id === id
+            ? updatedOrder
+            : order
+        )
       )
+
     } catch (err) {
       console.error("❌ STATUS ERROR:", err)
     }
   }
 
   /* ================= BULK LABELS ================= */
+
   const handleBulkPrint = async () => {
     try {
-      if (!selected.length) return alert("Select orders first")
+      if (!selected.length) {
+        return alert("Select orders first")
+      }
 
       const res = await api.post(
         "/orders/bulk-labels",
@@ -69,28 +87,67 @@ function Orders() {
         { responseType: "blob" }
       )
 
-      const url = window.URL.createObjectURL(res.data)
+      const url =
+        window.URL.createObjectURL(res.data)
+
       window.open(url)
+
     } catch (err) {
       console.error("❌ BULK PRINT ERROR:", err)
+
+      alert(
+        "Bulk labels route not ready yet."
+      )
     }
   }
 
   /* ================= PRINT ================= */
+
   const printAll = async (id) => {
     try {
-      const res = await api.get(`/orders/${id}/print-all`)
+      const res = await api.get(
+        `/orders/${id}/print-all`
+      )
 
-      if (res.data?.label) window.open(res.data.label)
-      if (res.data?.packingSlip) window.open(res.data.packingSlip)
+      if (res.data?.label) {
+        window.open(res.data.label)
+      }
+
+      if (res.data?.packingSlip) {
+        window.open(res.data.packingSlip)
+      }
+
+      if (
+        !res.data?.label &&
+        !res.data?.packingSlip
+      ) {
+        alert(
+          "No shipping label or packing slip has been generated yet."
+        )
+      }
 
     } catch (err) {
       console.error("❌ PRINT ERROR:", err)
+
+      if (err?.response?.status === 404) {
+        alert(
+          "Print route is not built on backend yet."
+        )
+      } else {
+        alert(
+          "Failed to load print assets."
+        )
+      }
     }
   }
 
+  /* ================= PRINT INVOICE ================= */
+
   const printInvoice = (id) => {
-    window.open(`/api/orders/${id}/invoice`, "_blank")
+    window.open(
+      `/api/orders/${id}/invoice`,
+      "_blank"
+    )
   }
 
   /* ================= UI ================= */
@@ -105,17 +162,22 @@ function Orders() {
 
   return (
     <div style={container}>
-
       <h1>📦 Orders</h1>
 
-      {/* BULK BAR */}
+      {/* ================= TOOLBAR ================= */}
+
       <div style={toolbar}>
         <button
           onClick={handleBulkPrint}
           style={{
             ...button,
-            background: selected.length ? "#22c55e" : "#374151",
-            color: selected.length ? "#000" : "#9ca3af"
+            background: selected.length
+              ? "#22c55e"
+              : "#374151",
+
+            color: selected.length
+              ? "#000"
+              : "#9ca3af"
           }}
         >
           🧾 Bulk Labels ({selected.length})
@@ -124,14 +186,18 @@ function Orders() {
         {selected.length > 0 && (
           <button
             onClick={() => setSelected([])}
-            style={{ ...button, background: "#ef4444" }}
+            style={{
+              ...button,
+              background: "#ef4444"
+            }}
           >
             ❌ Clear
           </button>
         )}
       </div>
 
-      {/* TABLE */}
+      {/* ================= TABLE ================= */}
+
       {safeOrders.length === 0 ? (
         <p>No orders found.</p>
       ) : (
@@ -148,92 +214,177 @@ function Orders() {
           </thead>
 
           <tbody>
-            {safeOrders.map(o => (
-              <tr key={o._id}>
+            {safeOrders.map(order => (
+              <tr
+                key={order._id}
+                style={row}
+              >
+                {/* ================= SELECT ================= */}
 
-                {/* SELECT */}
                 <td>
                   <input
                     type="checkbox"
-                    checked={selected.includes(o._id)}
+                    checked={selected.includes(order._id)}
                     onChange={() =>
                       setSelected(prev =>
-                        prev.includes(o._id)
-                          ? prev.filter(id => id !== o._id)
-                          : [...prev, o._id]
+                        prev.includes(order._id)
+                          ? prev.filter(
+                              id => id !== order._id
+                            )
+                          : [...prev, order._id]
                       )
                     }
                   />
                 </td>
 
-                {/* ID */}
-                <td>{o._id?.slice(-6)}</td>
+                {/* ================= ID ================= */}
 
-                {/* CUSTOMER + ITEMS */}
                 <td>
-                  <strong>{o.customerName || "Unknown"}</strong>
-
-                  <div style={items}>
-                    {(o.items || []).map((item, i) => (
-                      <div key={i}>
-                        {item.name} × {item.quantity}
-
-                        {item.variant && (
-                          <span style={variantTag}>
-                            {item.variant.color} / {item.variant.size}
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                  <button
+                    onClick={() =>
+                      navigate(
+                        `/admin/order/${order._id}`
+                      )
+                    }
+                    style={linkButton}
+                  >
+                    #{order._id?.slice(-6)}
+                  </button>
                 </td>
 
-                {/* STATUS */}
+                {/* ================= CUSTOMER ================= */}
+
+                <td
+                  onClick={() =>
+                    navigate(
+                      `/admin/order/${order._id}`
+                    )
+                  }
+                  style={{
+                    cursor: "pointer"
+                  }}
+                >
+                  <strong>
+                    {order.customerName || "Unknown"}
+                  </strong>
+
+                  <div style={meta}>
+                    {order.email || "No email"}
+                  </div>
+
+                  {order.phone && (
+                    <div style={meta}>
+                      📞 {order.phone}
+                    </div>
+                  )}
+
+                  {(order.items || []).length > 0 && (
+                    <div style={items}>
+                      {order.items.map((item, index) => (
+                        <div
+                          key={`${item.name}-${index}`}
+                        >
+                          {item.name} × {item.quantity}
+
+                          {item.variant && (
+                            <span style={variantTag}>
+                              {item.variant.color || "-"} /{" "}
+                              {item.variant.size || "-"}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </td>
+
+                {/* ================= STATUS ================= */}
+
                 <td>
-                  {STATUS_LIST.map(s => (
+                  {STATUS_LIST.map(status => (
                     <button
-                      key={s}
-                      onClick={() => updateStatus(o._id, s)}
+                      key={status}
+                      onClick={() =>
+                        updateStatus(
+                          order._id,
+                          status
+                        )
+                      }
                       style={{
                         marginRight: 4,
-                        opacity: o.status === s ? 1 : 0.4
+                        marginBottom: 4,
+                        opacity:
+                          order.status === status
+                            ? 1
+                            : 0.4
                       }}
                     >
-                      {s}
+                      {status}
                     </button>
                   ))}
                 </td>
 
-                {/* TRACKING */}
-                <td>{o.trackingNumber || "Not shipped"}</td>
+                {/* ================= TRACKING ================= */}
 
-                {/* ACTIONS */}
                 <td>
-                  {o.status === "production" && (
-                    <button onClick={() => updateStatus(o._id, "shipping")}>
+                  {order.trackingNumber ||
+                    "Not shipped"}
+                </td>
+
+                {/* ================= ACTIONS ================= */}
+
+                <td>
+                  {order.status === "production" && (
+                    <button
+                      onClick={() =>
+                        updateStatus(
+                          order._id,
+                          "shipping"
+                        )
+                      }
+                    >
                       🚚 Ship
                     </button>
                   )}
 
-                  {o.status === "shipping" && (
+                  {order.status === "shipping" && (
                     <>
-                      <button onClick={() => printAll(o._id)}>
+                      <button
+                        onClick={() =>
+                          printAll(order._id)
+                        }
+                      >
                         🚀 Print
                       </button>
 
-                      <button onClick={() => printInvoice(o._id)}>
+                      <button
+                        onClick={() =>
+                          printInvoice(order._id)
+                        }
+                      >
                         🧾 Invoice
                       </button>
                     </>
                   )}
-                </td>
 
+                  <button
+                    onClick={() =>
+                      navigate(
+                        `/admin/order/${order._id}`
+                      )
+                    }
+                    style={{
+                      marginLeft: 6
+                    }}
+                  >
+                    View
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
-
     </div>
   )
 }
@@ -252,6 +403,10 @@ const table = {
   borderCollapse: "collapse"
 }
 
+const row = {
+  borderBottom: "1px solid #1e293b"
+}
+
 const toolbar = {
   display: "flex",
   gap: 10,
@@ -264,6 +419,20 @@ const button = {
   borderRadius: 6,
   fontWeight: "bold",
   cursor: "pointer"
+}
+
+const linkButton = {
+  background: "transparent",
+  border: "none",
+  color: "#38bdf8",
+  cursor: "pointer",
+  fontWeight: "bold"
+}
+
+const meta = {
+  fontSize: 12,
+  opacity: 0.7,
+  marginTop: 2
 }
 
 const items = {
