@@ -47,6 +47,14 @@ export default function AdminLayout() {
         <SideLink to="/admin/products">
           🛒 Products
         </SideLink>
+        <SideLink to="/admin/signavi-store/products">
+        
+  🛍 Store Products
+</SideLink>
+
+<SideLink to="/admin/signavi-store/create">
+  ➕ Create Store Product
+</SideLink>
 
         <SideLink to="/admin/customers">
           👥 Customers

@@ -83,10 +83,13 @@ import CreateCustomOrder from "./pages/admin/CreateCustomOrder"
 import CreateProduct from "./pages/admin/CreateProduct"
 import EditProduct from "./pages/admin/EditProduct"
 
+import StoreProducts from "./pages/admin/signavi-store/StoreProducts"
+import CreateStoreProduct from "./pages/admin/signavi-store/CreateStoreProduct"
+import EditStoreProduct from "./pages/admin/signavi-store/EditStoreProduct"
+
 /* ================= APP ================= */
 
 function AppContent() {
-
   const location = useLocation()
   const path = location.pathname
   const { addToast } = useToast()
@@ -101,18 +104,15 @@ function AppContent() {
     cart,
     customerInfo
   ) => {
-
     if (isRedirecting) return
 
     try {
-
       setIsRedirecting(true)
 
       console.log("🛒 CART:", cart)
       console.log("👤 CUSTOMER INFO:", customerInfo)
 
       if (!cart || cart.length === 0) {
-
         addToast(
           "Cart is empty",
           "error"
@@ -136,7 +136,6 @@ function AppContent() {
       ).trim()
 
       if (!customerName) {
-
         addToast(
           "Customer name required",
           "error"
@@ -148,7 +147,6 @@ function AppContent() {
       }
 
       if (!email) {
-
         addToast(
           "Email required",
           "error"
@@ -167,13 +165,11 @@ function AppContent() {
       const res = await api.post(
         "/orders",
         {
-
           customerName,
           email,
           phone,
 
           address: {
-
             street:
               customerInfo?.address?.street || "",
 
@@ -208,7 +204,6 @@ function AppContent() {
       )
 
       if (!orderId) {
-
         throw new Error(
           "Missing order ID"
         )
@@ -219,7 +214,6 @@ function AppContent() {
       )
 
     } catch (err) {
-
       console.error(
         "❌ CHECKOUT ERROR:",
         err
@@ -254,7 +248,6 @@ function AppContent() {
   /* ================= ADMIN AUTH ================= */
 
   useEffect(() => {
-
     const token =
       localStorage.getItem("adminToken")
 
@@ -262,7 +255,6 @@ function AppContent() {
 
     api.get("/auth/profile")
       .then(res => {
-
         localStorage.setItem(
           "adminUser",
           JSON.stringify(res.data.user)
@@ -270,7 +262,6 @@ function AppContent() {
       })
 
       .catch(() => {
-
         localStorage.removeItem("adminToken")
         localStorage.removeItem("adminUser")
       })
@@ -279,9 +270,7 @@ function AppContent() {
 
   return (
     <>
-
       {!shouldHideNavbar && (
-
         <Navbar
           setCartOpen={setCartOpen}
           setAccountOpen={setAccountOpen}
@@ -300,7 +289,6 @@ function AppContent() {
       />
 
       <Routes>
-
         <Route
           path="/"
           element={<Home />}
@@ -367,9 +355,7 @@ function AppContent() {
         />
 
         <Route element={<CustomerRoute />}>
-
           <Route element={<CustomerLayout />}>
-
             <Route
               path="/dashboard"
               element={<CustomerDashboard />}
@@ -394,9 +380,7 @@ function AppContent() {
               path="/my-support"
               element={<CustomerSupport />}
             />
-
           </Route>
-
         </Route>
 
         <Route
@@ -428,9 +412,7 @@ function AppContent() {
           path="/admin"
           element={<AdminRoute />}
         >
-
           <Route element={<AdminLayout />}>
-
             <Route
               index
               element={<ProductionBoard />}
@@ -496,15 +478,27 @@ function AppContent() {
               element={<EditProduct />}
             />
 
-          </Route>
+            <Route
+              path="signavi-store/products"
+              element={<StoreProducts />}
+            />
 
+            <Route
+              path="signavi-store/create"
+              element={<CreateStoreProduct />}
+            />
+
+            <Route
+              path="signavi-store/edit/:id"
+              element={<EditStoreProduct />}
+            />
+          </Route>
         </Route>
 
         <Route
           path="*"
           element={<h2>Page not found</h2>}
         />
-
       </Routes>
     </>
   )
@@ -513,33 +507,19 @@ function AppContent() {
 /* ================= FINAL WRAPPER ================= */
 
 export default function App() {
-
   return (
-
     <ToastProvider>
-
       <LoadingProvider>
-
         <NotificationProvider>
-
           <CartProvider>
-
             <ProductProvider>
-
               <BrowserRouter>
-
                 <AppContent />
-
               </BrowserRouter>
-
             </ProductProvider>
-
           </CartProvider>
-
         </NotificationProvider>
-
       </LoadingProvider>
-
     </ToastProvider>
   )
 }
