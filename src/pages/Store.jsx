@@ -21,6 +21,7 @@ export default function Store() {
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState({})
   const [imageIndex, setImageIndex] = useState({})
+  const [query, setQuery] = useState("")
 
   const { addToCart } = useCartContext()
 
@@ -49,7 +50,12 @@ export default function Store() {
 
     const load = async () => {
       try {
-        const res = await api.get("/products")
+        const res = await api.get("/products", {
+          params: {
+            storefrontVisible: true,
+            storefront: "signavi"
+          }
+        })
 
         const productData = Array.isArray(res.data)
           ? res.data
@@ -77,6 +83,16 @@ export default function Store() {
       isMounted = false
     }
   }, [])
+
+  const filteredProducts = products.filter(product => {
+    const text = query.toLowerCase()
+
+    return (
+      safeText(product.name).toLowerCase().includes(text) ||
+      safeText(product.category).toLowerCase().includes(text) ||
+      safeText(product.description).toLowerCase().includes(text)
+    )
+  })
 
   const scroll = (id, dir) => {
     const el = scrollerRefs.current[id]
@@ -115,445 +131,259 @@ export default function Store() {
     }
   }
 
-  const formatLicense = (licenseType = "") => {
-    return String(safeText(licenseType, ""))
-      .split("-")
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ")
-  }
-
   if (loading) {
-    return <div style={{ padding: 40 }}>Loading...</div>
+    return (
+      <section className="store-page">
+        <p className="loading-text">Loading products...</p>
+      </section>
+    )
   }
 
   return (
-    <div style={grid}>
-      {products.map(product => {
-        const productId = product._id
-        const productName = safeText(product.name, "Product")
-        const productType = safeText(product.productType, "physical")
+    <section className="store-page">
+      <div className="store-container">
+        <div className="store-hero">
+          <p className="store-eyebrow">Shop</p>
+          <h1>Signavi Store</h1>
+          <p>
+            Products, apparel, and creative goods ready for checkout.
+          </p>
+        </div>
 
-        const isPhysical = productType === "physical"
-        const isDigital = productType === "digital"
-        const isService = productType === "service"
+        <input
+          className="store-search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search products..."
+        />
 
-        const variants = product.variants || []
-        const current = selected[productId] || {}
+        <div className="studio-product-grid">
+          {filteredProducts.map(product => {
+            const productId = product._id
+            const productName = safeText(product.name, "Product")
+            const productType = safeText(product.productType, "physical")
 
-        const colors = [
-          ...new Set(variants.map(v => safeText(v.color, "")))
-        ].filter(Boolean)
+            const variants = product.variants || []
+            const current = selected[productId] || {}
 
-        const activeColor = current.color || colors[0]
+            const colors = [
+              ...new Set(variants.map(v => safeText(v.color, "")))
+            ].filter(Boolean)
 
-        const colorVariants = variants.filter(
-          v => safeText(v.color, "") === activeColor
-        )
+            const activeColor = current.color || colors[0]
 
-        const sizes = [
-          ...new Set(colorVariants.map(v => safeText(v.size, "")))
-        ].filter(Boolean)
+            const colorVariants = variants.filter(
+              v => safeText(v.color, "") === activeColor
+            )
 
-        const activeSize = current.size || sizes[0]
+            const sizes = [
+              ...new Set(colorVariants.map(v => safeText(v.size, "")))
+            ].filter(Boolean)
 
-        const variant = variants.find(
-          v =>
-            safeText(v.color, "") === activeColor &&
-            safeText(v.size, "") === activeSize
-        )
+            const activeSize = current.size || sizes[0]
 
-        const images = [
-          ...new Set(
-            variants
-              .filter(v => safeText(v.color, "") === activeColor)
-              .flatMap(v => v.images || [])
-          )
-        ]
+            const variant = variants.find(
+              v =>
+                safeText(v.color, "") === activeColor &&
+                safeText(v.size, "") === activeSize
+            )
 
-        if (images.length === 0 && product.digitalProduct?.previewImage) {
-          images.push(product.digitalProduct.previewImage)
-        }
-
-        if (images.length === 0 && product.image) {
-          images.push(product.image)
-        }
-
-        if (images.length === 0 && product.images?.length) {
-          images.push(product.images[0])
-        }
-
-        const idx = imageIndex[productId] || 0
-        const safeIdx = idx >= images.length ? 0 : idx
-        const mainImage = resolve(images[safeIdx] || images[0])
-
-        const price = Number(
-          isPhysical
-            ? (
-                variant?.price ||
-                variant?.basePrice ||
-                variant?.listPrice ||
-                product.price ||
-                product.basePrice ||
-                product.listPrice ||
-                0
+            const images = [
+              ...new Set(
+                variants
+                  .filter(v => safeText(v.color, "") === activeColor)
+                  .flatMap(v => v.images || [])
               )
-            : (
-                product.price ||
-                product.basePrice ||
-                product.listPrice ||
-                0
-              )
-        )
+            ]
 
-        return (
-          <div key={productId} className="card">
-            <div className="productImageBox">
-              <img
-                src={mainImage}
-                alt={productName}
-                className="productImage"
-                onError={(e) => {
-                  e.currentTarget.src = "/image_placeholder/placeholder.png"
-                }}
-              />
-            </div>
+            if (images.length === 0 && product.image) {
+              images.push(product.image)
+            }
 
-            {images.length > 1 && (
-              <div className="carouselWrap">
-                <button
-                  type="button"
-                  className="carouselBtn"
-                  onClick={() => scroll(productId, "left")}
-                >
-                  ◀
-                </button>
+            if (images.length === 0 && product.imageUrl) {
+              images.push(product.imageUrl)
+            }
 
-                <div
-                  className="thumbScroller"
-                  ref={(el) => {
-                    if (el) scrollerRefs.current[productId] = el
-                  }}
-                  onMouseDown={(e) => handleMouseDown(e, productId)}
-                  onMouseMove={(e) => handleMouseMove(e, productId)}
-                  onMouseLeave={() => handleMouseUp(productId)}
-                  onMouseUp={() => handleMouseUp(productId)}
-                >
-                  {images.map((img, i) => (
-                    <img
-                      key={`${img}-${i}`}
-                      src={resolve(img)}
-                      alt={`${productName} thumbnail ${i + 1}`}
-                      onClick={() =>
-                        setImageIndex(prev => ({
-                          ...prev,
-                          [productId]: i
-                        }))
-                      }
-                      className={i === safeIdx ? "activeThumb" : ""}
-                      onError={(e) => {
-                        e.currentTarget.src = "/image_placeholder/placeholder.png"
-                      }}
-                    />
-                  ))}
+            if (images.length === 0 && product.images?.length) {
+              images.push(product.images[0])
+            }
+
+            const idx = imageIndex[productId] || 0
+            const safeIdx = idx >= images.length ? 0 : idx
+            const mainImage = resolve(images[safeIdx] || images[0])
+
+            const price = Number(
+              variant?.price ||
+              variant?.basePrice ||
+              variant?.listPrice ||
+              product.price ||
+              product.basePrice ||
+              product.listPrice ||
+              product.finalPrice ||
+              0
+            )
+
+            return (
+              <article key={productId} className="studio-product-card">
+                <div className="studio-product-image-box">
+                  <img
+                    src={mainImage}
+                    alt={productName}
+                    className="studio-product-image"
+                    onError={(e) => {
+                      e.currentTarget.src = "/image_placeholder/placeholder.png"
+                    }}
+                  />
                 </div>
 
-                <button
-                  type="button"
-                  className="carouselBtn"
-                  onClick={() => scroll(productId, "right")}
-                >
-                  ▶
-                </button>
-              </div>
-            )}
-
-            <h3>{productName}</h3>
-
-            <p className="priceText">
-              ${price.toFixed(2)}
-            </p>
-
-            {isDigital && (
-              <div className="digitalInfo">
-                <p className="digitalBadge">
-                  Digital Download • {product.digitalProduct?.dpi || 300} DPI
-                </p>
-
-                {product.digitalProduct?.printSize && (
-                  <p className="licenseText">
-                    Print Size: {safeText(product.digitalProduct.printSize)}
-                  </p>
-                )}
-
-                {product.digitalProduct?.licenseType && (
-                  <p className="licenseText">
-                    License: {formatLicense(product.digitalProduct.licenseType)}
-                  </p>
-                )}
-
-                {product.digitalProduct?.fileFormats?.length > 0 && (
-                  <p className="licenseText">
-                    Files: {product.digitalProduct.fileFormats.map(format => safeText(format)).join(", ")}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {isService && (
-              <p className="serviceBadge">
-                Service Product
-              </p>
-            )}
-
-            {isPhysical && (
-              <div className="row">
-                {colors.map(color => (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() => {
-                      const firstSize = variants.find(
-                        v => safeText(v.color, "") === color
-                      )?.size
-
-                      setSelected(prev => ({
-                        ...prev,
-                        [productId]: {
-                          color,
-                          size: safeText(firstSize, "")
-                        }
-                      }))
-
-                      setImageIndex(prev => ({
-                        ...prev,
-                        [productId]: 0
-                      }))
-                    }}
-                    className={activeColor === color ? "active" : ""}
-                  >
-                    {color}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {isPhysical && (
-              <div className="row">
-                {sizes.map(size => {
-                  const v = variants.find(
-                    variantItem =>
-                      safeText(variantItem.color, "") === activeColor &&
-                      safeText(variantItem.size, "") === size
-                  )
-
-                  const out = Number(v?.stock || 0) === 0
-
-                  return (
+                {images.length > 1 && (
+                  <div className="studio-carousel-wrap">
                     <button
-                      key={size}
                       type="button"
-                      disabled={out}
-                      onClick={() =>
-                        setSelected(prev => ({
-                          ...prev,
-                          [productId]: {
-                            ...prev[productId],
-                            size
-                          }
-                        }))
-                      }
-                      className={`${activeSize === size ? "active" : ""} ${out ? "disabled" : ""}`}
+                      className="studio-carousel-btn"
+                      onClick={() => scroll(productId, "left")}
                     >
-                      {size}
+                      ◀
                     </button>
-                  )
-                })}
-              </div>
-            )}
 
-            <button
-              type="button"
-              className="add"
-              onClick={() => {
-                if (isPhysical && !variant) {
-                  return toast.error("Select options")
-                }
+                    <div
+                      className="studio-thumb-scroller"
+                      ref={(el) => {
+                        if (el) scrollerRefs.current[productId] = el
+                      }}
+                      onMouseDown={(e) => handleMouseDown(e, productId)}
+                      onMouseMove={(e) => handleMouseMove(e, productId)}
+                      onMouseLeave={() => handleMouseUp(productId)}
+                      onMouseUp={() => handleMouseUp(productId)}
+                    >
+                      {images.map((img, i) => (
+                        <img
+                          key={`${img}-${i}`}
+                          src={resolve(img)}
+                          alt={`${productName} thumbnail ${i + 1}`}
+                          onClick={() =>
+                            setImageIndex(prev => ({
+                              ...prev,
+                              [productId]: i
+                            }))
+                          }
+                          className={i === safeIdx ? "active-thumb" : ""}
+                          onError={(e) => {
+                            e.currentTarget.src = "/image_placeholder/placeholder.png"
+                          }}
+                        />
+                      ))}
+                    </div>
 
-                const added = addToCart({
-                  productId,
-                  name: productName,
-                  image: mainImage,
-                  quantity: 1,
-                  price,
-                  productType,
-                  selectedVariant: isPhysical
-                    ? {
-                        ...variant,
-                        price
-                      }
-                    : null,
-                  digitalProduct: isDigital
-                    ? product.digitalProduct
-                    : null
-                })
+                    <button
+                      type="button"
+                      className="studio-carousel-btn"
+                      onClick={() => scroll(productId, "right")}
+                    >
+                      ▶
+                    </button>
+                  </div>
+                )}
 
-                if (added) {
-                  toast.success("Added")
-                } else {
-                  toast.error("Could not add item to cart")
-                }
-              }}
-            >
-              Add to Cart
-            </button>
-          </div>
-        )
-      })}
+                <div className="studio-product-body">
+                  <h3>{productName}</h3>
 
-      <style>{`
-        .card {
-          width: 240px;
-          background: #0f172a;
-          padding: 12px;
-          border-radius: 12px;
-          color: white;
-        }
+                  <p>
+                    {safeText(product.description, "Custom Signavi product")}
+                  </p>
 
-        .productImageBox {
-          width: 100%;
-          height: 170px;
-          background: #ffffff;
-          border-radius: 8px;
-          overflow: hidden;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid #1e293b;
-          margin-bottom: 10px;
-        }
+                  {colors.length > 0 && (
+                    <div className="studio-option-row">
+                      {colors.map(color => (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => {
+                            const firstSize = variants.find(
+                              v => safeText(v.color, "") === color
+                            )?.size
 
-        .productImage {
-          width: 100%;
-          height: 100%;
-          object-fit: contain;
-          object-position: center;
-          display: block;
-          padding: 6px;
-          box-sizing: border-box;
-        }
+                            setSelected(prev => ({
+                              ...prev,
+                              [productId]: {
+                                color,
+                                size: safeText(firstSize, "")
+                              }
+                            }))
 
-        .carouselWrap {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          margin-bottom: 8px;
-        }
+                            setImageIndex(prev => ({
+                              ...prev,
+                              [productId]: 0
+                            }))
+                          }}
+                          className={activeColor === color ? "active" : ""}
+                        >
+                          {color}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
-        .carouselBtn {
-          background: #1e293b;
-          color: white;
-          border: none;
-          border-radius: 6px;
-          cursor: pointer;
-          padding: 4px 6px;
-        }
+                  {sizes.length > 0 && (
+                    <div className="studio-option-row">
+                      {sizes.map(size => (
+                        <button
+                          key={size}
+                          type="button"
+                          onClick={() =>
+                            setSelected(prev => ({
+                              ...prev,
+                              [productId]: {
+                                ...prev[productId],
+                                size
+                              }
+                            }))
+                          }
+                          className={activeSize === size ? "active" : ""}
+                        >
+                          {size}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
-        .thumbScroller {
-          display: flex;
-          overflow-x: auto;
-          gap: 6px;
-          cursor: grab;
-          max-width: 170px;
-        }
+                  <div className="studio-product-footer">
+                    <strong>${price.toFixed(2)}</strong>
 
-        .thumbScroller img {
-          width: 40px;
-          height: 40px;
-          border-radius: 6px;
-          cursor: pointer;
-          object-fit: contain;
-          background: #ffffff;
-          padding: 2px;
-          box-sizing: border-box;
-        }
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const added = addToCart({
+                          productId,
+                          name: productName,
+                          image: mainImage,
+                          quantity: 1,
+                          price,
+                          productType,
+                          selectedVariant: variant
+                            ? {
+                                ...variant,
+                                price
+                              }
+                            : null
+                        })
 
-        .activeThumb {
-          border: 2px solid #22c55e;
-        }
-
-        .priceText {
-          margin: 6px 0;
-          color: #22c55e;
-          font-weight: 800;
-        }
-
-        .digitalInfo {
-          background: #020617;
-          border: 1px solid #1e293b;
-          border-radius: 8px;
-          padding: 8px;
-          margin-top: 8px;
-          margin-bottom: 8px;
-        }
-
-        .digitalBadge {
-          margin: 0 0 4px;
-          color: #38bdf8;
-          font-size: 13px;
-          font-weight: 800;
-        }
-
-        .serviceBadge {
-          margin: 6px 0;
-          color: #facc15;
-          font-size: 13px;
-          font-weight: 800;
-        }
-
-        .licenseText {
-          margin: 3px 0;
-          color: #cbd5e1;
-          font-size: 12px;
-        }
-
-        .row {
-          display: flex;
-          gap: 6px;
-          margin-top: 8px;
-          flex-wrap: wrap;
-        }
-
-        button {
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-        }
-
-        button.active {
-          background: #22c55e;
-        }
-
-        button.disabled {
-          opacity: 0.3;
-          pointer-events: none;
-        }
-
-        .add {
-          margin-top: 10px;
-          width: 100%;
-          background: #22c55e;
-          padding: 8px;
-          color: white;
-          font-weight: 700;
-        }
-      `}</style>
-    </div>
+                        if (added) {
+                          toast.success("Added")
+                        } else {
+                          toast.error("Could not add item to cart")
+                        }
+                      }}
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      </div>
+    </section>
   )
-}
-
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(240px, 240px))",
-  justifyContent: "center",
-  gap: 20
 }
