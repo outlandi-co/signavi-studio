@@ -8,42 +8,58 @@ export default function StoreProducts() {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    let ignore = false
+  const loadProducts = async () => {
+    try {
+      setLoading(true)
 
-    const fetchProducts = async () => {
-      try {
-        setLoading(true)
-
-        const res = await api.get("/products", {
-          params: {
-            storefrontVisible: true,
-            storefront: "signavi"
-          }
-        })
-
-        if (!ignore) {
-          setProducts(res.data?.data || [])
+      const res = await api.get("/products", {
+        params: {
+          storefrontVisible: true,
+          storefront: "signavi"
         }
-      } catch (err) {
-        console.error("❌ STORE PRODUCTS ERROR:", err)
+      })
 
-        if (!ignore) {
-          setProducts([])
+      setProducts(res.data?.data || [])
+    } catch (err) {
+      console.error("❌ STORE PRODUCTS ERROR:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+ useEffect(() => {
+  let ignore = false
+
+  const load = async () => {
+    try {
+      setLoading(true)
+
+      const res = await api.get("/products", {
+        params: {
+          storefrontVisible: true,
+          storefront: "signavi"
         }
-      } finally {
-        if (!ignore) {
-          setLoading(false)
-        }
+      })
+
+      if (!ignore) {
+        setProducts(res.data?.data || [])
+      }
+
+    } catch (err) {
+      console.error("❌ STORE PRODUCTS ERROR:", err)
+    } finally {
+      if (!ignore) {
+        setLoading(false)
       }
     }
+  }
 
-    fetchProducts()
+  load()
 
-    return () => {
-      ignore = true
-    }
-  }, [])
+  return () => {
+    ignore = true
+  }
+}, [])
 
   const hideProduct = async (id) => {
     const confirmHide = window.confirm(
@@ -57,9 +73,7 @@ export default function StoreProducts() {
         storefrontVisible: false
       })
 
-      setProducts(prev =>
-        prev.filter(product => product._id !== id)
-      )
+      loadProducts()
     } catch (err) {
       console.error("❌ HIDE PRODUCT ERROR:", err)
       alert("Failed to hide product")
@@ -96,26 +110,18 @@ export default function StoreProducts() {
         <div style={grid}>
           {products.map(product => {
             const image =
-              product.variants?.find(
-                variant => variant.images?.length > 0
-              )?.images?.[0] ||
-              product.images?.[0] ||
               product.image ||
               product.imageUrl ||
+              product.images?.[0] ||
+              product.variants?.[0]?.images?.[0] ||
               ""
-
-            const priceValue =
-              product.listPrice ||
-              product.price ||
-              product.variants?.[0]?.price ||
-              0
 
             return (
               <div key={product._id} style={card}>
                 {image ? (
                   <img
                     src={image}
-                    alt={product.name || "Store product"}
+                    alt={product.name}
                     style={imageStyle}
                   />
                 ) : (
@@ -126,7 +132,7 @@ export default function StoreProducts() {
 
                 <div style={cardBody}>
                   <h2 style={productTitle}>
-                    {product.name || "Untitled Product"}
+                    {product.name}
                   </h2>
 
                   <p style={description}>
@@ -134,7 +140,7 @@ export default function StoreProducts() {
                   </p>
 
                   <p style={price}>
-                    ${Number(priceValue).toFixed(2)}
+                    ${Number(product.listPrice || product.price || 0).toFixed(2)}
                   </p>
 
                   <div style={badgeRow}>
@@ -178,11 +184,7 @@ export default function StoreProducts() {
 
 const page = {
   color: "white",
-  padding: 30,
-  width: "100%",
-  maxWidth: 1200,
-  margin: "0 auto",
-  boxSizing: "border-box"
+  padding: 30
 }
 
 const header = {
@@ -190,8 +192,7 @@ const header = {
   justifyContent: "space-between",
   alignItems: "center",
   gap: 20,
-  marginBottom: 30,
-  flexWrap: "wrap"
+  marginBottom: 30
 }
 
 const title = {
@@ -217,27 +218,21 @@ const createButton = {
 const grid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-  gap: 20,
-  alignItems: "stretch"
+  gap: 20
 }
 
 const card = {
   background: "#0f172a",
   border: "1px solid #1e293b",
   borderRadius: 18,
-  overflow: "hidden",
-  boxShadow: "0 10px 25px rgba(0,0,0,0.25)",
-  display: "flex",
-  flexDirection: "column",
-  minHeight: 420
+  overflow: "hidden"
 }
 
 const imageStyle = {
   width: "100%",
   height: 190,
   objectFit: "cover",
-  background: "#020617",
-  display: "block"
+  background: "#020617"
 }
 
 const placeholder = {
@@ -250,10 +245,7 @@ const placeholder = {
 }
 
 const cardBody = {
-  padding: 18,
-  display: "flex",
-  flexDirection: "column",
-  flex: 1
+  padding: 18
 }
 
 const productTitle = {
@@ -290,8 +282,7 @@ const badge = {
 const actions = {
   display: "flex",
   gap: 10,
-  marginTop: "auto",
-  paddingTop: 18
+  marginTop: 18
 }
 
 const editButton = {
