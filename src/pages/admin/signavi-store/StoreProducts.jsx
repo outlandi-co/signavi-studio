@@ -110,11 +110,11 @@ export default function StoreProducts() {
         <div style={grid}>
           {products.map(product => {
             const image =
-              product.image ||
-              product.imageUrl ||
-              product.images?.[0] ||
-              product.variants?.[0]?.images?.[0] ||
-              ""
+  product.variants?.find(variant => variant.images?.length > 0)?.images?.[0] ||
+  product.images?.[0] ||
+  product.image ||
+  product.imageUrl ||
+  ""
 
             return (
               <div key={product._id} style={card}>

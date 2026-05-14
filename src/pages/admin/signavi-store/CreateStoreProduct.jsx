@@ -2,6 +2,16 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import api from "../../../services/api"
 
+const blankVariant = {
+  color: "",
+  size: "",
+  stock: "",
+  price: "",
+  basePrice: "",
+  listPrice: "",
+  images: []
+}
+
 export default function CreateStoreProduct() {
   const navigate = useNavigate()
 
@@ -9,16 +19,13 @@ export default function CreateStoreProduct() {
     name: "",
     description: "",
     category: "",
-    price: "",
-    basePrice: "",
-    listPrice: "",
-    stock: "",
-    productType: "physical",
-    sizes: "",
-    colors: ""
+    productType: "physical"
   })
 
-  const [images, setImages] = useState([])
+  const [variants, setVariants] = useState([
+    { ...blankVariant }
+  ])
+
   const [saving, setSaving] = useState(false)
 
   const updateForm = (field, value) => {
@@ -28,8 +35,37 @@ export default function CreateStoreProduct() {
     }))
   }
 
-  const handleImages = (event) => {
-    setImages(Array.from(event.target.files || []))
+  const updateVariant = (index, field, value) => {
+    setVariants(prev =>
+      prev.map((variant, i) =>
+        i === index
+          ? { ...variant, [field]: value }
+          : variant
+      )
+    )
+  }
+
+  const updateVariantImages = (index, files) => {
+    setVariants(prev =>
+      prev.map((variant, i) =>
+        i === index
+          ? { ...variant, images: Array.from(files || []) }
+          : variant
+      )
+    )
+  }
+
+  const addVariant = () => {
+    setVariants(prev => [
+      ...prev,
+      { ...blankVariant }
+    ])
+  }
+
+  const removeVariant = (index) => {
+    setVariants(prev =>
+      prev.filter((_, i) => i !== index)
+    )
   }
 
   const createProduct = async (event) => {
@@ -38,78 +74,76 @@ export default function CreateStoreProduct() {
     try {
       setSaving(true)
 
+      const validVariants = variants.filter(variant =>
+        variant.color.trim() &&
+        variant.size.trim()
+      )
+
+      if (validVariants.length === 0) {
+        alert("Add at least one color/size variant.")
+        return
+      }
+
+      const firstVariant = validVariants[0]
+
+      const uniqueSizes = [
+        ...new Set(validVariants.map(variant => variant.size.trim()))
+      ]
+
+      const uniqueColors = [
+        ...new Map(
+          validVariants.map(variant => [
+            variant.color.trim(),
+            { name: variant.color.trim() }
+          ])
+        ).values()
+      ]
+
+      const totalStock = validVariants.reduce((sum, variant) => {
+        return sum + Number(variant.stock || 0)
+      }, 0)
+
       const formData = new FormData()
 
       formData.append("name", form.name)
       formData.append("description", form.description)
       formData.append("category", form.category)
-
       formData.append("productType", form.productType)
 
-      formData.append("price", form.price)
-      formData.append("basePrice", form.basePrice || form.price)
-      formData.append("listPrice", form.listPrice || form.price)
+      formData.append("price", firstVariant.price || 0)
+      formData.append("basePrice", firstVariant.basePrice || firstVariant.price || 0)
+      formData.append("listPrice", firstVariant.listPrice || firstVariant.price || 0)
 
-      formData.append("stock", form.stock)
-      formData.append("quantity", form.stock)
+      formData.append("stock", totalStock)
+      formData.append("quantity", totalStock)
 
       formData.append("storefrontVisible", "true")
       formData.append("storefront", "signavi")
       formData.append("salesChannel", "signavi_store")
       formData.append("active", "true")
 
-      const sizes = form.sizes
-        .split(",")
-        .map(size => size.trim())
-        .filter(Boolean)
+      formData.append("sizes", JSON.stringify(uniqueSizes))
+      formData.append("colors", JSON.stringify(uniqueColors))
 
-      const colors = form.colors
-        .split(",")
-        .map(color => ({
-          name: color.trim()
-        }))
-        .filter(color => color.name)
+      const cleanVariants = validVariants.map(variant => ({
+        color: variant.color.trim(),
+        size: variant.size.trim(),
+        stock: Number(variant.stock || 0),
+        quantity: Number(variant.stock || 0),
+        price: Number(variant.price || firstVariant.price || 0),
+        basePrice: Number(variant.basePrice || variant.price || firstVariant.price || 0),
+        listPrice: Number(variant.listPrice || variant.price || firstVariant.price || 0)
+      }))
 
-      formData.append(
-        "sizes",
-        JSON.stringify(sizes.length ? sizes : ["One Size"])
-      )
+      formData.append("variants", JSON.stringify(cleanVariants))
 
-      formData.append(
-        "colors",
-        JSON.stringify(colors.length ? colors : [{ name: "Default" }])
-      )
+      validVariants.forEach(variant => {
+        variant.images.forEach(file => {
+          formData.append("images", file)
 
-      const variants = []
-
-      const finalSizes = sizes.length ? sizes : ["One Size"]
-      const finalColors = colors.length ? colors : [{ name: "Default" }]
-
-      finalColors.forEach(color => {
-        finalSizes.forEach(size => {
-          variants.push({
-            color: color.name,
-            size,
-            stock: Number(form.stock || 0),
-            quantity: Number(form.stock || 0),
-            price: Number(form.price || 0),
-            basePrice: Number(form.basePrice || form.price || 0),
-            listPrice: Number(form.listPrice || form.price || 0)
-          })
+          // Backend currently maps uploaded images by color.
+          formData.append("imageColors", variant.color.trim())
         })
-      })
-
-      formData.append(
-        "variants",
-        JSON.stringify(variants)
-      )
-
-      images.forEach(file => {
-        formData.append("images", file)
-        formData.append(
-          "imageColors",
-          colors[0]?.name || "Default"
-        )
       })
 
       await api.post(
@@ -143,7 +177,7 @@ export default function CreateStoreProduct() {
         <div>
           <h1 style={title}>➕ Create Store Product</h1>
           <p style={subtitle}>
-            Create products specifically for signavi.store
+            Add products for signavi.store with stock per size/color.
           </p>
         </div>
 
@@ -152,7 +186,7 @@ export default function CreateStoreProduct() {
           onClick={() => navigate("/admin/signavi-store/products")}
           style={backButton}
         >
-          ← Back to Store Products
+          ← Back
         </button>
       </div>
 
@@ -207,114 +241,152 @@ export default function CreateStoreProduct() {
         </section>
 
         <section style={section}>
-          <h2 style={sectionTitle}>Pricing + Stock</h2>
+          <div style={variantHeader}>
+            <div>
+              <h2 style={sectionTitle}>Variants</h2>
+              <p style={helper}>
+                Add stock and images by color/size.
+              </p>
+            </div>
 
-          <div style={grid2}>
-            <label style={label}>
-              Price
-              <input
-                required
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.price}
-                onChange={event => updateForm("price", event.target.value)}
-                style={input}
-              />
-            </label>
-
-            <label style={label}>
-              Base Price
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.basePrice}
-                onChange={event => updateForm("basePrice", event.target.value)}
-                style={input}
-                placeholder="Optional"
-              />
-            </label>
-
-            <label style={label}>
-              List Price
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.listPrice}
-                onChange={event => updateForm("listPrice", event.target.value)}
-                style={input}
-                placeholder="Optional"
-              />
-            </label>
-
-            <label style={label}>
-              Stock
-              <input
-                required
-                type="number"
-                min="0"
-                value={form.stock}
-                onChange={event => updateForm("stock", event.target.value)}
-                style={input}
-              />
-            </label>
+            <button
+              type="button"
+              onClick={addVariant}
+              style={smallButton}
+            >
+              + Add Variant
+            </button>
           </div>
-        </section>
 
-        <section style={section}>
-          <h2 style={sectionTitle}>Variants</h2>
+          {variants.map((variant, index) => (
+            <div key={index} style={variantBox}>
+              <div style={variantTop}>
+                <h3 style={variantTitle}>
+                  Variant #{index + 1}
+                </h3>
 
-          <label style={label}>
-            Sizes
-            <input
-              value={form.sizes}
-              onChange={event => updateForm("sizes", event.target.value)}
-              style={input}
-              placeholder="S, M, L, XL"
-            />
-          </label>
+                {variants.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeVariant(index)}
+                    style={dangerSmallButton}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
 
-          <label style={label}>
-            Colors
-            <input
-              value={form.colors}
-              onChange={event => updateForm("colors", event.target.value)}
-              style={input}
-              placeholder="Black, White, Red"
-            />
-          </label>
+              <div style={grid2}>
+                <label style={label}>
+                  Color
+                  <input
+                    required
+                    value={variant.color}
+                    onChange={event =>
+                      updateVariant(index, "color", event.target.value)
+                    }
+                    style={input}
+                    placeholder="Black"
+                  />
+                </label>
 
-          <p style={helper}>
-            Separate sizes and colors with commas.
-          </p>
-        </section>
+                <label style={label}>
+                  Size
+                  <input
+                    required
+                    value={variant.size}
+                    onChange={event =>
+                      updateVariant(index, "size", event.target.value)
+                    }
+                    style={input}
+                    placeholder="M"
+                  />
+                </label>
 
-        <section style={section}>
-          <h2 style={sectionTitle}>Images</h2>
+                <label style={label}>
+                  Quantity In Stock
+                  <input
+                    required
+                    type="number"
+                    min="0"
+                    value={variant.stock}
+                    onChange={event =>
+                      updateVariant(index, "stock", event.target.value)
+                    }
+                    style={input}
+                  />
+                </label>
 
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={handleImages}
-            style={fileInput}
-          />
+                <label style={label}>
+                  Price
+                  <input
+                    required
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={variant.price}
+                    onChange={event =>
+                      updateVariant(index, "price", event.target.value)
+                    }
+                    style={input}
+                  />
+                </label>
 
-          {images.length > 0 && (
-            <p style={helper}>
-              {images.length} image(s) selected
-            </p>
-          )}
+                <label style={label}>
+                  Base Price
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={variant.basePrice}
+                    onChange={event =>
+                      updateVariant(index, "basePrice", event.target.value)
+                    }
+                    style={input}
+                    placeholder="Optional"
+                  />
+                </label>
+
+                <label style={label}>
+                  List Price
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={variant.listPrice}
+                    onChange={event =>
+                      updateVariant(index, "listPrice", event.target.value)
+                    }
+                    style={input}
+                    placeholder="Optional"
+                  />
+                </label>
+              </div>
+
+              <label style={label}>
+                Images for this color
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={event =>
+                    updateVariantImages(index, event.target.files)
+                  }
+                  style={fileInput}
+                />
+              </label>
+
+              {variant.images.length > 0 && (
+                <p style={helper}>
+                  {variant.images.length} image(s) selected for {variant.color || "this variant"}
+                </p>
+              )}
+            </div>
+          ))}
         </section>
 
         <section style={lockedBox}>
           <h2 style={sectionTitle}>Storefront Defaults</h2>
-
-          <p>
-            This product will automatically be assigned to:
-          </p>
 
           <ul>
             <li>storefrontVisible: true</li>
@@ -364,7 +436,7 @@ const subtitle = {
 const formStyle = {
   display: "grid",
   gap: 20,
-  maxWidth: 900
+  maxWidth: 1000
 }
 
 const section = {
@@ -443,6 +515,53 @@ const backButton = {
   border: "1px solid #22d3ee",
   padding: "10px 14px",
   borderRadius: 12,
+  fontWeight: "bold",
+  cursor: "pointer"
+}
+
+const variantHeader = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 16
+}
+
+const variantBox = {
+  background: "#020617",
+  border: "1px solid #334155",
+  borderRadius: 16,
+  padding: 18,
+  display: "grid",
+  gap: 16
+}
+
+const variantTop = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center"
+}
+
+const variantTitle = {
+  margin: 0,
+  color: "#e2e8f0"
+}
+
+const smallButton = {
+  background: "#22c55e",
+  color: "#020617",
+  border: "none",
+  padding: "10px 14px",
+  borderRadius: 10,
+  fontWeight: "bold",
+  cursor: "pointer"
+}
+
+const dangerSmallButton = {
+  background: "#ef4444",
+  color: "white",
+  border: "none",
+  padding: "8px 12px",
+  borderRadius: 10,
   fontWeight: "bold",
   cursor: "pointer"
 }
