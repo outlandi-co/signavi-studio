@@ -3,6 +3,19 @@ import api from "../services/api"
 import { useCartContext } from "../context/useCartContext"
 import toast from "react-hot-toast"
 
+const safeText = (value, fallback = "") => {
+  if (value === null || value === undefined || value === "") return fallback
+  if (typeof value === "string") return value
+  if (typeof value === "number") return String(value)
+  if (typeof value === "boolean") return value ? "Yes" : "No"
+
+  if (typeof value === "object") {
+    return value.name || value.title || value.label || value.value || fallback
+  }
+
+  return fallback
+}
+
 export default function Store() {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -19,23 +32,14 @@ export default function Store() {
     "https://signavi-backend.onrender.com"
 
   const resolve = (img) => {
-    if (!img) return "/image_placeholder/placeholder.png"
-
-    if (typeof img !== "string") {
+    if (!img || typeof img !== "string") {
       return "/image_placeholder/placeholder.png"
     }
 
     if (img.startsWith("data:image")) return img
-
     if (img.startsWith("http")) return img
-
-    if (img.startsWith("/uploads")) {
-      return `${BASE_URL}${img}`
-    }
-
-    if (img.startsWith("uploads")) {
-      return `${BASE_URL}/${img}`
-    }
+    if (img.startsWith("/uploads")) return `${BASE_URL}${img}`
+    if (img.startsWith("uploads")) return `${BASE_URL}/${img}`
 
     return img
   }
@@ -112,7 +116,7 @@ export default function Store() {
   }
 
   const formatLicense = (licenseType = "") => {
-    return String(licenseType)
+    return String(safeText(licenseType, ""))
       .split("-")
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(" ")
@@ -125,38 +129,43 @@ export default function Store() {
   return (
     <div style={grid}>
       {products.map(product => {
-        const productType = product.productType || "physical"
+        const productId = product._id
+        const productName = safeText(product.name, "Product")
+        const productType = safeText(product.productType, "physical")
+
         const isPhysical = productType === "physical"
         const isDigital = productType === "digital"
         const isService = productType === "service"
 
         const variants = product.variants || []
-        const current = selected[product._id] || {}
+        const current = selected[productId] || {}
 
         const colors = [
-          ...new Set(variants.map(v => v.color))
+          ...new Set(variants.map(v => safeText(v.color, "")))
         ].filter(Boolean)
 
         const activeColor = current.color || colors[0]
 
         const colorVariants = variants.filter(
-          v => v.color === activeColor
+          v => safeText(v.color, "") === activeColor
         )
 
         const sizes = [
-          ...new Set(colorVariants.map(v => v.size))
+          ...new Set(colorVariants.map(v => safeText(v.size, "")))
         ].filter(Boolean)
 
         const activeSize = current.size || sizes[0]
 
         const variant = variants.find(
-          v => v.color === activeColor && v.size === activeSize
+          v =>
+            safeText(v.color, "") === activeColor &&
+            safeText(v.size, "") === activeSize
         )
 
         const images = [
           ...new Set(
             variants
-              .filter(v => v.color === activeColor)
+              .filter(v => safeText(v.color, "") === activeColor)
               .flatMap(v => v.images || [])
           )
         ]
@@ -173,9 +182,8 @@ export default function Store() {
           images.push(product.images[0])
         }
 
-        const idx = imageIndex[product._id] || 0
+        const idx = imageIndex[productId] || 0
         const safeIdx = idx >= images.length ? 0 : idx
-
         const mainImage = resolve(images[safeIdx] || images[0])
 
         const price = Number(
@@ -198,11 +206,11 @@ export default function Store() {
         )
 
         return (
-          <div key={product._id} className="card">
+          <div key={productId} className="card">
             <div className="productImageBox">
               <img
                 src={mainImage}
-                alt={product.name || "Product"}
+                alt={productName}
                 className="productImage"
                 onError={(e) => {
                   e.currentTarget.src = "/image_placeholder/placeholder.png"
@@ -215,7 +223,7 @@ export default function Store() {
                 <button
                   type="button"
                   className="carouselBtn"
-                  onClick={() => scroll(product._id, "left")}
+                  onClick={() => scroll(productId, "left")}
                 >
                   ◀
                 </button>
@@ -223,22 +231,22 @@ export default function Store() {
                 <div
                   className="thumbScroller"
                   ref={(el) => {
-                    if (el) scrollerRefs.current[product._id] = el
+                    if (el) scrollerRefs.current[productId] = el
                   }}
-                  onMouseDown={(e) => handleMouseDown(e, product._id)}
-                  onMouseMove={(e) => handleMouseMove(e, product._id)}
-                  onMouseLeave={() => handleMouseUp(product._id)}
-                  onMouseUp={() => handleMouseUp(product._id)}
+                  onMouseDown={(e) => handleMouseDown(e, productId)}
+                  onMouseMove={(e) => handleMouseMove(e, productId)}
+                  onMouseLeave={() => handleMouseUp(productId)}
+                  onMouseUp={() => handleMouseUp(productId)}
                 >
                   {images.map((img, i) => (
                     <img
                       key={`${img}-${i}`}
                       src={resolve(img)}
-                      alt={`${product.name || "Product"} thumbnail ${i + 1}`}
+                      alt={`${productName} thumbnail ${i + 1}`}
                       onClick={() =>
                         setImageIndex(prev => ({
                           ...prev,
-                          [product._id]: i
+                          [productId]: i
                         }))
                       }
                       className={i === safeIdx ? "activeThumb" : ""}
@@ -252,14 +260,14 @@ export default function Store() {
                 <button
                   type="button"
                   className="carouselBtn"
-                  onClick={() => scroll(product._id, "right")}
+                  onClick={() => scroll(productId, "right")}
                 >
                   ▶
                 </button>
               </div>
             )}
 
-            <h3>{product.name}</h3>
+            <h3>{productName}</h3>
 
             <p className="priceText">
               ${price.toFixed(2)}
@@ -273,7 +281,7 @@ export default function Store() {
 
                 {product.digitalProduct?.printSize && (
                   <p className="licenseText">
-                    Print Size: {product.digitalProduct.printSize}
+                    Print Size: {safeText(product.digitalProduct.printSize)}
                   </p>
                 )}
 
@@ -285,7 +293,7 @@ export default function Store() {
 
                 {product.digitalProduct?.fileFormats?.length > 0 && (
                   <p className="licenseText">
-                    Files: {product.digitalProduct.fileFormats.join(", ")}
+                    Files: {product.digitalProduct.fileFormats.map(format => safeText(format)).join(", ")}
                   </p>
                 )}
               </div>
@@ -299,29 +307,31 @@ export default function Store() {
 
             {isPhysical && (
               <div className="row">
-                {colors.map(c => (
+                {colors.map(color => (
                   <button
-                    key={c}
+                    key={color}
                     type="button"
                     onClick={() => {
-                      const firstSize = variants.find(v => v.color === c)?.size
+                      const firstSize = variants.find(
+                        v => safeText(v.color, "") === color
+                      )?.size
 
                       setSelected(prev => ({
                         ...prev,
-                        [product._id]: {
-                          color: c,
-                          size: firstSize
+                        [productId]: {
+                          color,
+                          size: safeText(firstSize, "")
                         }
                       }))
 
                       setImageIndex(prev => ({
                         ...prev,
-                        [product._id]: 0
+                        [productId]: 0
                       }))
                     }}
-                    className={activeColor === c ? "active" : ""}
+                    className={activeColor === color ? "active" : ""}
                   >
-                    {c}
+                    {color}
                   </button>
                 ))}
               </div>
@@ -329,30 +339,32 @@ export default function Store() {
 
             {isPhysical && (
               <div className="row">
-                {sizes.map(s => {
+                {sizes.map(size => {
                   const v = variants.find(
-                    v => v.color === activeColor && v.size === s
+                    variantItem =>
+                      safeText(variantItem.color, "") === activeColor &&
+                      safeText(variantItem.size, "") === size
                   )
 
                   const out = Number(v?.stock || 0) === 0
 
                   return (
                     <button
-                      key={s}
+                      key={size}
                       type="button"
                       disabled={out}
                       onClick={() =>
                         setSelected(prev => ({
                           ...prev,
-                          [product._id]: {
-                            ...prev[product._id],
-                            size: s
+                          [productId]: {
+                            ...prev[productId],
+                            size
                           }
                         }))
                       }
-                      className={`${activeSize === s ? "active" : ""} ${out ? "disabled" : ""}`}
+                      className={`${activeSize === size ? "active" : ""} ${out ? "disabled" : ""}`}
                     >
-                      {s}
+                      {size}
                     </button>
                   )
                 })}
@@ -368,28 +380,28 @@ export default function Store() {
                 }
 
                 const added = addToCart({
-  productId: product._id,
-  name: product.name,
-  image: mainImage,
-  quantity: 1,
-  price,
-  productType,
-  selectedVariant: isPhysical
-    ? {
-        ...variant,
-        price
-      }
-    : null,
-  digitalProduct: isDigital
-    ? product.digitalProduct
-    : null
-})
+                  productId,
+                  name: productName,
+                  image: mainImage,
+                  quantity: 1,
+                  price,
+                  productType,
+                  selectedVariant: isPhysical
+                    ? {
+                        ...variant,
+                        price
+                      }
+                    : null,
+                  digitalProduct: isDigital
+                    ? product.digitalProduct
+                    : null
+                })
 
-if (added) {
-  toast.success("Added")
-} else {
-  toast.error("Could not add item to cart")
-}
+                if (added) {
+                  toast.success("Added")
+                } else {
+                  toast.error("Could not add item to cart")
+                }
               }}
             >
               Add to Cart
@@ -541,7 +553,7 @@ if (added) {
 
 const grid = {
   display: "grid",
-  gridTemplateColumns: "repeat(4, 240px)",
+  gridTemplateColumns: "repeat(auto-fill, minmax(240px, 240px))",
   justifyContent: "center",
   gap: 20
 }

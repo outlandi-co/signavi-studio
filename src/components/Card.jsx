@@ -2,12 +2,25 @@ import { useState } from "react"
 import { useCartContext } from "../context/useCartContext"
 import toast from "react-hot-toast"
 
-/* 🔥 SAFE IMAGE RESOLVER */
+const safeText = (value, fallback = "") => {
+  if (value === null || value === undefined || value === "") return fallback
+  if (typeof value === "string") return value
+  if (typeof value === "number") return String(value)
+  if (typeof value === "boolean") return value ? "Yes" : "No"
+
+  if (typeof value === "object") {
+    return value.name || value.title || value.label || value.value || fallback
+  }
+
+  return fallback
+}
+
 const resolveImageSafe = (img) => {
-  if (!img) return "/image_placeholder/placeholder.png"
+  if (!img || typeof img !== "string") {
+    return "/image_placeholder/placeholder.png"
+  }
 
   if (img.startsWith("data:image")) return img
-
   if (img.startsWith("http")) return img
 
   return `https://signavi-backend.onrender.com${img}`
@@ -19,28 +32,31 @@ export default function Card({ product }) {
   const [selected, setSelected] = useState({})
   const [imageIndex, setImageIndex] = useState(0)
 
+  const productName = safeText(product?.name, "Product")
   const variants = product?.variants || []
 
   const colors = [
-    ...new Set(variants.map(v => v.color))
+    ...new Set(variants.map(v => safeText(v.color, "")))
   ].filter(Boolean)
 
   const activeColor = selected.color || colors[0]
 
-  const colorVariants = variants.filter(v => v.color === activeColor)
+  const colorVariants = variants.filter(
+    v => safeText(v.color, "") === activeColor
+  )
 
   const sizes = [
-    ...new Set(colorVariants.map(v => v.size))
+    ...new Set(colorVariants.map(v => safeText(v.size, "")))
   ].filter(Boolean)
 
   const activeSize = selected.size || sizes[0]
 
-  /* 🔥 SAFE VARIANT MATCH */
   const variant = variants.find(
-    v => v.color === activeColor && v.size === activeSize
+    v =>
+      safeText(v.color, "") === activeColor &&
+      safeText(v.size, "") === activeSize
   ) || colorVariants[0]
 
-  /* 🔥 COLLECT IMAGES */
   const images = [
     ...new Set(colorVariants.flatMap(v => v.images || []))
   ]
@@ -55,7 +71,6 @@ export default function Card({ product }) {
     images[safeIndex] || images[0] || product?.image
   )
 
-  /* ✅ VARIANT PRICE FIX */
   const price = Number(
     variant?.price ||
     variant?.basePrice ||
@@ -68,20 +83,22 @@ export default function Card({ product }) {
 
   return (
     <div className="card">
-
       <img
         src={mainImage}
-        alt={product.name}
+        alt={productName}
         style={{ width: "100%", height: 200, objectFit: "cover" }}
+        onError={(e) => {
+          e.currentTarget.src = "/image_placeholder/placeholder.png"
+        }}
       />
 
       {images.length > 1 && (
         <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
           {images.map((img, i) => (
             <img
-              key={i}
+              key={`${img}-${i}`}
               src={resolveImageSafe(img)}
-              alt={`${product.name} thumbnail ${i + 1}`}
+              alt={`${productName} thumbnail ${i + 1}`}
               style={{
                 width: 50,
                 height: 50,
@@ -90,16 +107,18 @@ export default function Card({ product }) {
                 border: i === safeIndex ? "2px solid #22c55e" : "1px solid #ccc"
               }}
               onClick={() => setImageIndex(i)}
+              onError={(e) => {
+                e.currentTarget.src = "/image_placeholder/placeholder.png"
+              }}
             />
           ))}
         </div>
       )}
 
-      <h3>{product.name}</h3>
+      <h3>{productName}</h3>
 
       <p>${price.toFixed(2)}</p>
 
-      {/* COLORS */}
       {colors.length > 0 && (
         <div style={{ marginBottom: 8 }}>
           {colors.map(color => (
@@ -107,11 +126,13 @@ export default function Card({ product }) {
               key={color}
               type="button"
               onClick={() => {
-                const firstSize = variants.find(v => v.color === color)?.size
+                const firstSize = variants.find(
+                  v => safeText(v.color, "") === color
+                )?.size
 
                 setSelected({
                   color,
-                  size: firstSize
+                  size: safeText(firstSize, "")
                 })
 
                 setImageIndex(0)
@@ -133,12 +154,13 @@ export default function Card({ product }) {
         </div>
       )}
 
-      {/* SIZES / VARIANTS */}
       {sizes.length > 0 && (
         <div style={{ marginBottom: 8 }}>
           {sizes.map(size => {
             const sizeVariant = variants.find(
-              v => v.color === activeColor && v.size === size
+              v =>
+                safeText(v.color, "") === activeColor &&
+                safeText(v.size, "") === size
             )
 
             const outOfStock =
@@ -184,7 +206,7 @@ export default function Card({ product }) {
 
           addToCart({
             productId: product._id,
-            name: product.name,
+            name: productName,
             image: mainImage,
             quantity: 1,
             price,
@@ -209,7 +231,6 @@ export default function Card({ product }) {
       >
         Add
       </button>
-
     </div>
   )
 }

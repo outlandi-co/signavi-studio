@@ -4,6 +4,19 @@ import api from "../services/api"
 import { useCartContext } from "../context/useCartContext"
 import toast from "react-hot-toast"
 
+const safeText = (value, fallback = "") => {
+  if (value === null || value === undefined || value === "") return fallback
+  if (typeof value === "string") return value
+  if (typeof value === "number") return String(value)
+  if (typeof value === "boolean") return value ? "Yes" : "No"
+
+  if (typeof value === "object") {
+    return value.name || value.title || value.label || value.value || fallback
+  }
+
+  return fallback
+}
+
 export default function ProductDetail() {
   const { id } = useParams()
   const { addToCart } = useCartContext()
@@ -20,16 +33,18 @@ export default function ProductDetail() {
     "https://signavi-backend.onrender.com"
 
   const resolve = (img) => {
-    if (!img) return "/image_placeholder/placeholder.png"
+    if (!img || typeof img !== "string") {
+      return "/image_placeholder/placeholder.png"
+    }
 
     if (img.startsWith("data:image")) return img
-
     if (img.startsWith("http")) return img
+    if (img.startsWith("/uploads")) return `${BASE_URL}${img}`
+    if (img.startsWith("uploads")) return `${BASE_URL}/${img}`
 
-    return `${BASE_URL}${img}`
+    return img
   }
 
-  /* ================= LOAD ================= */
   useEffect(() => {
     let isMounted = true
 
@@ -45,8 +60,8 @@ export default function ProductDetail() {
         if (p?.variants?.length) {
           const first = p.variants[0]
 
-          setSelectedColor(first.color)
-          setSelectedSize(first.size)
+          setSelectedColor(safeText(first.color, ""))
+          setSelectedSize(safeText(first.size, ""))
         }
       } catch (err) {
         if (!isMounted) return
@@ -70,35 +85,37 @@ export default function ProductDetail() {
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>
   if (!product) return <div style={{ padding: 40 }}>Product not found</div>
 
+  const productName = safeText(product.name, "Product")
+  const productDescription = safeText(product.description, "")
+
   const variants = product.variants || []
 
-  /* ================= COLORS ================= */
   const colors = [
-    ...new Set(variants.map(v => v.color))
+    ...new Set(variants.map(v => safeText(v.color, "")))
   ].filter(Boolean)
 
   const activeColor = selectedColor || colors[0]
 
   const colorVariants = variants.filter(
-    v => v.color === activeColor
+    v => safeText(v.color, "") === activeColor
   )
 
-  /* ================= SIZES / VARIANTS ================= */
   const sizes = [
-    ...new Set(colorVariants.map(v => v.size))
+    ...new Set(colorVariants.map(v => safeText(v.size, "")))
   ].filter(Boolean)
 
   const activeSize = selectedSize || sizes[0]
 
   const variant = variants.find(
-    v => v.color === activeColor && v.size === activeSize
+    v =>
+      safeText(v.color, "") === activeColor &&
+      safeText(v.size, "") === activeSize
   ) || colorVariants[0]
 
-  /* ================= IMAGES ================= */
   const images = [
     ...new Set(
       variants
-        .filter(v => v.color === activeColor)
+        .filter(v => safeText(v.color, "") === activeColor)
         .flatMap(v => v.images || [])
     )
   ]
@@ -115,7 +132,6 @@ export default function ProductDetail() {
 
   const mainImage = resolve(images[safeIndex] || images[0])
 
-  /* ✅ VARIANT PRICE FIX */
   const price = Number(
     variant?.price ||
     variant?.basePrice ||
@@ -136,13 +152,14 @@ export default function ProductDetail() {
 
   return (
     <div style={wrap}>
-
-      {/* LEFT */}
       <div>
         <img
           src={mainImage}
-          alt={product.name}
+          alt={productName}
           style={mainImg}
+          onError={(e) => {
+            e.currentTarget.src = "/image_placeholder/placeholder.png"
+          }}
         />
 
         {images.length > 1 && (
@@ -151,7 +168,7 @@ export default function ProductDetail() {
               <img
                 key={`${img}-${i}`}
                 src={resolve(img)}
-                alt={`${product.name} thumbnail ${i + 1}`}
+                alt={`${productName} thumbnail ${i + 1}`}
                 onClick={() => setImageIndex(i)}
                 style={{
                   ...thumb,
@@ -160,15 +177,17 @@ export default function ProductDetail() {
                       ? "2px solid #22c55e"
                       : "1px solid #334155"
                 }}
+                onError={(e) => {
+                  e.currentTarget.src = "/image_placeholder/placeholder.png"
+                }}
               />
             ))}
           </div>
         )}
       </div>
 
-      {/* RIGHT */}
       <div>
-        <h1>{product.name}</h1>
+        <h1>{productName}</h1>
 
         <p style={priceText}>
           ${price.toFixed(2)}
@@ -179,10 +198,9 @@ export default function ProductDetail() {
         </p>
 
         <p style={{ opacity: 0.7 }}>
-          {product.description}
+          {productDescription}
         </p>
 
-        {/* COLORS */}
         {colors.length > 0 && (
           <>
             <h4>Color</h4>
@@ -194,10 +212,10 @@ export default function ProductDetail() {
                   type="button"
                   onClick={() => {
                     const firstSize =
-                      variants.find(v => v.color === color)?.size
+                      variants.find(v => safeText(v.color, "") === color)?.size
 
                     setSelectedColor(color)
-                    setSelectedSize(firstSize)
+                    setSelectedSize(safeText(firstSize, ""))
                     setImageIndex(0)
                   }}
                   style={{
@@ -219,7 +237,6 @@ export default function ProductDetail() {
           </>
         )}
 
-        {/* SIZES */}
         {sizes.length > 0 && (
           <>
             <h4>Size</h4>
@@ -227,7 +244,9 @@ export default function ProductDetail() {
             <div style={row}>
               {sizes.map(size => {
                 const sizeVariant = variants.find(
-                  v => v.color === activeColor && v.size === size
+                  v =>
+                    safeText(v.color, "") === activeColor &&
+                    safeText(v.size, "") === size
                 )
 
                 const out = Number(
@@ -264,7 +283,6 @@ export default function ProductDetail() {
           </>
         )}
 
-        {/* ADD */}
         <button
           type="button"
           style={{
@@ -284,7 +302,7 @@ export default function ProductDetail() {
 
             addToCart({
               productId: product._id,
-              name: product.name,
+              name: productName,
               image: mainImage,
               quantity: 1,
               price,
@@ -303,8 +321,6 @@ export default function ProductDetail() {
     </div>
   )
 }
-
-/* ================= STYLES ================= */
 
 const wrap = {
   display: "grid",
