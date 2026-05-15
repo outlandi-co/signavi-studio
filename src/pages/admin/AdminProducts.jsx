@@ -1170,7 +1170,7 @@ export default function AdminProducts() {
 const page = {
   color: "white",
   minHeight: "100vh",
-  maxWidth: 1380,
+  maxWidth: 1180,
   margin: "0 auto"
 }
 
@@ -1179,27 +1179,22 @@ const hero = {
 }
 
 const eyebrow = {
-  margin: "0 0 16px",
-  color: "#cbd5e1",
-  textTransform: "uppercase",
-  letterSpacing: "0.2em",
-  fontSize: 22,
-  fontWeight: 900
+  display: "none"
 }
 
 const heading = {
-  margin: 0,
+  margin: "0 0 6px",
   color: "#f8fafc",
-  fontSize: "clamp(54px, 7vw, 92px)",
-  lineHeight: 0.95,
-  letterSpacing: "-0.07em",
-  fontWeight: 900
+  fontSize: 34,
+  lineHeight: 1.1,
+  letterSpacing: "-0.04em",
+  fontWeight: 800
 }
 
 const heroText = {
-  margin: "22px 0 0",
-  color: "#cbd5e1",
-  fontSize: 22,
+  margin: 0,
+  color: "#94a3b8",
+  fontSize: 18,
   lineHeight: 1.5
 }
 
@@ -1212,17 +1207,17 @@ const formGrid = {
 
 const card = {
   background: "#0f172a",
-  padding: 32,
-  borderRadius: 28,
+  padding: 28,
+  borderRadius: 18,
   border: "1px solid #1e293b",
-  boxShadow: "0 20px 40px rgba(0,0,0,0.25)"
+  maxWidth: 980
 }
 
 const sectionHeading = {
   marginTop: 0,
-  marginBottom: 18,
-  fontSize: 28,
-  fontWeight: 900
+  marginBottom: 20,
+  fontSize: 22,
+  fontWeight: 600
 }
 
 const label = {
@@ -1234,14 +1229,14 @@ const label = {
 
 const input = {
   display: "block",
-  marginBottom: 14,
-  padding: "15px 18px",
+  marginBottom: 16,
+  padding: "14px 16px",
   width: "100%",
-  borderRadius: 18,
+  borderRadius: 12,
   border: "1px solid #334155",
   boxSizing: "border-box",
-  background: "#f8fafc",
-  color: "#020617",
+  background: "#020617",
+  color: "#f8fafc",
   fontSize: 16,
   outline: "none"
 }
@@ -1261,9 +1256,9 @@ const selectedText = {
 
 const sectionTitle = {
   marginTop: 24,
-  marginBottom: 14,
-  fontSize: 22,
-  fontWeight: 900
+  marginBottom: 8,
+  fontSize: 20,
+  fontWeight: 800
 }
 
 const helperText = {
@@ -1274,7 +1269,7 @@ const helperText = {
 const digitalBox = {
   background: "#020617",
   padding: 20,
-  borderRadius: 22,
+  borderRadius: 16,
   marginTop: 20,
   marginBottom: 22,
   border: "1px solid #1e293b"
@@ -1299,8 +1294,8 @@ const variantButtonWrap = {
 const variantBtn = {
   padding: "10px 16px",
   border: "none",
-  borderRadius: 12,
-  fontWeight: 900,
+  borderRadius: 10,
+  fontWeight: 800,
   cursor: "pointer"
 }
 
@@ -1314,10 +1309,10 @@ const customWrap = {
 
 const secondaryBtn = {
   padding: 14,
-  background: "#22d3ee",
+  background: "#22c55e",
   color: "#020617",
   border: "none",
-  borderRadius: 16,
+  borderRadius: 10,
   fontWeight: 900,
   cursor: "pointer"
 }
@@ -1325,7 +1320,7 @@ const secondaryBtn = {
 const variantPriceBox = {
   background: "#020617",
   padding: 20,
-  borderRadius: 22,
+  borderRadius: 16,
   marginBottom: 22,
   border: "1px solid #1e293b"
 }
@@ -1352,7 +1347,7 @@ const uploadBox = {
   marginTop: 22,
   padding: 20,
   background: "#020617",
-  borderRadius: 22,
+  borderRadius: 16,
   border: "1px solid #1e293b"
 }
 
@@ -1415,7 +1410,7 @@ const btn = {
   background: "#22d3ee",
   color: "#020617",
   border: "none",
-  borderRadius: 18,
+  borderRadius: 16,
   width: "100%",
   fontWeight: 900,
   fontSize: 17,
