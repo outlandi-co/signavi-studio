@@ -692,9 +692,16 @@ export default function AdminProducts() {
 
   return (
     <div style={page}>
-      <h1 style={heading}>Admin Products</h1>
+      <div style={hero}>
+        <p style={eyebrow}>Admin Store</p>
+        <h1 style={heading}>Create Products</h1>
+        <p style={heroText}>
+          Build and manage products for the Signavi storefront.
+        </p>
+      </div>
 
-      <div style={card}>
+      <div style={formGrid}>
+        <div style={card}>
         <h2 style={sectionHeading}>
           {editingProduct ? "Edit Product" : "Create Product"}
         </h2>
@@ -1076,6 +1083,7 @@ export default function AdminProducts() {
               : "Add Product"}
         </button>
       </div>
+      </div>
 
       <div style={productsSection}>
         <div style={productsHeader}>
@@ -1161,30 +1169,59 @@ export default function AdminProducts() {
 
 const page = {
   color: "white",
-  minHeight: "100vh"
+  minHeight: "100vh",
+  maxWidth: 1380,
+  margin: "0 auto"
+}
+
+const hero = {
+  marginBottom: 34
+}
+
+const eyebrow = {
+  margin: "0 0 16px",
+  color: "#cbd5e1",
+  textTransform: "uppercase",
+  letterSpacing: "0.2em",
+  fontSize: 22,
+  fontWeight: 900
 }
 
 const heading = {
-  marginTop: 0,
-  marginBottom: 28,
-  fontSize: 54,
+  margin: 0,
+  color: "#f8fafc",
+  fontSize: "clamp(54px, 7vw, 92px)",
   lineHeight: 0.95,
-  letterSpacing: "-0.06em",
+  letterSpacing: "-0.07em",
   fontWeight: 900
+}
+
+const heroText = {
+  margin: "22px 0 0",
+  color: "#cbd5e1",
+  fontSize: 22,
+  lineHeight: 1.5
+}
+
+const formGrid = {
+  display: "grid",
+  gridTemplateColumns: "minmax(320px, 980px)",
+  gap: 28,
+  marginBottom: 42
 }
 
 const card = {
   background: "#0f172a",
-  padding: 28,
+  padding: 32,
   borderRadius: 28,
   border: "1px solid #1e293b",
-  maxWidth: 980
+  boxShadow: "0 20px 40px rgba(0,0,0,0.25)"
 }
 
 const sectionHeading = {
   marginTop: 0,
   marginBottom: 18,
-  fontSize: 24,
+  fontSize: 28,
   fontWeight: 900
 }
 
@@ -1197,33 +1234,35 @@ const label = {
 
 const input = {
   display: "block",
-  marginBottom: 12,
-  padding: "14px 16px",
+  marginBottom: 14,
+  padding: "15px 18px",
   width: "100%",
-  borderRadius: 16,
+  borderRadius: 18,
   border: "1px solid #334155",
   boxSizing: "border-box",
   background: "#f8fafc",
   color: "#020617",
-  fontSize: 16
+  fontSize: 16,
+  outline: "none"
 }
 
 const textarea = {
   ...input,
-  minHeight: 110,
+  minHeight: 120,
   resize: "vertical"
 }
 
 const selectedText = {
   marginTop: -4,
-  marginBottom: 12,
-  color: "#22d3ee"
+  marginBottom: 14,
+  color: "#22d3ee",
+  fontWeight: 700
 }
 
 const sectionTitle = {
-  marginTop: 22,
-  marginBottom: 12,
-  fontSize: 20,
+  marginTop: 24,
+  marginBottom: 14,
+  fontSize: 22,
   fontWeight: 900
 }
 
@@ -1234,10 +1273,10 @@ const helperText = {
 
 const digitalBox = {
   background: "#020617",
-  padding: 18,
-  borderRadius: 20,
-  marginTop: 18,
-  marginBottom: 20,
+  padding: 20,
+  borderRadius: 22,
+  marginTop: 20,
+  marginBottom: 22,
   border: "1px solid #1e293b"
 }
 
@@ -1285,9 +1324,9 @@ const secondaryBtn = {
 
 const variantPriceBox = {
   background: "#020617",
-  padding: 18,
-  borderRadius: 20,
-  marginBottom: 20,
+  padding: 20,
+  borderRadius: 22,
+  marginBottom: 22,
   border: "1px solid #1e293b"
 }
 
@@ -1311,9 +1350,9 @@ const variantPriceInput = {
 
 const uploadBox = {
   marginTop: 22,
-  padding: 18,
+  padding: 20,
   background: "#020617",
-  borderRadius: 20,
+  borderRadius: 22,
   border: "1px solid #1e293b"
 }
 
