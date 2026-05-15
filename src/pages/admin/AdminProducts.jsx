@@ -1160,72 +1160,71 @@ export default function AdminProducts() {
 }
 
 const page = {
-  padding: 20,
   color: "white",
-  background: "#020617",
   minHeight: "100vh"
 }
 
 const heading = {
   marginTop: 0,
-  marginBottom: 20
+  marginBottom: 28,
+  fontSize: 54,
+  lineHeight: 0.95,
+  letterSpacing: "-0.06em",
+  fontWeight: 900
 }
 
 const card = {
   background: "#0f172a",
-  padding: 20,
-  borderRadius: 14,
+  padding: 28,
+  borderRadius: 28,
   border: "1px solid #1e293b",
-  maxWidth: 900
+  maxWidth: 980
 }
 
 const sectionHeading = {
   marginTop: 0,
-  marginBottom: 16
+  marginBottom: 18,
+  fontSize: 24,
+  fontWeight: 900
 }
 
 const label = {
   display: "block",
-  marginBottom: 6,
+  marginBottom: 8,
   color: "#cbd5e1",
-  fontWeight: 700
+  fontWeight: 800
 }
 
 const input = {
   display: "block",
-  marginBottom: 10,
-  padding: 12,
+  marginBottom: 12,
+  padding: "14px 16px",
   width: "100%",
-  borderRadius: 8,
-  border: "none",
+  borderRadius: 16,
+  border: "1px solid #334155",
   boxSizing: "border-box",
-  background: "#fff",
-  color: "#000"
+  background: "#f8fafc",
+  color: "#020617",
+  fontSize: 16
 }
 
 const textarea = {
-  display: "block",
-  marginBottom: 10,
-  padding: 12,
-  width: "100%",
-  minHeight: 90,
-  borderRadius: 8,
-  border: "none",
-  boxSizing: "border-box",
-  background: "#fff",
-  color: "#000",
+  ...input,
+  minHeight: 110,
   resize: "vertical"
 }
 
 const selectedText = {
   marginTop: -4,
   marginBottom: 12,
-  color: "#38bdf8"
+  color: "#22d3ee"
 }
 
 const sectionTitle = {
-  marginTop: 18,
-  marginBottom: 10
+  marginTop: 22,
+  marginBottom: 12,
+  fontSize: 20,
+  fontWeight: 900
 }
 
 const helperText = {
@@ -1235,10 +1234,10 @@ const helperText = {
 
 const digitalBox = {
   background: "#020617",
-  padding: 14,
-  borderRadius: 12,
-  marginTop: 16,
-  marginBottom: 18,
+  padding: 18,
+  borderRadius: 20,
+  marginTop: 18,
+  marginBottom: 20,
   border: "1px solid #1e293b"
 }
 
@@ -1254,72 +1253,67 @@ const checkboxRow = {
 const variantButtonWrap = {
   display: "flex",
   flexWrap: "wrap",
-  gap: 8,
-  marginBottom: 16
+  gap: 10,
+  marginBottom: 18
 }
 
 const variantBtn = {
-  padding: "8px 14px",
+  padding: "10px 16px",
   border: "none",
-  borderRadius: 8,
-  fontWeight: 700,
+  borderRadius: 12,
+  fontWeight: 900,
   cursor: "pointer"
 }
 
 const customWrap = {
   display: "grid",
-  gridTemplateColumns: "1fr 180px",
-  gap: 10,
+  gridTemplateColumns: "1fr 200px",
+  gap: 12,
   alignItems: "start",
-  marginBottom: 16
+  marginBottom: 18
 }
 
 const secondaryBtn = {
-  padding: 12,
-  background: "#38bdf8",
+  padding: 14,
+  background: "#22d3ee",
   color: "#020617",
   border: "none",
-  borderRadius: 10,
-  fontWeight: 800,
+  borderRadius: 16,
+  fontWeight: 900,
   cursor: "pointer"
 }
 
 const variantPriceBox = {
   background: "#020617",
-  padding: 14,
-  borderRadius: 12,
-  marginBottom: 18,
+  padding: 18,
+  borderRadius: 20,
+  marginBottom: 20,
   border: "1px solid #1e293b"
 }
 
 const variantPriceRow = {
   display: "grid",
-  gridTemplateColumns: "120px 1fr",
-  gap: 10,
+  gridTemplateColumns: "130px 1fr",
+  gap: 12,
   alignItems: "center",
-  marginBottom: 10
+  marginBottom: 12
 }
 
 const variantSizeLabel = {
-  fontWeight: 700,
+  fontWeight: 900,
   color: "#e5e7eb"
 }
 
 const variantPriceInput = {
-  padding: 10,
-  width: "100%",
-  background: "#fff",
-  color: "#000",
-  border: "none",
-  borderRadius: 8,
-  boxSizing: "border-box"
+  ...input,
+  marginBottom: 0
 }
 
 const uploadBox = {
-  marginTop: 20,
-  padding: 12,
+  marginTop: 22,
+  padding: 18,
   background: "#020617",
-  borderRadius: 12,
+  borderRadius: 20,
   border: "1px solid #1e293b"
 }
 
@@ -1328,9 +1322,7 @@ const colorTitle = {
 }
 
 const fileInput = {
-  ...input,
-  background: "#fff",
-  color: "#000"
+  ...input
 }
 
 const previewWrap = {
@@ -1345,10 +1337,10 @@ const previewItem = {
 }
 
 const previewImage = {
-  width: 80,
-  height: 80,
+  width: 86,
+  height: 86,
   objectFit: "cover",
-  borderRadius: 8,
+  borderRadius: 12,
   border: "1px solid #334155"
 }
 
@@ -1357,12 +1349,12 @@ const existingPreviewBox = {
 }
 
 const existingPreviewImage = {
-  width: 120,
-  height: 120,
+  width: 130,
+  height: 130,
   objectFit: "contain",
   background: "#fff",
-  borderRadius: 8,
-  padding: 6,
+  borderRadius: 16,
+  padding: 8,
   boxSizing: "border-box"
 }
 
@@ -1373,30 +1365,31 @@ const removeBtn = {
   background: "#ef4444",
   color: "#fff",
   border: "none",
-  borderRadius: 6,
-  padding: 4,
+  borderRadius: 8,
+  padding: 5,
   cursor: "pointer"
 }
 
 const btn = {
-  padding: 14,
-  marginTop: 20,
-  background: "#22c55e",
+  padding: 16,
+  marginTop: 22,
+  background: "#22d3ee",
   color: "#020617",
   border: "none",
-  borderRadius: 10,
+  borderRadius: 18,
   width: "100%",
-  fontWeight: 800,
-  fontSize: 16
+  fontWeight: 900,
+  fontSize: 17,
+  cursor: "pointer"
 }
 
 const editNotice = {
-  background: "#022c22",
-  border: "1px solid #22c55e",
-  color: "#dcfce7",
-  padding: 12,
-  borderRadius: 10,
-  marginBottom: 14,
+  background: "rgba(34, 211, 238, 0.1)",
+  border: "1px solid #22d3ee",
+  color: "#e0faff",
+  padding: 14,
+  borderRadius: 16,
+  marginBottom: 16,
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
@@ -1407,119 +1400,124 @@ const cancelEditBtn = {
   background: "#ef4444",
   color: "#fff",
   border: "none",
-  borderRadius: 8,
-  padding: "8px 10px",
+  borderRadius: 12,
+  padding: "10px 12px",
   cursor: "pointer",
-  fontWeight: 700
+  fontWeight: 900
 }
 
 const productsSection = {
-  marginTop: 30
+  marginTop: 36
 }
 
 const productsHeader = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  maxWidth: 1100,
-  marginBottom: 14
+  maxWidth: 1180,
+  marginBottom: 18
 }
 
 const refreshBtn = {
-  background: "#38bdf8",
+  background: "#22d3ee",
   color: "#020617",
   border: "none",
-  borderRadius: 8,
-  padding: "8px 12px",
+  borderRadius: 16,
+  padding: "12px 18px",
   cursor: "pointer",
-  fontWeight: 700
+  fontWeight: 900
 }
 
 const productGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))",
-  gap: 16,
-  maxWidth: 1100
+  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 280px))",
+  gap: 28,
+  maxWidth: 1180
 }
 
 const productCard = {
   background: "#0f172a",
   border: "1px solid #1e293b",
-  borderRadius: 14,
-  padding: 12
+  borderRadius: 28,
+  padding: 28,
+  minHeight: 420,
+  display: "flex",
+  flexDirection: "column"
 }
 
 const productImageBox = {
   width: "100%",
-  height: 150,
-  background: "#ffffff",
-  borderRadius: 10,
+  height: 200,
+  background: "#111827",
+  borderRadius: 22,
   overflow: "hidden",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  marginBottom: 10
+  marginBottom: 22
 }
 
 const productImage = {
   width: "100%",
   height: "100%",
   objectFit: "contain",
-  padding: 6,
+  padding: 18,
   boxSizing: "border-box"
 }
 
 const productInfo = {
-  minHeight: 104
+  flex: 1
 }
 
 const productName = {
-  margin: "0 0 6px",
-  fontSize: 16
+  margin: "0 0 12px",
+  fontSize: 24,
+  fontWeight: 900
 }
 
 const productMeta = {
-  margin: "0 0 6px",
+  margin: "0 0 8px",
   color: "#94a3b8",
-  fontSize: 13
+  fontSize: 15
 }
 
 const productPrice = {
-  margin: "0 0 6px",
-  color: "#22c55e",
-  fontWeight: 800
+  margin: "0 0 8px",
+  color: "#f8fafc",
+  fontWeight: 900,
+  fontSize: 20
 }
 
 const digitalBadge = {
-  margin: "0 0 6px",
-  color: "#38bdf8",
-  fontSize: 13,
-  fontWeight: 700
+  margin: "0 0 8px",
+  color: "#22d3ee",
+  fontSize: 14,
+  fontWeight: 900
 }
 
 const productActions = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: 8,
-  marginTop: 10
+  gap: 10,
+  marginTop: 18
 }
 
 const editBtn = {
-  background: "#38bdf8",
+  background: "#22d3ee",
   color: "#020617",
   border: "none",
-  borderRadius: 8,
-  padding: 8,
+  borderRadius: 16,
+  padding: 12,
   cursor: "pointer",
-  fontWeight: 800
+  fontWeight: 900
 }
 
 const deleteBtn = {
   background: "#ef4444",
   color: "#fff",
   border: "none",
-  borderRadius: 8,
-  padding: 8,
+  borderRadius: 16,
+  padding: 12,
   cursor: "pointer",
-  fontWeight: 800
+  fontWeight: 900
 }

@@ -30,46 +30,27 @@ export default function AdminLayout() {
   return (
     <div style={wrapper}>
       <aside style={sidebar}>
-        <h2 style={title}>Admin Panel</h2>
+        <div style={brandBox}>
+          <div style={brandIcon}>S</div>
+          <div>
+            <h2 style={title}>Signavi</h2>
+            <p style={subtitle}>Admin Panel</p>
+          </div>
+        </div>
 
-        <SideLink to="/admin/production">
-          🏭 Production
-        </SideLink>
-
-        <SideLink to="/admin/orders">
-          📦 Orders
-        </SideLink>
-
-        <SideLink to="/admin/custom-order/new">
-          🧾 New Custom Order
-        </SideLink>
-
-        <SideLink to="/admin/products">
-          🛒 Products
-        </SideLink>
-        <SideLink to="/admin/signavi-store/products">
-        
-  🛍 Store Products
-</SideLink>
-
-<SideLink to="/admin/signavi-store/create">
-  ➕ Create Store Product
-</SideLink>
-
-        <SideLink to="/admin/customers">
-          👥 Customers
-        </SideLink>
+        <SideLink to="/admin/production">🏭 Production</SideLink>
+        <SideLink to="/admin/orders">📦 Orders</SideLink>
+        <SideLink to="/admin/custom-order/new">🧾 New Custom Order</SideLink>
+        <SideLink to="/admin/products">🛒 Products</SideLink>
+        <SideLink to="/admin/signavi-store/products">🛍 Store Products</SideLink>
+        <SideLink to="/admin/signavi-store/create">➕ Create Store Product</SideLink>
+        <SideLink to="/admin/customers">👥 Customers</SideLink>
 
         <div onClick={clearEmailUnread}>
           <SideLink to="/admin/emails">
             <div style={linkRow}>
               <span>📧 Emails</span>
-
-              {emailUnread > 0 && (
-                <span style={badge}>
-                  {emailUnread}
-                </span>
-              )}
+              {emailUnread > 0 && <span style={badge}>{emailUnread}</span>}
             </div>
           </SideLink>
         </div>
@@ -78,35 +59,22 @@ export default function AdminLayout() {
           <SideLink to="/admin/support">
             <div style={linkRow}>
               <span>🛟 Support</span>
-
-              {supportUnread > 0 && (
-                <span style={badge}>
-                  {supportUnread}
-                </span>
-              )}
+              {supportUnread > 0 && <span style={badge}>{supportUnread}</span>}
             </div>
           </SideLink>
         </div>
 
-        <SideLink to="/admin/revenue">
-          💰 Revenue
-        </SideLink>
+        <SideLink to="/admin/revenue">💰 Revenue</SideLink>
 
-        <button
-          type="button"
-          onClick={downloadOrdersCSV}
-          style={csvButton}
-        >
-          📄 Orders CSV
-        </button>
+        <div style={csvGroup}>
+          <button type="button" onClick={downloadOrdersCSV} style={csvButton}>
+            📄 Orders CSV
+          </button>
 
-        <button
-          type="button"
-          onClick={downloadTaxCSV}
-          style={taxButton}
-        >
-          🧾 Tax CSV
-        </button>
+          <button type="button" onClick={downloadTaxCSV} style={taxButton}>
+            🧾 Tax CSV
+          </button>
+        </div>
       </aside>
 
       <main style={content}>
@@ -122,11 +90,11 @@ function SideLink({ to, children }) {
       to={to}
       style={({ isActive }) => ({
         ...link,
-        background: isActive ? "#0f172a" : "transparent",
+        background: isActive ? "rgba(34, 211, 238, 0.12)" : "transparent",
         border: isActive
           ? "1px solid #22d3ee"
           : "1px solid transparent",
-        color: isActive ? "#22d3ee" : "#cbd5f5"
+        color: isActive ? "#22d3ee" : "#cbd5e1"
       })}
     >
       {children}
@@ -141,14 +109,14 @@ const wrapper = {
 }
 
 const sidebar = {
-  width: 240,
-  minWidth: 240,
+  width: 280,
+  minWidth: 280,
   background: "#020617",
   color: "#fff",
   display: "flex",
   flexDirection: "column",
   gap: 14,
-  padding: 20,
+  padding: 24,
   borderRight: "1px solid #1e293b",
   position: "sticky",
   top: 0,
@@ -157,33 +125,70 @@ const sidebar = {
   overflowY: "auto"
 }
 
+const brandBox = {
+  display: "flex",
+  alignItems: "center",
+  gap: 14,
+  marginBottom: 22
+}
+
+const brandIcon = {
+  width: 52,
+  height: 52,
+  borderRadius: 16,
+  background: "#22d3ee",
+  color: "#020617",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: 28,
+  fontWeight: 900
+}
+
 const title = {
-  marginBottom: 12,
-  fontSize: 22
+  margin: 0,
+  fontSize: 28,
+  fontWeight: 900,
+  letterSpacing: "-0.04em"
+}
+
+const subtitle = {
+  margin: 0,
+  color: "#94a3b8",
+  fontSize: 13,
+  fontWeight: 700
 }
 
 const content = {
   flex: 1,
-  padding: 20,
-  minWidth: 0
+  padding: "42px 48px",
+  minWidth: 0,
+  background:
+    "radial-gradient(circle at top left, rgba(34, 211, 238, 0.08), transparent 30%), #020617"
 }
 
 const link = {
-  padding: "12px 14px",
-  borderRadius: 10,
+  padding: "14px 16px",
+  borderRadius: 16,
   textDecoration: "none",
-  fontWeight: "500",
+  fontWeight: 800,
   transition: "0.2s ease",
   display: "block"
 }
 
+const csvGroup = {
+  marginTop: "auto",
+  display: "grid",
+  gap: 12
+}
+
 const csvButton = {
-  background: "#22c55e",
+  background: "#22d3ee",
   color: "#020617",
   border: "none",
-  padding: "10px 14px",
-  borderRadius: 10,
-  fontWeight: "bold",
+  padding: "14px 16px",
+  borderRadius: 16,
+  fontWeight: 900,
   cursor: "pointer",
   textAlign: "left"
 }
@@ -192,9 +197,9 @@ const taxButton = {
   background: "#38bdf8",
   color: "#020617",
   border: "none",
-  padding: "10px 14px",
-  borderRadius: 10,
-  fontWeight: "bold",
+  padding: "14px 16px",
+  borderRadius: 16,
+  fontWeight: 900,
   cursor: "pointer",
   textAlign: "left"
 }
