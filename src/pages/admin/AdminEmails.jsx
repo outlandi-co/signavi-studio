@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import api from "../../services/api"
 
 export default function AdminEmails() {
+  const navigate = useNavigate()
 
   const [customers, setCustomers] = useState([])
   const [selectedCustomer, setSelectedCustomer] = useState(null)
@@ -13,23 +15,15 @@ export default function AdminEmails() {
   const [message, setMessage] = useState("")
 
   const [history, setHistory] = useState([])
-
-  const [historyFilter, setHistoryFilter] =
-    useState("active")
+  const [historyFilter, setHistoryFilter] = useState("active")
 
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
 
-  /* ================= EMAIL TEMPLATES ================= */
-
   const templates = [
-
     {
       name: "Quote Ready",
-
-      subject:
-        "Your Quote Is Ready - SignaVi Studio",
-
+      subject: "Your Quote Is Ready - SignaVi Studio",
       message:
 `Hello {{customerName}},
 
@@ -40,13 +34,9 @@ Please review the quote details and let us know if you would like to proceed.
 Thank you,
 SignaVi Studio`
     },
-
     {
       name: "Payment Reminder",
-
-      subject:
-        "Payment Reminder - SignaVi Studio",
-
+      subject: "Payment Reminder - SignaVi Studio",
       message:
 `Hello {{customerName}},
 
@@ -57,13 +47,9 @@ If you have already submitted payment, please disregard this message.
 Thank you,
 SignaVi Studio`
     },
-
     {
       name: "Production Started",
-
-      subject:
-        "Production Has Started",
-
+      subject: "Production Has Started",
       message:
 `Hello {{customerName}},
 
@@ -74,13 +60,9 @@ We will notify you once it is completed and ready for shipping or pickup.
 Thank you,
 SignaVi Studio`
     },
-
     {
       name: "Shipping Update",
-
-      subject:
-        "Your Order Has Shipped",
-
+      subject: "Your Order Has Shipped",
       message:
 `Hello {{customerName}},
 
@@ -92,13 +74,9 @@ Tracking:
 Thank you,
 SignaVi Studio`
     },
-
     {
       name: "Mockup Approval",
-
-      subject:
-        "Mockup Ready For Approval",
-
+      subject: "Mockup Ready For Approval",
       message:
 `Hello {{customerName}},
 
@@ -109,13 +87,9 @@ Please review the design and let us know if any revisions are needed.
 Thank you,
 SignaVi Studio`
     },
-
     {
       name: "Thank You",
-
-      subject:
-        "Thank You From SignaVi Studio",
-
+      subject: "Thank You From SignaVi Studio",
       message:
 `Hello {{customerName}},
 
@@ -126,68 +100,41 @@ We truly appreciate your support and look forward to working with you again.
 Thank you,
 SignaVi Studio`
     }
-
   ]
 
-  /* ================= LOAD CUSTOMERS ================= */
-
   const loadCustomers = async () => {
-
     try {
+      const token = localStorage.getItem("adminToken")
 
-      const token =
-        localStorage.getItem("adminToken")
-
-      const res = await api.get(
-        "/customers",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+      const res = await api.get("/customers", {
+        headers: {
+          Authorization: `Bearer ${token}`
         }
-      )
+      })
 
-      setCustomers(
-        res.data?.data || []
-      )
-
+      setCustomers(res.data?.data || [])
     } catch (err) {
-
       console.error(
         "❌ CUSTOMER LOAD ERROR:",
         err.response?.data || err.message
       )
-
     } finally {
-
       setLoading(false)
     }
   }
 
-  /* ================= LOAD HISTORY ================= */
-
   const loadHistory = async () => {
-
     try {
+      const token = localStorage.getItem("adminToken")
 
-      const token =
-        localStorage.getItem("adminToken")
-
-      const res = await api.get(
-        "/admin-email/history",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+      const res = await api.get("/admin-email/history", {
+        headers: {
+          Authorization: `Bearer ${token}`
         }
-      )
+      })
 
-      setHistory(
-        res.data?.data || []
-      )
-
+      setHistory(res.data?.data || [])
     } catch (err) {
-
       console.error(
         "❌ HISTORY ERROR:",
         err.response?.data || err.message
@@ -195,77 +142,39 @@ SignaVi Studio`
     }
   }
 
-  /* ================= EFFECT ================= */
-
   useEffect(() => {
-
     const init = async () => {
-
       await loadCustomers()
       await loadHistory()
-
     }
 
     init()
-
   }, [])
 
-  /* ================= FILTER HISTORY ================= */
+  const filteredHistory = history.filter((email) => {
+    if (historyFilter === "active") return !email.archived
+    if (historyFilter === "archived") return email.archived
+    return true
+  })
 
-  const filteredHistory =
-    history.filter(email => {
-
-      if (historyFilter === "active") {
-        return !email.archived
-      }
-
-      if (historyFilter === "archived") {
-        return email.archived
-      }
-
-      return true
-    })
-
-  /* ================= SELECT CUSTOMER ================= */
-
-  const handleSelectCustomer = (
-    customer
-  ) => {
-
+  const handleSelectCustomer = (customer) => {
     setSelectedCustomer(customer)
-
     setTo(customer.email || "")
   }
 
-  /* ================= APPLY TEMPLATE ================= */
-
   const applyTemplate = (template) => {
-
     const customerName =
       selectedCustomer?.name || "Customer"
 
-    const parsedMessage =
-      template.message
-
-        .replace(
-          "{{customerName}}",
-          customerName
-        )
-
-        .replace(
-          "{{tracking}}",
-          "TRACKING_NUMBER"
-        )
+    const parsedMessage = template.message
+      .replace("{{customerName}}", customerName)
+      .replace("{{tracking}}", "TRACKING_NUMBER")
 
     setSubject(template.subject)
-
     setMessage(parsedMessage)
   }
 
-  /* ================= SEND ================= */
-
   const handleSend = async () => {
-
     if (!to.trim()) {
       alert("Recipient required")
       return
@@ -282,29 +191,20 @@ SignaVi Studio`
     }
 
     try {
-
       setSending(true)
 
-      const token =
-        localStorage.getItem("adminToken")
+      const token = localStorage.getItem("adminToken")
 
       const res = await api.post(
-
         "/admin-email/send-email",
-
         {
           to,
           cc,
           subject,
           message,
-
-          customerId:
-            selectedCustomer?._id,
-
-          customerName:
-            selectedCustomer?.name
+          customerId: selectedCustomer?._id,
+          customerName: selectedCustomer?.name
         },
-
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -312,10 +212,7 @@ SignaVi Studio`
         }
       )
 
-      console.log(
-        "✅ EMAIL SENT:",
-        res.data
-      )
+      console.log("✅ EMAIL SENT:", res.data)
 
       alert("Email sent successfully")
 
@@ -324,9 +221,7 @@ SignaVi Studio`
       setCc("")
 
       loadHistory()
-
     } catch (err) {
-
       console.error(
         "❌ EMAIL ERROR:",
         err.response?.data || err.message
@@ -334,30 +229,20 @@ SignaVi Studio`
 
       alert(
         err.response?.data?.message ||
-        "Failed to send email"
+          "Failed to send email"
       )
-
     } finally {
-
       setSending(false)
     }
   }
 
-  /* ================= ARCHIVE ================= */
-
   const archiveEmail = async (id) => {
-
     try {
-
-      const token =
-        localStorage.getItem("adminToken")
+      const token = localStorage.getItem("adminToken")
 
       await api.patch(
-
         `/admin-email/archive/${id}`,
-
         {},
-
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -366,9 +251,7 @@ SignaVi Studio`
       )
 
       loadHistory()
-
     } catch (err) {
-
       console.error(
         "❌ ARCHIVE ERROR:",
         err.response?.data || err.message
@@ -377,7 +260,6 @@ SignaVi Studio`
   }
 
   if (loading) {
-
     return (
       <div style={loadingStyle}>
         <h2>Loading...</h2>
@@ -387,40 +269,42 @@ SignaVi Studio`
 
   return (
     <div style={page}>
-
       <h1 style={title}>
         📧 Admin Email Center
       </h1>
 
       <div style={layout}>
-
-        {/* ================= CUSTOMERS ================= */}
-
         <div style={sidebar}>
+          <div style={emailSidebarTop}>
+            <h3 style={sectionTitle}>
+              Email Center
+            </h3>
 
-          <h3 style={sectionTitle}>
+            <button
+              type="button"
+              onClick={() => navigate("/admin/inbox")}
+              style={inboxButton}
+            >
+              📥 Notifications Inbox
+            </button>
+          </div>
+
+          <h3 style={customerTitle}>
             Customers
           </h3>
 
-          {customers.map(customer => (
-
+          {customers.map((customer) => (
             <button
               key={customer._id}
-
-              onClick={() =>
-                handleSelectCustomer(customer)
-              }
-
+              onClick={() => handleSelectCustomer(customer)}
               style={{
                 ...customerButton,
-
                 background:
                   selectedCustomer?._id === customer._id
                     ? "#22c55e"
                     : "#111827"
               }}
             >
-
               <strong>
                 {customer.name || "Customer"}
               </strong>
@@ -428,49 +312,31 @@ SignaVi Studio`
               <span style={emailStyle}>
                 {customer.email}
               </span>
-
             </button>
-
           ))}
-
         </div>
 
-        {/* ================= COMPOSE ================= */}
-
         <div style={emailPanel}>
-
           <h2 style={sectionTitle}>
             Compose Email
           </h2>
 
-          {/* ================= TEMPLATES ================= */}
-
           <div style={field}>
-
             <label style={label}>
               Templates
             </label>
 
             <div style={templateGrid}>
-
-              {templates.map(template => (
-
+              {templates.map((template) => (
                 <button
                   key={template.name}
-
-                  onClick={() =>
-                    applyTemplate(template)
-                  }
-
+                  onClick={() => applyTemplate(template)}
                   style={templateButton}
                 >
                   {template.name}
                 </button>
-
               ))}
-
             </div>
-
           </div>
 
           <div style={field}>
@@ -481,9 +347,7 @@ SignaVi Studio`
             <input
               type="text"
               value={to}
-              onChange={(e) =>
-                setTo(e.target.value)
-              }
+              onChange={(e) => setTo(e.target.value)}
               style={input}
             />
           </div>
@@ -496,9 +360,7 @@ SignaVi Studio`
             <input
               type="text"
               value={cc}
-              onChange={(e) =>
-                setCc(e.target.value)
-              }
+              onChange={(e) => setCc(e.target.value)}
               placeholder="Optional CC"
               style={input}
             />
@@ -512,9 +374,7 @@ SignaVi Studio`
             <input
               type="text"
               value={subject}
-              onChange={(e) =>
-                setSubject(e.target.value)
-              }
+              onChange={(e) => setSubject(e.target.value)}
               style={input}
             />
           </div>
@@ -527,9 +387,7 @@ SignaVi Studio`
             <textarea
               rows={12}
               value={message}
-              onChange={(e) =>
-                setMessage(e.target.value)
-              }
+              onChange={(e) => setMessage(e.target.value)}
               style={textarea}
             />
           </div>
@@ -539,26 +397,16 @@ SignaVi Studio`
             disabled={sending}
             style={sendButton}
           >
-            {sending
-              ? "Sending..."
-              : "Send Email"}
+            {sending ? "Sending..." : "Send Email"}
           </button>
-
         </div>
 
-        {/* ================= HISTORY ================= */}
-
         <div style={historyPanel}>
-
           <div style={filterRow}>
-
             <button
-              onClick={() =>
-                setHistoryFilter("active")
-              }
+              onClick={() => setHistoryFilter("active")}
               style={{
                 ...filterButton,
-
                 background:
                   historyFilter === "active"
                     ? "#22c55e"
@@ -569,12 +417,9 @@ SignaVi Studio`
             </button>
 
             <button
-              onClick={() =>
-                setHistoryFilter("archived")
-              }
+              onClick={() => setHistoryFilter("archived")}
               style={{
                 ...filterButton,
-
                 background:
                   historyFilter === "archived"
                     ? "#f59e0b"
@@ -585,12 +430,9 @@ SignaVi Studio`
             </button>
 
             <button
-              onClick={() =>
-                setHistoryFilter("all")
-              }
+              onClick={() => setHistoryFilter("all")}
               style={{
                 ...filterButton,
-
                 background:
                   historyFilter === "all"
                     ? "#3b82f6"
@@ -599,24 +441,19 @@ SignaVi Studio`
             >
               All
             </button>
-
           </div>
 
           <h2 style={sectionTitle}>
             📨 Email History
           </h2>
 
-          {filteredHistory.map(email => (
-
+          {filteredHistory.map((email) => (
             <div
               key={email._id}
               style={historyCard}
             >
-
               <div style={historyTop}>
-
                 <div>
-
                   <strong>
                     {email.subject}
                   </strong>
@@ -624,41 +461,28 @@ SignaVi Studio`
                   <p style={historyEmail}>
                     To: {email.to}
                   </p>
-
                 </div>
 
                 {!email.archived && (
-
                   <button
-                    onClick={() =>
-                      archiveEmail(email._id)
-                    }
+                    onClick={() => archiveEmail(email._id)}
                     style={archiveButton}
                   >
                     Archive
                   </button>
-
                 )}
-
               </div>
 
               <p style={messagePreview}>
                 {email.message}
               </p>
-
             </div>
-
           ))}
-
         </div>
-
       </div>
-
     </div>
   )
 }
-
-/* ================= STYLES ================= */
 
 const page = {
   padding: 30,
@@ -709,6 +533,27 @@ const historyPanel = {
 
 const sectionTitle = {
   marginBottom: 20
+}
+
+const emailSidebarTop = {
+  marginBottom: 20
+}
+
+const customerTitle = {
+  marginBottom: 18,
+  marginTop: 10
+}
+
+const inboxButton = {
+  width: "100%",
+  padding: "12px 14px",
+  borderRadius: 10,
+  border: "1px solid #334155",
+  background: "#111827",
+  color: "#22d3ee",
+  fontWeight: "700",
+  cursor: "pointer",
+  marginTop: 10
 }
 
 const customerButton = {
