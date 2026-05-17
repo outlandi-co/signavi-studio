@@ -37,7 +37,10 @@ function Navbar({
   }
 
   const isActive = (path) => {
-    if (path === "/") return location.pathname === "/"
+    if (path === "/") {
+      return location.pathname === "/"
+    }
+
     return location.pathname.startsWith(path)
   }
 
@@ -53,32 +56,63 @@ function Navbar({
 
   return (
     <nav className="navbar">
+
       <div className="navbar-left">
-        <Link to="/" className="brand-link">
-          <div className="brand-icon">S</div>
-          <span className="brand-name">Signavi</span>
+        <Link
+          to="/"
+          className="brand-link"
+        >
+          <div className="brand-icon">
+            S
+          </div>
+
+          <span className="brand-name">
+            Signavi
+          </span>
         </Link>
       </div>
 
       <div className="navbar-center">
-        <NavItem to="/" active={isActive("/")}>
+
+        <NavItem
+          to="/"
+          active={isActive("/")}
+        >
           Home
         </NavItem>
 
-        <NavItem to="/store" active={isActive("/store")}>
+        <NavItem
+          to="/store"
+          active={isActive("/store")}
+        >
           Store
         </NavItem>
 
-        <NavItem to="/quote" active={isActive("/quote")}>
+        <NavItem
+          to="/gallery"
+          active={isActive("/gallery")}
+        >
+          Gallery
+        </NavItem>
+
+        <NavItem
+          to="/quote"
+          active={isActive("/quote")}
+        >
           Get Quote
         </NavItem>
 
-        <NavItem to="/support" active={isActive("/support")}>
+        <NavItem
+          to="/support"
+          active={isActive("/support")}
+        >
           Support
         </NavItem>
+
       </div>
 
       <div className="navbar-right">
+
         <button
           type="button"
           onClick={openCart}
@@ -92,6 +126,7 @@ function Navbar({
               {cartCount}
             </span>
           )}
+
         </button>
 
         {isCustomer && (
@@ -108,10 +143,12 @@ function Navbar({
                 {supportUnread}
               </span>
             )}
+
           </button>
         )}
 
         {(isCustomer || isAdmin) ? (
+
           <button
             type="button"
             onClick={handleLogout}
@@ -119,14 +156,29 @@ function Navbar({
           >
             Logout
           </button>
+
         ) : (
+
           <div className="auth-links">
-            <Link to="/customer-register">Register</Link>
-            <Link to="/customer-login">Customer</Link>
-            <Link to="/login">Admin</Link>
+
+            <Link to="/customer-register">
+              Register
+            </Link>
+
+            <Link to="/customer-login">
+              Customer
+            </Link>
+
+            <Link to="/login">
+              Admin
+            </Link>
+
           </div>
+
         )}
+
       </div>
+
     </nav>
   )
 }
@@ -139,7 +191,11 @@ function NavItem({
   return (
     <Link
       to={to}
-      className={active ? "nav-link active" : "nav-link"}
+      className={
+        active
+          ? "nav-link active"
+          : "nav-link"
+      }
     >
       {children}
     </Link>

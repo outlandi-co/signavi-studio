@@ -40,6 +40,7 @@ export default function AdminLayout() {
 
         <SideLink to="/admin/production">🏭 Production</SideLink>
         <SideLink to="/admin/orders">📦 Orders</SideLink>
+        <SideLink to="/admin/invoices">🧾 Invoices</SideLink>
         <SideLink to="/admin/custom-order/new">🧾 New Custom Order</SideLink>
         <SideLink to="/admin/products">🛒 Products</SideLink>
         <SideLink to="/admin/signavi-store/products">🛍 Store Products</SideLink>

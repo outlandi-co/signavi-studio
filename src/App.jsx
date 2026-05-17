@@ -56,6 +56,8 @@ import CheckoutRedirect from "./pages/CheckoutRedirect"
 
 import ApproveMockup from "./pages/ApproveMockup"
 
+import Gallery from "./pages/Gallery"
+
 /* ================= CUSTOMER ================= */
 
 import CustomerLogin from "./pages/customer/CustomerLogin"
@@ -77,6 +79,7 @@ import AdminCustomerDetail from "./pages/admin/AdminCustomerDetail"
 import AdminEmails from "./pages/admin/AdminEmails"
 import AdminSupport from "./pages/admin/AdminSupport"
 import AdminRevenue from "./pages/admin/AdminRevenue"
+import AdminInvoices from "./components/admin/AdminInvoices"
 import AdminProducts from "./pages/admin/AdminProducts"
 import CreateCustomOrder from "./pages/admin/CreateCustomOrder"
 
@@ -289,211 +292,225 @@ function AppContent() {
       />
 
       <Routes>
-        <Route
-          path="/"
-          element={<Home />}
-        />
+  <Route
+    path="/"
+    element={<Home />}
+  />
 
-        <Route
-          path="/store"
-          element={<Store />}
-        />
+  <Route
+    path="/store"
+    element={<Store />}
+  />
 
-        <Route
-          path="/product/:id"
-          element={<ProductDetail />}
-        />
+  <Route
+    path="/gallery"
+    element={<Gallery />}
+  />
 
-        <Route
-          path="/login"
-          element={<Login />}
-        />
+  <Route
+    path="/product/:id"
+    element={<ProductDetail />}
+  />
 
-        <Route
-          path="/forgot-password"
-          element={<ForgotPassword />}
-        />
+  <Route
+    path="/login"
+    element={<Login />}
+  />
 
-        <Route
-          path="/reset-password/:token"
-          element={<ResetPassword />}
-        />
+  <Route
+    path="/forgot-password"
+    element={<ForgotPassword />}
+  />
 
-        <Route
-          path="/quote"
-          element={<CustomQuote />}
-        />
+  <Route
+    path="/reset-password/:token"
+    element={<ResetPassword />}
+  />
 
-        <Route
-          path="/support"
-          element={<Support />}
-        />
+  <Route
+    path="/quote"
+    element={<CustomQuote />}
+  />
 
-        <Route
-          path="/quote/:id"
-          element={<QuoteResponse />}
-        />
+  <Route
+    path="/support"
+    element={<Support />}
+  />
 
-        <Route
-          path="/track"
-          element={<TrackingPage />}
-        />
+  <Route
+    path="/quote/:id"
+    element={<QuoteResponse />}
+  />
 
-        <Route
-          path="/track/:id"
-          element={<TrackingPage />}
-        />
+  <Route
+    path="/track"
+    element={<TrackingPage />}
+  />
 
-        <Route
-          path="/customer-login"
-          element={<CustomerLogin />}
-        />
+  <Route
+    path="/track/:id"
+    element={<TrackingPage />}
+  />
 
-        <Route
-          path="/customer-register"
-          element={<CustomerRegister />}
-        />
+  <Route
+    path="/customer-login"
+    element={<CustomerLogin />}
+  />
 
-        <Route element={<CustomerRoute />}>
-          <Route element={<CustomerLayout />}>
-            <Route
-              path="/dashboard"
-              element={<CustomerDashboard />}
-            />
+  <Route
+    path="/customer-register"
+    element={<CustomerRegister />}
+  />
 
-            <Route
-              path="/my-orders"
-              element={<CustomerOrders />}
-            />
+  <Route element={<CustomerRoute />}>
+    <Route element={<CustomerLayout />}>
+      <Route
+        path="/dashboard"
+        element={<CustomerDashboard />}
+      />
 
-            <Route
-              path="/order/:id"
-              element={<OrderDetail />}
-            />
+      <Route
+        path="/my-orders"
+        element={<CustomerOrders />}
+      />
 
-            <Route
-              path="/security"
-              element={<Security />}
-            />
+      <Route
+        path="/order/:id"
+        element={<OrderDetail />}
+      />
 
-            <Route
-              path="/my-support"
-              element={<CustomerSupport />}
-            />
-          </Route>
-        </Route>
+      <Route
+        path="/security"
+        element={<Security />}
+      />
 
-        <Route
-          path="/client-checkout/:id"
-          element={<ClientCheckout />}
-        />
+      <Route
+        path="/my-support"
+        element={<CustomerSupport />}
+      />
+    </Route>
+  </Route>
 
-        <Route
-          path="/checkout/:id"
-          element={<CheckoutRedirect />}
-        />
+  <Route
+    path="/client-checkout/:id"
+    element={<ClientCheckout />}
+  />
 
-        <Route
-          path="/client-order/:id"
-          element={<ClientOrder />}
-        />
+  <Route
+    path="/checkout/:id"
+    element={<CheckoutRedirect />}
+  />
 
-        <Route
-          path="/success/:id"
-          element={<Success />}
-        />
+  <Route
+    path="/client-order/:id"
+    element={<ClientOrder />}
+  />
 
-        <Route
-          path="/approve/:id"
-          element={<ApproveMockup />}
-        />
+  <Route
+    path="/success/:id"
+    element={<Success />}
+  />
 
-        <Route
-          path="/admin"
-          element={<AdminRoute />}
-        >
-          <Route element={<AdminLayout />}>
-            <Route
-              index
-              element={<ProductionBoard />}
-            />
+  <Route
+    path="/approve/:id"
+    element={<ApproveMockup />}
+  />
 
-            <Route
-              path="production"
-              element={<ProductionBoard />}
-            />
+  {/* ================= ADMIN ================= */}
 
-            <Route
-              path="orders"
-              element={<Orders />}
-            />
+  <Route
+    path="/admin"
+    element={<AdminRoute />}
+  >
+    <Route element={<AdminLayout />}>
 
-            <Route
-              path="custom-order/new"
-              element={<CreateCustomOrder />}
-            />
+      <Route
+        index
+        element={<ProductionBoard />}
+      />
 
-            <Route
-              path="order/:id"
-              element={<AdminOrderDetail />}
-            />
+      <Route
+        path="production"
+        element={<ProductionBoard />}
+      />
 
-            <Route
-              path="customers"
-              element={<AdminCustomers />}
-            />
+      <Route
+        path="orders"
+        element={<Orders />}
+      />
 
-            <Route
-              path="customers/:id"
-              element={<AdminCustomerDetail />}
-            />
+      <Route
+        path="invoices"
+        element={<AdminInvoices />}
+      />
 
-            <Route
-              path="emails"
-              element={<AdminEmails />}
-            />
+      <Route
+        path="custom-order/new"
+        element={<CreateCustomOrder />}
+      />
 
-            <Route
-              path="support"
-              element={<AdminSupport />}
-            />
+      <Route
+        path="order/:id"
+        element={<AdminOrderDetail />}
+      />
 
-            <Route
-              path="revenue"
-              element={<AdminRevenue />}
-            />
+      <Route
+        path="customers"
+        element={<AdminCustomers />}
+      />
 
-            <Route
-              path="products"
-              element={<AdminProducts />}
-            />
+      <Route
+        path="customers/:id"
+        element={<AdminCustomerDetail />}
+      />
 
-            <Route
-              path="products/new"
-              element={<CreateProduct />}
-            />
+      <Route
+        path="emails"
+        element={<AdminEmails />}
+      />
 
-            <Route
-              path="products/edit/:id"
-              element={<EditProduct />}
-            />
+      <Route
+        path="support"
+        element={<AdminSupport />}
+      />
 
-            <Route
-              path="signavi-store/products"
-              element={<StoreProducts />}
-            />
+      <Route
+        path="revenue"
+        element={<AdminRevenue />}
+      />
 
-            <Route
-              path="signavi-store/create"
-              element={<CreateStoreProduct />}
-            />
+      <Route
+        path="products"
+        element={<AdminProducts />}
+      />
 
-            <Route
-              path="signavi-store/edit/:id"
-              element={<EditStoreProduct />}
-            />
-          </Route>
-        </Route>
+      <Route
+        path="products/new"
+        element={<CreateProduct />}
+      />
+
+      <Route
+        path="products/edit/:id"
+        element={<EditProduct />}
+      />
+
+      <Route
+        path="signavi-store/products"
+        element={<StoreProducts />}
+      />
+
+      <Route
+        path="signavi-store/create"
+        element={<CreateStoreProduct />}
+      />
+
+      <Route
+        path="signavi-store/edit/:id"
+        element={<EditStoreProduct />}
+      />
+
+    </Route>
+  </Route>
 
         <Route
           path="*"

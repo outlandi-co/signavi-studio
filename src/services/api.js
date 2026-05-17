@@ -87,7 +87,7 @@ api.interceptors.response.use(
       err?.config?.baseURL + url
     )
 
-    const originalRequest = err.config
+    const originalRequest = err.config || {}
 
     const safeRoutes = [
       "/auth/login",
