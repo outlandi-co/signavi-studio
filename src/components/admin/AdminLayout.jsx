@@ -56,6 +56,8 @@ export default function AdminLayout() {
           </SideLink>
         </div>
 
+        <SideLink to="/admin/inbox">📥 Inbox</SideLink>
+
         <div onClick={clearSupportUnread}>
           <SideLink to="/admin/support">
             <div style={linkRow}>

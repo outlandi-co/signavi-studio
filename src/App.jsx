@@ -78,6 +78,7 @@ import AdminOrderDetail from "./pages/admin/AdminOrderDetail"
 import AdminCustomers from "./pages/admin/AdminCustomers"
 import AdminCustomerDetail from "./pages/admin/AdminCustomerDetail"
 import AdminEmails from "./pages/admin/AdminEmails"
+import AdminInbox from "./pages/admin/AdminInbox"
 import AdminSupport from "./pages/admin/AdminSupport"
 import AdminRevenue from "./pages/admin/AdminRevenue"
 import AdminInvoices from "./components/admin/AdminInvoices"
@@ -385,6 +386,11 @@ function AppContent() {
             <Route
               path="emails"
               element={<AdminEmails />}
+            />
+
+            <Route
+              path="inbox"
+              element={<AdminInbox />}
             />
 
             <Route
