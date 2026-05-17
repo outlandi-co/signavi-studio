@@ -9,11 +9,6 @@ export default function ProofApprovalPage() {
   const [loading, setLoading] = useState(true)
   const [approving, setApproving] = useState(false)
 
-  const [form, setForm] = useState({
-    approvalName: "",
-    approvalEmail: ""
-  })
-
   useEffect(() => {
     let mounted = true
 
@@ -40,8 +35,8 @@ export default function ProofApprovalPage() {
   }, [id])
 
   const approveProof = async () => {
-    if (!form.approvalName || !form.approvalEmail) {
-      alert("Please enter your name and email to approve.")
+    if (!invoice?.customerName || !invoice?.customerEmail) {
+      alert("Customer information is missing from this invoice.")
       return
     }
 
@@ -50,7 +45,10 @@ export default function ProofApprovalPage() {
 
       const res = await api.patch(
         `/invoices/${id}/approve-proof`,
-        form
+        {
+          approvalName: invoice.customerName,
+          approvalEmail: invoice.customerEmail
+        }
       )
 
       setInvoice(res.data.data)
@@ -154,43 +152,31 @@ export default function ProofApprovalPage() {
 
             <p>
               Approved by:{" "}
-              {invoice.finalProof.approvalName || "Customer"}
+              {invoice.finalProof.approvalName ||
+                invoice.customerName ||
+                "Customer"}
             </p>
           </div>
         ) : (
           <div style={approvalBox}>
             <h2>Approve Final Proofs</h2>
 
-            <input
-              placeholder="Your Name"
-              value={form.approvalName}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  approvalName: e.target.value
-                })
-              }
-              style={input}
-            />
-
-            <input
-              placeholder="Your Email"
-              type="email"
-              value={form.approvalEmail}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  approvalEmail: e.target.value
-                })
-              }
-              style={input}
-            />
+            <p style={approvalText}>
+              By clicking approve, you confirm these final proofs are approved
+              for production under the customer name and email on this invoice.
+            </p>
 
             <button
               type="button"
               onClick={approveProof}
-              disabled={approving}
-              style={button}
+              disabled={approving || proofFiles.length === 0}
+              style={{
+                ...button,
+                opacity:
+                  approving || proofFiles.length === 0
+                    ? 0.6
+                    : 1
+              }}
             >
               {approving ? "Approving..." : "Approve Final Proofs"}
             </button>
@@ -265,22 +251,19 @@ const approvalBox = {
   marginTop: 24
 }
 
+const approvalText = {
+  maxWidth: 620,
+  margin: "0 auto 18px",
+  color: "#555",
+  lineHeight: 1.6
+}
+
 const approvedBox = {
   marginTop: 24,
   background: "#dcfce7",
   border: "1px solid #22c55e",
   borderRadius: 14,
   padding: 18
-}
-
-const input = {
-  display: "block",
-  width: "100%",
-  padding: 14,
-  marginBottom: 12,
-  borderRadius: 10,
-  border: "1px solid #ccc",
-  boxSizing: "border-box"
 }
 
 const button = {

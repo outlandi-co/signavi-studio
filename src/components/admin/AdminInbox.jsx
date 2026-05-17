@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import api from "../../services/api"
 
 export default function AdminInbox() {
+  const navigate = useNavigate()
+
   const [notifications, setNotifications] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -40,6 +43,20 @@ export default function AdminInbox() {
       clearTimeout(timer)
     }
   }, [])
+
+  const openNotification = async (item) => {
+    if (!item?.link) return
+
+    if (!item.read) {
+      try {
+        await api.patch(`/notifications/${item._id}/read`)
+      } catch (error) {
+        console.error("MARK READ BEFORE OPEN ERROR:", error)
+      }
+    }
+
+    navigate(item.link)
+  }
 
   const markRead = async (id) => {
     await api.patch(`/notifications/${id}/read`)
@@ -83,9 +100,33 @@ export default function AdminInbox() {
           {notifications.map((item) => (
             <div
               key={item._id}
+              onClick={() => openNotification(item)}
+              role={item.link ? "button" : "article"}
+              tabIndex={item.link ? 0 : -1}
+              onKeyDown={(e) => {
+                if (
+                  item.link &&
+                  (e.key === "Enter" || e.key === " ")
+                ) {
+                  e.preventDefault()
+                  openNotification(item)
+                }
+              }}
               style={{
                 ...card,
-                borderColor: item.read ? "#1e293b" : "#22d3ee"
+                cursor: item.link ? "pointer" : "default",
+                borderColor: item.read ? "#1e293b" : "#22d3ee",
+                borderLeft:
+                  item.type === "payment"
+                    ? "5px solid #22c55e"
+                    : item.type === "proof"
+                      ? "5px solid #3b82f6"
+                      : item.type === "invoice"
+                        ? "5px solid #f59e0b"
+                        : item.type === "order"
+                          ? "5px solid #a78bfa"
+                          : "5px solid #64748b",
+                opacity: item.read ? 0.78 : 1
               }}
             >
               <div style={cardTop}>
@@ -102,6 +143,12 @@ export default function AdminInbox() {
 
               <p style={text}>{item.text}</p>
 
+              {item.link && (
+                <p style={openText}>
+                  Open →
+                </p>
+              )}
+
               <p style={date}>
                 {item.createdAt
                   ? new Date(item.createdAt).toLocaleString()
@@ -110,15 +157,25 @@ export default function AdminInbox() {
 
               <div style={actions}>
                 {item.link && (
-                  <a href={item.link} style={linkButton}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      openNotification(item)
+                    }}
+                    style={linkButton}
+                  >
                     Open
-                  </a>
+                  </button>
                 )}
 
                 {!item.read && (
                   <button
                     type="button"
-                    onClick={() => markRead(item._id)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      markRead(item._id)
+                    }}
                     style={smallButton}
                   >
                     Mark Read
@@ -127,7 +184,10 @@ export default function AdminInbox() {
 
                 <button
                   type="button"
-                  onClick={() => archiveNotification(item._id)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    archiveNotification(item._id)
+                  }}
                   style={archiveButton}
                 >
                   Archive
@@ -199,7 +259,8 @@ const card = {
   background: "#020617",
   border: "1px solid #1e293b",
   borderRadius: 20,
-  padding: 22
+  padding: 22,
+  transition: "0.2s ease"
 }
 
 const cardTop = {
@@ -234,6 +295,13 @@ const text = {
   lineHeight: 1.6
 }
 
+const openText = {
+  marginTop: 12,
+  color: "#38bdf8",
+  fontWeight: 900,
+  fontSize: 14
+}
+
 const date = {
   color: "#64748b",
   fontSize: 13
@@ -249,10 +317,12 @@ const actions = {
 const linkButton = {
   background: "#22d3ee",
   color: "#020617",
+  border: "none",
   textDecoration: "none",
   padding: "10px 14px",
   borderRadius: 12,
-  fontWeight: 900
+  fontWeight: 900,
+  cursor: "pointer"
 }
 
 const smallButton = {
