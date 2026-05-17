@@ -4,6 +4,7 @@ import api from "../../services/api"
 export default function AdminInvoices() {
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
+  const [proofUploadingId, setProofUploadingId] = useState("")
 
   const [form, setForm] = useState({
     customerName: "",
@@ -27,30 +28,31 @@ export default function AdminInvoices() {
   }
 
   useEffect(() => {
-    let ignore = false
+  let mounted = true
 
-    const fetchInvoices = async () => {
-      try {
-        const res = await api.get("/invoices")
+  const timer = setTimeout(async () => {
+    if (!mounted) return
 
-        if (!ignore) {
-          setInvoices(res.data.data || [])
-        }
-      } catch (error) {
-        console.error("LOAD INVOICES ERROR:", error)
-      } finally {
-        if (!ignore) {
-          setLoading(false)
-        }
+    try {
+      const res = await api.get("/invoices")
+
+      if (mounted) {
+        setInvoices(res.data.data || [])
+      }
+    } catch (error) {
+      console.error("LOAD INVOICES ERROR:", error)
+    } finally {
+      if (mounted) {
+        setLoading(false)
       }
     }
+  }, 0)
 
-    fetchInvoices()
-
-    return () => {
-      ignore = true
-    }
-  }, [])
+  return () => {
+    mounted = false
+    clearTimeout(timer)
+  }
+}, [])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -61,77 +63,118 @@ export default function AdminInvoices() {
     }))
   }
 
-const createInvoice = async (e) => {
-  e.preventDefault()
+  const createInvoice = async (e) => {
+    e.preventDefault()
 
-  try {
-    const payload = {
-      customerName: form.customerName,
-      customerEmail: form.customerEmail,
-      shipping: Number(form.shipping || 0),
-      notes: form.notes,
+    try {
+      const payload = {
+        customerName: form.customerName,
+        customerEmail: form.customerEmail,
+        shipping: Number(form.shipping || 0),
+        notes: form.notes,
 
-      items: [
-        {
-          name: form.itemName,
-          quantity: Number(form.quantity || 1),
-          price: Number(form.price || 0)
-        }
-      ]
+        items: [
+          {
+            name: form.itemName,
+            quantity: Number(form.quantity || 1),
+            price: Number(form.price || 0)
+          }
+        ]
+      }
+
+      const res = await api.post("/invoices", payload)
+      const invoiceId = res.data?.data?._id
+
+      if (!invoiceId) {
+        throw new Error("Invoice ID missing")
+      }
+
+      await api.post(`/invoices/${invoiceId}/create-payment-link`)
+      await api.post(`/invoices/${invoiceId}/send`)
+
+      setForm({
+        customerName: "",
+        customerEmail: "",
+        itemName: "",
+        quantity: 1,
+        price: "",
+        shipping: "",
+        notes: ""
+      })
+
+      await loadInvoices()
+
+      alert("Invoice created and emailed successfully.")
+    } catch (error) {
+      console.error("CREATE INVOICE ERROR:", error)
+
+      alert(
+        error?.response?.data?.message ||
+          "Invoice could not be created."
+      )
     }
-
-    console.log("📦 CREATE INVOICE PAYLOAD:", payload)
-
-    const res = await api.post("/invoices", payload)
-
-    const invoiceId = res.data?.data?._id
-
-    if (!invoiceId) {
-      throw new Error("Invoice ID missing")
-    }
-
-    /* ================= CREATE PAYMENT LINK ================= */
-
-    await api.post(
-      `/invoices/${invoiceId}/create-payment-link`
-    )
-
-    /* ================= SEND EMAIL ================= */
-
-    await api.post(
-      `/invoices/${invoiceId}/send`
-    )
-
-    setForm({
-      customerName: "",
-      customerEmail: "",
-      itemName: "",
-      quantity: 1,
-      price: "",
-      shipping: "",
-      notes: ""
-    })
-
-    await loadInvoices()
-
-    alert(
-      "Invoice created and emailed successfully."
-    )
-
-  } catch (error) {
-    console.error("CREATE INVOICE ERROR:", error)
-
-    alert(
-      error?.response?.data?.message ||
-      "Invoice could not be created."
-    )
   }
-}
+
+  const uploadProof = async (invoiceId, file) => {
+    if (!file) return
+
+    try {
+      setProofUploadingId(invoiceId)
+
+      const formData = new FormData()
+      formData.append("proof", file)
+
+      await api.patch(
+        `/invoices/${invoiceId}/final-proof`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data"
+          }
+        }
+      )
+
+      await loadInvoices()
+
+      alert("Final proof uploaded successfully.")
+    } catch (error) {
+      console.error("UPLOAD PROOF ERROR:", error)
+
+      alert(
+        error?.response?.data?.message ||
+          "Final proof could not be uploaded."
+      )
+    } finally {
+      setProofUploadingId("")
+    }
+  }
+
+  const copyProofLink = async (invoiceId) => {
+    const url = `${window.location.origin}/proof/${invoiceId}`
+    await navigator.clipboard.writeText(url)
+    alert("Proof approval link copied.")
+  }
+
+  const sendPaymentEmail = async (invoiceId) => {
+    try {
+      await api.post(`/invoices/${invoiceId}/create-payment-link`)
+      await api.post(`/invoices/${invoiceId}/send`)
+      await loadInvoices()
+      alert("Payment email sent successfully.")
+    } catch (error) {
+      console.error("SEND PAYMENT EMAIL ERROR:", error)
+
+      alert(
+        error?.response?.data?.message ||
+          "Payment email could not be sent."
+      )
+    }
+  }
 
   const markPaid = async (id) => {
     try {
       await api.patch(`/invoices/${id}/mark-paid`)
-      loadInvoices()
+      await loadInvoices()
     } catch (error) {
       console.error("MARK PAID ERROR:", error)
     }
@@ -140,11 +183,11 @@ const createInvoice = async (e) => {
   const startProduction = async (id) => {
     try {
       await api.patch(`/invoices/${id}/start-production`)
-      loadInvoices()
+      await loadInvoices()
     } catch (error) {
       alert(
         error?.response?.data?.message ||
-        "Invoice must be paid and proof approved first."
+          "Invoice must be paid before production starts."
       )
     }
   }
@@ -154,14 +197,13 @@ const createInvoice = async (e) => {
       <h1 style={heading}>Invoices</h1>
 
       <p style={subheading}>
-        Create invoices with automatic tax calculation.
+        Create invoices, upload final proofs, send approvals, and manage payments.
       </p>
 
       <form onSubmit={createInvoice} style={card}>
         <h2 style={sectionTitle}>Create Invoice</h2>
 
         <div style={grid}>
-
           <input
             name="customerName"
             placeholder="Customer Name"
@@ -219,7 +261,6 @@ const createInvoice = async (e) => {
             onChange={handleChange}
             style={input}
           />
-
         </div>
 
         <textarea
@@ -245,8 +286,7 @@ const createInvoice = async (e) => {
         ) : (
           invoices.map((invoice) => (
             <div key={invoice._id} style={invoiceCard}>
-
-              <div>
+              <div style={invoiceInfo}>
                 <h3 style={invoiceTitle}>
                   {invoice.invoiceNumber || "Invoice"}
                 </h3>
@@ -254,36 +294,76 @@ const createInvoice = async (e) => {
                 <p>{invoice.customerName}</p>
                 <p>{invoice.customerEmail}</p>
 
-                <p>
-                  Status: {invoice.status}
-                </p>
+                <p>Status: {invoice.status}</p>
+                <p>Payment: {invoice.paymentStatus}</p>
 
                 <p>
-                  Payment: {invoice.paymentStatus}
+                  Total: ${Number(invoice.total || 0).toFixed(2)}
                 </p>
 
-                <p>
-                  Subtotal: $
-                  {Number(invoice.subtotal || 0).toFixed(2)}
-                </p>
+                {invoice.finalProof?.imageUrl && (
+                  <div style={proofBox}>
+                    <p style={proofLabel}>Final Proof Uploaded</p>
 
-                <p>
-                  Tax: $
-                  {Number(invoice.tax || 0).toFixed(2)}
-                </p>
+                    {invoice.finalProof.imageUrl
+                      .toLowerCase()
+                      .endsWith(".pdf") ? (
+                      <a
+                        href={invoice.finalProof.imageUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={proofLink}
+                      >
+                        View PDF Proof
+                      </a>
+                    ) : (
+                      <img
+                        src={invoice.finalProof.imageUrl}
+                        alt="Final proof"
+                        style={proofPreview}
+                      />
+                    )}
 
-                <p>
-                  Shipping: $
-                  {Number(invoice.shipping || 0).toFixed(2)}
-                </p>
-
-                <p>
-                  Total: $
-                  {Number(invoice.total || 0).toFixed(2)}
-                </p>
+                    <p>
+                      Approved:{" "}
+                      {invoice.finalProof.approved ? "Yes" : "No"}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div style={actions}>
+                <label style={fileLabel}>
+                  Upload Final Proof
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={(e) =>
+                      uploadProof(invoice._id, e.target.files?.[0])
+                    }
+                    style={{ display: "none" }}
+                  />
+                </label>
+
+                {proofUploadingId === invoice._id && (
+                  <p>Uploading...</p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => copyProofLink(invoice._id)}
+                  style={secondaryButton}
+                >
+                  Copy Proof Link
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => sendPaymentEmail(invoice._id)}
+                  style={primaryButtonSmall}
+                >
+                  Send Payment Email
+                </button>
 
                 {invoice.paymentStatus !== "paid" && (
                   <button
@@ -302,7 +382,6 @@ const createInvoice = async (e) => {
                 >
                   Start Production
                 </button>
-
               </div>
             </div>
           ))
@@ -388,7 +467,11 @@ const invoiceCard = {
   display: "flex",
   justifyContent: "space-between",
   gap: 20,
-  alignItems: "center"
+  alignItems: "flex-start"
+}
+
+const invoiceInfo = {
+  flex: 1
 }
 
 const invoiceTitle = {
@@ -399,7 +482,39 @@ const invoiceTitle = {
 
 const actions = {
   display: "grid",
-  gap: 10
+  gap: 10,
+  minWidth: 200
+}
+
+const fileLabel = {
+  background: "#f97316",
+  color: "#020617",
+  border: "none",
+  padding: "12px 14px",
+  borderRadius: 12,
+  fontWeight: 900,
+  cursor: "pointer",
+  textAlign: "center"
+}
+
+const secondaryButton = {
+  background: "#a78bfa",
+  color: "#020617",
+  border: "none",
+  padding: "12px 14px",
+  borderRadius: 12,
+  fontWeight: 900,
+  cursor: "pointer"
+}
+
+const primaryButtonSmall = {
+  background: "#22d3ee",
+  color: "#020617",
+  border: "none",
+  padding: "12px 14px",
+  borderRadius: 12,
+  fontWeight: 900,
+  cursor: "pointer"
 }
 
 const paidButton = {
@@ -420,4 +535,30 @@ const productionButton = {
   borderRadius: 12,
   fontWeight: 900,
   cursor: "pointer"
+}
+
+const proofBox = {
+  marginTop: 16,
+  padding: 12,
+  background: "#0f172a",
+  borderRadius: 14,
+  border: "1px solid #334155"
+}
+
+const proofLabel = {
+  fontWeight: 900,
+  color: "#22d3ee"
+}
+
+const proofPreview = {
+  width: 180,
+  maxHeight: 180,
+  objectFit: "contain",
+  borderRadius: 10,
+  border: "1px solid #334155"
+}
+
+const proofLink = {
+  color: "#22d3ee",
+  fontWeight: 900
 }
