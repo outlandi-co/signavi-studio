@@ -2,6 +2,27 @@ import { useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import api from "../services/api"
 
+const API_BASE =
+  import.meta.env.VITE_API_URL ||
+  "https://signavi-backend.onrender.com/api"
+
+const BACKEND_BASE =
+  API_BASE.replace(/\/api\/?$/, "")
+
+const resolveFileUrl = (url = "") => {
+  if (!url) return ""
+
+  if (url.startsWith("http")) {
+    return url
+  }
+
+  if (url.startsWith("/uploads")) {
+    return `${BACKEND_BASE}${url}`
+  }
+
+  return `${BACKEND_BASE}/uploads/proofs/${url}`
+}
+
 export default function ProofApprovalPage() {
   const { id } = useParams()
 
@@ -69,16 +90,26 @@ export default function ProofApprovalPage() {
   const getProofFiles = () => {
     const files = invoice?.finalProof?.files || []
 
-    if (files.length) return files
+    if (files.length) {
+      return files.map((file) => ({
+        ...file,
+        url: resolveFileUrl(file.url)
+      }))
+    }
 
     if (invoice?.finalProof?.imageUrl) {
       return [
         {
-          url: invoice.finalProof.imageUrl,
-          fileName: invoice.finalProof.fileName || "Final Proof",
-          mimeType: invoice.finalProof.imageUrl.toLowerCase().endsWith(".pdf")
-            ? "application/pdf"
-            : "image"
+          url: resolveFileUrl(invoice.finalProof.imageUrl),
+          fileName:
+            invoice.finalProof.fileName ||
+            "Final Proof",
+          mimeType:
+            invoice.finalProof.imageUrl
+              .toLowerCase()
+              .endsWith(".pdf")
+              ? "application/pdf"
+              : "image"
         }
       ]
     }
@@ -87,11 +118,19 @@ export default function ProofApprovalPage() {
   }
 
   if (loading) {
-    return <main style={page}>Loading proof...</main>
+    return (
+      <main style={page}>
+        Loading proof...
+      </main>
+    )
   }
 
   if (!invoice) {
-    return <main style={page}>Invoice not found.</main>
+    return (
+      <main style={page}>
+        Invoice not found.
+      </main>
+    )
   }
 
   const proofFiles = getProofFiles()
@@ -99,7 +138,9 @@ export default function ProofApprovalPage() {
   return (
     <main style={page}>
       <section style={card}>
-        <h1 style={heading}>Final Design Proof</h1>
+        <h1 style={heading}>
+          Final Design Proof
+        </h1>
 
         <p style={muted}>
           Invoice: {invoice.invoiceNumber}
@@ -116,10 +157,15 @@ export default function ProofApprovalPage() {
             {proofFiles.map((proof, index) => {
               const isPdf =
                 proof.mimeType?.includes("pdf") ||
-                proof.url?.toLowerCase().endsWith(".pdf")
+                proof.url
+                  ?.toLowerCase()
+                  .endsWith(".pdf")
 
               return (
-                <div key={proof.url || index} style={proofCard}>
+                <div
+                  key={proof.url || index}
+                  style={proofCard}
+                >
                   <p style={proofTitle}>
                     Proof {index + 1}
                   </p>
@@ -136,7 +182,10 @@ export default function ProofApprovalPage() {
                   ) : (
                     <img
                       src={proof.url}
-                      alt={proof.fileName || `Proof ${index + 1}`}
+                      alt={
+                        proof.fileName ||
+                        `Proof ${index + 1}`
+                      }
                       style={proofImage}
                     />
                   )}
@@ -152,33 +201,45 @@ export default function ProofApprovalPage() {
 
             <p>
               Approved by:{" "}
-              {invoice.finalProof.approvalName ||
+              {invoice.finalProof
+                .approvalName ||
                 invoice.customerName ||
                 "Customer"}
             </p>
           </div>
         ) : (
           <div style={approvalBox}>
-            <h2>Approve Final Proofs</h2>
+            <h2>
+              Approve Final Proofs
+            </h2>
 
             <p style={approvalText}>
-              By clicking approve, you confirm these final proofs are approved
-              for production under the customer name and email on this invoice.
+              By clicking approve, you
+              confirm these final proofs
+              are approved for production
+              under the customer name and
+              email on this invoice.
             </p>
 
             <button
               type="button"
               onClick={approveProof}
-              disabled={approving || proofFiles.length === 0}
+              disabled={
+                approving ||
+                proofFiles.length === 0
+              }
               style={{
                 ...button,
                 opacity:
-                  approving || proofFiles.length === 0
+                  approving ||
+                  proofFiles.length === 0
                     ? 0.6
                     : 1
               }}
             >
-              {approving ? "Approving..." : "Approve Final Proofs"}
+              {approving
+                ? "Approving..."
+                : "Approve Final Proofs"}
             </button>
           </div>
         )}
@@ -208,7 +269,8 @@ const card = {
   maxWidth: 980,
   width: "100%",
   textAlign: "center",
-  boxShadow: "0 12px 35px rgba(0,0,0,0.08)"
+  boxShadow:
+    "0 12px 35px rgba(0,0,0,0.08)"
 }
 
 const heading = {
@@ -222,7 +284,8 @@ const muted = {
 
 const proofGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+  gridTemplateColumns:
+    "repeat(auto-fit, minmax(240px, 1fr))",
   gap: 18,
   marginTop: 24
 }
