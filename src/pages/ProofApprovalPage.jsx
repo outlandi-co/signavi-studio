@@ -15,18 +15,28 @@ export default function ProofApprovalPage() {
   })
 
   useEffect(() => {
-    const loadInvoice = async () => {
+    let mounted = true
+
+    const timer = setTimeout(async () => {
       try {
         const res = await api.get(`/invoices/${id}`)
-        setInvoice(res.data.data)
+
+        if (mounted) {
+          setInvoice(res.data.data)
+        }
       } catch (error) {
         console.error("LOAD PROOF ERROR:", error)
       } finally {
-        setLoading(false)
+        if (mounted) {
+          setLoading(false)
+        }
       }
-    }
+    }, 0)
 
-    loadInvoice()
+    return () => {
+      mounted = false
+      clearTimeout(timer)
+    }
   }, [id])
 
   const approveProof = async () => {
@@ -58,6 +68,26 @@ export default function ProofApprovalPage() {
     }
   }
 
+  const getProofFiles = () => {
+    const files = invoice?.finalProof?.files || []
+
+    if (files.length) return files
+
+    if (invoice?.finalProof?.imageUrl) {
+      return [
+        {
+          url: invoice.finalProof.imageUrl,
+          fileName: invoice.finalProof.fileName || "Final Proof",
+          mimeType: invoice.finalProof.imageUrl.toLowerCase().endsWith(".pdf")
+            ? "application/pdf"
+            : "image"
+        }
+      ]
+    }
+
+    return []
+  }
+
   if (loading) {
     return <main style={page}>Loading proof...</main>
   }
@@ -66,8 +96,7 @@ export default function ProofApprovalPage() {
     return <main style={page}>Invoice not found.</main>
   }
 
-  const proofUrl = invoice.finalProof?.imageUrl || ""
-  const isPdf = proofUrl.toLowerCase().endsWith(".pdf")
+  const proofFiles = getProofFiles()
 
   return (
     <main style={page}>
@@ -82,23 +111,41 @@ export default function ProofApprovalPage() {
           Customer: {invoice.customerName}
         </p>
 
-        {!proofUrl ? (
+        {proofFiles.length === 0 ? (
           <p>No proof has been uploaded yet.</p>
-        ) : isPdf ? (
-          <a
-            href={proofUrl}
-            target="_blank"
-            rel="noreferrer"
-            style={buttonLink}
-          >
-            Open PDF Proof
-          </a>
         ) : (
-          <img
-            src={proofUrl}
-            alt="Final proof"
-            style={proofImage}
-          />
+          <div style={proofGrid}>
+            {proofFiles.map((proof, index) => {
+              const isPdf =
+                proof.mimeType?.includes("pdf") ||
+                proof.url?.toLowerCase().endsWith(".pdf")
+
+              return (
+                <div key={proof.url || index} style={proofCard}>
+                  <p style={proofTitle}>
+                    Proof {index + 1}
+                  </p>
+
+                  {isPdf ? (
+                    <a
+                      href={proof.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={buttonLink}
+                    >
+                      Open PDF Proof
+                    </a>
+                  ) : (
+                    <img
+                      src={proof.url}
+                      alt={proof.fileName || `Proof ${index + 1}`}
+                      style={proofImage}
+                    />
+                  )}
+                </div>
+              )
+            })}
+          </div>
         )}
 
         {invoice.finalProof?.approved ? (
@@ -112,7 +159,7 @@ export default function ProofApprovalPage() {
           </div>
         ) : (
           <div style={approvalBox}>
-            <h2>Approve Final Proof</h2>
+            <h2>Approve Final Proofs</h2>
 
             <input
               placeholder="Your Name"
@@ -145,7 +192,7 @@ export default function ProofApprovalPage() {
               disabled={approving}
               style={button}
             >
-              {approving ? "Approving..." : "Approve Final Proof"}
+              {approving ? "Approving..." : "Approve Final Proofs"}
             </button>
           </div>
         )}
@@ -172,7 +219,7 @@ const card = {
   background: "#fff",
   borderRadius: 18,
   padding: 30,
-  maxWidth: 780,
+  maxWidth: 980,
   width: "100%",
   textAlign: "center",
   boxShadow: "0 12px 35px rgba(0,0,0,0.08)"
@@ -187,13 +234,31 @@ const muted = {
   color: "#555"
 }
 
+const proofGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+  gap: 18,
+  marginTop: 24
+}
+
+const proofCard = {
+  border: "1px solid #ddd",
+  borderRadius: 14,
+  padding: 14,
+  background: "#fafafa"
+}
+
+const proofTitle = {
+  fontWeight: 800
+}
+
 const proofImage = {
   width: "100%",
-  maxHeight: 560,
+  maxHeight: 500,
   objectFit: "contain",
-  margin: "20px 0",
   borderRadius: 12,
-  border: "1px solid #ddd"
+  border: "1px solid #ddd",
+  background: "#fff"
 }
 
 const approvalBox = {
