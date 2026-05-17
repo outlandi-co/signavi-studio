@@ -311,8 +311,9 @@ export default function AdminInvoices() {
             accept="image/*,.pdf"
             multiple
             onChange={(e) =>
-              setProofFiles(Array.from(e.target.files || []))
-            }
+  setProofFiles(Array.from(e.target.files || []))
+
+}
             style={{ display: "none" }}
           />
         </label>
