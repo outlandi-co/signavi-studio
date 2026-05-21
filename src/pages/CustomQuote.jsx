@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom"
 import axios from "axios"
 
 export default function CustomQuote() {
-
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -11,7 +10,7 @@ export default function CustomQuote() {
     name: "",
     email: "",
     quantity: 1,
-    printType: "screenprint",
+    printType: "laser",
     notes: location.state?.idea || ""
   })
 
@@ -19,46 +18,43 @@ export default function CustomQuote() {
   const [preview, setPreview] = useState(null)
   const [loading, setLoading] = useState(false)
 
-  const [estimate, setEstimate] = useState(0)
-  const [discountMsg, setDiscountMsg] = useState("")
+  const pricing = {
+    laser: { base: 15, setup: 0 },
+    vinyl: { base: 12, setup: 0 },
+    digital: { base: 50, setup: 0 }
 
-  /* ================= PRICING ================= */
-  useEffect(() => {
+    /*
+    screenprint: { base: 8, setup: 20 },
+    dtf: { base: 6, setup: 0 },
+    embroidery: { base: 10, setup: 30 }
+    */
+  }
 
-    const pricing = {
-      screenprint: { base: 8, setup: 20 },
-      dtf: { base: 6, setup: 0 },
-      embroidery: { base: 10, setup: 30 }
-    }
+  const { base, setup } = pricing[form.printType] || {
+    base: 0,
+    setup: 0
+  }
 
-    const { base, setup } = pricing[form.printType] || { base: 0, setup: 0 }
+  const qty = Number(form.quantity || 0)
 
-    const qty = Number(form.quantity || 0)
+  let discount = 1
+  let discountMsg = ""
 
-    let discount = 1
-    let message = ""
+  if (qty >= 100) {
+    discount = 0.7
+    discountMsg = "🔥 30% bulk discount applied"
+  } else if (qty >= 50) {
+    discount = 0.8
+    discountMsg = "🔥 20% bulk discount applied"
+  } else if (qty >= 12) {
+    discount = 0.9
+    discountMsg = "🔥 10% bulk discount applied"
+  } else {
+    discountMsg = "💡 Order 12+ to unlock discounts"
+  }
 
-    if (qty >= 100) {
-      discount = 0.7
-      message = "🔥 30% bulk discount applied"
-    } else if (qty >= 50) {
-      discount = 0.8
-      message = "🔥 20% bulk discount applied"
-    } else if (qty >= 12) {
-      discount = 0.9
-      message = "🔥 10% bulk discount applied"
-    } else {
-      message = "💡 Order 12+ to unlock discounts"
-    }
+  const estimate = base * qty * discount + setup
 
-    const total = (base * qty * discount) + setup
-
-    setEstimate(total)
-    setDiscountMsg(message)
-
-  }, [form.quantity, form.printType])
-
-  /* ================= INPUT ================= */
   const handleChange = (e) => {
     const { name, value } = e.target
 
@@ -68,7 +64,6 @@ export default function CustomQuote() {
     }))
   }
 
-  /* ================= FILE ================= */
   const handleFile = (e) => {
     const selected = e.target.files[0]
     if (!selected) return
@@ -85,7 +80,6 @@ export default function CustomQuote() {
     }
   }, [preview])
 
-  /* ================= SUBMIT (🔥 FIXED) ================= */
   const handleSubmit = async (e) => {
     e.preventDefault()
 
@@ -101,12 +95,12 @@ export default function CustomQuote() {
         import.meta.env.VITE_API_URL ||
         "http://localhost:5050/api"
 
-      /* 🔥 SEND JSON INSTEAD OF FORMDATA */
       const payload = {
         customerName: form.name,
         email: form.email,
         quantity: form.quantity,
         printType: form.printType,
+        serviceType: form.printType,
         price: estimate,
         items: [
           {
@@ -116,21 +110,15 @@ export default function CustomQuote() {
           }
         ],
         notes: form.notes,
-        artwork: file?.name || "" // 🔥 KEY FIX
+        artwork: file?.name || ""
       }
 
-      console.log("📤 SENDING QUOTE JSON:", payload)
-
       const res = await axios.post(`${API}/quotes`, payload)
-
-      console.log("🧪 RESPONSE DATA:", res.data)
 
       const quoteId =
         res?.data?.data?._id ||
         res?.data?._id ||
         null
-
-      console.log("🆔 EXTRACTED ID:", quoteId)
 
       if (!quoteId) {
         alert("Quote created but failed to redirect")
@@ -138,7 +126,6 @@ export default function CustomQuote() {
       }
 
       navigate(`/quote/${quoteId}`)
-
     } catch (err) {
       console.error("❌ ERROR:", err.response?.data || err.message)
       alert("Server error")
@@ -146,8 +133,6 @@ export default function CustomQuote() {
       setLoading(false)
     }
   }
-
-  /* ================= UI ================= */
 
   const inputStyle = {
     padding: "12px",
@@ -173,7 +158,6 @@ export default function CustomQuote() {
         padding: "30px",
         borderRadius: "16px"
       }}>
-
         <h1>Request a Custom Quote</h1>
 
         <div style={{
@@ -201,23 +185,64 @@ export default function CustomQuote() {
           flexDirection: "column",
           gap: "12px"
         }}>
+          <input
+            name="name"
+            placeholder="Name"
+            value={form.name}
+            onChange={handleChange}
+            style={inputStyle}
+          />
 
-          <input name="name" placeholder="Name" value={form.name} onChange={handleChange} style={inputStyle} />
-          <input name="email" placeholder="Email" value={form.email} onChange={handleChange} style={inputStyle} />
-          <input name="quantity" type="number" value={form.quantity} onChange={handleChange} min="1" style={inputStyle} />
+          <input
+            name="email"
+            placeholder="Email"
+            value={form.email}
+            onChange={handleChange}
+            style={inputStyle}
+          />
 
-          <select name="printType" value={form.printType} onChange={handleChange} style={inputStyle}>
+          <input
+            name="quantity"
+            type="number"
+            value={form.quantity}
+            onChange={handleChange}
+            min="1"
+            style={inputStyle}
+          />
+
+          <select
+            name="printType"
+            value={form.printType}
+            onChange={handleChange}
+            style={inputStyle}
+          >
+            <option value="laser">Laser Engraving</option>
+            <option value="vinyl">Vinyl Printing</option>
+            <option value="digital">Digital Services</option>
+
+            {/*
             <option value="screenprint">Screen Print</option>
             <option value="dtf">DTF Transfer</option>
             <option value="embroidery">Embroidery</option>
+            */}
           </select>
 
-          <textarea name="notes" placeholder="Describe your project..." value={form.notes} onChange={handleChange} style={inputStyle} />
+          <textarea
+            name="notes"
+            placeholder="Describe your project..."
+            value={form.notes}
+            onChange={handleChange}
+            style={inputStyle}
+          />
 
           <input type="file" onChange={handleFile} />
 
           {preview && (
-            <img src={preview} alt="preview" style={{ width: "200px", borderRadius: "8px" }} />
+            <img
+              src={preview}
+              alt="preview"
+              style={{ width: "200px", borderRadius: "8px" }}
+            />
           )}
 
           <button
@@ -229,12 +254,12 @@ export default function CustomQuote() {
               border: "none",
               borderRadius: "10px",
               color: "#fff",
-              cursor: "pointer"
+              cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.7 : 1
             }}
           >
             {loading ? "Submitting..." : "Submit Quote"}
           </button>
-
         </form>
       </div>
     </div>
