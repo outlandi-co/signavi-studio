@@ -7,7 +7,13 @@ import {
 
 import api from "../../services/api"
 
+const FOLDERS = [
+  { id: "inbox", label: "📥 Inbox" },
+  { id: "archive", label: "🗄 Archive" }
+]
+
 export default function AdminInbox() {
+  const [activeFolder, setActiveFolder] = useState("inbox")
   const [threads, setThreads] = useState([])
   const [messages, setMessages] = useState([])
   const [selectedThread, setSelectedThread] = useState(null)
@@ -28,10 +34,12 @@ export default function AdminInbox() {
 
   const loadThreads = useCallback(async () => {
     try {
-      const res = await api.get(
-        "/admin-email-threads",
-        authHeaders
-      )
+      const endpoint =
+        activeFolder === "archive"
+          ? "/admin-email-threads/archived"
+          : "/admin-email-threads"
+
+      const res = await api.get(endpoint, authHeaders)
 
       setThreads(res.data?.data || [])
     } catch (error) {
@@ -39,7 +47,7 @@ export default function AdminInbox() {
     } finally {
       setLoading(false)
     }
-  }, [authHeaders])
+  }, [activeFolder, authHeaders])
 
   const loadMessages = async (thread) => {
     try {
@@ -73,7 +81,6 @@ export default function AdminInbox() {
       )
 
       setReply("")
-
       await loadMessages(selectedThread)
     } catch (error) {
       console.error("SEND REPLY ERROR:", error)
@@ -118,6 +125,13 @@ export default function AdminInbox() {
     }
   }, [loadThreads])
 
+  const handleFolderClick = (folderId) => {
+    setActiveFolder(folderId)
+    setSelectedThread(null)
+    setMessages([])
+    setLoading(true)
+  }
+
   if (loading) {
     return (
       <main style={page}>
@@ -132,11 +146,36 @@ export default function AdminInbox() {
         📥 Email Inbox
       </h1>
 
+      <div style={folderBar}>
+        {FOLDERS.map((folder) => (
+          <button
+            key={folder.id}
+            type="button"
+            onClick={() => handleFolderClick(folder.id)}
+            style={{
+              ...folderButton,
+              background:
+                activeFolder === folder.id
+                  ? "#22d3ee"
+                  : "#111827",
+              color:
+                activeFolder === folder.id
+                  ? "#020617"
+                  : "#e5e7eb"
+            }}
+          >
+            {folder.label}
+          </button>
+        ))}
+      </div>
+
       <div style={layout}>
         <aside style={threadList}>
           {threads.length === 0 ? (
             <p style={muted}>
-              No customer replies yet.
+              {activeFolder === "archive"
+                ? "No archived conversations yet."
+                : "No customer replies yet."}
             </p>
           ) : (
             threads.map((thread) => (
@@ -165,7 +204,7 @@ export default function AdminInbox() {
                   {thread.lastMessage}
                 </span>
 
-                {thread.unread && (
+                {thread.unread && activeFolder !== "archive" && (
                   <span style={unread}>
                     Unread
                   </span>
@@ -199,13 +238,15 @@ export default function AdminInbox() {
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={archiveThread}
-                  style={archiveButton}
-                >
-                  Archive
-                </button>
+                {activeFolder !== "archive" && (
+                  <button
+                    type="button"
+                    onClick={archiveThread}
+                    style={archiveButton}
+                  >
+                    Archive
+                  </button>
+                )}
               </div>
 
               <div style={messageList}>
@@ -247,28 +288,30 @@ export default function AdminInbox() {
                 ))}
               </div>
 
-              <div style={replyBox}>
-                <textarea
-                  rows={5}
-                  value={reply}
-                  onChange={(e) =>
-                    setReply(e.target.value)
-                  }
-                  placeholder="Write a reply..."
-                  style={textarea}
-                />
+              {activeFolder !== "archive" && (
+                <div style={replyBox}>
+                  <textarea
+                    rows={5}
+                    value={reply}
+                    onChange={(e) =>
+                      setReply(e.target.value)
+                    }
+                    placeholder="Write a reply..."
+                    style={textarea}
+                  />
 
-                <button
-                  type="button"
-                  onClick={sendReply}
-                  disabled={sending}
-                  style={sendButton}
-                >
-                  {sending
-                    ? "Sending..."
-                    : "Send Reply"}
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={sendReply}
+                    disabled={sending}
+                    style={sendButton}
+                  >
+                    {sending
+                      ? "Sending..."
+                      : "Send Reply"}
+                  </button>
+                </div>
+              )}
             </>
           )}
         </section>
@@ -287,6 +330,21 @@ const page = {
 const heading = {
   marginTop: 0,
   fontSize: 34
+}
+
+const folderBar = {
+  display: "flex",
+  gap: 12,
+  marginBottom: 20,
+  flexWrap: "wrap"
+}
+
+const folderButton = {
+  border: "1px solid #334155",
+  padding: "10px 14px",
+  borderRadius: 12,
+  fontWeight: 900,
+  cursor: "pointer"
 }
 
 const layout = {
