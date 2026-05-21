@@ -25,13 +25,6 @@ const serviceTemplates = {
     hashtags:
       "#customsigns #graphicdesign #businessbranding #smallbusiness #signavi",
   },
-  drone: {
-    title: "Drone Photo & Video",
-    caption:
-      "Aerial drone photography and video services available for real estate, events, businesses, and creative projects.",
-    hashtags:
-      "#dronevideo #aerialphotography #realestatevideo #contentcreator #signavi",
-  },
   apparel: {
     title: "Custom Apparel",
     caption:
@@ -58,18 +51,16 @@ ${siteUrl}
 ${selected.hashtags}`
   }, [selected, customNote, siteUrl])
 
-  const encodedUrl = encodeURIComponent(siteUrl)
-
   const copyToClipboard = async (label, value) => {
-    try {
-      await navigator.clipboard.writeText(value)
-      setCopied(label)
-      setTimeout(() => setCopied(""), 1800)
-    } catch (error) {
-      console.error("Copy failed:", error)
-      alert("Copy failed. You can manually highlight and copy the preview text.")
-    }
+  try {
+    await navigator.clipboard.writeText(value)
+    setCopied(label)
+    setTimeout(() => setCopied(""), 1800)
+  } catch (error) {
+    console.error("Copy failed:", error)
+    alert("Copy failed. You can manually highlight and copy the preview text.")
   }
+}
 
   return (
     <main className="marketing-page">
@@ -135,18 +126,18 @@ ${selected.hashtags}`
           <p>Best for business page posts, local groups, and customer shares.</p>
 
           <div className="button-row">
-            <a
-              href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Share Link
-            </a>
+  <a
+    href="https://www.instagram.com/signavistudio/"
+    target="_blank"
+    rel="noreferrer"
+  >
+    Visit Instagram
+  </a>
 
-            <button onClick={() => copyToClipboard("facebook", postText)}>
-              {copied === "facebook" ? "Copied!" : "Copy Caption"}
-            </button>
-          </div>
+  <button onClick={() => copyToClipboard("instagram", postText)}>
+    {copied === "instagram" ? "Copied!" : "Copy Caption"}
+  </button>
+</div>
         </div>
 
         <div className="platform-card instagram">
@@ -154,9 +145,13 @@ ${selected.hashtags}`
           <p>Use this for reels, stories, carousels, and behind-the-scenes posts.</p>
 
           <div className="button-row">
-            <a href="https://www.instagram.com/" target="_blank" rel="noreferrer">
-              Open Instagram
-            </a>
+            <a
+  href="https://www.instagram.com/signavistudio/"
+  target="_blank"
+  rel="noreferrer"
+>
+  Visit Instagram
+</a>
 
             <button onClick={() => copyToClipboard("instagram", postText)}>
               {copied === "instagram" ? "Copied!" : "Copy Caption"}
@@ -169,9 +164,13 @@ ${selected.hashtags}`
           <p>Great for engraving, shirt printing, packing, design, and process videos.</p>
 
           <div className="button-row">
-            <a href="https://www.tiktok.com/upload" target="_blank" rel="noreferrer">
-              Upload Video
-            </a>
+            <a
+  href="https://www.instagram.com/signavistudio/"
+  target="_blank"
+  rel="noreferrer"
+>
+  Visit Instagram
+</a>
 
             <button onClick={() => copyToClipboard("tiktok", postText)}>
               {copied === "tiktok" ? "Copied!" : "Copy Caption"}
