@@ -1,6 +1,27 @@
 import { useEffect, useState } from "react"
 import api from "../../services/api"
 
+const API_BASE =
+  import.meta.env.VITE_API_URL ||
+  "https://signavi-backend.onrender.com/api"
+
+const BACKEND_BASE =
+  API_BASE.replace(/\/api\/?$/, "")
+
+const resolveFileUrl = (url = "") => {
+  if (!url) return ""
+
+  if (url.startsWith("http")) {
+    return url
+  }
+
+  if (url.startsWith("/uploads")) {
+    return `${BACKEND_BASE}${url}`
+  }
+
+  return `${BACKEND_BASE}/uploads/proofs/${url}`
+}
+
 export default function AdminInvoices() {
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
@@ -64,7 +85,10 @@ export default function AdminInvoices() {
     }))
   }
 
-  const uploadProofsToInvoice = async (invoiceId, files) => {
+  const uploadProofsToInvoice = async (
+    invoiceId,
+    files
+  ) => {
     if (!files?.length) return
 
     const proofData = new FormData()
@@ -78,7 +102,8 @@ export default function AdminInvoices() {
       proofData,
       {
         headers: {
-          "Content-Type": "multipart/form-data"
+          "Content-Type":
+            "multipart/form-data"
         }
       }
     )
@@ -91,31 +116,52 @@ export default function AdminInvoices() {
       const payload = {
         customerName: form.customerName,
         customerEmail: form.customerEmail,
-        shipping: Number(form.shipping || 0),
+        shipping: Number(
+          form.shipping || 0
+        ),
         notes: form.notes,
 
         items: [
           {
             name: form.itemName,
-            quantity: Number(form.quantity || 1),
-            price: Number(form.price || 0)
+            quantity: Number(
+              form.quantity || 1
+            ),
+            price: Number(
+              form.price || 0
+            )
           }
         ]
       }
 
-      const res = await api.post("/invoices", payload)
-      const invoiceId = res.data?.data?._id
+      const res = await api.post(
+        "/invoices",
+        payload
+      )
+
+      const invoiceId =
+        res.data?.data?._id
 
       if (!invoiceId) {
-        throw new Error("Invoice ID missing")
+        throw new Error(
+          "Invoice ID missing"
+        )
       }
 
       if (proofFiles.length) {
-        await uploadProofsToInvoice(invoiceId, proofFiles)
+        await uploadProofsToInvoice(
+          invoiceId,
+          proofFiles
+        )
       }
 
-      await api.post(`/invoices/${invoiceId}/create-payment-link`)
-      await api.post(`/invoices/${invoiceId}/send`)
+      await api.post(
+        `/invoices/${invoiceId}/create-payment-link`
+      )
+
+      await api.post(
+        `/invoices/${invoiceId}/send`
+      )
 
       setForm({
         customerName: "",
@@ -131,32 +177,51 @@ export default function AdminInvoices() {
 
       await loadInvoices()
 
-      alert("Invoice, proofs, and payment email sent successfully.")
+      alert(
+        "Invoice, proofs, and payment email sent successfully."
+      )
     } catch (error) {
-      console.error("CREATE INVOICE ERROR:", error)
+      console.error(
+        "CREATE INVOICE ERROR:",
+        error
+      )
 
       alert(
-        error?.response?.data?.message ||
+        error?.response?.data
+          ?.message ||
           "Invoice could not be created."
       )
     }
   }
 
-  const uploadProof = async (invoiceId, files) => {
+  const uploadProof = async (
+    invoiceId,
+    files
+  ) => {
     if (!files?.length) return
 
     try {
       setProofUploadingId(invoiceId)
 
-      await uploadProofsToInvoice(invoiceId, files)
+      await uploadProofsToInvoice(
+        invoiceId,
+        files
+      )
+
       await loadInvoices()
 
-      alert("Final proofs uploaded successfully.")
+      alert(
+        "Final proofs uploaded successfully."
+      )
     } catch (error) {
-      console.error("UPLOAD PROOF ERROR:", error)
+      console.error(
+        "UPLOAD PROOF ERROR:",
+        error
+      )
 
       alert(
-        error?.response?.data?.message ||
+        error?.response?.data
+          ?.message ||
           "Final proofs could not be uploaded."
       )
     } finally {
@@ -164,23 +229,44 @@ export default function AdminInvoices() {
     }
   }
 
-  const copyProofLink = async (invoiceId) => {
+  const copyProofLink = async (
+    invoiceId
+  ) => {
     const url = `${window.location.origin}/proof/${invoiceId}`
-    await navigator.clipboard.writeText(url)
+
+    await navigator.clipboard.writeText(
+      url
+    )
+
     alert("Proof approval link copied.")
   }
 
-  const sendPaymentEmail = async (invoiceId) => {
+  const sendPaymentEmail = async (
+    invoiceId
+  ) => {
     try {
-      await api.post(`/invoices/${invoiceId}/create-payment-link`)
-      await api.post(`/invoices/${invoiceId}/send`)
+      await api.post(
+        `/invoices/${invoiceId}/create-payment-link`
+      )
+
+      await api.post(
+        `/invoices/${invoiceId}/send`
+      )
+
       await loadInvoices()
-      alert("Proof and payment email sent successfully.")
-    } catch (error) {
-      console.error("SEND PAYMENT EMAIL ERROR:", error)
 
       alert(
-        error?.response?.data?.message ||
+        "Proof and payment email sent successfully."
+      )
+    } catch (error) {
+      console.error(
+        "SEND PAYMENT EMAIL ERROR:",
+        error
+      )
+
+      alert(
+        error?.response?.data
+          ?.message ||
           "Payment email could not be sent."
       )
     }
@@ -188,53 +274,97 @@ export default function AdminInvoices() {
 
   const markPaid = async (id) => {
     try {
-      await api.patch(`/invoices/${id}/mark-paid`)
+      await api.patch(
+        `/invoices/${id}/mark-paid`
+      )
+
       await loadInvoices()
     } catch (error) {
-      console.error("MARK PAID ERROR:", error)
+      console.error(
+        "MARK PAID ERROR:",
+        error
+      )
     }
   }
 
-  const startProduction = async (id) => {
+  const startProduction = async (
+    id
+  ) => {
     try {
-      await api.patch(`/invoices/${id}/start-production`)
+      await api.patch(
+        `/invoices/${id}/start-production`
+      )
+
       await loadInvoices()
     } catch (error) {
       alert(
-        error?.response?.data?.message ||
+        error?.response?.data
+          ?.message ||
           "Invoice must be paid before production starts."
       )
     }
   }
 
-  const renderProofFiles = (invoice) => {
-    const files = invoice.finalProof?.files || []
+  const renderProofFiles = (
+    invoice
+  ) => {
+    const files =
+      invoice.finalProof?.files || []
 
-    if (!files.length && invoice.finalProof?.imageUrl) {
+    if (files.length) {
+      return files.map((file) => ({
+        ...file,
+        url: resolveFileUrl(file.url)
+      }))
+    }
+
+    if (
+      !files.length &&
+      invoice.finalProof?.imageUrl
+    ) {
       return [
         {
-          url: invoice.finalProof.imageUrl,
-          fileName: invoice.finalProof.fileName || "Final Proof",
-          mimeType: invoice.finalProof.imageUrl.toLowerCase().endsWith(".pdf")
-            ? "application/pdf"
-            : "image"
+          url: resolveFileUrl(
+            invoice.finalProof.imageUrl
+          ),
+
+          fileName:
+            invoice.finalProof
+              .fileName ||
+            "Final Proof",
+
+          mimeType:
+            invoice.finalProof.imageUrl
+              .toLowerCase()
+              .endsWith(".pdf")
+              ? "application/pdf"
+              : "image"
         }
       ]
     }
 
-    return files
+    return []
   }
 
   return (
     <div style={page}>
-      <h1 style={heading}>Invoices</h1>
+      <h1 style={heading}>
+        Invoices
+      </h1>
 
       <p style={subheading}>
-        Create invoices with multiple final proofs, branded email, and payment link.
+        Create invoices with multiple
+        final proofs, branded email,
+        and payment link.
       </p>
 
-      <form onSubmit={createInvoice} style={card}>
-        <h2 style={sectionTitle}>Create Invoice</h2>
+      <form
+        onSubmit={createInvoice}
+        style={card}
+      >
+        <h2 style={sectionTitle}>
+          Create Invoice
+        </h2>
 
         <div style={grid}>
           <input
@@ -306,14 +436,18 @@ export default function AdminInvoices() {
 
         <label style={fileLabel}>
           Upload Final Proofs
+
           <input
             type="file"
             accept="image/*,.pdf"
             multiple
             onChange={(e) =>
-  setProofFiles(Array.from(e.target.files || []))
-
-}
+              setProofFiles(
+                Array.from(
+                  e.target.files || []
+                )
+              )
+            }
             style={{ display: "none" }}
           />
         </label>
@@ -325,20 +459,29 @@ export default function AdminInvoices() {
             </p>
 
             {proofFiles.map((file) => (
-              <p key={file.name} style={selectedFileName}>
+              <p
+                key={file.name}
+                style={selectedFileName}
+              >
                 {file.name}
               </p>
             ))}
           </div>
         )}
 
-        <button type="submit" style={primaryButton}>
-          Create Invoice + Send Proof/Payment Email
+        <button
+          type="submit"
+          style={primaryButton}
+        >
+          Create Invoice + Send
+          Proof/Payment Email
         </button>
       </form>
 
       <div style={list}>
-        <h2 style={sectionTitle}>Invoice List</h2>
+        <h2 style={sectionTitle}>
+          Invoice List
+        </h2>
 
         {loading ? (
           <p>Loading invoices...</p>
@@ -346,105 +489,211 @@ export default function AdminInvoices() {
           <p>No invoices yet.</p>
         ) : (
           invoices.map((invoice) => {
-            const proofList = renderProofFiles(invoice)
+            const proofList =
+              renderProofFiles(invoice)
 
             return (
-              <div key={invoice._id} style={invoiceCard}>
+              <div
+                key={invoice._id}
+                style={invoiceCard}
+              >
                 <div style={invoiceInfo}>
                   <h3 style={invoiceTitle}>
-                    {invoice.invoiceNumber || "Invoice"}
+                    {invoice.invoiceNumber ||
+                      "Invoice"}
                   </h3>
 
-                  <p>{invoice.customerName}</p>
-                  <p>{invoice.customerEmail}</p>
-                  <p>Status: {invoice.status}</p>
-                  <p>Payment: {invoice.paymentStatus}</p>
-
                   <p>
-                    Total: ${Number(invoice.total || 0).toFixed(2)}
+                    {invoice.customerName}
                   </p>
 
-                  {proofList.length > 0 && (
+                  <p>
+                    {
+                      invoice.customerEmail
+                    }
+                  </p>
+
+                  <p>
+                    Status:{" "}
+                    {invoice.status}
+                  </p>
+
+                  <p>
+                    Payment:{" "}
+                    {
+                      invoice.paymentStatus
+                    }
+                  </p>
+
+                  <p>
+                    Total: $
+                    {Number(
+                      invoice.total || 0
+                    ).toFixed(2)}
+                  </p>
+
+                  {proofList.length >
+                    0 && (
                     <div style={proofBox}>
-                      <p style={proofLabel}>Final Proofs Uploaded</p>
+                      <p
+                        style={
+                          proofLabel
+                        }
+                      >
+                        Final Proofs
+                        Uploaded
+                      </p>
 
-                      <div style={proofGrid}>
-                        {proofList.map((proof, index) => {
-                          const isPdf =
-                            proof.mimeType?.includes("pdf") ||
-                            proof.url.toLowerCase().endsWith(".pdf")
+                      <div
+                        style={
+                          proofGrid
+                        }
+                      >
+                        {proofList.map(
+                          (
+                            proof,
+                            index
+                          ) => {
+                            const isPdf =
+                              proof.mimeType?.includes(
+                                "pdf"
+                              ) ||
+                              proof.url
+                                .toLowerCase()
+                                .endsWith(
+                                  ".pdf"
+                                )
 
-                          return isPdf ? (
-                            <a
-                              key={proof.url}
-                              href={proof.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={proofLink}
-                            >
-                              PDF Proof {index + 1}
-                            </a>
-                          ) : (
-                            <img
-                              key={proof.url}
-                              src={proof.url}
-                              alt={proof.fileName || `Proof ${index + 1}`}
-                              style={proofPreview}
-                            />
-                          )
-                        })}
+                            return isPdf ? (
+                              <a
+                                key={
+                                  proof.url
+                                }
+                                href={
+                                  proof.url
+                                }
+                                target="_blank"
+                                rel="noreferrer"
+                                style={
+                                  proofLink
+                                }
+                              >
+                                PDF
+                                Proof{" "}
+                                {index +
+                                  1}
+                              </a>
+                            ) : (
+                              <img
+                                key={
+                                  proof.url
+                                }
+                                src={
+                                  proof.url
+                                }
+                                alt={
+                                  proof.fileName ||
+                                  `Proof ${index + 1}`
+                                }
+                                style={
+                                  proofPreview
+                                }
+                              />
+                            )
+                          }
+                        )}
                       </div>
 
                       <p>
                         Approved:{" "}
-                        {invoice.finalProof?.approved ? "Yes" : "No"}
+                        {invoice
+                          .finalProof
+                          ?.approved
+                          ? "Yes"
+                          : "No"}
                       </p>
                     </div>
                   )}
                 </div>
 
                 <div style={actions}>
-                  <label style={fileLabel}>
-                    Replace Final Proofs
+                  <label
+                    style={fileLabel}
+                  >
+                    Replace Final
+                    Proofs
+
                     <input
                       type="file"
                       accept="image/*,.pdf"
                       multiple
-                      onChange={(e) =>
+                      onChange={(
+                        e
+                      ) =>
                         uploadProof(
                           invoice._id,
-                          Array.from(e.target.files || [])
+                          Array.from(
+                            e.target
+                              .files ||
+                              []
+                          )
                         )
                       }
-                      style={{ display: "none" }}
+                      style={{
+                        display:
+                          "none"
+                      }}
                     />
                   </label>
 
-                  {proofUploadingId === invoice._id && (
-                    <p>Uploading...</p>
+                  {proofUploadingId ===
+                    invoice._id && (
+                    <p>
+                      Uploading...
+                    </p>
                   )}
 
                   <button
                     type="button"
-                    onClick={() => copyProofLink(invoice._id)}
-                    style={secondaryButton}
+                    onClick={() =>
+                      copyProofLink(
+                        invoice._id
+                      )
+                    }
+                    style={
+                      secondaryButton
+                    }
                   >
                     Copy Proof Link
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => sendPaymentEmail(invoice._id)}
-                    style={primaryButtonSmall}
+                    onClick={() =>
+                      sendPaymentEmail(
+                        invoice._id
+                      )
+                    }
+                    style={
+                      primaryButtonSmall
+                    }
                   >
-                    Send Proof + Payment Email
+                    Send Proof +
+                    Payment Email
                   </button>
 
-                  {invoice.paymentStatus !== "paid" && (
+                  {invoice.paymentStatus !==
+                    "paid" && (
                     <button
                       type="button"
-                      onClick={() => markPaid(invoice._id)}
-                      style={paidButton}
+                      onClick={() =>
+                        markPaid(
+                          invoice._id
+                        )
+                      }
+                      style={
+                        paidButton
+                      }
                     >
                       Mark Paid
                     </button>
@@ -452,8 +701,14 @@ export default function AdminInvoices() {
 
                   <button
                     type="button"
-                    onClick={() => startProduction(invoice._id)}
-                    style={productionButton}
+                    onClick={() =>
+                      startProduction(
+                        invoice._id
+                      )
+                    }
+                    style={
+                      productionButton
+                    }
                   >
                     Start Production
                   </button>
@@ -498,7 +753,8 @@ const sectionTitle = {
 
 const grid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gridTemplateColumns:
+    "repeat(auto-fit, minmax(220px, 1fr))",
   gap: 14
 }
 
