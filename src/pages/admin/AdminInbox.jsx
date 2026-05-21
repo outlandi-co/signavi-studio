@@ -5,7 +5,12 @@ import {
   useMemo
 } from "react"
 
+import { io } from "socket.io-client"
 import api from "../../services/api"
+
+const SOCKET_URL =
+  import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "") ||
+  "http://localhost:5050"
 
 const FOLDERS = [
   { id: "inbox", label: "📥 Inbox" },
@@ -31,6 +36,12 @@ export default function AdminInbox() {
     }),
     [token]
   )
+
+  const unreadCount = useMemo(() => {
+    return threads.filter((thread) => {
+      return thread.unread && !thread.archived
+    }).length
+  }, [threads])
 
   const loadThreads = useCallback(async () => {
     try {
@@ -59,7 +70,6 @@ export default function AdminInbox() {
       )
 
       setMessages(res.data?.data || [])
-
       await loadThreads()
     } catch (error) {
       console.error("LOAD MESSAGES ERROR:", error)
@@ -74,9 +84,7 @@ export default function AdminInbox() {
 
       await api.post(
         `/admin-email-threads/${selectedThread._id}/reply`,
-        {
-          message: reply
-        },
+        { message: reply },
         authHeaders
       )
 
@@ -84,7 +92,6 @@ export default function AdminInbox() {
       await loadMessages(selectedThread)
     } catch (error) {
       console.error("SEND REPLY ERROR:", error)
-
       alert("Reply could not be sent.")
     } finally {
       setSending(false)
@@ -103,10 +110,27 @@ export default function AdminInbox() {
 
       setSelectedThread(null)
       setMessages([])
-
       await loadThreads()
     } catch (error) {
       console.error("ARCHIVE THREAD ERROR:", error)
+    }
+  }
+
+  const restoreThread = async () => {
+    if (!selectedThread) return
+
+    try {
+      await api.patch(
+        `/admin-email-threads/${selectedThread._id}/restore`,
+        {},
+        authHeaders
+      )
+
+      setSelectedThread(null)
+      setMessages([])
+      await loadThreads()
+    } catch (error) {
+      console.error("RESTORE THREAD ERROR:", error)
     }
   }
 
@@ -122,6 +146,26 @@ export default function AdminInbox() {
     return () => {
       mounted = false
       clearTimeout(timer)
+    }
+  }, [loadThreads])
+
+  useEffect(() => {
+    const socket = io(SOCKET_URL)
+
+    socket.on("customerEmailReply", async () => {
+      await loadThreads()
+    })
+
+    socket.on("threadRestored", async () => {
+      await loadThreads()
+    })
+
+    socket.on("adminNotification", async () => {
+      await loadThreads()
+    })
+
+    return () => {
+      socket.disconnect()
     }
   }, [loadThreads])
 
@@ -165,6 +209,12 @@ export default function AdminInbox() {
             }}
           >
             {folder.label}
+
+            {folder.id === "inbox" && unreadCount > 0 && (
+              <span style={folderBadge}>
+                {unreadCount}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -217,13 +267,8 @@ export default function AdminInbox() {
         <section style={conversation}>
           {!selectedThread ? (
             <div style={empty}>
-              <h2>
-                Select a conversation
-              </h2>
-
-              <p>
-                Customer replies will appear here.
-              </p>
+              <h2>Select a conversation</h2>
+              <p>Customer replies will appear here.</p>
             </div>
           ) : (
             <>
@@ -238,13 +283,21 @@ export default function AdminInbox() {
                   </p>
                 </div>
 
-                {activeFolder !== "archive" && (
+                {activeFolder !== "archive" ? (
                   <button
                     type="button"
                     onClick={archiveThread}
                     style={archiveButton}
                   >
                     Archive
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={restoreThread}
+                    style={restoreButton}
+                  >
+                    Restore
                   </button>
                 )}
               </div>
@@ -280,9 +333,7 @@ export default function AdminInbox() {
                     </p>
 
                     <span style={dateText}>
-                      {new Date(
-                        msg.createdAt
-                      ).toLocaleString()}
+                      {new Date(msg.createdAt).toLocaleString()}
                     </span>
                   </div>
                 ))}
@@ -293,9 +344,7 @@ export default function AdminInbox() {
                   <textarea
                     rows={5}
                     value={reply}
-                    onChange={(e) =>
-                      setReply(e.target.value)
-                    }
+                    onChange={(e) => setReply(e.target.value)}
                     placeholder="Write a reply..."
                     style={textarea}
                   />
@@ -306,9 +355,7 @@ export default function AdminInbox() {
                     disabled={sending}
                     style={sendButton}
                   >
-                    {sending
-                      ? "Sending..."
-                      : "Send Reply"}
+                    {sending ? "Sending..." : "Send Reply"}
                   </button>
                 </div>
               )}
@@ -344,7 +391,19 @@ const folderButton = {
   padding: "10px 14px",
   borderRadius: 12,
   fontWeight: 900,
-  cursor: "pointer"
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  gap: 8
+}
+
+const folderBadge = {
+  background: "#ef4444",
+  color: "#fff",
+  borderRadius: 999,
+  padding: "2px 8px",
+  fontSize: 11,
+  fontWeight: 900
 }
 
 const layout = {
@@ -482,6 +541,17 @@ const sendButton = {
 
 const archiveButton = {
   background: "#f59e0b",
+  color: "#020617",
+  border: "none",
+  padding: "10px 14px",
+  borderRadius: 12,
+  fontWeight: 900,
+  cursor: "pointer",
+  height: "fit-content"
+}
+
+const restoreButton = {
+  background: "#22c55e",
   color: "#020617",
   border: "none",
   padding: "10px 14px",
