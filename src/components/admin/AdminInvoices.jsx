@@ -482,18 +482,20 @@ export default function AdminInvoices() {
                               rel="noreferrer"
                               style={proofImageLink}
                             >
-                              <img
-                                src={proof.url}
-                                alt={
-                                  proof.fileName ||
-                                  `Proof ${index + 1}`
-                                }
-                                style={proofPreview}
-                                onError={(e) => {
-                                  e.currentTarget.style.display =
-                                    "none"
-                                }}
-                              />
+                    <img
+  src={proof.url}
+  alt={
+    proof.fileName ||
+    `Proof ${index + 1}`
+  }
+  style={proofPreview}
+  onError={(e) => {
+    e.currentTarget.onerror = null
+
+    e.currentTarget.src =
+      "https://placehold.co/160x160/020617/22d3ee?text=Proof"
+  }}
+/>
 
                               <span style={proofFileName}>
                                 {proof.fileName ||
