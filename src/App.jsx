@@ -84,6 +84,7 @@ import AdminRevenue from "./pages/admin/AdminRevenue"
 import AdminInvoices from "./components/admin/AdminInvoices"
 import AdminProducts from "./pages/admin/AdminProducts"
 import CreateCustomOrder from "./pages/admin/CreateCustomOrder"
+import MarketingHub from "./pages/admin/MarketingHub"
 
 import CreateProduct from "./pages/admin/CreateProduct"
 import EditProduct from "./pages/admin/EditProduct"
@@ -402,6 +403,11 @@ function AppContent() {
               path="revenue"
               element={<AdminRevenue />}
             />
+
+            <Route
+  path="marketing"
+  element={<MarketingHub />}
+/>
 
             <Route
               path="products"

@@ -44,7 +44,9 @@ export default function AdminLayout() {
         <SideLink to="/admin/custom-order/new">🧾 New Custom Order</SideLink>
         <SideLink to="/admin/products">🛒 Products</SideLink>
         <SideLink to="/admin/signavi-store/products">🛍 Store Products</SideLink>
-        <SideLink to="/admin/signavi-store/create">➕ Create Store Product</SideLink>
+        <SideLink to="/admin/signavi-store/create">
+          ➕ Create Store Product
+        </SideLink>
         <SideLink to="/admin/customers">👥 Customers</SideLink>
 
         <div onClick={clearEmailUnread}>
@@ -67,12 +69,22 @@ export default function AdminLayout() {
 
         <SideLink to="/admin/revenue">💰 Revenue</SideLink>
 
+        <SideLink to="/admin/marketing">📣 Marketing Hub</SideLink>
+
         <div style={csvGroup}>
-          <button type="button" onClick={downloadOrdersCSV} style={csvButton}>
+          <button
+            type="button"
+            onClick={downloadOrdersCSV}
+            style={csvButton}
+          >
             📄 Orders CSV
           </button>
 
-          <button type="button" onClick={downloadTaxCSV} style={taxButton}>
+          <button
+            type="button"
+            onClick={downloadTaxCSV}
+            style={taxButton}
+          >
             🧾 Tax CSV
           </button>
         </div>
