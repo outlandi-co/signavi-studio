@@ -19,41 +19,64 @@ export default function CustomQuote() {
   const [loading, setLoading] = useState(false)
 
   const pricing = {
-    laser: { base: 15, setup: 0 },
-    vinyl: { base: 12, setup: 0 },
-    digital: { base: 50, setup: 0 }
+    laser: {
+      label: "Laser Engraving",
+      base: 15,
+      setup: 10,
+      minimum: 25
+    },
+    vinyl: {
+      label: "Vinyl Printing",
+      base: 18,
+      setup: 15,
+      minimum: 30
+    },
+    digital: {
+      label: "Digital Services",
+      base: 75,
+      setup: 0,
+      minimum: 75
+    }
 
     /*
-    screenprint: { base: 8, setup: 20 },
-    dtf: { base: 6, setup: 0 },
-    embroidery: { base: 10, setup: 30 }
+    screenprint: { label: "Screen Print", base: 8, setup: 20, minimum: 50 },
+    dtf: { label: "DTF Transfer", base: 6, setup: 0, minimum: 35 },
+    embroidery: { label: "Embroidery", base: 10, setup: 30, minimum: 60 }
     */
   }
 
-  const { base, setup } = pricing[form.printType] || {
+  const selectedService = pricing[form.printType] || {
+    label: "Service",
     base: 0,
-    setup: 0
+    setup: 0,
+    minimum: 0
   }
 
-  const qty = Number(form.quantity || 0)
+  const qty = Number(form.quantity || 1)
 
   let discount = 1
   let discountMsg = ""
 
   if (qty >= 100) {
-    discount = 0.7
-    discountMsg = "🔥 30% bulk discount applied"
+    discount = 0.75
+    discountMsg = "🔥 25% bulk discount applied"
   } else if (qty >= 50) {
-    discount = 0.8
-    discountMsg = "🔥 20% bulk discount applied"
+    discount = 0.85
+    discountMsg = "🔥 15% bulk discount applied"
   } else if (qty >= 12) {
-    discount = 0.9
-    discountMsg = "🔥 10% bulk discount applied"
+    discount = 0.93
+    discountMsg = "🔥 7% bulk discount applied"
   } else {
     discountMsg = "💡 Order 12+ to unlock discounts"
   }
 
-  const estimate = base * qty * discount + setup
+  const rawEstimate =
+    selectedService.base * qty * discount +
+    selectedService.setup
+
+  const estimate = Math.max(rawEstimate, selectedService.minimum)
+
+  const perItemEstimate = estimate / qty
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -98,14 +121,15 @@ export default function CustomQuote() {
       const payload = {
         customerName: form.name,
         email: form.email,
-        quantity: form.quantity,
+        quantity: qty,
         printType: form.printType,
         serviceType: form.printType,
+        serviceLabel: selectedService.label,
         price: estimate,
         items: [
           {
-            name: form.printType,
-            quantity: form.quantity,
+            name: selectedService.label,
+            quantity: qty,
             price: estimate
           }
         ],
@@ -172,7 +196,7 @@ export default function CustomQuote() {
           </div>
 
           <div style={{ fontSize: "13px", opacity: 0.7 }}>
-            ${(estimate / (form.quantity || 1)).toFixed(2)} per item
+            ${perItemEstimate.toFixed(2)} per item
           </div>
 
           <div style={{ fontSize: "13px", color: "#38bdf8" }}>
