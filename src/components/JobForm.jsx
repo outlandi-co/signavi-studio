@@ -131,18 +131,23 @@ function JobForm({ refreshJobs }) {
       <label>
         Production Type
         <select
-          name="productionType"
-          value={form.productionType}
-          onChange={handleChange}
-          required
-          style={inputStyle}
-        >
-          <option value="">Select Production Type</option>
-          <option value="screenprint">Screen Print</option>
-          <option value="dtf">DTF</option>
-          <option value="laser">Laser Engraving</option>
-          <option value="vinyl">Vinyl</option>
-        </select>
+  name="productionType"
+  value={form.productionType}
+  onChange={handleChange}
+  required
+  style={inputStyle}
+>
+  <option value="">Select Production Type</option>
+
+  {/*
+  <option value="screenprint">Screen Print</option>
+  <option value="dtf">DTF</option>
+  */}
+
+  <option value="laser">Laser Engraving</option>
+  <option value="vinyl">Vinyl Printing</option>
+  <option value="digital">Digital Services</option>
+</select>
       </label>
 
       <label>
