@@ -1,24 +1,54 @@
-import { useEffect, useState } from "react"
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useCallback
+} from "react"
 import { useNavigate } from "react-router-dom"
 import api from "../../services/api"
+
+const FOLDERS = [
+  { id: "compose", label: "✍️ Compose" },
+  { id: "inbox", label: "📥 Inbox" },
+  { id: "sent", label: "📤 Sent" },
+  { id: "drafts", label: "📝 Drafts" },
+  { id: "outbox", label: "📦 Outbox" },
+  { id: "archive", label: "🗄 Archive" }
+]
 
 export default function AdminEmails() {
   const navigate = useNavigate()
 
+  const [activeFolder, setActiveFolder] = useState("compose")
   const [customers, setCustomers] = useState([])
   const [selectedCustomer, setSelectedCustomer] = useState(null)
+  const [emails, setEmails] = useState([])
+
+  const [loading, setLoading] = useState(true)
+  const [folderLoading, setFolderLoading] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [savingDraft, setSavingDraft] = useState(false)
 
   const [to, setTo] = useState("")
   const [cc, setCc] = useState("")
-
+  const [bcc, setBcc] = useState("")
   const [subject, setSubject] = useState("")
   const [message, setMessage] = useState("")
+  const [attachments, setAttachments] = useState([])
 
-  const [history, setHistory] = useState([])
-  const [historyFilter, setHistoryFilter] = useState("active")
+  const token = useMemo(
+    () => localStorage.getItem("adminToken"),
+    []
+  )
 
-  const [loading, setLoading] = useState(true)
-  const [sending, setSending] = useState(false)
+  const authHeaders = useMemo(
+    () => ({
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+    [token]
+  )
 
   const templates = [
     {
@@ -61,20 +91,6 @@ Thank you,
 SignaVi Studio`
     },
     {
-      name: "Shipping Update",
-      subject: "Your Order Has Shipped",
-      message:
-`Hello {{customerName}},
-
-Your order has shipped.
-
-Tracking:
-{{tracking}}
-
-Thank you,
-SignaVi Studio`
-    },
-    {
       name: "Mockup Approval",
       subject: "Mockup Ready For Approval",
       message:
@@ -102,15 +118,12 @@ SignaVi Studio`
     }
   ]
 
-  const loadCustomers = async () => {
+  const loadCustomers = useCallback(async () => {
     try {
-      const token = localStorage.getItem("adminToken")
-
-      const res = await api.get("/customers", {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      })
+      const res = await api.get(
+        "/customers",
+        authHeaders
+      )
 
       setCustomers(res.data?.data || [])
     } catch (err) {
@@ -121,41 +134,69 @@ SignaVi Studio`
     } finally {
       setLoading(false)
     }
-  }
+  }, [authHeaders])
 
-  const loadHistory = async () => {
-    try {
-      const token = localStorage.getItem("adminToken")
+  const loadFolder = useCallback(
+    async (folder = activeFolder) => {
+      if (folder === "compose") return
 
-      const res = await api.get("/admin-email/history", {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      })
+      if (folder === "inbox") {
+        navigate("/admin/inbox")
+        return
+      }
 
-      setHistory(res.data?.data || [])
-    } catch (err) {
-      console.error(
-        "❌ HISTORY ERROR:",
-        err.response?.data || err.message
-      )
+      try {
+        setFolderLoading(true)
+
+        const res = await api.get(
+          `/admin-email/folder/${folder}`,
+          authHeaders
+        )
+
+        setEmails(res.data?.data || [])
+      } catch (err) {
+        console.error(
+          "❌ EMAIL FOLDER LOAD ERROR:",
+          err.response?.data || err.message
+        )
+
+        setEmails([])
+      } finally {
+        setFolderLoading(false)
+      }
+    },
+    [activeFolder, authHeaders, navigate]
+  )
+
+ useEffect(() => {
+  let mounted = true
+
+  const timer = setTimeout(() => {
+    if (mounted) {
+      loadCustomers()
     }
+  }, 0)
+
+  return () => {
+    mounted = false
+    clearTimeout(timer)
   }
+}, [loadCustomers])
 
-  useEffect(() => {
-    const init = async () => {
-      await loadCustomers()
-      await loadHistory()
+useEffect(() => {
+  let mounted = true
+
+  const timer = setTimeout(() => {
+    if (mounted) {
+      loadFolder(activeFolder)
     }
+  }, 0)
 
-    init()
-  }, [])
-
-  const filteredHistory = history.filter((email) => {
-    if (historyFilter === "active") return !email.archived
-    if (historyFilter === "archived") return email.archived
-    return true
-  })
+  return () => {
+    mounted = false
+    clearTimeout(timer)
+  }
+}, [activeFolder, loadFolder])
 
   const handleSelectCustomer = (customer) => {
     setSelectedCustomer(customer)
@@ -164,14 +205,27 @@ SignaVi Studio`
 
   const applyTemplate = (template) => {
     const customerName =
-      selectedCustomer?.name || "Customer"
-
-    const parsedMessage = template.message
-      .replace("{{customerName}}", customerName)
-      .replace("{{tracking}}", "TRACKING_NUMBER")
+      selectedCustomer?.name ||
+      selectedCustomer?.customerName ||
+      "Customer"
 
     setSubject(template.subject)
-    setMessage(parsedMessage)
+
+    setMessage(
+      template.message
+        .replaceAll("{{customerName}}", customerName)
+        .replaceAll("{{tracking}}", "TRACKING_NUMBER")
+    )
+  }
+
+  const resetCompose = () => {
+    setTo("")
+    setCc("")
+    setBcc("")
+    setSubject("")
+    setMessage("")
+    setAttachments([])
+    setSelectedCustomer(null)
   }
 
   const handleSend = async () => {
@@ -193,34 +247,40 @@ SignaVi Studio`
     try {
       setSending(true)
 
-      const token = localStorage.getItem("adminToken")
+      const formData = new FormData()
 
-      const res = await api.post(
+      formData.append("to", to)
+      formData.append("cc", cc)
+      formData.append("bcc", bcc)
+      formData.append("subject", subject)
+      formData.append("message", message)
+
+      if (selectedCustomer?._id) {
+        formData.append("customerId", selectedCustomer._id)
+      }
+
+      if (selectedCustomer?.name) {
+        formData.append("customerName", selectedCustomer.name)
+      }
+
+      attachments.forEach((file) => {
+        formData.append("attachments", file)
+      })
+
+      await api.post(
         "/admin-email/send-email",
-        {
-          to,
-          cc,
-          subject,
-          message,
-          customerId: selectedCustomer?._id,
-          customerName: selectedCustomer?.name
-        },
+        formData,
         {
           headers: {
-            Authorization: `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data"
           }
         }
       )
 
-      console.log("✅ EMAIL SENT:", res.data)
-
       alert("Email sent successfully")
-
-      setSubject("")
-      setMessage("")
-      setCc("")
-
-      loadHistory()
+      resetCompose()
+      setActiveFolder("sent")
     } catch (err) {
       console.error(
         "❌ EMAIL ERROR:",
@@ -236,21 +296,48 @@ SignaVi Studio`
     }
   }
 
+  const saveDraft = async () => {
+    try {
+      setSavingDraft(true)
+
+      await api.post(
+        "/admin-email/drafts",
+        {
+          to,
+          cc,
+          bcc,
+          subject,
+          message,
+          customerId: selectedCustomer?._id || null,
+          customerName: selectedCustomer?.name || ""
+        },
+        authHeaders
+      )
+
+      alert("Draft saved")
+      resetCompose()
+      setActiveFolder("drafts")
+    } catch (err) {
+      console.error(
+        "❌ SAVE DRAFT ERROR:",
+        err.response?.data || err.message
+      )
+
+      alert("Draft could not be saved")
+    } finally {
+      setSavingDraft(false)
+    }
+  }
+
   const archiveEmail = async (id) => {
     try {
-      const token = localStorage.getItem("adminToken")
-
       await api.patch(
         `/admin-email/archive/${id}`,
         {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
+        authHeaders
       )
 
-      loadHistory()
+      await loadFolder(activeFolder)
     } catch (err) {
       console.error(
         "❌ ARCHIVE ERROR:",
@@ -259,43 +346,104 @@ SignaVi Studio`
     }
   }
 
+  const restoreEmail = async (id) => {
+    try {
+      await api.patch(
+        `/admin-email/restore/${id}`,
+        {},
+        authHeaders
+      )
+
+      await loadFolder(activeFolder)
+    } catch (err) {
+      console.error(
+        "❌ RESTORE ERROR:",
+        err.response?.data || err.message
+      )
+    }
+  }
+
+  const sendDraft = async (id) => {
+    try {
+      await api.patch(
+        `/admin-email/drafts/${id}/send`,
+        {},
+        authHeaders
+      )
+
+      alert("Draft sent")
+      setActiveFolder("sent")
+    } catch (err) {
+      console.error(
+        "❌ SEND DRAFT ERROR:",
+        err.response?.data || err.message
+      )
+
+      alert(
+        err.response?.data?.message ||
+          "Draft could not be sent"
+      )
+    }
+  }
+
+  const openDraft = (email) => {
+    setTo(email.to || "")
+    setCc(email.cc || "")
+    setBcc(email.bcc || "")
+    setSubject(email.subject || "")
+    setMessage(email.message || "")
+    setActiveFolder("compose")
+  }
+
   if (loading) {
     return (
       <div style={loadingStyle}>
-        <h2>Loading...</h2>
+        <h2>Loading Email Center...</h2>
       </div>
     )
   }
 
   return (
     <div style={page}>
-      <h1 style={title}>
-        📧 Admin Email Center
-      </h1>
+      <h1 style={title}>📧 Admin Email Center</h1>
 
       <div style={layout}>
-        <div style={sidebar}>
-          <div style={emailSidebarTop}>
-            <h3 style={sectionTitle}>
-              Email Center
-            </h3>
+        <aside style={sidebar}>
+          <h3 style={sectionTitle}>Mailbox</h3>
 
-            <button
-              type="button"
-              onClick={() => navigate("/admin/inbox")}
-              style={inboxButton}
-            >
-              📥 Notifications Inbox
-            </button>
+          <div style={folderList}>
+            {FOLDERS.map((folder) => (
+              <button
+                key={folder.id}
+                type="button"
+                onClick={() => setActiveFolder(folder.id)}
+                style={{
+                  ...folderButton,
+                  background:
+                    activeFolder === folder.id
+                      ? "rgba(34,211,238,0.16)"
+                      : "#111827",
+                  border:
+                    activeFolder === folder.id
+                      ? "1px solid #22d3ee"
+                      : "1px solid #334155",
+                  color:
+                    activeFolder === folder.id
+                      ? "#22d3ee"
+                      : "#cbd5e1"
+                }}
+              >
+                {folder.label}
+              </button>
+            ))}
           </div>
 
-          <h3 style={customerTitle}>
-            Customers
-          </h3>
+          <h3 style={customerTitle}>Customers</h3>
 
           {customers.map((customer) => (
             <button
               key={customer._id}
+              type="button"
               onClick={() => handleSelectCustomer(customer)}
               style={{
                 ...customerButton,
@@ -305,180 +453,234 @@ SignaVi Studio`
                     : "#111827"
               }}
             >
-              <strong>
-                {customer.name || "Customer"}
-              </strong>
-
-              <span style={emailStyle}>
-                {customer.email}
-              </span>
+              <strong>{customer.name || "Customer"}</strong>
+              <span style={emailStyle}>{customer.email}</span>
             </button>
           ))}
-        </div>
+        </aside>
 
-        <div style={emailPanel}>
-          <h2 style={sectionTitle}>
-            Compose Email
-          </h2>
+        <main style={mainPanel}>
+          {activeFolder === "compose" ? (
+            <>
+              <h2 style={sectionTitle}>✍️ Compose Email</h2>
 
-          <div style={field}>
-            <label style={label}>
-              Templates
-            </label>
+              <div style={field}>
+                <label style={label}>Templates</label>
 
-            <div style={templateGrid}>
-              {templates.map((template) => (
-                <button
-                  key={template.name}
-                  onClick={() => applyTemplate(template)}
-                  style={templateButton}
-                >
-                  {template.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div style={field}>
-            <label style={label}>
-              To
-            </label>
-
-            <input
-              type="text"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              style={input}
-            />
-          </div>
-
-          <div style={field}>
-            <label style={label}>
-              CC
-            </label>
-
-            <input
-              type="text"
-              value={cc}
-              onChange={(e) => setCc(e.target.value)}
-              placeholder="Optional CC"
-              style={input}
-            />
-          </div>
-
-          <div style={field}>
-            <label style={label}>
-              Subject
-            </label>
-
-            <input
-              type="text"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              style={input}
-            />
-          </div>
-
-          <div style={field}>
-            <label style={label}>
-              Message
-            </label>
-
-            <textarea
-              rows={12}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              style={textarea}
-            />
-          </div>
-
-          <button
-            onClick={handleSend}
-            disabled={sending}
-            style={sendButton}
-          >
-            {sending ? "Sending..." : "Send Email"}
-          </button>
-        </div>
-
-        <div style={historyPanel}>
-          <div style={filterRow}>
-            <button
-              onClick={() => setHistoryFilter("active")}
-              style={{
-                ...filterButton,
-                background:
-                  historyFilter === "active"
-                    ? "#22c55e"
-                    : "#111827"
-              }}
-            >
-              Active
-            </button>
-
-            <button
-              onClick={() => setHistoryFilter("archived")}
-              style={{
-                ...filterButton,
-                background:
-                  historyFilter === "archived"
-                    ? "#f59e0b"
-                    : "#111827"
-              }}
-            >
-              Archived
-            </button>
-
-            <button
-              onClick={() => setHistoryFilter("all")}
-              style={{
-                ...filterButton,
-                background:
-                  historyFilter === "all"
-                    ? "#3b82f6"
-                    : "#111827"
-              }}
-            >
-              All
-            </button>
-          </div>
-
-          <h2 style={sectionTitle}>
-            📨 Email History
-          </h2>
-
-          {filteredHistory.map((email) => (
-            <div
-              key={email._id}
-              style={historyCard}
-            >
-              <div style={historyTop}>
-                <div>
-                  <strong>
-                    {email.subject}
-                  </strong>
-
-                  <p style={historyEmail}>
-                    To: {email.to}
-                  </p>
+                <div style={templateGrid}>
+                  {templates.map((template) => (
+                    <button
+                      key={template.name}
+                      type="button"
+                      onClick={() => applyTemplate(template)}
+                      style={templateButton}
+                    >
+                      {template.name}
+                    </button>
+                  ))}
                 </div>
-
-                {!email.archived && (
-                  <button
-                    onClick={() => archiveEmail(email._id)}
-                    style={archiveButton}
-                  >
-                    Archive
-                  </button>
-                )}
               </div>
 
-              <p style={messagePreview}>
-                {email.message}
-              </p>
-            </div>
-          ))}
-        </div>
+              <div style={field}>
+                <label style={label}>To</label>
+                <input
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                  style={input}
+                />
+              </div>
+
+              <div style={twoCol}>
+                <div style={field}>
+                  <label style={label}>CC</label>
+                  <input
+                    value={cc}
+                    onChange={(e) => setCc(e.target.value)}
+                    placeholder="Optional"
+                    style={input}
+                  />
+                </div>
+
+                <div style={field}>
+                  <label style={label}>BCC</label>
+                  <input
+                    value={bcc}
+                    onChange={(e) => setBcc(e.target.value)}
+                    placeholder="Optional"
+                    style={input}
+                  />
+                </div>
+              </div>
+
+              <div style={field}>
+                <label style={label}>Subject</label>
+                <input
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  style={input}
+                />
+              </div>
+
+              <div style={field}>
+                <label style={label}>Message</label>
+                <textarea
+                  rows={12}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  style={textarea}
+                />
+              </div>
+
+              <label style={attachLabel}>
+                📎 Attach Files
+                <input
+                  type="file"
+                  multiple
+                  onChange={(e) =>
+                    setAttachments(Array.from(e.target.files || []))
+                  }
+                  style={{ display: "none" }}
+                />
+              </label>
+
+              {attachments.length > 0 && (
+                <div style={attachmentBox}>
+                  {attachments.map((file) => (
+                    <p key={file.name} style={attachmentName}>
+                      {file.name}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              <div style={composeActions}>
+                <button
+                  type="button"
+                  onClick={handleSend}
+                  disabled={sending}
+                  style={sendButton}
+                >
+                  {sending ? "Sending..." : "Send Email"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={saveDraft}
+                  disabled={savingDraft}
+                  style={draftButton}
+                >
+                  {savingDraft ? "Saving..." : "Save Draft"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 style={sectionTitle}>
+                {FOLDERS.find((f) => f.id === activeFolder)?.label}
+              </h2>
+
+              {folderLoading ? (
+                <p>Loading emails...</p>
+              ) : emails.length === 0 ? (
+                <div style={emptyCard}>
+                  <h3>No emails here yet</h3>
+                  <p>
+                    This folder will update as you send,
+                    save, or archive emails.
+                  </p>
+                </div>
+              ) : (
+                <div style={emailList}>
+                  {emails.map((email) => (
+                    <div key={email._id} style={emailCard}>
+                      <div style={emailCardTop}>
+                        <div>
+                          <h3 style={emailSubject}>
+                            {email.subject || "(No Subject)"}
+                          </h3>
+
+                          <p style={meta}>
+                            To: {email.to || "No recipient"}
+                          </p>
+
+                          {email.cc && <p style={meta}>CC: {email.cc}</p>}
+                          {email.bcc && <p style={meta}>BCC: {email.bcc}</p>}
+                        </div>
+
+                        <span style={statusBadge}>{email.status}</span>
+                      </div>
+
+                      <p style={messagePreview}>
+                        {email.message || "No message"}
+                      </p>
+
+                      {email.attachments?.length > 0 && (
+                        <div style={attachmentBox}>
+                          {email.attachments.map((file, index) => (
+                            <p
+                              key={`${file.fileName}-${index}`}
+                              style={attachmentName}
+                            >
+                              📎 {file.fileName}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+
+                      <p style={dateText}>
+                        {email.sentAt || email.createdAt
+                          ? new Date(
+                              email.sentAt || email.createdAt
+                            ).toLocaleString()
+                          : ""}
+                      </p>
+
+                      <div style={cardActions}>
+                        {activeFolder === "drafts" && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => openDraft(email)}
+                              style={smallButton}
+                            >
+                              Edit Draft
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => sendDraft(email._id)}
+                              style={sendSmallButton}
+                            >
+                              Send Draft
+                            </button>
+                          </>
+                        )}
+
+                        {activeFolder !== "archive" ? (
+                          <button
+                            type="button"
+                            onClick={() => archiveEmail(email._id)}
+                            style={archiveButton}
+                          >
+                            Archive
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => restoreEmail(email._id)}
+                            style={restoreButton}
+                          >
+                            Restore
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </main>
       </div>
     </div>
   )
@@ -502,7 +704,7 @@ const title = {
 
 const layout = {
   display: "grid",
-  gridTemplateColumns: "280px 1fr 420px",
+  gridTemplateColumns: "300px 1fr",
   gap: 24
 }
 
@@ -511,49 +713,40 @@ const sidebar = {
   borderRadius: 16,
   padding: 20,
   border: "1px solid #1e293b",
-  height: "80vh",
+  height: "82vh",
   overflowY: "auto"
 }
 
-const emailPanel = {
+const mainPanel = {
   background: "#0f172a",
   borderRadius: 16,
   padding: 24,
-  border: "1px solid #1e293b"
-}
-
-const historyPanel = {
-  background: "#0f172a",
-  borderRadius: 16,
-  padding: 20,
   border: "1px solid #1e293b",
-  height: "80vh",
-  overflowY: "auto"
+  minHeight: "82vh"
 }
 
 const sectionTitle = {
+  marginTop: 0,
   marginBottom: 20
 }
 
-const emailSidebarTop = {
-  marginBottom: 20
+const folderList = {
+  display: "grid",
+  gap: 10,
+  marginBottom: 24
+}
+
+const folderButton = {
+  padding: "12px 14px",
+  borderRadius: 10,
+  fontWeight: 800,
+  cursor: "pointer",
+  textAlign: "left"
 }
 
 const customerTitle = {
-  marginBottom: 18,
-  marginTop: 10
-}
-
-const inboxButton = {
-  width: "100%",
-  padding: "12px 14px",
-  borderRadius: 10,
-  border: "1px solid #334155",
-  background: "#111827",
-  color: "#22d3ee",
-  fontWeight: "700",
-  cursor: "pointer",
-  marginTop: 10
+  marginTop: 28,
+  marginBottom: 14
 }
 
 const customerButton = {
@@ -579,10 +772,16 @@ const field = {
   marginBottom: 20
 }
 
+const twoCol = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 16
+}
+
 const label = {
   display: "block",
   marginBottom: 8,
-  fontWeight: "600"
+  fontWeight: 700
 }
 
 const input = {
@@ -591,28 +790,13 @@ const input = {
   borderRadius: 8,
   border: "1px solid #334155",
   background: "#020617",
-  color: "#fff"
+  color: "#fff",
+  boxSizing: "border-box"
 }
 
 const textarea = {
-  width: "100%",
-  padding: 12,
-  borderRadius: 8,
-  border: "1px solid #334155",
-  background: "#020617",
-  color: "#fff",
+  ...input,
   resize: "vertical"
-}
-
-const sendButton = {
-  width: "100%",
-  padding: 14,
-  borderRadius: 10,
-  border: "none",
-  background: "#22c55e",
-  color: "#fff",
-  fontWeight: "700",
-  cursor: "pointer"
 }
 
 const templateGrid = {
@@ -631,51 +815,152 @@ const templateButton = {
   fontSize: 13
 }
 
-const filterRow = {
-  display: "flex",
-  gap: 10,
-  marginBottom: 20,
-  flexWrap: "wrap"
-}
-
-const filterButton = {
-  padding: "8px 14px",
-  borderRadius: 8,
-  border: "1px solid #334155",
-  color: "#fff",
+const attachLabel = {
+  display: "inline-block",
+  background: "#f97316",
+  color: "#020617",
+  padding: "12px 14px",
+  borderRadius: 12,
+  fontWeight: 900,
   cursor: "pointer"
 }
 
-const historyCard = {
-  background: "#111827",
+const attachmentBox = {
+  marginTop: 12,
+  background: "#020617",
+  border: "1px solid #334155",
   borderRadius: 12,
-  padding: 16,
-  marginBottom: 16,
+  padding: 12
+}
+
+const attachmentName = {
+  margin: "4px 0",
+  color: "#cbd5e1"
+}
+
+const composeActions = {
+  display: "flex",
+  gap: 12,
+  marginTop: 20,
+  flexWrap: "wrap"
+}
+
+const sendButton = {
+  padding: "14px 18px",
+  borderRadius: 10,
+  border: "none",
+  background: "#22c55e",
+  color: "#020617",
+  fontWeight: 900,
+  cursor: "pointer"
+}
+
+const draftButton = {
+  padding: "14px 18px",
+  borderRadius: 10,
+  border: "none",
+  background: "#a78bfa",
+  color: "#020617",
+  fontWeight: 900,
+  cursor: "pointer"
+}
+
+const emptyCard = {
+  background: "#111827",
+  border: "1px solid #334155",
+  borderRadius: 14,
+  padding: 20
+}
+
+const emailList = {
+  display: "grid",
+  gap: 16
+}
+
+const emailCard = {
+  background: "#111827",
+  borderRadius: 14,
+  padding: 18,
   border: "1px solid #1f2937"
 }
 
-const historyTop = {
+const emailCardTop = {
   display: "flex",
   justifyContent: "space-between",
-  gap: 12
+  gap: 16
 }
 
-const historyEmail = {
+const emailSubject = {
+  margin: 0,
+  fontSize: 20
+}
+
+const meta = {
+  color: "#94a3b8",
+  margin: "6px 0 0",
+  fontSize: 13
+}
+
+const statusBadge = {
+  background: "#22d3ee",
+  color: "#020617",
+  borderRadius: 999,
+  padding: "6px 10px",
   fontSize: 12,
-  opacity: 0.7,
-  marginTop: 4
+  fontWeight: 900,
+  textTransform: "capitalize",
+  height: "fit-content"
 }
 
 const messagePreview = {
   marginTop: 14,
+  color: "#cbd5e1",
   whiteSpace: "pre-wrap"
+}
+
+const dateText = {
+  color: "#64748b",
+  fontSize: 13
+}
+
+const cardActions = {
+  display: "flex",
+  gap: 10,
+  marginTop: 14,
+  flexWrap: "wrap"
+}
+
+const smallButton = {
+  border: "none",
+  background: "#38bdf8",
+  color: "#020617",
+  borderRadius: 8,
+  padding: "8px 12px",
+  fontWeight: 900,
+  cursor: "pointer"
+}
+
+const sendSmallButton = {
+  ...smallButton,
+  background: "#22c55e"
 }
 
 const archiveButton = {
   border: "none",
   background: "#f59e0b",
-  color: "#fff",
+  color: "#020617",
   borderRadius: 8,
   padding: "8px 12px",
+  fontWeight: 900,
+  cursor: "pointer"
+}
+
+const restoreButton = {
+  border: "none",
+  background: "#22d3ee",
+  color: "#020617",
+  borderRadius: 8,
+  padding: "8px 12px",
+  fontWeight: 900,
   cursor: "pointer"
 }
