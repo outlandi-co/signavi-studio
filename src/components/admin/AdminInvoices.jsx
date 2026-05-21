@@ -5,7 +5,8 @@ const API_BASE =
   import.meta.env.VITE_API_URL ||
   "https://signavi-backend.onrender.com/api"
 
-const BACKEND_BASE = API_BASE.replace(/\/api\/?$/, "")
+const BACKEND_BASE =
+  API_BASE.replace(/\/api\/?$/, "")
 
 const resolveFileUrl = (value = "") => {
   if (!value) return ""
@@ -21,9 +22,18 @@ const resolveFileUrl = (value = "") => {
         ""
 
   if (!rawUrl) return ""
-  if (rawUrl.startsWith("http")) return rawUrl
-  if (rawUrl.startsWith("/uploads")) return `${BACKEND_BASE}${rawUrl}`
-  if (rawUrl.startsWith("uploads")) return `${BACKEND_BASE}/${rawUrl}`
+
+  if (rawUrl.startsWith("http")) {
+    return rawUrl
+  }
+
+  if (rawUrl.startsWith("/uploads")) {
+    return `${BACKEND_BASE}${rawUrl}`
+  }
+
+  if (rawUrl.startsWith("uploads")) {
+    return `${BACKEND_BASE}/${rawUrl}`
+  }
 
   return `${BACKEND_BASE}/uploads/proofs/${rawUrl}`
 }
@@ -40,16 +50,20 @@ const getProofName = (proof = {}) => {
 }
 
 const isProofPdf = (proof = {}) => {
-  const mimeType = proof.mimeType || proof.mimetype || ""
-  const url = proof.url || proof.fileName || ""
+  const mimeType =
+    proof.mimeType ||
+    proof.mimetype ||
+    ""
 
-  return mimeType.includes("pdf") || url.toLowerCase().endsWith(".pdf")
-}
+  const url =
+    proof.url ||
+    proof.fileName ||
+    ""
 
-const formatTimelineStatus = (status = "") => {
-  return status
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+  return (
+    mimeType.includes("pdf") ||
+    url.toLowerCase().endsWith(".pdf")
+  )
 }
 
 export default function AdminInvoices() {
@@ -124,11 +138,15 @@ export default function AdminInvoices() {
       proofData.append("proofs", file)
     })
 
-    await api.patch(`/invoices/${invoiceId}/final-proof`, proofData, {
-      headers: {
-        "Content-Type": "multipart/form-data"
+    await api.patch(
+      `/invoices/${invoiceId}/final-proof`,
+      proofData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data"
+        }
       }
-    })
+    )
   }
 
   const createInvoice = async (e) => {
@@ -211,7 +229,9 @@ export default function AdminInvoices() {
 
   const copyProofLink = async (invoiceId) => {
     const url = `${window.location.origin}/proof/${invoiceId}`
+
     await navigator.clipboard.writeText(url)
+
     alert("Proof approval link copied.")
   }
 
@@ -267,7 +287,10 @@ export default function AdminInvoices() {
             ...file,
             url: resolvedUrl
           }),
-          mimeType: file.mimeType || file.mimetype || ""
+          mimeType:
+            file.mimeType ||
+            file.mimetype ||
+            ""
         }
       })
     }
@@ -290,51 +313,6 @@ export default function AdminInvoices() {
     }
 
     return []
-  }
-
-  const renderTimeline = (invoice) => {
-    const timeline = invoice.timeline || []
-
-    if (!timeline.length) {
-      return (
-        <div style={timelineBox}>
-          <p style={timelineTitle}>Production Timeline</p>
-          <p style={timelineEmpty}>No timeline events yet.</p>
-        </div>
-      )
-    }
-
-    return (
-      <div style={timelineBox}>
-        <p style={timelineTitle}>Production Timeline</p>
-
-        <div style={timelineList}>
-          {timeline.map((event, index) => (
-            <div key={`${event.status}-${index}`} style={timelineItem}>
-              <div style={timelineDot} />
-
-              <div>
-                <p style={timelineStatus}>
-                  {formatTimelineStatus(event.status)}
-                </p>
-
-                {event.note && (
-                  <p style={timelineNote}>
-                    {event.note}
-                  </p>
-                )}
-
-                <p style={timelineDate}>
-                  {event.date
-                    ? new Date(event.date).toLocaleString()
-                    : ""}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -419,6 +397,7 @@ export default function AdminInvoices() {
 
         <label style={fileLabel}>
           Upload Final Proofs
+
           <input
             type="file"
             accept="image/*,.pdf"
@@ -503,19 +482,20 @@ export default function AdminInvoices() {
                               rel="noreferrer"
                               style={proofImageLink}
                             >
-                              <img
-                                src={proof.url}
-                                alt={
-                                  proof.fileName ||
-                                  `Proof ${index + 1}`
-                                }
-                                style={proofPreview}
-                                onError={(e) => {
-                                  e.currentTarget.onerror = null
-                                  e.currentTarget.src =
-                                    "https://placehold.co/160x160/020617/22d3ee?text=Proof"
-                                }}
-                              />
+                    <img
+  src={proof.url}
+  alt={
+    proof.fileName ||
+    `Proof ${index + 1}`
+  }
+  style={proofPreview}
+  onError={(e) => {
+    e.currentTarget.onerror = null
+
+    e.currentTarget.src =
+      "https://placehold.co/160x160/020617/22d3ee?text=Proof"
+  }}
+/>
 
                               <span style={proofFileName}>
                                 {proof.fileName ||
@@ -534,8 +514,6 @@ export default function AdminInvoices() {
                       </p>
                     </div>
                   )}
-
-                  {renderTimeline(invoice)}
                 </div>
 
                 <div style={actions}>
@@ -813,61 +791,4 @@ const proofLink = {
   color: "#22d3ee",
   fontWeight: 900,
   display: "block"
-}
-
-const timelineBox = {
-  marginTop: 16,
-  padding: 14,
-  background: "#0f172a",
-  borderRadius: 14,
-  border: "1px solid #334155"
-}
-
-const timelineTitle = {
-  margin: "0 0 12px",
-  fontWeight: 900,
-  color: "#22d3ee"
-}
-
-const timelineList = {
-  display: "grid",
-  gap: 12
-}
-
-const timelineItem = {
-  display: "grid",
-  gridTemplateColumns: "16px 1fr",
-  gap: 10,
-  alignItems: "flex-start"
-}
-
-const timelineDot = {
-  width: 10,
-  height: 10,
-  borderRadius: "999px",
-  background: "#22c55e",
-  marginTop: 5
-}
-
-const timelineStatus = {
-  margin: 0,
-  fontWeight: 900,
-  color: "#e5e7eb"
-}
-
-const timelineNote = {
-  margin: "4px 0",
-  color: "#cbd5e1",
-  fontSize: 13
-}
-
-const timelineDate = {
-  margin: 0,
-  color: "#64748b",
-  fontSize: 12
-}
-
-const timelineEmpty = {
-  color: "#94a3b8",
-  margin: 0
 }
