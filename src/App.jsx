@@ -21,6 +21,7 @@ import { useToast } from "./hooks/useToast"
 /* ================= COMPONENTS ================= */
 
 import Navbar from "./components/Navbar"
+import Footer from "./components/Footer"
 import CartDrawer from "./components/CartDrawer"
 import AccountDrawer from "./components/AccountDrawer"
 
@@ -191,6 +192,13 @@ function AppContent() {
       path.startsWith(route)
     )
 
+  const shouldHideFooter =
+    shouldHideNavbar ||
+    path.startsWith("/admin") ||
+    path.startsWith("/client-checkout") ||
+    path.startsWith("/checkout") ||
+    path.startsWith("/success")
+
   useEffect(() => {
     const token = localStorage.getItem("adminToken")
 
@@ -234,9 +242,9 @@ function AppContent() {
 
         <Route path="/store" element={<Store />} />
 
-       <Route path="/gallery" element={<Gallery />} />
+        <Route path="/gallery" element={<Gallery />} />
 
-      <Route path="/services" element={<Services />} />
+        <Route path="/services" element={<Services />} />
 
         <Route
           path="/product/:id"
@@ -408,9 +416,9 @@ function AppContent() {
             />
 
             <Route
-  path="marketing"
-  element={<MarketingHub />}
-/>
+              path="marketing"
+              element={<MarketingHub />}
+            />
 
             <Route
               path="products"
@@ -449,6 +457,8 @@ function AppContent() {
           element={<h2>Page not found</h2>}
         />
       </Routes>
+
+      {!shouldHideFooter && <Footer />}
     </>
   )
 }
