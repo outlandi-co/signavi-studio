@@ -78,7 +78,7 @@ function Home() {
           }}
         >
           Custom Apparel • DTF Transfers • Laser Engraving • Graphic Design •
-          Signs • Photography • Drone Services
+          Signs • Photography • 
         </p>
 
         <div
