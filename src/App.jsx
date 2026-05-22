@@ -59,6 +59,7 @@ import InvoicePage from "./pages/InvoicePage"
 import ProofApprovalPage from "./pages/ProofApprovalPage"
 
 import Gallery from "./pages/Gallery"
+import Services from "./pages/Services"
 
 /* ================= CUSTOMER ================= */
 
@@ -233,7 +234,9 @@ function AppContent() {
 
         <Route path="/store" element={<Store />} />
 
-        <Route path="/gallery" element={<Gallery />} />
+       <Route path="/gallery" element={<Gallery />} />
+
+      <Route path="/services" element={<Services />} />
 
         <Route
           path="/product/:id"
