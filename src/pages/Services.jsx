@@ -40,12 +40,14 @@ const services = [
     description:
       "Promotional videos, business content, social media videos, and event coverage.",
   },
-  {
-    title: "Drone Services",
-    icon: "🚁",
-    description:
-      "Aerial photography, aerial video, inspections, real estate, and promotional footage.",
-  },
+  /*
+{
+  title: "Drone Services",
+  icon: "🚁",
+  description:
+    "Aerial photography, aerial video, inspections, real estate, and promotional footage.",
+},
+*/
   {
     title: "Web Design & Development",
     icon: "💻",
@@ -58,12 +60,14 @@ const services = [
     description:
       "Branded giveaways, event products, engraved merchandise, and custom gifts.",
   },
-  {
-    title: "3D Printing",
-    icon: "🖨️",
-    description:
-      "Prototype development, custom parts, cosplay items, and personalized creations.",
-  },
+  /*
+{
+  title: "3D Printing",
+  icon: "🖨️",
+  description:
+    "Prototype development, custom parts, cosplay items, and personalized creations.",
+},
+*/
 ]
 
 export default function Services() {
