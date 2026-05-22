@@ -56,7 +56,6 @@ function Navbar({
 
   return (
     <nav className="navbar">
-
       <div className="navbar-left">
         <Link
           to="/"
@@ -67,13 +66,12 @@ function Navbar({
           </div>
 
           <span className="brand-name">
-            Signavi
+            SignaVi Studio
           </span>
         </Link>
       </div>
 
       <div className="navbar-center">
-
         <NavItem
           to="/"
           active={isActive("/")}
@@ -86,6 +84,13 @@ function Navbar({
           active={isActive("/store")}
         >
           Store
+        </NavItem>
+
+        <NavItem
+          to="/services"
+          active={isActive("/services")}
+        >
+          Services
         </NavItem>
 
         <NavItem
@@ -108,11 +113,9 @@ function Navbar({
         >
           Support
         </NavItem>
-
       </div>
 
       <div className="navbar-right">
-
         <button
           type="button"
           onClick={openCart}
@@ -126,7 +129,6 @@ function Navbar({
               {cartCount}
             </span>
           )}
-
         </button>
 
         {isCustomer && (
@@ -143,12 +145,10 @@ function Navbar({
                 {supportUnread}
               </span>
             )}
-
           </button>
         )}
 
         {(isCustomer || isAdmin) ? (
-
           <button
             type="button"
             onClick={handleLogout}
@@ -156,11 +156,8 @@ function Navbar({
           >
             Logout
           </button>
-
         ) : (
-
           <div className="auth-links">
-
             <Link to="/customer-register">
               Register
             </Link>
@@ -172,13 +169,9 @@ function Navbar({
             <Link to="/login">
               Admin
             </Link>
-
           </div>
-
         )}
-
       </div>
-
     </nav>
   )
 }
