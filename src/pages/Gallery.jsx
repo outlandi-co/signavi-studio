@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom"
 
+import FAQSection from "../components/FAQSection"
+
 const galleryItems = [
   {
     title: "Laser Engraved Keychains",
@@ -99,7 +101,9 @@ export default function Gallery() {
               </div>
 
               <div className="p-6">
-                <h2 className="text-2xl font-bold mb-2">{item.title}</h2>
+                <h2 className="text-2xl font-bold mb-2">
+                  {item.title}
+                </h2>
 
                 <p className="text-slate-400 leading-relaxed">
                   {item.description}
@@ -116,6 +120,8 @@ export default function Gallery() {
           ))}
         </div>
       </section>
+
+      <FAQSection />
     </main>
   )
 }

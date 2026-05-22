@@ -1,6 +1,10 @@
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
 
+import ProcessSection from "../components/ProcessSection"
+import Testimonials from "../components/Testimonials"
+import FAQSection from "../components/FAQSection"
+
 function Home() {
   const navigate = useNavigate()
   const [idea, setIdea] = useState("")
@@ -11,14 +15,32 @@ function Home() {
       return
     }
 
-    // 🔥 Pass idea into submit page
     navigate("/quote", {
-  state: { idea }
-})
+      state: { idea }
+    })
   }
 
+  const services = [
+    {
+      title: "Laser Engraving",
+      image: "/images/services/engraving.jpg"
+    },
+    {
+      title: "Custom Apparel",
+      image: "/images/services/apparel.jpg"
+    },
+    {
+      title: "Signs & Graphics",
+      image: "/images/services/signs.jpg"
+    },
+    {
+      title: "Graphic Design",
+      image: "/images/services/design.jpg"
+    }
+  ]
+
   return (
-    <div>
+    <main>
       <section
         style={{
           padding: "100px 20px",
@@ -34,7 +56,7 @@ function Home() {
             letterSpacing: "-1px"
           }}
         >
-          Signavi Studio
+          SignaVi Studio
         </h1>
 
         <p
@@ -44,10 +66,21 @@ function Home() {
             color: "#94a3b8"
           }}
         >
-          Custom Apparel • DTF Transfers • Laser Engraving
+          From iteration to creation.
         </p>
 
-        {/* 🔥 QUICK QUOTE INPUT */}
+        <p
+          style={{
+            maxWidth: "700px",
+            margin: "20px auto",
+            color: "#cbd5e1",
+            lineHeight: "1.7"
+          }}
+        >
+          Custom Apparel • DTF Transfers • Laser Engraving • Graphic Design •
+          Signs • Photography • Drone Services
+        </p>
+
         <div
           style={{
             marginTop: "40px",
@@ -60,15 +93,14 @@ function Home() {
           <input
             value={idea}
             onChange={(e) => setIdea(e.target.value)}
-            placeholder="Describe your project (e.g. 50 black shirts with logo)..."
+            placeholder="Describe your project..."
             style={{
               padding: "14px",
-              width: "300px",
+              width: "320px",
               borderRadius: "10px",
               background: "#020617",
               border: "1px solid #334155",
-              color: "#fff",
-              outline: "none"
+              color: "#fff"
             }}
           />
 
@@ -76,21 +108,19 @@ function Home() {
             onClick={handleQuickQuote}
             style={{
               padding: "14px 24px",
-              background: "linear-gradient(90deg, #06b6d4, #2563eb)",
+              background:
+                "linear-gradient(90deg, #06b6d4, #2563eb)",
               border: "none",
               color: "#fff",
               borderRadius: "10px",
               cursor: "pointer",
-              fontWeight: "600",
-              boxShadow:
-                "0 0 10px rgba(6,182,212,0.5), 0 0 20px rgba(37,99,235,0.3)"
+              fontWeight: "600"
             }}
           >
             Get Quote
           </button>
         </div>
 
-        {/* ORIGINAL BUTTONS */}
         <div
           style={{
             marginTop: "30px",
@@ -115,10 +145,11 @@ function Home() {
           </button>
 
           <button
-            onClick={() => navigate("/submit")}
+            onClick={() => navigate("/services")}
             style={{
               padding: "12px 24px",
-              background: "linear-gradient(90deg, #06b6d4, #2563eb)",
+              background:
+                "linear-gradient(90deg, #06b6d4, #2563eb)",
               border: "none",
               color: "#fff",
               borderRadius: "10px",
@@ -126,11 +157,106 @@ function Home() {
               fontWeight: "600"
             }}
           >
-            Full Quote Form
+            View Services
           </button>
         </div>
       </section>
-    </div>
+
+      {/* SERVICES PREVIEW */}
+
+      <section
+        style={{
+          background: "#020617",
+          padding: "80px 20px",
+          color: "#fff"
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "1200px",
+            margin: "0 auto"
+          }}
+        >
+          <h2
+            style={{
+              textAlign: "center",
+              fontSize: "40px",
+              marginBottom: "50px"
+            }}
+          >
+            Featured Services
+          </h2>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(auto-fit,minmax(250px,1fr))",
+              gap: "24px"
+            }}
+          >
+            {services.map((service) => (
+              <div
+                key={service.title}
+                style={{
+                  background: "#0f172a",
+                  border: "1px solid #1e293b",
+                  borderRadius: "20px",
+                  overflow: "hidden"
+                }}
+              >
+                <img
+                  src={service.image}
+                  alt={service.title}
+                  style={{
+                    width: "100%",
+                    height: "220px",
+                    objectFit: "cover"
+                  }}
+                  onError={(e) => {
+                    e.currentTarget.src =
+                      "/image_placeholder/placeholder.png"
+                  }}
+                />
+
+                <div style={{ padding: "20px" }}>
+                  <h3>{service.title}</h3>
+
+                  <button
+                    onClick={() =>
+                      navigate(
+                        `/quote?service=${encodeURIComponent(
+                          service.title
+                        )}`
+                      )
+                    }
+                    style={{
+                      marginTop: "15px",
+                      width: "100%",
+                      padding: "12px",
+                      borderRadius: "10px",
+                      border: "none",
+                      background:
+                        "linear-gradient(90deg,#06b6d4,#2563eb)",
+                      color: "#fff",
+                      cursor: "pointer"
+                    }}
+                  >
+                    Request Quote
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <ProcessSection />
+
+      <Testimonials />
+
+      <FAQSection />
+    </main>
   )
 }
 

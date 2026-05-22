@@ -1,5 +1,8 @@
 import { Link } from "react-router-dom"
 
+import ProcessSection from "../components/ProcessSection"
+import FAQSection from "../components/FAQSection"
+
 const services = [
   {
     title: "Laser Engraving",
@@ -117,7 +120,7 @@ export default function Services() {
           </h2>
 
           <p className="text-slate-300 mb-8 max-w-2xl mx-auto">
-            Every project is unique. Tell us about your vision and we'll help
+            Every project is unique. Tell us about your vision and we&apos;ll help
             create a solution tailored specifically to your needs.
           </p>
 
@@ -129,6 +132,9 @@ export default function Services() {
           </Link>
         </div>
       </section>
+
+      <ProcessSection />
+      <FAQSection />
     </main>
   )
 }
