@@ -34,12 +34,12 @@ const services = [
     description:
       "Portraits, products, events, real estate, branding, and commercial photography.",
   },
-  {
-    title: "Videography",
-    icon: "🎥",
-    description:
-      "Promotional videos, business content, social media videos, and event coverage.",
-  },
+  // {
+  //   title: "Videography",
+  //   icon: "🎥",
+  //   description:
+  //     "Promotional videos, business content, social media videos, and event coverage.",
+  // },
   /*
 {
   title: "Drone Services",
