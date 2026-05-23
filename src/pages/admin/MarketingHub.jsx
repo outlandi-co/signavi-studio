@@ -73,111 +73,122 @@ ${selected.hashtags}`
         </p>
       </section>
 
-      <section className="marketing-grid">
-        <div className="marketing-card">
-          <h2>Create Post</h2>
+<section className="marketing-grid">
+  <div className="marketing-card">
+    <h2>Create Post</h2>
 
-          <label>
-            Service
-            <select value={service} onChange={(e) => setService(e.target.value)}>
-              {Object.entries(serviceTemplates).map(([key, item]) => (
-                <option key={key} value={key}>
-                  {item.title}
-                </option>
-              ))}
-            </select>
-          </label>
+    <label>
+      Service
+      <select
+        value={service}
+        onChange={(e) => setService(e.target.value)}
+      >
+        {Object.entries(serviceTemplates).map(([key, item]) => (
+          <option key={key} value={key}>
+            {item.title}
+          </option>
+        ))}
+      </select>
+    </label>
 
-          <label>
-            Quote Link
-            <input
-              value={siteUrl}
-              onChange={(e) => setSiteUrl(e.target.value)}
-              placeholder="https://signavistudio.store/quote"
-            />
-          </label>
+    <label>
+      Quote Link
+      <input
+        value={siteUrl}
+        onChange={(e) => setSiteUrl(e.target.value)}
+        placeholder="https://signavistudio.store/quote"
+      />
+    </label>
 
-          <label>
-            Extra Note
-            <textarea
-              value={customNote}
-              onChange={(e) => setCustomNote(e.target.value)}
-              placeholder="Example: Father’s Day orders are open this week."
-            />
-          </label>
+    <label>
+      Extra Note
+      <textarea
+        value={customNote}
+        onChange={(e) => setCustomNote(e.target.value)}
+        placeholder="Example: Father’s Day orders are open this week."
+      />
+    </label>
 
-          <button
-            className="marketing-main-btn"
-            onClick={() => copyToClipboard("post", postText)}
-          >
-            {copied === "post" ? "Copied!" : "Copy Full Post"}
-          </button>
-        </div>
+    <button
+      className="marketing-main-btn"
+      onClick={() => copyToClipboard("post", postText)}
+    >
+      {copied === "post" ? "Copied!" : "Copy Full Post"}
+    </button>
+  </div>
 
-        <div className="marketing-card preview-card">
-          <h2>Preview</h2>
-          <pre>{postText}</pre>
-        </div>
-      </section>
+  <div className="marketing-card preview-card">
+    <h2>Preview</h2>
+    <pre>{postText}</pre>
+  </div>
+</section>
 
-      <section className="platform-grid">
-        <div className="platform-card facebook">
-          <h3>Facebook</h3>
-          <p>Best for business page posts, local groups, and customer shares.</p>
+<section className="platform-grid">
+  <div className="platform-card facebook">
+    <h3>Facebook</h3>
+    <p>
+      Best for business page posts, local groups, customer engagement,
+      and community sharing.
+    </p>
 
-          <div className="button-row">
-  <a
-    href="https://www.instagram.com/signavistudio/"
-    target="_blank"
-    rel="noreferrer"
-  >
-    Visit Instagram
-  </a>
+    <div className="button-row">
+      <a
+        href="https://www.facebook.com/signavistudio"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Visit Facebook
+      </a>
 
-  <button onClick={() => copyToClipboard("instagram", postText)}>
-    {copied === "instagram" ? "Copied!" : "Copy Caption"}
-  </button>
-</div>
-        </div>
+      <button onClick={() => copyToClipboard("facebook", postText)}>
+        {copied === "facebook" ? "Copied!" : "Copy Caption"}
+      </button>
+    </div>
+  </div>
 
-        <div className="platform-card instagram">
-          <h3>Instagram</h3>
-          <p>Use this for reels, stories, carousels, and behind-the-scenes posts.</p>
+  <div className="platform-card instagram">
+    <h3>Instagram</h3>
+    <p>
+      Use this for reels, stories, carousels, product showcases,
+      and behind-the-scenes content.
+    </p>
 
-          <div className="button-row">
-            <a
-  href="https://www.instagram.com/signavistudio/"
-  target="_blank"
-  rel="noreferrer"
->
-  Visit Instagram
-</a>
+    <div className="button-row">
+      <a
+        href="https://www.instagram.com/signavistudio/"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Visit Instagram
+      </a>
 
-            <button onClick={() => copyToClipboard("instagram", postText)}>
-              {copied === "instagram" ? "Copied!" : "Copy Caption"}
-            </button>
-          </div>
-        </div>
+      <button onClick={() => copyToClipboard("instagram", postText)}>
+        {copied === "instagram" ? "Copied!" : "Copy Caption"}
+      </button>
+    </div>
+  </div>
 
-        <div className="platform-card tiktok">
-          <h3>TikTok</h3>
-          <p>Great for engraving, shirt printing, packing, design, and process videos.</p>
+  <div className="platform-card tiktok">
+    <h3>TikTok</h3>
+    <p>
+      Great for laser engraving, shirt printing, design timelapses,
+      packing orders, and process videos.
+    </p>
 
-          <div className="button-row">
-            <a
-  href="https://www.instagram.com/signavistudio/"
-  target="_blank"
-  rel="noreferrer"
->
-  Visit Instagram
-</a>
+    <div className="button-row">
+      <a
+        href="https://www.tiktok.com/@signavistudio"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Visit TikTok
+      </a>
 
-            <button onClick={() => copyToClipboard("tiktok", postText)}>
-              {copied === "tiktok" ? "Copied!" : "Copy Caption"}
-            </button>
-          </div>
-        </div>
-      </section>
-    </main>
+      <button onClick={() => copyToClipboard("tiktok", postText)}>
+        {copied === "tiktok" ? "Copied!" : "Copy Caption"}
+      </button>
+    </div>
+  </div>
+</section>    </main>
   )
 }
