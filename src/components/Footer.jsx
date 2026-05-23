@@ -18,7 +18,7 @@ export default function Footer() {
 
         <div className="flex justify-center gap-8 mt-6 text-3xl">
           <a
-            href="https://www.facebook.com/signavistudio"
+            href="https://www.facebook.com/signavi"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Facebook"
