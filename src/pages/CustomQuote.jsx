@@ -19,24 +19,27 @@ export default function CustomQuote() {
   const [loading, setLoading] = useState(false)
 
   const pricing = {
-    laser: {
-      label: "Laser Engraving",
-      base: 15,
-      setup: 10,
-      minimum: 25
-    },
-    vinyl: {
-      label: "Vinyl Printing",
-      base: 18,
-      setup: 15,
-      minimum: 30
-    },
-    digital: {
-      label: "Digital Services",
-      base: 75,
-      setup: 0,
-      minimum: 75
-    }
+  laser: {
+    label: "Laser Engraving",
+    base: 15,
+    setup: 10,
+    minimum: 25
+  },
+
+  vinyl: {
+    label: "Vinyl Printing",
+    base: 5,
+    setup: 0,
+    minimum: 5
+  },
+
+  digital: {
+    label: "Digital Services",
+    base: 75,
+    setup: 0,
+    minimum: 75
+  }
+
 
     /*
     screenprint: { label: "Screen Print", base: 8, setup: 20, minimum: 50 },
