@@ -92,7 +92,7 @@ const url = res?.data?.paymentUrl
         {/* 🔥 ESTIMATE MESSAGE */}
         {quote.approvalStatus !== "approved" && (
           <p style={estimateText}>
-            ⚠️ Estimated price — final price may change after review
+            ⚠️ Starting price — final price may change after review
           </p>
         )}
 

@@ -192,7 +192,7 @@ export default function CustomQuote() {
           border: "1px solid #06b6d4"
         }}>
           <div style={{ fontSize: "18px", fontWeight: "bold" }}>
-            💰 Estimated Price: ${estimate.toFixed(2)}
+            💰 Starting Price at: ${estimate.toFixed(2)}
           </div>
 
           <div style={{ fontSize: "13px", opacity: 0.7 }}>
