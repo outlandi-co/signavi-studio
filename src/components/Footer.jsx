@@ -8,7 +8,6 @@ export default function Footer() {
   return (
     <footer className="mt-20 border-t border-slate-800 bg-[#020617]">
       <div className="max-w-7xl mx-auto px-6 py-10 text-center">
-
         <h3 className="text-xl font-bold text-white">
           SignaVi Studio
         </h3>
@@ -18,11 +17,11 @@ export default function Footer() {
         </p>
 
         <div className="flex justify-center gap-8 mt-6 text-3xl">
-
           <a
-            href="https://www.facebook.com/signavi"
+            href="https://www.facebook.com/signavistudio"
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
+            aria-label="Facebook"
             className="hover:text-cyan-400 transition"
           >
             <FaFacebook />
@@ -31,23 +30,23 @@ export default function Footer() {
           <a
             href="https://www.instagram.com/signavistudio/"
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
+            aria-label="Instagram"
             className="hover:text-cyan-400 transition"
           >
             <FaInstagram />
           </a>
 
           <a
-            href="https://www.tiktok.com/@signavi.studio"
+            href="https://www.tiktok.com/@signavistudio"
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
+            aria-label="TikTok"
             className="hover:text-cyan-400 transition"
           >
             <FaTiktok />
           </a>
-
         </div>
-
       </div>
     </footer>
   )
