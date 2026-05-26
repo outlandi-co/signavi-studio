@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import api from "../../services/api"
 import socket from "../../services/socket"
 
@@ -9,44 +9,19 @@ export default function AdminSupport() {
   const [filter, setFilter] = useState("open")
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
+  const [actionLoading, setActionLoading] = useState("")
+  const [status, setStatus] = useState("")
 
-  /* ================= LOAD ================= */
+  const sortTickets = useCallback((list = []) => {
+    return [...list].sort(
+      (a, b) =>
+        new Date(b.lastMessageAt || b.updatedAt || b.createdAt || 0) -
+        new Date(a.lastMessageAt || a.updatedAt || a.createdAt || 0)
+    )
+  }, [])
 
-  const loadTickets = async () => {
-    try {
-      setLoading(true)
-
-      const res = await api.get("/support")
-      const data = res.data?.data || []
-
-      setTickets(data)
-
-      setSelected(prev => {
-        if (!prev) return null
-
-        return data.find(ticket => ticket._id === prev._id) || null
-      })
-    } catch (err) {
-      console.error("❌ SUPPORT LOAD ERROR:", err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  /* ================= INITIAL LOAD ================= */
-
-  useEffect(() => {
-  const timer = setTimeout(() => {
-    loadTickets()
-  }, 0)
-
-  return () => clearTimeout(timer)
-}, [])
-
-  /* ================= SOCKET UPDATES ================= */
-
-  useEffect(() => {
-    const handleTicketUpdate = updatedTicket => {
+  const syncTicket = useCallback(
+    updatedTicket => {
       if (!updatedTicket?._id) return
 
       setTickets(prev => {
@@ -58,21 +33,54 @@ export default function AdminSupport() {
             )
           : [updatedTicket, ...prev]
 
-        return next.sort(
-          (a, b) =>
-            new Date(b.lastMessageAt || b.updatedAt || b.createdAt) -
-            new Date(a.lastMessageAt || a.updatedAt || a.createdAt)
-        )
+        return sortTickets(next)
       })
 
       setSelected(prev =>
         prev?._id === updatedTicket._id ? updatedTicket : prev
       )
+    },
+    [sortTickets]
+  )
+
+  const loadTickets = useCallback(async () => {
+    try {
+      setLoading(true)
+      setStatus("")
+
+      const res = await api.get("/support")
+      const data = res.data?.data || []
+
+      setTickets(sortTickets(data))
+
+      setSelected(prev => {
+        if (!prev) return null
+        return data.find(ticket => ticket._id === prev._id) || null
+      })
+    } catch (err) {
+      console.error("❌ SUPPORT LOAD ERROR:", err)
+      setStatus("❌ Failed to load support tickets")
+    } finally {
+      setLoading(false)
+    }
+  }, [sortTickets])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadTickets()
+    }, 0)
+
+    return () => clearTimeout(timer)
+  }, [loadTickets])
+
+  useEffect(() => {
+    const handleTicketUpdate = updatedTicket => {
+      syncTicket(updatedTicket)
     }
 
     const handleNewMessage = data => {
       if (data?.ticket) {
-        handleTicketUpdate(data.ticket)
+        syncTicket(data.ticket)
       } else {
         loadTickets()
       }
@@ -85,12 +93,11 @@ export default function AdminSupport() {
       socket.off("support:ticket-updated", handleTicketUpdate)
       socket.off("support:new-message", handleNewMessage)
     }
-  }, [])
-
-  /* ================= SELECT / READ ================= */
+  }, [loadTickets, syncTicket])
 
   const selectTicket = async ticket => {
     setSelected(ticket)
+    setStatus("")
 
     if (!ticket?._id) return
 
@@ -102,20 +109,13 @@ export default function AdminSupport() {
       const updatedTicket = res.data?.data
 
       if (updatedTicket) {
-        setTickets(prev =>
-          prev.map(item =>
-            item._id === updatedTicket._id ? updatedTicket : item
-          )
-        )
-
-        setSelected(updatedTicket)
+        syncTicket(updatedTicket)
       }
     } catch (err) {
       console.error("❌ MARK READ ERROR:", err)
+      setStatus("❌ Failed to mark ticket as read")
     }
   }
-
-  /* ================= REPLY ================= */
 
   const sendReply = async () => {
     if (!reply.trim()) return
@@ -125,6 +125,7 @@ export default function AdminSupport() {
 
     try {
       setSending(true)
+      setStatus("")
 
       const res = await api.post(`/support/${selected._id}/reply`, {
         sender: "admin",
@@ -134,89 +135,45 @@ export default function AdminSupport() {
       const updatedTicket = res.data?.data
 
       if (updatedTicket) {
-        setSelected(updatedTicket)
-
-        setTickets(prev =>
-          prev.map(ticket =>
-            ticket._id === updatedTicket._id ? updatedTicket : ticket
-          )
-        )
+        syncTicket(updatedTicket)
       }
 
       setReply("")
+      setStatus("✅ Reply sent")
     } catch (err) {
       console.error("❌ REPLY ERROR:", err)
+      setStatus("❌ Failed to send reply")
     } finally {
       setSending(false)
     }
   }
 
-  /* ================= CLOSE ================= */
+  const updateTicketAction = async (id, endpoint, successMessage, nextFilter) => {
+    if (!id) return
 
-  const closeTicket = async id => {
     try {
-      const res = await api.patch(`/support/${id}/close`)
+      setActionLoading(endpoint)
+      setStatus("")
+
+      const res = await api.patch(`/support/${id}/${endpoint}`)
       const updatedTicket = res.data?.data
 
       if (updatedTicket) {
-        setSelected(updatedTicket)
-
-        setTickets(prev =>
-          prev.map(ticket =>
-            ticket._id === updatedTicket._id ? updatedTicket : ticket
-          )
-        )
+        syncTicket(updatedTicket)
       }
+
+      if (nextFilter) {
+        setFilter(nextFilter)
+      }
+
+      setStatus(successMessage)
     } catch (err) {
-      console.error("❌ CLOSE ERROR:", err)
+      console.error(`❌ ${endpoint.toUpperCase()} ERROR:`, err)
+      setStatus("❌ Ticket action failed")
+    } finally {
+      setActionLoading("")
     }
   }
-
-  /* ================= REOPEN ================= */
-
-  const reopenTicket = async id => {
-    try {
-      const res = await api.patch(`/support/${id}/reopen`)
-      const updatedTicket = res.data?.data
-
-      if (updatedTicket) {
-        setSelected(updatedTicket)
-        setFilter("open")
-
-        setTickets(prev =>
-          prev.map(ticket =>
-            ticket._id === updatedTicket._id ? updatedTicket : ticket
-          )
-        )
-      }
-    } catch (err) {
-      console.error("❌ REOPEN ERROR:", err)
-    }
-  }
-
-  /* ================= ARCHIVE ================= */
-
-  const archiveTicket = async id => {
-    try {
-      const res = await api.patch(`/support/${id}/archive`)
-      const updatedTicket = res.data?.data
-
-      if (updatedTicket) {
-        setSelected(updatedTicket)
-        setFilter("archived")
-
-        setTickets(prev =>
-          prev.map(ticket =>
-            ticket._id === updatedTicket._id ? updatedTicket : ticket
-          )
-        )
-      }
-    } catch (err) {
-      console.error("❌ ARCHIVE ERROR:", err)
-    }
-  }
-
-  /* ================= FILTER ================= */
 
   const filtered = useMemo(() => {
     return tickets.filter(ticket => {
@@ -244,7 +201,7 @@ export default function AdminSupport() {
           createdAt: selected.createdAt
         },
         ...(selected.replies || [])
-      ]
+      ].filter(message => message.message)
     : []
 
   const totalUnread = tickets.reduce(
@@ -262,16 +219,22 @@ export default function AdminSupport() {
           </p>
         </div>
 
-        {totalUnread > 0 && (
-          <div style={globalBadge}>
-            {totalUnread} unread
-          </div>
-        )}
+        <div style={topActions}>
+          {totalUnread > 0 && (
+            <div style={globalBadge}>
+              {totalUnread} unread
+            </div>
+          )}
+
+          <button onClick={loadTickets} style={refreshBtn}>
+            Refresh
+          </button>
+        </div>
       </div>
 
-      <div style={layout}>
-        {/* ================= SIDEBAR ================= */}
+      {status && <div style={statusBox}>{status}</div>}
 
+      <div style={layout}>
         <aside style={sidebar}>
           <div style={filterRow}>
             <FilterButton active={filter === "open"} onClick={() => setFilter("open")}>
@@ -291,16 +254,10 @@ export default function AdminSupport() {
             </FilterButton>
           </div>
 
-          {loading && (
-            <div style={emptyState}>
-              Loading support tickets...
-            </div>
-          )}
+          {loading && <div style={emptyState}>Loading support tickets...</div>}
 
           {!loading && filtered.length === 0 && (
-            <div style={emptyState}>
-              No {filter} tickets.
-            </div>
+            <div style={emptyState}>No {filter} tickets.</div>
           )}
 
           {!loading &&
@@ -323,11 +280,7 @@ export default function AdminSupport() {
                       {ticket.customerName || "Customer"}
                     </strong>
 
-                    {unread > 0 && (
-                      <span style={unreadBadge}>
-                        {unread}
-                      </span>
-                    )}
+                    {unread > 0 && <span style={unreadBadge}>{unread}</span>}
                   </div>
 
                   <div style={ticketSubject}>
@@ -355,8 +308,6 @@ export default function AdminSupport() {
             })}
         </aside>
 
-        {/* ================= MAIN ================= */}
-
         <main style={main}>
           {!selected && (
             <div style={emptyMain}>
@@ -367,8 +318,6 @@ export default function AdminSupport() {
 
           {selected && (
             <>
-              {/* HEADER */}
-
               <div style={ticketHeader}>
                 <div>
                   <h2 style={chatTitle}>
@@ -376,7 +325,7 @@ export default function AdminSupport() {
                   </h2>
 
                   <p style={chatMeta}>
-                    {selected.customerName || "Customer"} • {selected.email}
+                    {selected.customerName || "Customer"} • {selected.email || "No email"}
                   </p>
 
                   {selected.orderNumber && (
@@ -389,43 +338,73 @@ export default function AdminSupport() {
                 <div style={actionRow}>
                   {!selected.archived && selected.status !== "closed" && (
                     <button
-                      onClick={() => closeTicket(selected._id)}
+                      onClick={() =>
+                        updateTicketAction(
+                          selected._id,
+                          "close",
+                          "✅ Chat closed",
+                          "closed"
+                        )
+                      }
+                      disabled={!!actionLoading}
                       style={closeBtn}
                     >
-                      Close Chat
+                      {actionLoading === "close" ? "Closing..." : "Close Chat"}
                     </button>
                   )}
 
                   {!selected.archived && selected.status === "closed" && (
                     <>
                       <button
-                        onClick={() => reopenTicket(selected._id)}
+                        onClick={() =>
+                          updateTicketAction(
+                            selected._id,
+                            "reopen",
+                            "✅ Chat reopened",
+                            "open"
+                          )
+                        }
+                        disabled={!!actionLoading}
                         style={reopenBtn}
                       >
-                        Reopen
+                        {actionLoading === "reopen" ? "Reopening..." : "Reopen"}
                       </button>
 
                       <button
-                        onClick={() => archiveTicket(selected._id)}
+                        onClick={() =>
+                          updateTicketAction(
+                            selected._id,
+                            "archive",
+                            "✅ Ticket archived",
+                            "archived"
+                          )
+                        }
+                        disabled={!!actionLoading}
                         style={archiveBtn}
                       >
-                        Archive
+                        {actionLoading === "archive" ? "Archiving..." : "Archive"}
                       </button>
                     </>
                   )}
 
                   {selected.archived && (
                     <button
-                      onClick={() => reopenTicket(selected._id)}
+                      onClick={() =>
+                        updateTicketAction(
+                          selected._id,
+                          "reopen",
+                          "✅ Ticket restored",
+                          "open"
+                        )
+                      }
+                      disabled={!!actionLoading}
                       style={reopenBtn}
                     >
-                      Restore / Reopen
+                      {actionLoading === "reopen" ? "Restoring..." : "Restore / Reopen"}
                     </button>
                   )}
                 </div>
               </div>
-
-              {/* THREAD */}
 
               <div style={thread}>
                 {messages.map((message, index) => {
@@ -433,7 +412,7 @@ export default function AdminSupport() {
 
                   return (
                     <div
-                      key={`${message.createdAt}-${index}`}
+                      key={`${message.createdAt || index}-${index}`}
                       style={{
                         ...bubble,
                         ...(isAdmin ? bubbleAdmin : bubbleCustomer)
@@ -443,9 +422,7 @@ export default function AdminSupport() {
                         {isAdmin ? "Admin" : "Customer"}
                       </div>
 
-                      <div>
-                        {message.message}
-                      </div>
+                      <div>{message.message}</div>
 
                       {message.createdAt && (
                         <div style={bubbleTime}>
@@ -456,8 +433,6 @@ export default function AdminSupport() {
                   )
                 })}
               </div>
-
-              {/* REPLY */}
 
               <div style={replyPanel}>
                 {selected.archived ? (
@@ -498,8 +473,6 @@ export default function AdminSupport() {
     </div>
   )
 }
-
-/* ================= HELPERS ================= */
 
 function FilterButton({ active, onClick, children }) {
   return (
@@ -555,8 +528,6 @@ function getStatusStyle(ticket) {
   }
 }
 
-/* ================= STYLES ================= */
-
 const page = {
   padding: 30,
   background: "#020617",
@@ -570,6 +541,13 @@ const topBar = {
   alignItems: "center",
   gap: 20,
   marginBottom: 20
+}
+
+const topActions = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  flexWrap: "wrap"
 }
 
 const title = {
@@ -587,6 +565,25 @@ const globalBadge = {
   padding: "8px 14px",
   borderRadius: 999,
   fontWeight: "bold"
+}
+
+const refreshBtn = {
+  background: "#1e293b",
+  border: "1px solid #334155",
+  color: "white",
+  padding: "9px 14px",
+  borderRadius: 999,
+  cursor: "pointer",
+  fontWeight: "bold"
+}
+
+const statusBox = {
+  background: "#0f172a",
+  border: "1px solid #334155",
+  borderRadius: 12,
+  padding: 12,
+  marginBottom: 16,
+  color: "#e2e8f0"
 }
 
 const layout = {

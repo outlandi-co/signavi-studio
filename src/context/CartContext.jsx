@@ -1,24 +1,43 @@
-import { createContext, useState, useEffect } from "react"
+import { createContext, useEffect, useMemo, useState } from "react"
 
 const CartContext = createContext()
 
-const getProductId = (product) => {
-  return product.productId || product._id
+const TAX_RATE = 0.0825
+
+const safeNumber = (value, fallback = 0) => {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : fallback
 }
 
-const getProductType = (product) => {
-  return product.productType || "physical"
+const getProductId = (product = {}) => {
+  return product.productId || product._id || product.id || ""
 }
 
-const getCartItemPrice = (item) => {
-  return Number(
+const getProductType = (product = {}) => {
+  return product.productType || product.type || "physical"
+}
+
+const getCartItemPrice = (item = {}) => {
+  return safeNumber(
     item.price ||
-    item.selectedVariant?.price ||
-    0
+      item.selectedVariant?.price ||
+      item.basePrice ||
+      item.listPrice ||
+      0
   )
 }
 
-const isSameCartItem = (item, product) => {
+const normalizeVariant = (variant = null) => {
+  if (!variant) return null
+
+  return {
+    color: variant.color || "",
+    size: variant.size || "",
+    price: safeNumber(variant.price),
+  }
+}
+
+const isSameCartItem = (item = {}, product = {}) => {
   const productId = getProductId(product)
   const productType = getProductType(product)
 
@@ -28,7 +47,7 @@ const isSameCartItem = (item, product) => {
     return item.productType === productType
   }
 
-  const variant = product.selectedVariant
+  const variant = product.selectedVariant || null
 
   return (
     item.selectedVariant?.color === variant?.color &&
@@ -39,7 +58,8 @@ const isSameCartItem = (item, product) => {
 export function CartProvider({ children }) {
   const [cart, setCart] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem("cart") || "[]")
+      const savedCart = JSON.parse(localStorage.getItem("cart") || "[]")
+      return Array.isArray(savedCart) ? savedCart : []
     } catch {
       return []
     }
@@ -49,41 +69,39 @@ export function CartProvider({ children }) {
     localStorage.setItem("cart", JSON.stringify(cart))
   }, [cart])
 
-  const addToCart = (product) => {
+  const addToCart = (product = {}) => {
     const productId = getProductId(product)
     const productType = getProductType(product)
-    const variant = product.selectedVariant || null
+    const variant = normalizeVariant(product.selectedVariant || null)
 
     if (!productId) {
       console.warn("❌ Missing product ID:", product)
       return false
     }
 
-    if (productType === "physical") {
-      if (!variant?.color || !variant?.size) {
-        console.warn("❌ Missing variant:", product)
-        return false
-      }
+    if (productType === "physical" && (!variant?.color || !variant?.size)) {
+      console.warn("❌ Missing variant:", product)
+      return false
     }
 
-    const price = Number(
+    const price = safeNumber(
       product.price ||
-      variant?.price ||
-      product.basePrice ||
-      product.listPrice ||
-      0
+        variant?.price ||
+        product.basePrice ||
+        product.listPrice ||
+        0
     )
 
-    if (!price || price <= 0) {
+    if (price <= 0) {
       console.warn("❌ Invalid price:", product)
       return false
     }
 
-    setCart(prev => {
-      const existing = prev.find(item => isSameCartItem(item, product))
+    setCart((prev) => {
+      const existing = prev.find((item) => isSameCartItem(item, product))
 
       if (existing) {
-        return prev.map(item => {
+        return prev.map((item) => {
           if (!isSameCartItem(item, product)) return item
 
           if (productType === "digital") {
@@ -92,15 +110,16 @@ export function CartProvider({ children }) {
               quantity: 1,
               price,
               image: product.image || item.image,
-              digitalProduct: product.digitalProduct || item.digitalProduct
+              digitalProduct:
+                product.digitalProduct || item.digitalProduct || null,
             }
           }
 
           return {
             ...item,
-            quantity: Number(item.quantity || 1) + 1,
+            quantity: safeNumber(item.quantity, 1) + 1,
             price,
-            image: product.image || item.image
+            image: product.image || item.image,
           }
         })
       }
@@ -109,22 +128,24 @@ export function CartProvider({ children }) {
         ...prev,
         {
           productId,
-          name: product.name,
-          image: product.image,
+          name: product.name || "Untitled Product",
+          image: product.image || "",
           productType,
           price,
-          selectedVariant: productType === "physical"
-            ? {
-                color: variant.color,
-                size: variant.size,
-                price
-              }
-            : null,
-          digitalProduct: productType === "digital"
-            ? product.digitalProduct || null
-            : null,
-          quantity: 1
-        }
+          selectedVariant:
+            productType === "physical"
+              ? {
+                  color: variant.color,
+                  size: variant.size,
+                  price,
+                }
+              : null,
+          digitalProduct:
+            productType === "digital"
+              ? product.digitalProduct || null
+              : null,
+          quantity: 1,
+        },
       ]
     })
 
@@ -132,9 +153,9 @@ export function CartProvider({ children }) {
   }
 
   const updateQuantity = (productId, variantOrType, delta) => {
-    setCart(prev =>
+    setCart((prev) =>
       prev
-        .map(item => {
+        .map((item) => {
           if (item.productId !== productId) return item
 
           const itemType = item.productType || "physical"
@@ -142,27 +163,25 @@ export function CartProvider({ children }) {
           const isMatch =
             itemType === "digital" || itemType === "service"
               ? itemType === variantOrType
-              : (
-                  item.selectedVariant?.color === variantOrType?.color &&
-                  item.selectedVariant?.size === variantOrType?.size
-                )
+              : item.selectedVariant?.color === variantOrType?.color &&
+                item.selectedVariant?.size === variantOrType?.size
 
           if (!isMatch) return item
 
           if (itemType === "digital" && delta > 0) {
             return {
               ...item,
-              quantity: 1
+              quantity: 1,
             }
           }
 
-          const newQty = Number(item.quantity || 1) + delta
+          const newQty = safeNumber(item.quantity, 1) + delta
 
           if (newQty <= 0) return null
 
           return {
             ...item,
-            quantity: newQty
+            quantity: newQty,
           }
         })
         .filter(Boolean)
@@ -170,8 +189,8 @@ export function CartProvider({ children }) {
   }
 
   const removeFromCart = (productId, variantOrType) => {
-    setCart(prev =>
-      prev.filter(item => {
+    setCart((prev) =>
+      prev.filter((item) => {
         if (item.productId !== productId) return true
 
         const itemType = item.productType || "physical"
@@ -192,21 +211,31 @@ export function CartProvider({ children }) {
     setCart([])
   }
 
-  const subtotal = cart.reduce((sum, item) => {
-    const price = getCartItemPrice(item)
-    const quantity = Number(item.quantity || 1)
+  const subtotal = useMemo(() => {
+    return cart.reduce((sum, item) => {
+      const price = getCartItemPrice(item)
+      const quantity = safeNumber(item.quantity, 1)
 
-    return sum + price * quantity
-  }, 0)
+      return sum + price * quantity
+    }, 0)
+  }, [cart])
 
-  const tax = subtotal * 0.0825
+  const tax = useMemo(() => {
+    return subtotal * TAX_RATE
+  }, [subtotal])
+
   const shipping = 0
-  const total = subtotal + tax + shipping
 
-  const cartCount = cart.reduce(
-    (sum, item) => sum + Number(item.quantity || 1),
-    0
-  )
+  const total = useMemo(() => {
+    return subtotal + tax + shipping
+  }, [subtotal, tax])
+
+  const cartCount = useMemo(() => {
+    return cart.reduce(
+      (sum, item) => sum + safeNumber(item.quantity, 1),
+      0
+    )
+  }, [cart])
 
   return (
     <CartContext.Provider
@@ -220,7 +249,7 @@ export function CartProvider({ children }) {
         tax,
         shipping,
         total,
-        cartCount
+        cartCount,
       }}
     >
       {children}

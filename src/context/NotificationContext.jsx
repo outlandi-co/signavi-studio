@@ -1,304 +1,151 @@
-
 import {
+  useCallback,
   useEffect,
   useMemo,
-  useState
+  useState,
 } from "react"
 
 import {
-  NotificationContext
+  NotificationContext,
 } from "./NotificationContextObject"
 
 import {
-  getSocket
+  getSocket,
 } from "../services/socket"
 
-export function NotificationProvider({
-  children
-}) {
+const MAX_ALERTS = 20
 
-  /* ================= STATE ================= */
+function getStoredUser(key) {
+  try {
+    const raw = localStorage.getItem(key)
 
-  const [
-    supportUnread,
-    setSupportUnread
-  ] = useState(0)
-
-  const [
-    emailUnread,
-    setEmailUnread
-  ] = useState(0)
-
-  const [
-    alerts,
-    setAlerts
-  ] = useState([])
-
-  /* ================= SAFE STORAGE ================= */
-
-  const getStoredUser = (key) => {
-
-    try {
-
-      const raw =
-        localStorage.getItem(key)
-
-      return raw
-        ? JSON.parse(raw)
-        : null
-
-    } catch (err) {
-
-      console.warn(
-        "Failed parsing storage:",
-        key,
-        err
-      )
-
-      return null
-    }
+    return raw ? JSON.parse(raw) : null
+  } catch (err) {
+    console.warn("Failed parsing storage:", key, err)
+    return null
   }
+}
 
-  /* ================= ALERT ADDER ================= */
+function getCurrentRole() {
+  const adminUser = getStoredUser("adminUser")
+  const customerUser = getStoredUser("customerUser")
 
-  const addAlert = (
+  if (adminUser?.role === "admin") return "admin"
+  if (customerUser) return "customer"
+
+  return "guest"
+}
+
+function createAlert(type, message) {
+  return {
+    id: crypto.randomUUID(),
     type,
-    message
-  ) => {
-
-    const newAlert = {
-
-      id:
-        crypto.randomUUID(),
-
-      type,
-
-      message,
-
-      timestamp:
-        Date.now()
-    }
-
-    setAlerts(prev => {
-
-      const updated = [
-        newAlert,
-        ...prev
-      ]
-
-      return updated.slice(0, 20)
-    })
+    message,
+    timestamp: Date.now(),
   }
+}
 
-  /* ================= SOCKET ================= */
+export function NotificationProvider({ children }) {
+  const [supportUnread, setSupportUnread] = useState(0)
+  const [emailUnread, setEmailUnread] = useState(0)
+  const [alerts, setAlerts] = useState([])
 
-  useEffect(() => {
+  const addAlert = useCallback((type, message) => {
+    const newAlert = createAlert(type, message)
 
-    console.log(
-      "NotificationProvider mounted"
-    )
-
-    const socket =
-      getSocket()
-
-    if (!socket) {
-
-      console.warn(
-        "Socket failed"
-      )
-
-      return
-    }
-
-    console.log(
-      "Socket ready"
-    )
-
-    /* ================= SUPPORT ================= */
-
-    const handleSupport =
-      (data) => {
-
-        console.log(
-          "Support socket event:",
-          data
-        )
-
-        const sender =
-          String(
-            data?.sender || ""
-          )
-            .trim()
-            .toLowerCase()
-
-        const adminUser =
-          getStoredUser(
-            "adminUser"
-          )
-
-        const customerUser =
-          getStoredUser(
-            "customerUser"
-          )
-
-        let currentRole =
-          "guest"
-
-        if (
-          adminUser?.role === "admin"
-        ) {
-
-          currentRole =
-            "admin"
-        }
-
-        else if (
-          customerUser
-        ) {
-
-          currentRole =
-            "customer"
-        }
-
-        console.log(
-          "Current role:",
-          currentRole
-        )
-
-        console.log(
-          "Sender:",
-          sender
-        )
-
-        /* ================= IGNORE OWN ================= */
-
-        if (
-          sender === currentRole
-        ) {
-
-          console.log(
-            "Ignoring own message"
-          )
-
-          return
-        }
-
-        /* ================= UPDATE ================= */
-
-        setSupportUnread(
-          prev => prev + 1
-        )
-
-        addAlert(
-          "support",
-          data?.message ||
-          "New support reply"
-        )
-      }
-
-    /* ================= EMAIL ================= */
-
-    const handleEmail =
-      (data) => {
-
-        console.log(
-          "Email socket event:",
-          data
-        )
-
-        setEmailUnread(
-          prev => prev + 1
-        )
-
-        addAlert(
-          "email",
-          data?.message ||
-          "New email received"
-        )
-      }
-
-    /* ================= LISTENERS ================= */
-
-    socket.on(
-      "support:new-message",
-      handleSupport
-    )
-
-    socket.on(
-      "email:new",
-      handleEmail
-    )
-
-    console.log(
-      "Socket listeners attached"
-    )
-
-    /* ================= CLEANUP ================= */
-
-    return () => {
-
-      console.log(
-        "Removing socket listeners"
-      )
-
-      socket.off(
-        "support:new-message",
-        handleSupport
-      )
-
-      socket.off(
-        "email:new",
-        handleEmail
-      )
-    }
-
+    setAlerts((prev) => {
+      const updated = [newAlert, ...prev]
+      return updated.slice(0, MAX_ALERTS)
+    })
   }, [])
 
-  /* ================= CLEAR ================= */
+  useEffect(() => {
+    const socket = getSocket()
 
-  const clearSupportUnread =
-    () => {
-
-      setSupportUnread(0)
+    if (!socket) {
+      console.warn("Socket failed")
+      return undefined
     }
 
-  const clearEmailUnread =
-    () => {
+    const handleSupport = (data) => {
+      const sender = String(data?.sender || "")
+        .trim()
+        .toLowerCase()
 
-      setEmailUnread(0)
+      const currentRole = getCurrentRole()
+
+      if (sender && sender === currentRole) {
+        return
+      }
+
+      setSupportUnread((prev) => prev + 1)
+
+      addAlert(
+        "support",
+        data?.message || "New support reply"
+      )
     }
 
-  /* ================= CONTEXT ================= */
+    const handleEmail = (data) => {
+      setEmailUnread((prev) => prev + 1)
 
-  const value = useMemo(() => ({
+      addAlert(
+        "email",
+        data?.message || "New email received"
+      )
+    }
 
-    supportUnread,
+    socket.on("support:new-message", handleSupport)
+    socket.on("email:new", handleEmail)
 
-    emailUnread,
+    return () => {
+      socket.off("support:new-message", handleSupport)
+      socket.off("email:new", handleEmail)
+    }
+  }, [addAlert])
 
-    alerts,
+  const clearSupportUnread = useCallback(() => {
+    setSupportUnread(0)
+  }, [])
 
-    clearSupportUnread,
+  const clearEmailUnread = useCallback(() => {
+    setEmailUnread(0)
+  }, [])
 
-    clearEmailUnread
+  const clearAlerts = useCallback(() => {
+    setAlerts([])
+  }, [])
 
-  }), [
+  const removeAlert = useCallback((alertId) => {
+    setAlerts((prev) =>
+      prev.filter((alert) => alert.id !== alertId)
+    )
+  }, [])
 
-    supportUnread,
-
-    emailUnread,
-
-    alerts
-  ])
+  const value = useMemo(
+    () => ({
+      supportUnread,
+      emailUnread,
+      alerts,
+      clearSupportUnread,
+      clearEmailUnread,
+      clearAlerts,
+      removeAlert,
+    }),
+    [
+      supportUnread,
+      emailUnread,
+      alerts,
+      clearSupportUnread,
+      clearEmailUnread,
+      clearAlerts,
+      removeAlert,
+    ]
+  )
 
   return (
-
-    <NotificationContext.Provider
-      value={value}
-    >
-
+    <NotificationContext.Provider value={value}>
       {children}
-
     </NotificationContext.Provider>
   )
 }

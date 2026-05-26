@@ -1,27 +1,69 @@
-import { useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { ToastContext } from "./ToastContext"
 
 export default function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([])
 
-  const addToast = (message, type = "info") => {
-    const id = Date.now()
+  const removeToast = useCallback((id) => {
+    setToasts((prev) =>
+      prev.filter((toast) => toast.id !== id)
+    )
+  }, [])
 
-    setToasts(prev => [...prev, { id, message, type }])
+  const addToast = useCallback(
+    (
+      message,
+      type = "info",
+      duration = 3000
+    ) => {
+      const id = crypto.randomUUID()
 
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id))
-    }, 3000)
-  }
+      setToasts((prev) => [
+        ...prev,
+        {
+          id,
+          message,
+          type,
+        },
+      ])
+
+      setTimeout(() => {
+        removeToast(id)
+      }, duration)
+    },
+    [removeToast]
+  )
+
+  const value = useMemo(
+    () => ({
+      addToast,
+      removeToast,
+      toasts,
+    }),
+    [addToast, removeToast, toasts]
+  )
 
   return (
-    <ToastContext.Provider value={{ addToast }}>
+    <ToastContext.Provider value={value}>
       {children}
 
       <div style={container}>
-        {toasts.map(t => (
-          <div key={t.id} style={toast(t.type)}>
-            {t.message}
+        {toasts.map((toastItem) => (
+          <div
+            key={toastItem.id}
+            style={toastStyle(toastItem.type)}
+          >
+            <span>{toastItem.message}</span>
+
+            <button
+              type="button"
+              onClick={() =>
+                removeToast(toastItem.id)
+              }
+              style={closeButton}
+            >
+              ×
+            </button>
           </div>
         ))}
       </div>
@@ -36,15 +78,39 @@ const container = {
   display: "flex",
   flexDirection: "column",
   gap: 10,
-  zIndex: 9999
+  zIndex: 9999,
+  maxWidth: "400px",
 }
 
-const toast = (type) => ({
-  padding: "12px 18px",
-  borderRadius: 8,
-  color: "#fff",
+const toastStyle = (type) => ({
+  minWidth: "260px",
+  padding: "12px 16px",
+  borderRadius: "12px",
+  color: "#ffffff",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "12px",
+  boxShadow: "0 10px 25px rgba(0,0,0,0.35)",
+  border: "1px solid rgba(255,255,255,0.08)",
+
   background:
-    type === "error" ? "#ef4444" :
-    type === "success" ? "#22c55e" :
-    "#06b6d4"
+    type === "error"
+      ? "#ef4444"
+      : type === "success"
+      ? "#22c55e"
+      : type === "warning"
+      ? "#f59e0b"
+      : "#06b6d4",
 })
+
+const closeButton = {
+  background: "transparent",
+  border: "none",
+  color: "#ffffff",
+  cursor: "pointer",
+  fontSize: "18px",
+  fontWeight: "bold",
+  lineHeight: 1,
+  padding: 0,
+}

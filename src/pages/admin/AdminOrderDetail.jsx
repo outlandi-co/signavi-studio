@@ -2,6 +2,10 @@ import { useCallback, useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import api from "../../services/api"
 
+const BACKEND_BASE =
+  (import.meta.env.VITE_API_URL ||
+    "https://signavi-backend.onrender.com/api").replace(/\/api\/?$/, "")
+
 const statusOptions = [
   "payment_required",
   "paid",
@@ -10,28 +14,19 @@ const statusOptions = [
   "shipping",
   "shipped",
   "delivered",
-  "archive"
+  "archive",
 ]
 
 const priorityOptions = [
-  {
-    value: "low",
-    label: "🟢 Low"
-  },
-  {
-    value: "medium",
-    label: "🟡 Medium"
-  },
-  {
-    value: "high",
-    label: "🔴 High"
-  }
+  { value: "low", label: "🟢 Low" },
+  { value: "medium", label: "🟡 Medium" },
+  { value: "high", label: "🔴 High" },
 ]
 
 const money = (value = 0) =>
   Number(value || 0).toLocaleString("en-US", {
     style: "currency",
-    currency: "USD"
+    currency: "USD",
   })
 
 const formatStatus = (value = "") =>
@@ -41,22 +36,17 @@ const formatStatus = (value = "") =>
 
 const formatDateInput = (value = "") => {
   if (!value) return ""
-
   return String(value).slice(0, 10)
 }
 
 const formatDateDisplay = (value = "") => {
   if (!value) return "Not set"
-
   return new Date(value).toLocaleDateString()
 }
 
-const getPriorityLabel = (priority = "medium") => {
-  return (
-    priorityOptions.find((option) => option.value === priority)?.label ||
-    "🟡 Medium"
-  )
-}
+const getPriorityLabel = (priority = "medium") =>
+  priorityOptions.find((option) => option.value === priority)?.label ||
+  "🟡 Medium"
 
 const isOverdue = (dueDate = "") => {
   if (!dueDate) return false
@@ -68,6 +58,15 @@ const isOverdue = (dueDate = "") => {
   due.setHours(0, 0, 0, 0)
 
   return due < today
+}
+
+const resolveFileUrl = (value = "") => {
+  if (!value || typeof value !== "string") return ""
+  if (value.startsWith("http")) return value
+  if (value.startsWith("/uploads")) return `${BACKEND_BASE}${value}`
+  if (value.startsWith("uploads")) return `${BACKEND_BASE}/${value}`
+
+  return `${BACKEND_BASE}/uploads/${value}`
 }
 
 export default function AdminOrderDetail() {
@@ -101,7 +100,6 @@ export default function AdminOrderDetail() {
         setTrackingNumber(data.trackingNumber || "")
         setTrackingLink(data.trackingLink || "")
         setCarrier(data.carrier || "")
-
         setPriority(data.priority || "medium")
         setDueDate(formatDateInput(data.dueDate))
         setAdminNotes(data.adminNotes || "")
@@ -126,21 +124,15 @@ export default function AdminOrderDetail() {
     try {
       setSaving(true)
 
-      const res = await api.patch(`/orders/${id}`, {
+      await api.patch(`/orders/${id}`, {
         status,
         trackingNumber,
         trackingLink,
         carrier,
         priority,
         dueDate,
-        adminNotes
+        adminNotes,
       })
-
-      const updated = res.data?.data || res.data || null
-
-      if (updated?._id) {
-        setOrder(updated)
-      }
 
       await loadOrder()
     } catch (err) {
@@ -172,9 +164,30 @@ export default function AdminOrderDetail() {
   const subtotal = Number(order.subtotal || 0)
   const tax = Number(order.tax || 0)
   const shipping = Number(order.shippingCost || order.shipping || 0)
-  const total = Number(order.finalPrice || order.total || subtotal + tax + shipping)
+  const total = Number(
+    order.finalPrice || order.total || subtotal + tax + shipping
+  )
 
   const overdue = isOverdue(dueDate)
+
+  const showShippingFields =
+    status === "shipping" ||
+    status === "shipped" ||
+    status === "delivered"
+
+  const artworkUrl = resolveFileUrl(
+    order.artwork ||
+      order.artworkFile ||
+      order.artworkUrl ||
+      ""
+  )
+
+  const mockupUrl = resolveFileUrl(
+    order.mockupImage ||
+      order.mockup ||
+      order.mockupUrl ||
+      ""
+  )
 
   return (
     <main className="min-h-screen bg-[#020617] text-white">
@@ -251,7 +264,10 @@ export default function AdminOrderDetail() {
 
               <div className="grid gap-4 md:grid-cols-3">
                 <Info label="Priority" value={getPriorityLabel(priority)} />
-                <Info label="Internal Due Date" value={formatDateDisplay(dueDate)} />
+                <Info
+                  label="Internal Due Date"
+                  value={formatDateDisplay(dueDate)}
+                />
                 <Info label="Overdue" value={overdue ? "Yes" : "No"} />
               </div>
 
@@ -264,6 +280,34 @@ export default function AdminOrderDetail() {
                   {adminNotes || "No internal notes yet."}
                 </p>
               </div>
+            </section>
+
+            <section className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6">
+              <h2 className="mb-5 text-2xl font-bold">
+                Artwork Proofs
+              </h2>
+
+              {!artworkUrl && !mockupUrl ? (
+                <p className="text-slate-400">
+                  No artwork or mockup attached yet.
+                </p>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {artworkUrl && (
+                    <ProofCard
+                      title="Customer Artwork"
+                      src={artworkUrl}
+                    />
+                  )}
+
+                  {mockupUrl && (
+                    <ProofCard
+                      title="Mockup Proof"
+                      src={mockupUrl}
+                    />
+                  )}
+                </div>
+              )}
             </section>
 
             <section className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6">
@@ -299,7 +343,10 @@ export default function AdminOrderDetail() {
                         <div className="mt-4 grid gap-3 md:grid-cols-3">
                           <Info label="Qty" value={quantity} />
                           <Info label="Price" value={money(price)} />
-                          <Info label="Line Total" value={money(quantity * price)} />
+                          <Info
+                            label="Line Total"
+                            value={money(quantity * price)}
+                          />
                         </div>
                       </div>
                     )
@@ -311,6 +358,43 @@ export default function AdminOrderDetail() {
                 </p>
               )}
             </section>
+
+            <section className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6">
+              <h2 className="mb-5 text-2xl font-bold">
+                Production Timeline
+              </h2>
+
+              {order.timeline?.length ? (
+                <div className="space-y-3">
+                  {order.timeline.map((entry, index) => (
+                    <div
+                      key={`${entry.status || "timeline"}-${index}`}
+                      className="rounded-xl border border-slate-800 bg-[#020617] p-4"
+                    >
+                      <p className="font-bold text-cyan-300">
+                        {formatStatus(entry.status)}
+                      </p>
+
+                      <p className="text-sm text-slate-500">
+                        {entry.date
+                          ? new Date(entry.date).toLocaleString()
+                          : "No date"}
+                      </p>
+
+                      {entry.note && (
+                        <p className="mt-2 text-slate-300">
+                          {entry.note}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-slate-400">
+                  No timeline history.
+                </p>
+              )}
+            </section>
           </div>
 
           <aside className="space-y-6">
@@ -319,9 +403,7 @@ export default function AdminOrderDetail() {
                 Update Order
               </h2>
 
-              <label className="mb-2 block text-sm font-bold text-slate-300">
-                Status
-              </label>
+              <FormLabel>Status</FormLabel>
 
               <select
                 value={status}
@@ -335,9 +417,7 @@ export default function AdminOrderDetail() {
                 ))}
               </select>
 
-              <label className="mb-2 block text-sm font-bold text-slate-300">
-                Priority
-              </label>
+              <FormLabel>Priority</FormLabel>
 
               <select
                 value={priority}
@@ -351,9 +431,7 @@ export default function AdminOrderDetail() {
                 ))}
               </select>
 
-              <label className="mb-2 block text-sm font-bold text-slate-300">
-                Internal Due Date
-              </label>
+              <FormLabel>Internal Due Date</FormLabel>
 
               <input
                 type="date"
@@ -362,9 +440,7 @@ export default function AdminOrderDetail() {
                 className="mb-4 w-full rounded-xl border border-slate-700 bg-[#020617] px-4 py-3 text-white"
               />
 
-              <label className="mb-2 block text-sm font-bold text-slate-300">
-                Admin Notes
-              </label>
+              <FormLabel>Admin Notes</FormLabel>
 
               <textarea
                 rows={4}
@@ -374,26 +450,36 @@ export default function AdminOrderDetail() {
                 className="mb-4 w-full rounded-xl border border-slate-700 bg-[#020617] px-4 py-3 text-white"
               />
 
-              <input
-                value={carrier}
-                onChange={(e) => setCarrier(e.target.value)}
-                placeholder="Carrier"
-                className="mb-4 w-full rounded-xl border border-slate-700 bg-[#020617] px-4 py-3 text-white"
-              />
+              {showShippingFields && (
+                <>
+                  <FormLabel>Carrier</FormLabel>
 
-              <input
-                value={trackingNumber}
-                onChange={(e) => setTrackingNumber(e.target.value)}
-                placeholder="Tracking Number"
-                className="mb-4 w-full rounded-xl border border-slate-700 bg-[#020617] px-4 py-3 text-white"
-              />
+                  <input
+                    value={carrier}
+                    onChange={(e) => setCarrier(e.target.value)}
+                    placeholder="USPS, UPS, FedEx..."
+                    className="mb-4 w-full rounded-xl border border-slate-700 bg-[#020617] px-4 py-3 text-white"
+                  />
 
-              <input
-                value={trackingLink}
-                onChange={(e) => setTrackingLink(e.target.value)}
-                placeholder="Tracking Link"
-                className="mb-4 w-full rounded-xl border border-slate-700 bg-[#020617] px-4 py-3 text-white"
-              />
+                  <FormLabel>Tracking Number</FormLabel>
+
+                  <input
+                    value={trackingNumber}
+                    onChange={(e) => setTrackingNumber(e.target.value)}
+                    placeholder="Tracking Number"
+                    className="mb-4 w-full rounded-xl border border-slate-700 bg-[#020617] px-4 py-3 text-white"
+                  />
+
+                  <FormLabel>Tracking Link</FormLabel>
+
+                  <input
+                    value={trackingLink}
+                    onChange={(e) => setTrackingLink(e.target.value)}
+                    placeholder="Tracking Link"
+                    className="mb-4 w-full rounded-xl border border-slate-700 bg-[#020617] px-4 py-3 text-white"
+                  />
+                </>
+              )}
 
               <button
                 type="button"
@@ -407,6 +493,47 @@ export default function AdminOrderDetail() {
 
             <section className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6">
               <h2 className="mb-5 text-2xl font-bold">
+                Quick Actions
+              </h2>
+
+              <div className="grid gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate("/admin/mockups", {
+                      state: {
+                        job: order,
+                      },
+                    })
+                  }
+                  className="rounded-xl border border-slate-700 px-4 py-3 font-bold text-white hover:border-cyan-400 hover:text-cyan-300"
+                >
+                  🎨 Create Mockup
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigate("/admin/customers")}
+                  className="rounded-xl border border-slate-700 px-4 py-3 font-bold text-white hover:border-cyan-400 hover:text-cyan-300"
+                >
+                  👤 Open Customer CRM
+                </button>
+
+                {trackingLink && (
+                  <a
+                    href={trackingLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-xl border border-slate-700 px-4 py-3 text-center font-bold text-white hover:border-cyan-400 hover:text-cyan-300"
+                  >
+                    🚚 Track Package
+                  </a>
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6">
+              <h2 className="mb-5 text-2xl font-bold">
                 Order Summary
               </h2>
 
@@ -415,7 +542,10 @@ export default function AdminOrderDetail() {
               <Summary label="Shipping" value={money(shipping)} />
               <Summary label="Total" value={money(total)} strong />
               <Summary label="Profit" value={money(order.profit)} />
-              <Summary label="Margin" value={`${Number(order.margin || 0).toFixed(2)}%`} />
+              <Summary
+                label="Margin"
+                value={`${Number(order.margin || 0).toFixed(2)}%`}
+              />
             </section>
 
             <section className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6">
@@ -444,6 +574,14 @@ export default function AdminOrderDetail() {
   )
 }
 
+function FormLabel({ children }) {
+  return (
+    <label className="mb-2 block text-sm font-bold text-slate-300">
+      {children}
+    </label>
+  )
+}
+
 function Info({ label, value }) {
   return (
     <div className="rounded-xl border border-slate-800 bg-[#020617] p-4">
@@ -465,9 +603,40 @@ function Summary({ label, value, strong = false }) {
         {label}
       </span>
 
-      <span className={strong ? "text-xl font-extrabold text-cyan-300" : "font-bold"}>
+      <span
+        className={
+          strong
+            ? "text-xl font-extrabold text-cyan-300"
+            : "font-bold"
+        }
+      >
         {value}
       </span>
+    </div>
+  )
+}
+
+function ProofCard({ title, src }) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-[#020617] p-4">
+      <p className="mb-3 text-sm font-bold text-cyan-300">
+        {title}
+      </p>
+
+      <img
+        src={src}
+        alt={title}
+        className="max-h-80 w-full rounded-xl object-contain"
+      />
+
+      <a
+        href={src}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-3 block rounded-xl border border-slate-700 px-4 py-2 text-center text-sm font-bold text-white hover:border-cyan-400 hover:text-cyan-300"
+      >
+        Open File
+      </a>
     </div>
   )
 }
