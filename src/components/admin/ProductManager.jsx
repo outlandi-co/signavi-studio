@@ -1,4 +1,14 @@
-import { useEffect, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState
+} from "react"
+
+import {
+  useNavigate
+} from "react-router-dom"
+
 import api from "../../services/api"
 import toast from "react-hot-toast"
 
@@ -6,102 +16,169 @@ const API_IMAGE_BASE =
   import.meta.env.VITE_API_URL?.replace("/api", "") ||
   "https://signavi-backend.onrender.com"
 
-export default function ProductManager() {
-  const [products, setProducts] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [deletingId, setDeletingId] = useState(null)
+const money = (value = 0) => {
+  return Number(value || 0).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD"
+  })
+}
 
-  useEffect(() => {
-    let alive = true
+const getProductArray = (data) => {
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.data)) return data.data
+  if (Array.isArray(data?.products)) return data.products
 
-    api.get("/products")
-      .then(res => {
-        if (!alive) return
+  return []
+}
 
-        const productData = Array.isArray(res.data)
-          ? res.data
-          : res.data?.data || []
+const resolveImage = (image) => {
+  if (!image) return "/image_placeholder/placeholder.png"
+  if (typeof image !== "string") return "/image_placeholder/placeholder.png"
 
-        setProducts(productData)
-      })
-      .catch(err => {
-        if (!alive) return
+  if (image.startsWith("http")) return image
+  if (image.startsWith("data:image")) return image
+  if (image.startsWith("/uploads")) return `${API_IMAGE_BASE}${image}`
+  if (image.startsWith("uploads")) return `${API_IMAGE_BASE}/${image}`
 
-        console.error("❌ LOAD PRODUCTS ERROR:", err.response?.data || err)
-        toast.error("Failed to load products")
-      })
-      .finally(() => {
-        if (!alive) return
-        setLoading(false)
-      })
+  return image
+}
 
-    return () => {
-      alive = false
-    }
-  }, [])
-
-  const loadProducts = async () => {
-    try {
-      setLoading(true)
-
-      const res = await api.get("/products")
-
-      const productData = Array.isArray(res.data)
-        ? res.data
-        : res.data?.data || []
-
-      setProducts(productData)
-    } catch (err) {
-      console.error("❌ LOAD PRODUCTS ERROR:", err.response?.data || err)
-      toast.error("Failed to load products")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const resolveImage = (image) => {
-    if (!image) return "/image_placeholder/placeholder.png"
-    if (typeof image !== "string") return "/image_placeholder/placeholder.png"
-
-    if (image.startsWith("http")) return image
-    if (image.startsWith("data:image")) return image
-    if (image.startsWith("/uploads")) return `${API_IMAGE_BASE}${image}`
-    if (image.startsWith("uploads")) return `${API_IMAGE_BASE}/${image}`
-
-    return image
-  }
-
-  const getProductImage = (product) => {
-    const variantImage = product.variants
-      ?.find(variant => variant.images?.length)
+const getProductImage = (product = {}) => {
+  const variantImage =
+    product.variants
+      ?.find((variant) => variant.images?.length)
       ?.images?.[0]
 
-    const image =
-      product.digitalProduct?.previewImage ||
-      product.image ||
-      product.images?.[0] ||
-      variantImage
+  const image =
+    product.digitalProduct?.previewImage ||
+    product.image ||
+    product.imageUrl ||
+    product.images?.[0] ||
+    variantImage
 
-    return resolveImage(image)
-  }
+  return resolveImage(image)
+}
 
-  const getProductPrice = (product) => {
-    return Number(
-      product.price ||
+const getProductPrice = (product = {}) => {
+  return Number(
+    product.price ||
       product.basePrice ||
       product.listPrice ||
       product.variants?.[0]?.price ||
       0
+  )
+}
+
+const getProductStock = (product = {}) => {
+  if (product.variants?.length) {
+    return product.variants.reduce(
+      (sum, variant) =>
+        sum + Number(variant.stock ?? variant.quantity ?? 0),
+      0
     )
   }
 
-  const formatType = (type) => {
-    if (!type) return "Physical"
+  return Number(product.stock ?? product.quantity ?? 0)
+}
 
-    return String(type)
-      .replace("-", " ")
-      .replace(/\b\w/g, letter => letter.toUpperCase())
-  }
+const formatType = (type) => {
+  if (!type) return "Physical"
+
+  return String(type)
+    .replaceAll("-", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+const productMatchesSearch = (product = {}, search = "") => {
+  if (!search.trim()) return true
+
+  const term = search.trim().toLowerCase()
+
+  return [
+    product.name,
+    product.sku,
+    product.category,
+    product.productType,
+    product.description,
+    product.vendor
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+    .includes(term)
+}
+
+export default function ProductManager() {
+  const navigate = useNavigate()
+
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [deletingId, setDeletingId] = useState(null)
+  const [search, setSearch] = useState("")
+  const [typeFilter, setTypeFilter] = useState("all")
+
+  const loadProducts = useCallback(async () => {
+    try {
+      setLoading(true)
+
+      const res = await api.get("/products")
+      setProducts(getProductArray(res.data))
+    } catch (err) {
+      console.error("❌ LOAD PRODUCTS ERROR:", err.response?.data || err)
+      toast.error("Failed to load products")
+      setProducts([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadProducts()
+    }, 0)
+
+    return () => clearTimeout(timer)
+  }, [loadProducts])
+
+  const filteredProducts = useMemo(() => {
+    let data = [...products]
+
+    if (typeFilter !== "all") {
+      data = data.filter(
+        (product) =>
+          String(product.productType || "physical") === typeFilter
+      )
+    }
+
+    data = data.filter((product) =>
+      productMatchesSearch(product, search)
+    )
+
+    return data
+  }, [
+    products,
+    search,
+    typeFilter
+  ])
+
+  const totalProducts = products.length
+
+  const physicalProducts = products.filter(
+    (product) => String(product.productType || "physical") === "physical"
+  ).length
+
+  const digitalProducts = products.filter(
+    (product) => product.productType === "digital"
+  ).length
+
+  const serviceProducts = products.filter(
+    (product) => product.productType === "service"
+  ).length
+
+  const inventoryCount = products.reduce(
+    (sum, product) => sum + getProductStock(product),
+    0
+  )
 
   const deleteProduct = async (product) => {
     const confirmed = window.confirm(
@@ -117,8 +194,8 @@ export default function ProductManager() {
 
       toast.success("Product deleted")
 
-      setProducts(prev =>
-        prev.filter(item => item._id !== product._id)
+      setProducts((prev) =>
+        prev.filter((item) => item._id !== product._id)
       )
     } catch (err) {
       console.error("❌ DELETE PRODUCT ERROR:", err.response?.data || err)
@@ -129,239 +206,293 @@ export default function ProductManager() {
   }
 
   const editProduct = (product) => {
-    toast("Edit is next — delete is active now")
+    navigate(`/admin/products/edit/${product._id}`)
+  }
 
-    console.log("EDIT PRODUCT:", product)
+  const toggleStoreVisibility = async (product) => {
+    try {
+      const nextValue = !product.storefrontVisible
+
+      await api.patch(`/products/${product._id}`, {
+        storefrontVisible: nextValue
+      })
+
+      setProducts((prev) =>
+        prev.map((item) =>
+          item._id === product._id
+            ? {
+                ...item,
+                storefrontVisible: nextValue
+              }
+            : item
+        )
+      )
+
+      toast.success(
+        nextValue
+          ? "Product visible on storefront"
+          : "Product hidden from storefront"
+      )
+    } catch (err) {
+      console.error("❌ VISIBILITY ERROR:", err.response?.data || err)
+      toast.error("Could not update visibility")
+    }
   }
 
   return (
-    <div style={section}>
-      <div style={header}>
+    <section className="mt-8 rounded-3xl border border-slate-800 bg-slate-950/80 p-6 text-white shadow-xl shadow-black/20">
+      <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <h2 style={title}>Current Products</h2>
-          <p style={subtitle}>
+          <p className="mb-3 text-sm font-bold uppercase tracking-[0.25em] text-cyan-400">
+            Product Catalog
+          </p>
+
+          <h2 className="text-3xl font-extrabold">
+            Current Products
+          </h2>
+
+          <p className="mt-2 text-slate-400">
             Manage products already saved in your store.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={loadProducts}
-          style={refreshBtn}
-        >
-          Refresh
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => navigate("/admin/products/create")}
+            className="rounded-full bg-cyan-500 px-5 py-3 font-bold text-black transition hover:bg-cyan-400"
+          >
+            Add Product
+          </button>
+
+          <button
+            type="button"
+            onClick={loadProducts}
+            className="rounded-full border border-slate-700 px-5 py-3 font-bold text-white transition hover:border-cyan-400 hover:text-cyan-300"
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <div className="mb-8 grid gap-5 md:grid-cols-2 xl:grid-cols-5">
+        <MetricCard
+          label="Total"
+          value={totalProducts}
+          accent="text-cyan-300"
+        />
+
+        <MetricCard
+          label="Physical"
+          value={physicalProducts}
+          accent="text-emerald-300"
+        />
+
+        <MetricCard
+          label="Digital"
+          value={digitalProducts}
+          accent="text-purple-300"
+        />
+
+        <MetricCard
+          label="Services"
+          value={serviceProducts}
+          accent="text-blue-300"
+        />
+
+        <MetricCard
+          label="Inventory"
+          value={inventoryCount}
+          accent="text-yellow-300"
+        />
+      </div>
+
+      <div className="mb-6 rounded-3xl border border-slate-800 bg-[#020617] p-5">
+        <div className="grid gap-4 lg:grid-cols-[1fr_220px]">
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search product, SKU, category, vendor..."
+            className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-cyan-400"
+          />
+
+          <select
+            value={typeFilter}
+            onChange={(event) => setTypeFilter(event.target.value)}
+            className="rounded-2xl border border-slate-700 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-cyan-400"
+          >
+            <option value="all">
+              All Types
+            </option>
+
+            <option value="physical">
+              Physical
+            </option>
+
+            <option value="digital">
+              Digital
+            </option>
+
+            <option value="service">
+              Service
+            </option>
+          </select>
+        </div>
       </div>
 
       {loading ? (
-        <p style={helperText}>Loading products...</p>
-      ) : products.length === 0 ? (
-        <p style={helperText}>No products found.</p>
+        <p className="text-slate-400">
+          Loading products...
+        </p>
+      ) : filteredProducts.length === 0 ? (
+        <div className="rounded-3xl border border-slate-800 bg-[#020617] p-10 text-center">
+          <h3 className="mb-3 text-2xl font-bold">
+            No products found
+          </h3>
+
+          <p className="text-slate-400">
+            Try changing your search or filter.
+          </p>
+        </div>
       ) : (
-        <div style={grid}>
-          {products.map(product => (
-            <div key={product._id} style={card}>
-              <div style={imageBox}>
-                <img
-                  src={getProductImage(product)}
-                  alt={product.name || "Product"}
-                  style={image}
-                  onError={(e) => {
-                    e.currentTarget.src = "/image_placeholder/placeholder.png"
-                  }}
-                />
-              </div>
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+          {filteredProducts.map((product) => {
+            const price = getProductPrice(product)
+            const stock = getProductStock(product)
+            const productType = product.productType || "physical"
 
-              <div style={info}>
-                <h3 style={name}>{product.name}</h3>
+            return (
+              <article
+                key={product._id}
+                className="overflow-hidden rounded-3xl border border-slate-800 bg-[#020617] shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-cyan-500"
+              >
+                <div className="relative h-56 bg-white">
+                  <img
+                    src={getProductImage(product)}
+                    alt={product.name || "Product"}
+                    className="h-full w-full object-contain p-4"
+                    onError={(event) => {
+                      event.currentTarget.src =
+                        "/image_placeholder/placeholder.png"
+                    }}
+                  />
 
-                <p style={meta}>
-                  {formatType(product.productType)} • {product.category || "general"}
-                </p>
+                  <span className="absolute left-4 top-4 rounded-full border border-cyan-400/30 bg-black/70 px-3 py-1 text-xs font-bold text-cyan-300">
+                    {formatType(productType)}
+                  </span>
 
-                <p style={price}>
-                  ${getProductPrice(product).toFixed(2)}
-                </p>
+                  <button
+                    type="button"
+                    onClick={() => toggleStoreVisibility(product)}
+                    className={
+                      product.storefrontVisible
+                        ? "absolute right-4 top-4 rounded-full border border-emerald-400/30 bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300"
+                        : "absolute right-4 top-4 rounded-full border border-slate-500/30 bg-black/70 px-3 py-1 text-xs font-bold text-slate-300"
+                    }
+                  >
+                    {product.storefrontVisible ? "Visible" : "Hidden"}
+                  </button>
+                </div>
 
-                {product.productType === "digital" && (
-                  <p style={digitalBadge}>
-                    Digital Download
+                <div className="p-6">
+                  <h3 className="text-xl font-extrabold">
+                    {product.name || "Untitled Product"}
+                  </h3>
+
+                  <p className="mt-2 text-sm text-slate-400">
+                    {product.category || "general"}
                   </p>
-                )}
 
-                {product.digitalProduct?.licenseType && (
-                  <p style={licenseText}>
-                    License: {product.digitalProduct.licenseType}
-                  </p>
-                )}
+                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                    <Info
+                      label="Price"
+                      value={money(price)}
+                    />
 
-                {product.variants?.length > 0 && (
-                  <p style={meta}>
-                    {product.variants.length} variants
-                  </p>
-                )}
-              </div>
+                    <Info
+                      label="Stock"
+                      value={stock}
+                    />
 
-              <div style={actions}>
-                <button
-                  type="button"
-                  onClick={() => editProduct(product)}
-                  style={editBtn}
-                >
-                  Edit
-                </button>
+                    <Info
+                      label="Variants"
+                      value={product.variants?.length || 0}
+                    />
+                  </div>
 
-                <button
-                  type="button"
-                  onClick={() => deleteProduct(product)}
-                  disabled={deletingId === product._id}
-                  style={{
-                    ...deleteBtn,
-                    opacity: deletingId === product._id ? 0.65 : 1,
-                    cursor: deletingId === product._id ? "not-allowed" : "pointer"
-                  }}
-                >
-                  {deletingId === product._id ? "Deleting..." : "Delete"}
-                </button>
-              </div>
-            </div>
-          ))}
+                  {product.productType === "digital" && (
+                    <p className="mt-4 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-bold text-cyan-300">
+                      Digital Download
+                    </p>
+                  )}
+
+                  {product.digitalProduct?.licenseType && (
+                    <p className="mt-3 text-sm text-slate-300">
+                      License: {product.digitalProduct.licenseType}
+                    </p>
+                  )}
+
+                  <div className="mt-6 grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => editProduct(product)}
+                      className="rounded-xl bg-cyan-500 px-4 py-3 font-bold text-black transition hover:bg-cyan-400"
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => deleteProduct(product)}
+                      disabled={deletingId === product._id}
+                      className="rounded-xl bg-red-500 px-4 py-3 font-bold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {deletingId === product._id
+                        ? "Deleting..."
+                        : "Delete"}
+                    </button>
+                  </div>
+                </div>
+              </article>
+            )
+          })}
         </div>
       )}
+    </section>
+  )
+}
+
+function MetricCard({
+  label,
+  value,
+  accent
+}) {
+  return (
+    <div className="rounded-3xl border border-slate-800 bg-[#020617] p-5">
+      <p className="mb-2 text-sm text-slate-400">
+        {label}
+      </p>
+
+      <h3 className={`text-3xl font-extrabold ${accent}`}>
+        {value}
+      </h3>
     </div>
   )
 }
 
-const section = {
-  marginTop: 30,
-  padding: 20,
-  background: "#020617",
-  borderRadius: 14,
-  border: "1px solid #1e293b",
-  color: "#fff"
-}
+function Info({
+  label,
+  value
+}) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
+      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+        {label}
+      </p>
 
-const header = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 16,
-  marginBottom: 18
-}
-
-const title = {
-  margin: 0
-}
-
-const subtitle = {
-  margin: "6px 0 0",
-  color: "#94a3b8"
-}
-
-const helperText = {
-  color: "#94a3b8",
-  marginTop: 0
-}
-
-const refreshBtn = {
-  background: "#38bdf8",
-  color: "#020617",
-  border: "none",
-  borderRadius: 8,
-  padding: "10px 14px",
-  cursor: "pointer",
-  fontWeight: 800
-}
-
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))",
-  gap: 16
-}
-
-const card = {
-  background: "#0f172a",
-  border: "1px solid #1e293b",
-  borderRadius: 14,
-  padding: 12
-}
-
-const imageBox = {
-  width: "100%",
-  height: 150,
-  background: "#ffffff",
-  borderRadius: 10,
-  overflow: "hidden",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  marginBottom: 10
-}
-
-const image = {
-  width: "100%",
-  height: "100%",
-  objectFit: "contain",
-  padding: 6,
-  boxSizing: "border-box"
-}
-
-const info = {
-  minHeight: 120
-}
-
-const name = {
-  margin: "0 0 6px",
-  fontSize: 16
-}
-
-const meta = {
-  margin: "0 0 6px",
-  color: "#94a3b8",
-  fontSize: 13
-}
-
-const price = {
-  margin: "0 0 6px",
-  color: "#22c55e",
-  fontWeight: 800
-}
-
-const digitalBadge = {
-  margin: "0 0 6px",
-  color: "#38bdf8",
-  fontSize: 13,
-  fontWeight: 800
-}
-
-const licenseText = {
-  margin: "0 0 6px",
-  color: "#cbd5e1",
-  fontSize: 12
-}
-
-const actions = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: 8,
-  marginTop: 10
-}
-
-const editBtn = {
-  background: "#38bdf8",
-  color: "#020617",
-  border: "none",
-  borderRadius: 8,
-  padding: 8,
-  cursor: "pointer",
-  fontWeight: 800
-}
-
-const deleteBtn = {
-  background: "#ef4444",
-  color: "#fff",
-  border: "none",
-  borderRadius: 8,
-  padding: 8,
-  fontWeight: 800
+      <p className="mt-1 font-bold text-white">
+        {value}
+      </p>
+    </div>
+  )
 }

@@ -78,7 +78,9 @@ const searchJob = (job = {}, term = "") => {
     job.source,
     job.orderType,
     job.invoiceNumber,
-    job.trackingNumber
+    job.trackingNumber,
+    job.priority,
+    job.adminNotes
   ]
     .filter(Boolean)
     .join(" ")
@@ -90,7 +92,67 @@ const searchJob = (job = {}, term = "") => {
 const isOverdue = (job = {}) => {
   if (!job.dueDate) return false
 
-  return Date.now() > new Date(job.dueDate).getTime()
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const due = new Date(job.dueDate)
+  due.setHours(0, 0, 0, 0)
+
+  return due < today
+}
+
+const isHighPriority = (job = {}) => {
+  return job.priority === "high"
+}
+
+const isDueThisWeek = (job = {}) => {
+  if (!job.dueDate) return false
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const due = new Date(job.dueDate)
+  due.setHours(0, 0, 0, 0)
+
+  const diffDays =
+    (due.getTime() - today.getTime()) /
+    (1000 * 60 * 60 * 24)
+
+  return diffDays >= 0 && diffDays <= 7
+}
+
+const sortProductionJobs = (jobs = []) => {
+  return [...jobs].sort((a, b) => {
+    const aOverdue = isOverdue(a) ? 1 : 0
+    const bOverdue = isOverdue(b) ? 1 : 0
+
+    if (aOverdue !== bOverdue) {
+      return bOverdue - aOverdue
+    }
+
+    const priorityRank = {
+      high: 3,
+      medium: 2,
+      low: 1
+    }
+
+    const aPriority = priorityRank[a.priority || "medium"] || 2
+    const bPriority = priorityRank[b.priority || "medium"] || 2
+
+    if (aPriority !== bPriority) {
+      return bPriority - aPriority
+    }
+
+    const aDue = a.dueDate
+      ? new Date(a.dueDate).getTime()
+      : Number.MAX_SAFE_INTEGER
+
+    const bDue = b.dueDate
+      ? new Date(b.dueDate).getTime()
+      : Number.MAX_SAFE_INTEGER
+
+    return aDue - bDue
+  })
 }
 
 const cardStyle = {
@@ -218,6 +280,7 @@ export default function ProductionBoard() {
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState("")
+  const [viewFilter, setViewFilter] = useState("all")
 
   const sensors = useSensors(
     useSensor(PointerSensor)
@@ -441,10 +504,28 @@ export default function ProductionBoard() {
   }
 
   const filteredJobs = useMemo(() => {
-    return jobs.filter((job) =>
+    let data = jobs.filter((job) =>
       searchJob(job, search)
     )
-  }, [jobs, search])
+
+    if (viewFilter === "high") {
+      data = data.filter(isHighPriority)
+    }
+
+    if (viewFilter === "overdue") {
+      data = data.filter(isOverdue)
+    }
+
+    if (viewFilter === "week") {
+      data = data.filter(isDueThisWeek)
+    }
+
+    return sortProductionJobs(data)
+  }, [
+    jobs,
+    search,
+    viewFilter
+  ])
 
   const grouped = useMemo(() => {
     return {
@@ -508,6 +589,15 @@ export default function ProductionBoard() {
       ? totalRevenue / allOrderJobs.length
       : 0
 
+  const overdueJobs =
+    allOrderJobs.filter(isOverdue)
+
+  const highPriorityJobs =
+    allOrderJobs.filter(isHighPriority)
+
+  const dueThisWeekJobs =
+    allOrderJobs.filter(isDueThisWeek)
+
   return (
     <div
       style={{
@@ -559,14 +649,7 @@ export default function ProductionBoard() {
         </p>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: 16,
-          marginBottom: 18
-        }}
-      >
+      <div style={metricGrid}>
         <MetricCard
           value={grouped.quotes.length}
           label="Pending Quotes"
@@ -592,20 +675,33 @@ export default function ProductionBoard() {
         />
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: 16,
-          marginBottom: 26
-        }}
-      >
+      <div style={metricGrid}>
+        <MetricCard
+          value={highPriorityJobs.length}
+          label="High Priority"
+          color="#ef4444"
+        />
+
+        <MetricCard
+          value={overdueJobs.length}
+          label="Overdue"
+          color="#f97316"
+        />
+
+        <MetricCard
+          value={dueThisWeekJobs.length}
+          label="Due This Week"
+          color="#facc15"
+        />
+
         <MetricCard
           value={money(totalRevenue)}
           label="Board Revenue"
           color="#22c55e"
         />
+      </div>
 
+      <div style={metricGrid}>
         <MetricCard
           value={money(productionRevenue)}
           label="Production Revenue"
@@ -631,9 +727,33 @@ export default function ProductionBoard() {
           onChange={(event) =>
             setSearch(event.target.value)
           }
-          placeholder="Search customer, email, order, tracking..."
+          placeholder="Search customer, email, order, tracking, notes..."
           style={searchInput}
         />
+
+        <select
+          value={viewFilter}
+          onChange={(event) =>
+            setViewFilter(event.target.value)
+          }
+          style={searchInput}
+        >
+          <option value="all">
+            All Jobs
+          </option>
+
+          <option value="high">
+            High Priority
+          </option>
+
+          <option value="overdue">
+            Overdue
+          </option>
+
+          <option value="week">
+            Due This Week
+          </option>
+        </select>
 
         <button
           type="button"
@@ -785,9 +905,16 @@ function MetricCard({
   )
 }
 
+const metricGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: 16,
+  marginBottom: 18
+}
+
 const toolbar = {
   display: "grid",
-  gridTemplateColumns: "1fr 140px",
+  gridTemplateColumns: "1fr 220px 140px",
   gap: 14,
   marginBottom: 24
 }

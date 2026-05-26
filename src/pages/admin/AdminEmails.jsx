@@ -4,8 +4,11 @@ import {
   useState,
   useCallback
 } from "react"
+
 import { useNavigate } from "react-router-dom"
+
 import api from "../../services/api"
+import EmailThread from "../../components/admin/EmailThread"
 
 const FOLDERS = [
   { id: "compose", label: "✍️ Compose" },
@@ -22,6 +25,7 @@ export default function AdminEmails() {
   const [activeFolder, setActiveFolder] = useState("compose")
   const [customers, setCustomers] = useState([])
   const [selectedCustomer, setSelectedCustomer] = useState(null)
+  const [selectedEmail, setSelectedEmail] = useState(null)
   const [emails, setEmails] = useState([])
 
   const [loading, setLoading] = useState(true)
@@ -154,6 +158,7 @@ SignaVi Studio`
         )
 
         setEmails(res.data?.data || [])
+        setSelectedEmail(null)
       } catch (err) {
         console.error(
           "❌ EMAIL FOLDER LOAD ERROR:",
@@ -161,6 +166,7 @@ SignaVi Studio`
         )
 
         setEmails([])
+        setSelectedEmail(null)
       } finally {
         setFolderLoading(false)
       }
@@ -168,35 +174,35 @@ SignaVi Studio`
     [activeFolder, authHeaders, navigate]
   )
 
- useEffect(() => {
-  let mounted = true
+  useEffect(() => {
+    let mounted = true
 
-  const timer = setTimeout(() => {
-    if (mounted) {
-      loadCustomers()
+    const timer = setTimeout(() => {
+      if (mounted) {
+        loadCustomers()
+      }
+    }, 0)
+
+    return () => {
+      mounted = false
+      clearTimeout(timer)
     }
-  }, 0)
+  }, [loadCustomers])
 
-  return () => {
-    mounted = false
-    clearTimeout(timer)
-  }
-}, [loadCustomers])
+  useEffect(() => {
+    let mounted = true
 
-useEffect(() => {
-  let mounted = true
+    const timer = setTimeout(() => {
+      if (mounted) {
+        loadFolder(activeFolder)
+      }
+    }, 0)
 
-  const timer = setTimeout(() => {
-    if (mounted) {
-      loadFolder(activeFolder)
+    return () => {
+      mounted = false
+      clearTimeout(timer)
     }
-  }, 0)
-
-  return () => {
-    mounted = false
-    clearTimeout(timer)
-  }
-}, [activeFolder, loadFolder])
+  }, [activeFolder, loadFolder])
 
   const handleSelectCustomer = (customer) => {
     setSelectedCustomer(customer)
@@ -226,6 +232,26 @@ useEffect(() => {
     setMessage("")
     setAttachments([])
     setSelectedCustomer(null)
+    setSelectedEmail(null)
+  }
+
+  const handleReply = (email) => {
+    setSelectedEmail(email)
+    setTo(email.to || email.from || "")
+    setCc("")
+    setBcc("")
+    setSubject(
+      email.subject?.startsWith("RE:")
+        ? email.subject
+        : `RE: ${email.subject || ""}`
+    )
+
+    setMessage(
+`\n\n-----------------
+${email.message || ""}`
+    )
+
+    setActiveFolder("compose")
   }
 
   const handleSend = async () => {
@@ -259,8 +285,11 @@ useEffect(() => {
         formData.append("customerId", selectedCustomer._id)
       }
 
-      if (selectedCustomer?.name) {
-        formData.append("customerName", selectedCustomer.name)
+      if (selectedCustomer?.name || selectedCustomer?.customerName) {
+        formData.append(
+          "customerName",
+          selectedCustomer.name || selectedCustomer.customerName
+        )
       }
 
       attachments.forEach((file) => {
@@ -309,7 +338,10 @@ useEffect(() => {
           subject,
           message,
           customerId: selectedCustomer?._id || null,
-          customerName: selectedCustomer?.name || ""
+          customerName:
+            selectedCustomer?.name ||
+            selectedCustomer?.customerName ||
+            ""
         },
         authHeaders
       )
@@ -387,6 +419,7 @@ useEffect(() => {
   }
 
   const openDraft = (email) => {
+    setSelectedEmail(email)
     setTo(email.to || "")
     setCc(email.cc || "")
     setBcc(email.bcc || "")
@@ -453,8 +486,15 @@ useEffect(() => {
                     : "#111827"
               }}
             >
-              <strong>{customer.name || "Customer"}</strong>
-              <span style={emailStyle}>{customer.email}</span>
+              <strong>
+                {customer.name ||
+                  customer.customerName ||
+                  "Customer"}
+              </strong>
+
+              <span style={emailStyle}>
+                {customer.email}
+              </span>
             </button>
           ))}
         </aside>
@@ -483,6 +523,7 @@ useEffect(() => {
 
               <div style={field}>
                 <label style={label}>To</label>
+
                 <input
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
@@ -493,6 +534,7 @@ useEffect(() => {
               <div style={twoCol}>
                 <div style={field}>
                   <label style={label}>CC</label>
+
                   <input
                     value={cc}
                     onChange={(e) => setCc(e.target.value)}
@@ -503,6 +545,7 @@ useEffect(() => {
 
                 <div style={field}>
                   <label style={label}>BCC</label>
+
                   <input
                     value={bcc}
                     onChange={(e) => setBcc(e.target.value)}
@@ -514,6 +557,7 @@ useEffect(() => {
 
               <div style={field}>
                 <label style={label}>Subject</label>
+
                 <input
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
@@ -523,6 +567,7 @@ useEffect(() => {
 
               <div style={field}>
                 <label style={label}>Message</label>
+
                 <textarea
                   rows={12}
                   value={message}
@@ -533,6 +578,7 @@ useEffect(() => {
 
               <label style={attachLabel}>
                 📎 Attach Files
+
                 <input
                   type="file"
                   multiple
@@ -584,99 +630,51 @@ useEffect(() => {
               ) : emails.length === 0 ? (
                 <div style={emptyCard}>
                   <h3>No emails here yet</h3>
+
                   <p>
                     This folder will update as you send,
                     save, or archive emails.
                   </p>
                 </div>
               ) : (
-                <div style={emailList}>
-                  {emails.map((email) => (
-                    <div key={email._id} style={emailCard}>
-                      <div style={emailCardTop}>
-                        <div>
-                          <h3 style={emailSubject}>
-                            {email.subject || "(No Subject)"}
-                          </h3>
+                <>
+                  <EmailThread
+                    emails={emails}
+                    selectedEmail={selectedEmail}
+                    onSelectEmail={setSelectedEmail}
+                    onArchive={archiveEmail}
+                    onRestore={restoreEmail}
+                    onReply={handleReply}
+                  />
 
-                          <p style={meta}>
-                            To: {email.to || "No recipient"}
-                          </p>
-
-                          {email.cc && <p style={meta}>CC: {email.cc}</p>}
-                          {email.bcc && <p style={meta}>BCC: {email.bcc}</p>}
-                        </div>
-
-                        <span style={statusBadge}>{email.status}</span>
-                      </div>
-
-                      <p style={messagePreview}>
-                        {email.message || "No message"}
+                  {activeFolder === "drafts" && (
+                    <div style={draftActionsBox}>
+                      <p style={draftHint}>
+                        Select a draft from the list, then edit or send it below.
                       </p>
 
-                      {email.attachments?.length > 0 && (
-                        <div style={attachmentBox}>
-                          {email.attachments.map((file, index) => (
-                            <p
-                              key={`${file.fileName}-${index}`}
-                              style={attachmentName}
-                            >
-                              📎 {file.fileName}
-                            </p>
-                          ))}
+                      {selectedEmail && (
+                        <div style={cardActions}>
+                          <button
+                            type="button"
+                            onClick={() => openDraft(selectedEmail)}
+                            style={smallButton}
+                          >
+                            Edit Draft
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => sendDraft(selectedEmail._id)}
+                            style={sendSmallButton}
+                          >
+                            Send Draft
+                          </button>
                         </div>
                       )}
-
-                      <p style={dateText}>
-                        {email.sentAt || email.createdAt
-                          ? new Date(
-                              email.sentAt || email.createdAt
-                            ).toLocaleString()
-                          : ""}
-                      </p>
-
-                      <div style={cardActions}>
-                        {activeFolder === "drafts" && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => openDraft(email)}
-                              style={smallButton}
-                            >
-                              Edit Draft
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => sendDraft(email._id)}
-                              style={sendSmallButton}
-                            >
-                              Send Draft
-                            </button>
-                          </>
-                        )}
-
-                        {activeFolder !== "archive" ? (
-                          <button
-                            type="button"
-                            onClick={() => archiveEmail(email._id)}
-                            style={archiveButton}
-                          >
-                            Archive
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => restoreEmail(email._id)}
-                            style={restoreButton}
-                          >
-                            Restore
-                          </button>
-                        )}
-                      </div>
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
             </>
           )}
@@ -872,57 +870,6 @@ const emptyCard = {
   padding: 20
 }
 
-const emailList = {
-  display: "grid",
-  gap: 16
-}
-
-const emailCard = {
-  background: "#111827",
-  borderRadius: 14,
-  padding: 18,
-  border: "1px solid #1f2937"
-}
-
-const emailCardTop = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 16
-}
-
-const emailSubject = {
-  margin: 0,
-  fontSize: 20
-}
-
-const meta = {
-  color: "#94a3b8",
-  margin: "6px 0 0",
-  fontSize: 13
-}
-
-const statusBadge = {
-  background: "#22d3ee",
-  color: "#020617",
-  borderRadius: 999,
-  padding: "6px 10px",
-  fontSize: 12,
-  fontWeight: 900,
-  textTransform: "capitalize",
-  height: "fit-content"
-}
-
-const messagePreview = {
-  marginTop: 14,
-  color: "#cbd5e1",
-  whiteSpace: "pre-wrap"
-}
-
-const dateText = {
-  color: "#64748b",
-  fontSize: 13
-}
-
 const cardActions = {
   display: "flex",
   gap: 10,
@@ -945,22 +892,15 @@ const sendSmallButton = {
   background: "#22c55e"
 }
 
-const archiveButton = {
-  border: "none",
-  background: "#f59e0b",
-  color: "#020617",
-  borderRadius: 8,
-  padding: "8px 12px",
-  fontWeight: 900,
-  cursor: "pointer"
+const draftActionsBox = {
+  marginTop: 18,
+  background: "#111827",
+  border: "1px solid #334155",
+  borderRadius: 14,
+  padding: 16
 }
 
-const restoreButton = {
-  border: "none",
-  background: "#22d3ee",
-  color: "#020617",
-  borderRadius: 8,
-  padding: "8px 12px",
-  fontWeight: 900,
-  cursor: "pointer"
+const draftHint = {
+  color: "#94a3b8",
+  margin: 0
 }

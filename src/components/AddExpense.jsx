@@ -1,15 +1,44 @@
 import { useState } from "react"
 import api from "../services/api"
 
-function AddExpense({ onAdded = () => {} }) {
-  const [name, setName] = useState("")
-  const [amount, setAmount] = useState("")
-  const [category, setCategory] = useState("general")
+const categories = [
+  "general",
+  "materials",
+  "ads",
+  "shipping",
+  "tools",
+  "equipment",
+  "software",
+  "rent",
+  "utilities",
+  "labor"
+]
+
+function AddExpense({
+  onAdded = () => {}
+}) {
+  const [form, setForm] = useState({
+    name: "",
+    amount: "",
+    category: "general",
+    note: ""
+  })
+
   const [loading, setLoading] = useState(false)
 
+  const updateField = (field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
   const submit = async () => {
-    if (!name || !amount) {
-      alert("Fill all fields")
+    const name = form.name.trim()
+    const amount = Number(form.amount)
+
+    if (!name || !amount || amount <= 0) {
+      alert("Fill out a valid expense name and amount")
       return
     }
 
@@ -18,95 +47,99 @@ function AddExpense({ onAdded = () => {} }) {
 
       await api.post("/expenses", {
         name,
-        amount: Number(amount),
-        category
+        amount,
+        category: form.category,
+        note: form.note.trim()
       })
 
-      setName("")
-      setAmount("")
-      setCategory("general")
+      setForm({
+        name: "",
+        amount: "",
+        category: "general",
+        note: ""
+      })
 
       onAdded()
       alert("✅ Expense added")
-
     } catch (err) {
-      console.error(err)
-      alert("❌ Failed to add expense")
+      console.error("❌ ADD EXPENSE ERROR:", err.response?.data || err)
+      alert(err.response?.data?.message || "Failed to add expense")
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div style={container}>
-      <h3>➕ Add Expense</h3>
+    <section className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6 text-white shadow-xl shadow-black/20">
+      <h3 className="mb-5 text-2xl font-bold">
+        ➕ Add Expense
+      </h3>
 
-      <input
-        placeholder="Expense name"
-        value={name}
-        onChange={e => setName(e.target.value)}
-        style={input}
-      />
+      <div className="grid gap-4">
+        <input
+          placeholder="Expense name"
+          value={form.name}
+          onChange={(event) =>
+            updateField("name", event.target.value)
+          }
+          className={inputClass}
+        />
 
-      <input
-        placeholder="Amount ($)"
-        value={amount}
-        onChange={e => setAmount(e.target.value)}
-        style={input}
-        type="number"
-      />
+        <input
+          placeholder="Amount ($)"
+          value={form.amount}
+          onChange={(event) =>
+            updateField("amount", event.target.value)
+          }
+          type="number"
+          min="0"
+          step="0.01"
+          className={inputClass}
+        />
 
-      {/* 🔥 NEW: CATEGORY */}
-      <select
-        value={category}
-        onChange={e => setCategory(e.target.value)}
-        style={input}
-      >
-        <option value="general">General</option>
-        <option value="materials">Materials</option>
-        <option value="ads">Ads</option>
-        <option value="shipping">Shipping</option>
-        <option value="tools">Tools</option>
-      </select>
+        <select
+          value={form.category}
+          onChange={(event) =>
+            updateField("category", event.target.value)
+          }
+          className={inputClass}
+        >
+          {categories.map((category) => (
+            <option
+              key={category}
+              value={category}
+            >
+              {category.replace(/\b\w/g, (letter) =>
+                letter.toUpperCase()
+              )}
+            </option>
+          ))}
+        </select>
 
-      <button
-        onClick={submit}
-        style={button}
-        disabled={loading}
-      >
-        {loading ? "Adding..." : "Add Expense"}
-      </button>
-    </div>
+        <textarea
+          rows={3}
+          placeholder="Optional note"
+          value={form.note}
+          onChange={(event) =>
+            updateField("note", event.target.value)
+          }
+          className={inputClass}
+        />
+
+        <button
+          type="button"
+          onClick={submit}
+          disabled={loading}
+          className="rounded-2xl bg-emerald-500 px-5 py-4 font-bold text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loading ? "Adding..." : "Add Expense"}
+        </button>
+      </div>
+    </section>
   )
 }
 
-/* ================= STYLES ================= */
-
-const container = {
-  background: "#0f172a",
-  padding: "15px",
-  borderRadius: "10px",
-  marginBottom: "20px"
-}
-
-const input = {
-  display: "block",
-  marginBottom: "10px",
-  padding: "8px",
-  width: "100%",
-  borderRadius: "6px",
-  border: "1px solid #334155",
-  background: "#020617",
-  color: "white"
-}
-
-const button = {
-  padding: "8px 12px",
-  background: "#22c55e",
-  border: "none",
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontWeight: "bold"
-}
+const inputClass =
+  "w-full rounded-2xl border border-slate-700 bg-[#020617] px-4 py-3 text-white outline-none transition focus:border-cyan-400"
 
 export default AddExpense

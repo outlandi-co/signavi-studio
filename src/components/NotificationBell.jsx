@@ -1,9 +1,10 @@
-```jsx
 import {
+  useCallback,
+  useContext,
   useEffect,
-  useState,
+  useMemo,
   useRef,
-  useContext
+  useState
 } from "react"
 
 import notifySound from "../assets/notify.mp3"
@@ -16,215 +17,203 @@ import {
   NotificationContext
 } from "../context/NotificationContextObject"
 
-export default function NotificationBell() {
+const safeParse = (key) => {
+  try {
+    return JSON.parse(
+      localStorage.getItem(key) || "null"
+    )
+  } catch (err) {
+    console.error(`❌ ${key} PARSE ERROR:`, err)
+    return null
+  }
+}
 
+const formatStatus = (status = "") => {
+  return String(status || "updated")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+export default function NotificationBell() {
   const {
-    supportUnread,
-    emailUnread
+    supportUnread = 0,
+    emailUnread = 0
   } = useContext(NotificationContext)
 
-  const [
-    notifications,
-    setNotifications
-  ] = useState([])
-
-  const [
-    open,
-    setOpen
-  ] = useState(false)
+  const [notifications, setNotifications] = useState([])
+  const [open, setOpen] = useState(false)
 
   const audioRef = useRef(null)
+  const dropdownRef = useRef(null)
 
-  let adminUser = null
-  let customerUser = null
+  const user = useMemo(() => {
+    const adminUser = safeParse("adminUser")
+    const customerUser = safeParse("customerUser")
 
-  try {
-
-    adminUser = JSON.parse(
-      localStorage.getItem("adminUser") || "null"
-    )
-
-    customerUser = JSON.parse(
-      localStorage.getItem("customerUser") || "null"
-    )
-
-  } catch (err) {
-
-    console.error(
-      "USER PARSE ERROR:",
-      err
-    )
-  }
-
-  const user =
-    adminUser || customerUser
+    return adminUser || customerUser || null
+  }, [])
 
   const userEmail =
-    user?.email
+    user?.email || ""
 
-  const addNotification =
-    (text) => {
+  const playSound = useCallback(() => {
+    if (!audioRef.current) return
 
-      const newNotif = {
+    audioRef.current.currentTime = 0
 
+    audioRef.current
+      .play()
+      .catch(() => {})
+  }, [])
+
+  const addNotification = useCallback(
+    (text, type = "info") => {
+      const newNotification = {
         id:
-          crypto.randomUUID(),
+          typeof crypto !== "undefined" &&
+          crypto.randomUUID
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random()}`,
 
         text,
-
+        type,
         time:
-          new Date()
-            .toLocaleTimeString()
+          new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit"
+          })
       }
 
-      setNotifications(prev => [
-
-        newNotif,
-
+      setNotifications((prev) => [
+        newNotification,
         ...prev.slice(0, 9)
-
       ])
 
-      if (audioRef.current) {
-
-        audioRef.current.currentTime = 0
-
-        audioRef.current
-          .play()
-          .catch(() => {})
-      }
-    }
+      playSound()
+    },
+    [playSound]
+  )
 
   useEffect(() => {
+    if (!userEmail) return undefined
 
-    if (!userEmail) return
+    let socketRef = null
+    let mounted = true
 
-    let socket
+    const handleJobUpdated = (job) => {
+      if (job?.email && job.email !== userEmail) return
+
+      addNotification(
+        `Order updated: ${formatStatus(job?.status)}`,
+        "order"
+      )
+    }
+
+    const handleJobCreated = (job) => {
+      if (job?.email && job.email !== userEmail) return
+
+      addNotification(
+        "Your order was created",
+        "order"
+      )
+    }
+
+    const handleJobDeleted = (job) => {
+      if (job?.email && job.email !== userEmail) return
+
+      addNotification(
+        "Order removed",
+        "order"
+      )
+    }
+
+    const handleSupportMessage = (data) => {
+      addNotification(
+        data?.message ||
+          "New support reply",
+        "support"
+      )
+    }
+
+    const handleEmailNew = (data) => {
+      addNotification(
+        data?.message ||
+          "New email received",
+        "email"
+      )
+    }
 
     const init = async () => {
+      const socket = await getSocket()
 
-      socket =
-        await getSocket()
+      if (!mounted) return
 
       if (!socket) {
-
-        console.warn(
-          "SOCKET FAILED"
-        )
-
+        console.warn("⚠️ SOCKET FAILED")
         return
       }
 
-      console.log(
-        "NotificationBell socket ready"
-      )
+      socketRef = socket
 
-      socket.on(
-        "jobUpdated",
-        (job) => {
-
-          if (
-            job.email !== userEmail
-          ) return
-
-          addNotification(
-            "Order updated: " +
-            job.status
-          )
-        }
-      )
-
-      socket.on(
-        "jobCreated",
-        (job) => {
-
-          if (
-            job.email !== userEmail
-          ) return
-
-          addNotification(
-            "Your order was created"
-          )
-        }
-      )
-
-      socket.on(
-        "jobDeleted",
-        (job) => {
-
-          if (
-            job.email !== userEmail
-          ) return
-
-          addNotification(
-            "Order removed"
-          )
-        }
-      )
-
-      socket.on(
-        "support:new-message",
-        (data) => {
-
-          console.log(
-            "SUPPORT EVENT:",
-            data
-          )
-
-          addNotification(
-            data?.message ||
-            "New support reply"
-          )
-        }
-      )
-
-      socket.on(
-        "email:new",
-        (data) => {
-
-          console.log(
-            "EMAIL EVENT:",
-            data
-          )
-
-          addNotification(
-            data?.message ||
-            "New email received"
-          )
-        }
-      )
+      socket.on("jobUpdated", handleJobUpdated)
+      socket.on("jobCreated", handleJobCreated)
+      socket.on("jobDeleted", handleJobDeleted)
+      socket.on("support:new-message", handleSupportMessage)
+      socket.on("email:new", handleEmailNew)
     }
 
-    init()
+    const timer = setTimeout(() => {
+      init()
+    }, 0)
 
     return () => {
+      mounted = false
+      clearTimeout(timer)
 
-      socket?.off("jobUpdated")
+      socketRef?.off("jobUpdated", handleJobUpdated)
+      socketRef?.off("jobCreated", handleJobCreated)
+      socketRef?.off("jobDeleted", handleJobDeleted)
+      socketRef?.off("support:new-message", handleSupportMessage)
+      socketRef?.off("email:new", handleEmailNew)
+    }
+  }, [
+    userEmail,
+    addNotification
+  ])
 
-      socket?.off("jobCreated")
+  useEffect(() => {
+    if (!open) return undefined
 
-      socket?.off("jobDeleted")
-
-      socket?.off("support:new-message")
-
-      socket?.off("email:new")
+    const handleClickOutside = (event) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target)
+      ) {
+        setOpen(false)
+      }
     }
 
-  }, [userEmail])
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside
+    )
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside
+      )
+    }
+  }, [open])
 
   const unreadCount =
-
     notifications.length +
+    Number(supportUnread || 0) +
+    Number(emailUnread || 0)
 
-    supportUnread +
-
-    emailUnread
-
-  const toggleOpen =
-    () => {
-
-      setOpen(prev => !prev)
-    }
+  const clearNotifications = () => {
+    setNotifications([])
+  }
 
   return (
     <>
@@ -234,161 +223,195 @@ export default function NotificationBell() {
         preload="auto"
       />
 
-      <div style={{
-        position: "relative"
-      }}>
-
-        <div
-          onClick={toggleOpen}
+      <div
+        ref={dropdownRef}
+        style={wrapper}
+      >
+        <button
+          type="button"
+          onClick={() =>
+            setOpen((prev) => !prev)
+          }
           style={bell}
+          aria-label="Open notifications"
         >
-
           🔔
 
           {unreadCount > 0 && (
-
             <span style={badge}>
-              {unreadCount}
+              {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
-
-        </div>
+        </button>
 
         {open && (
-
           <div style={dropdown}>
+            <div style={dropdownHeader}>
+              <h4 style={dropdownTitle}>
+                Notifications
+              </h4>
 
-            <h4 style={{
-              marginBottom: 10
-            }}>
-              Notifications
-            </h4>
+              {notifications.length > 0 && (
+                <button
+                  type="button"
+                  onClick={clearNotifications}
+                  style={clearButton}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
 
-            {notifications.length === 0 && (
+            <div style={summaryBox}>
+              <span>
+                Support: {supportUnread}
+              </span>
 
-              <p style={{
-                opacity: 0.6
-              }}>
-                No notifications
+              <span>
+                Email: {emailUnread}
+              </span>
+            </div>
+
+            {notifications.length === 0 ? (
+              <p style={emptyText}>
+                No live notifications yet.
               </p>
-            )}
+            ) : (
+              <div style={list}>
+                {notifications.map((notification) => (
+                  <div
+                    key={notification.id}
+                    style={item}
+                  >
+                    <p style={itemText}>
+                      {notification.text}
+                    </p>
 
-            {notifications.map(n => (
-
-              <div
-                key={n.id}
-                style={item}
-              >
-
-                <p style={{
-                  margin: 0
-                }}>
-                  {n.text}
-                </p>
-
-                <small style={time}>
-                  {n.time}
-                </small>
-
+                    <small style={time}>
+                      {notification.time}
+                    </small>
+                  </div>
+                ))}
               </div>
-            ))}
-
+            )}
           </div>
         )}
-
       </div>
     </>
   )
 }
 
+const wrapper = {
+  position: "relative"
+}
+
 const bell = {
-
   cursor: "pointer",
-
   fontSize: 20,
-
   position: "relative",
-
-  padding: "6px 10px",
-
-  borderRadius: 6,
-
+  padding: "8px 12px",
+  borderRadius: 999,
   background: "#020617",
-
-  border:
-    "1px solid #1e293b"
+  border: "1px solid #1e293b",
+  color: "white"
 }
 
 const badge = {
-
   position: "absolute",
-
   top: -6,
-
   right: -6,
-
   background: "#ef4444",
-
   color: "white",
-
-  borderRadius: "50%",
-
+  borderRadius: 999,
   minWidth: 20,
-
   height: 20,
-
   display: "flex",
-
   alignItems: "center",
-
   justifyContent: "center",
-
   fontSize: 10,
-
   fontWeight: "bold",
-
   padding: "0 6px"
 }
 
 const dropdown = {
-
   position: "absolute",
-
   right: 0,
-
-  top: 40,
-
-  width: 260,
-
+  top: 46,
+  width: 310,
   background: "#020617",
-
-  border:
-    "1px solid #1e293b",
-
-  borderRadius: 10,
-
-  padding: 12,
-
-  zIndex: 999
+  border: "1px solid #1e293b",
+  borderRadius: 16,
+  padding: 14,
+  zIndex: 999,
+  color: "white",
+  boxShadow: "0 20px 60px rgba(0,0,0,0.45)"
 }
 
-const item = {
+const dropdownHeader = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 12,
+  marginBottom: 10
+}
 
-  padding: 10,
+const dropdownTitle = {
+  margin: 0
+}
 
-  borderRadius: 6,
-
+const clearButton = {
+  border: "1px solid #334155",
   background: "#0f172a",
+  color: "#94a3b8",
+  borderRadius: 999,
+  padding: "5px 10px",
+  cursor: "pointer",
+  fontSize: 12,
+  fontWeight: 800
+}
 
-  marginBottom: 6,
+const summaryBox = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 8,
+  background: "#0f172a",
+  border: "1px solid #1e293b",
+  borderRadius: 12,
+  padding: "8px 10px",
+  color: "#94a3b8",
+  fontSize: 12,
+  marginBottom: 10
+}
 
+const emptyText = {
+  opacity: 0.65,
+  margin: "14px 0 4px",
   fontSize: 13
 }
 
+const list = {
+  display: "grid",
+  gap: 8,
+  maxHeight: 320,
+  overflowY: "auto"
+}
+
+const item = {
+  padding: 10,
+  borderRadius: 12,
+  background: "#0f172a",
+  border: "1px solid #1e293b",
+  fontSize: 13
+}
+
+const itemText = {
+  margin: 0,
+  lineHeight: 1.4
+}
+
 const time = {
-
+  display: "block",
+  marginTop: 6,
   fontSize: 10,
-
   opacity: 0.6
 }
-```

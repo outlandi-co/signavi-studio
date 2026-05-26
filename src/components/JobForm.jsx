@@ -1,61 +1,121 @@
 import { useState } from "react"
 import api from "../services/api"
 import Button from "../components/UI/Button"
+import ProductionSelector from "../components/ProductionSelector"
 
-function JobForm({ refreshJobs }) {
+const initialForm = {
+  customerName: "",
+  email: "",
+  phone: "",
+  productionType: "",
+  product: "",
+  quantity: "",
+  price: "",
+  dueDate: "",
+  priority: "medium",
+  notes: ""
+}
 
-  const [form, setForm] = useState({
-    customerName: "",
-    email: "",
-    productionType: "",
-    product: "",
-    quantity: "",
-    notes: ""
-  })
-
+function JobForm({
+  refreshJobs
+}) {
+  const [form, setForm] = useState(initialForm)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState("")
   const [error, setError] = useState("")
 
-  const handleChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value
-    })
+  const handleChange = (event) => {
+    const {
+      name,
+      value
+    } = event.target
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: value
+    }))
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  const resetForm = () => {
+    setForm(initialForm)
+    setSuccess("")
+    setError("")
+  }
+
+  const validateForm = () => {
+    if (!form.customerName.trim()) {
+      return "Customer name is required"
+    }
+
+    if (!form.product.trim()) {
+      return "Product or service name is required"
+    }
+
+    if (!form.quantity || Number(form.quantity) <= 0) {
+      return "Quantity must be greater than 0"
+    }
+
+    if (!form.productionType) {
+      return "Production type is required"
+    }
+
+    return ""
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
 
     if (loading) return
 
-    setLoading(true)
-    setSuccess("")
-    setError("")
+    const validationError = validateForm()
+
+    if (validationError) {
+      setError(`❌ ${validationError}`)
+      setSuccess("")
+      return
+    }
 
     try {
-      await api.post("/jobs", {
-        ...form,
-        quantity: Number(form.quantity),
-        status: "pending"
-      })
+      setLoading(true)
+      setSuccess("")
+      setError("")
 
-      setForm({
-        customerName: "",
-        email: "",
-        productionType: "",
-        product: "",
-        quantity: "",
-        notes: ""
-      })
+      const quantity = Number(form.quantity)
+      const price = Number(form.price || 0)
+
+      const payload = {
+        customerName: form.customerName.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        productionType: form.productionType,
+        product: form.product.trim(),
+        quantity,
+        price,
+        finalPrice: price * quantity,
+        dueDate: form.dueDate || null,
+        priority: form.priority,
+        notes: form.notes.trim(),
+        status: "pending"
+      }
+
+      await api.post("/jobs", payload)
+
+      resetForm()
 
       setSuccess("✅ Job created successfully!")
 
-      refreshJobs && refreshJobs()
+      refreshJobs?.()
 
     } catch (err) {
-      console.error("❌ Job creation failed:", err)
-      setError("❌ Failed to create job")
+      console.error(
+        "❌ JOB CREATION FAILED:",
+        err.response?.data || err
+      )
+
+      setError(
+        err.response?.data?.message ||
+        "❌ Failed to create job"
+      )
     } finally {
       setLoading(false)
     }
@@ -64,120 +124,234 @@ function JobForm({ refreshJobs }) {
   return (
     <form
       onSubmit={handleSubmit}
-      style={{
-        background: "#1e293b",
-        padding: "24px",
-        borderRadius: "12px",
-        marginBottom: "20px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "12px",
-        color: "#fff",
-        maxWidth: "500px"
-      }}
+      className="mb-6 max-w-3xl rounded-3xl border border-slate-800 bg-slate-950/80 p-6 text-white shadow-xl shadow-black/20"
     >
+      <div className="mb-6">
+        <p className="mb-2 text-sm font-bold uppercase tracking-[0.25em] text-cyan-400">
+          SignaVi Studio
+        </p>
 
-      <h2 style={{ marginBottom: "10px" }}>Create Job</h2>
+        <h2 className="text-3xl font-extrabold">
+          Create Job
+        </h2>
 
-      {/* STATUS FEEDBACK */}
-      {success && <p style={{ color: "#22c55e" }}>{success}</p>}
-      {error && <p style={{ color: "#ef4444" }}>{error}</p>}
+        <p className="mt-2 text-slate-400">
+          Add a new production job to the workflow.
+        </p>
+      </div>
 
-      {/* INPUTS */}
-      <label>
-        Customer Name
-        <input
-          name="customerName"
-          value={form.customerName}
-          onChange={handleChange}
-          required
-          style={inputStyle}
-        />
-      </label>
+      {success && (
+        <div className="mb-4 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 font-bold text-emerald-300">
+          {success}
+        </div>
+      )}
 
-      <label>
-        Email
-        <input
-          name="email"
-          value={form.email}
-          onChange={handleChange}
-          style={inputStyle}
-        />
-      </label>
+      {error && (
+        <div className="mb-4 rounded-2xl border border-red-400/30 bg-red-500/10 p-4 font-bold text-red-300">
+          {error}
+        </div>
+      )}
 
-      <label>
-        Product
-        <input
-          name="product"
-          value={form.product}
-          onChange={handleChange}
-          required
-          style={inputStyle}
-        />
-      </label>
+      <div className="grid gap-4">
 
-      <label>
-        Quantity
-        <input
-          name="quantity"
-          type="number"
-          value={form.quantity}
-          onChange={handleChange}
-          required
-          style={inputStyle}
-        />
-      </label>
+        <label className="block">
+          <span className={labelClass}>
+            Customer Name *
+          </span>
 
-      <label>
-        Production Type
-        <select
-  name="productionType"
-  value={form.productionType}
-  onChange={handleChange}
-  required
-  style={inputStyle}
->
-  <option value="">Select Production Type</option>
+          <input
+            name="customerName"
+            value={form.customerName}
+            onChange={handleChange}
+            required
+            className={inputClass}
+          />
+        </label>
 
-  {/*
-  <option value="screenprint">Screen Print</option>
-  <option value="dtf">DTF</option>
-  */}
+        <div className="grid gap-4 md:grid-cols-2">
 
-  <option value="laser">Laser Engraving</option>
-  <option value="vinyl">Vinyl Printing</option>
-  <option value="digital">Digital Services</option>
-</select>
-      </label>
+          <label className="block">
+            <span className={labelClass}>
+              Email
+            </span>
 
-      <label>
-        Notes
-        <textarea
-          name="notes"
-          value={form.notes}
-          onChange={handleChange}
-          style={inputStyle}
-        />
-      </label>
+            <input
+              name="email"
+              type="email"
+              value={form.email}
+              onChange={handleChange}
+              className={inputClass}
+            />
+          </label>
 
-      {/* 🔥 BUTTON */}
-      <Button type="submit" loading={loading}>
-        ➕ Create Job
-      </Button>
+          <label className="block">
+            <span className={labelClass}>
+              Phone
+            </span>
 
+            <input
+              name="phone"
+              type="tel"
+              value={form.phone}
+              onChange={handleChange}
+              className={inputClass}
+            />
+          </label>
+
+        </div>
+
+        <label className="block">
+          <span className={labelClass}>
+            Product / Service *
+          </span>
+
+          <input
+            name="product"
+            value={form.product}
+            onChange={handleChange}
+            required
+            className={inputClass}
+          />
+        </label>
+
+        <div className="grid gap-4 md:grid-cols-2">
+
+          <label className="block">
+            <span className={labelClass}>
+              Quantity *
+            </span>
+
+            <input
+              name="quantity"
+              type="number"
+              min="1"
+              value={form.quantity}
+              onChange={handleChange}
+              required
+              className={inputClass}
+            />
+          </label>
+
+          <label className="block">
+            <span className={labelClass}>
+              Unit Price
+            </span>
+
+            <input
+              name="price"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.price}
+              onChange={handleChange}
+              className={inputClass}
+            />
+          </label>
+
+        </div>
+
+        <div>
+          <span className={labelClass}>
+            Production Type *
+          </span>
+
+          <ProductionSelector
+            value={form.productionType}
+            onChange={(value) =>
+              setForm((prev) => ({
+                ...prev,
+                productionType: value
+              }))
+            }
+          />
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+
+          <label className="block">
+            <span className={labelClass}>
+              Due Date
+            </span>
+
+            <input
+              name="dueDate"
+              type="date"
+              value={form.dueDate}
+              onChange={handleChange}
+              className={inputClass}
+            />
+          </label>
+
+          <label className="block">
+            <span className={labelClass}>
+              Priority
+            </span>
+
+            <select
+              name="priority"
+              value={form.priority}
+              onChange={handleChange}
+              className={inputClass}
+            >
+              <option value="low">
+                Low
+              </option>
+
+              <option value="medium">
+                Medium
+              </option>
+
+              <option value="high">
+                High
+              </option>
+            </select>
+          </label>
+
+        </div>
+
+        <label className="block">
+          <span className={labelClass}>
+            Notes
+          </span>
+
+          <textarea
+            name="notes"
+            rows={4}
+            value={form.notes}
+            onChange={handleChange}
+            className={inputClass}
+          />
+        </label>
+
+        <div className="flex flex-wrap gap-3 pt-2">
+
+          <Button
+            type="submit"
+            loading={loading}
+          >
+            ➕ Create Job
+          </Button>
+
+          <button
+            type="button"
+            onClick={resetForm}
+            disabled={loading}
+            className="rounded-2xl border border-slate-700 px-5 py-3 font-bold text-slate-300 transition hover:border-cyan-400 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Reset
+          </button>
+
+        </div>
+
+      </div>
     </form>
   )
 }
 
-/* 🔥 INPUT STYLE */
-const inputStyle = {
-  width: "100%",
-  marginTop: "4px",
-  padding: "10px",
-  borderRadius: "8px",
-  border: "1px solid #334155",
-  background: "#020617",
-  color: "#fff"
-}
+const labelClass =
+  "mb-2 block text-sm font-bold text-slate-300"
+
+const inputClass =
+  "w-full rounded-2xl border border-slate-700 bg-[#020617] px-4 py-3 text-white outline-none transition focus:border-cyan-400"
 
 export default JobForm

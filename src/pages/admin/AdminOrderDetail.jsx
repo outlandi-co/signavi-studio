@@ -13,6 +13,21 @@ const statusOptions = [
   "archive"
 ]
 
+const priorityOptions = [
+  {
+    value: "low",
+    label: "🟢 Low"
+  },
+  {
+    value: "medium",
+    label: "🟡 Medium"
+  },
+  {
+    value: "high",
+    label: "🔴 High"
+  }
+]
+
 const money = (value = 0) =>
   Number(value || 0).toLocaleString("en-US", {
     style: "currency",
@@ -23,6 +38,37 @@ const formatStatus = (value = "") =>
   String(value || "unknown")
     .replaceAll("_", " ")
     .replace(/\b\w/g, (char) => char.toUpperCase())
+
+const formatDateInput = (value = "") => {
+  if (!value) return ""
+
+  return String(value).slice(0, 10)
+}
+
+const formatDateDisplay = (value = "") => {
+  if (!value) return "Not set"
+
+  return new Date(value).toLocaleDateString()
+}
+
+const getPriorityLabel = (priority = "medium") => {
+  return (
+    priorityOptions.find((option) => option.value === priority)?.label ||
+    "🟡 Medium"
+  )
+}
+
+const isOverdue = (dueDate = "") => {
+  if (!dueDate) return false
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const due = new Date(dueDate)
+  due.setHours(0, 0, 0, 0)
+
+  return due < today
+}
 
 export default function AdminOrderDetail() {
   const { id } = useParams()
@@ -36,6 +82,10 @@ export default function AdminOrderDetail() {
   const [trackingNumber, setTrackingNumber] = useState("")
   const [trackingLink, setTrackingLink] = useState("")
   const [carrier, setCarrier] = useState("")
+
+  const [priority, setPriority] = useState("medium")
+  const [dueDate, setDueDate] = useState("")
+  const [adminNotes, setAdminNotes] = useState("")
 
   const loadOrder = useCallback(async () => {
     try {
@@ -51,6 +101,10 @@ export default function AdminOrderDetail() {
         setTrackingNumber(data.trackingNumber || "")
         setTrackingLink(data.trackingLink || "")
         setCarrier(data.carrier || "")
+
+        setPriority(data.priority || "medium")
+        setDueDate(formatDateInput(data.dueDate))
+        setAdminNotes(data.adminNotes || "")
       }
     } catch (err) {
       console.error("❌ ORDER DETAIL ERROR:", err)
@@ -76,7 +130,10 @@ export default function AdminOrderDetail() {
         status,
         trackingNumber,
         trackingLink,
-        carrier
+        carrier,
+        priority,
+        dueDate,
+        adminNotes
       })
 
       const updated = res.data?.data || res.data || null
@@ -117,6 +174,8 @@ export default function AdminOrderDetail() {
   const shipping = Number(order.shippingCost || order.shipping || 0)
   const total = Number(order.finalPrice || order.total || subtotal + tax + shipping)
 
+  const overdue = isOverdue(dueDate)
+
   return (
     <main className="min-h-screen bg-[#020617] text-white">
       <section className="mx-auto max-w-7xl">
@@ -145,9 +204,29 @@ export default function AdminOrderDetail() {
             </p>
           </div>
 
-          <span className="w-fit rounded-full border border-cyan-400/30 bg-cyan-400/10 px-5 py-3 text-sm font-bold text-cyan-300">
-            {formatStatus(order.status)}
-          </span>
+          <div className="flex flex-wrap gap-3">
+            <span className="w-fit rounded-full border border-cyan-400/30 bg-cyan-400/10 px-5 py-3 text-sm font-bold text-cyan-300">
+              {formatStatus(order.status)}
+            </span>
+
+            <span
+              className={
+                priority === "high"
+                  ? "w-fit rounded-full border border-red-400/30 bg-red-500/10 px-5 py-3 text-sm font-bold text-red-300"
+                  : priority === "low"
+                    ? "w-fit rounded-full border border-emerald-400/30 bg-emerald-500/10 px-5 py-3 text-sm font-bold text-emerald-300"
+                    : "w-fit rounded-full border border-yellow-400/30 bg-yellow-500/10 px-5 py-3 text-sm font-bold text-yellow-300"
+              }
+            >
+              {getPriorityLabel(priority)}
+            </span>
+
+            {overdue && (
+              <span className="w-fit rounded-full border border-red-400/40 bg-red-600/20 px-5 py-3 text-sm font-bold text-red-300">
+                ⚠️ Overdue
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1.2fr_.8fr]">
@@ -162,6 +241,28 @@ export default function AdminOrderDetail() {
                 <Info label="Email" value={order.email || "Not provided"} />
                 <Info label="Phone" value={order.phone || "Not provided"} />
                 <Info label="Source" value={order.source || "Store"} />
+              </div>
+            </section>
+
+            <section className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6">
+              <h2 className="mb-5 text-2xl font-bold">
+                Internal Production Details
+              </h2>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <Info label="Priority" value={getPriorityLabel(priority)} />
+                <Info label="Internal Due Date" value={formatDateDisplay(dueDate)} />
+                <Info label="Overdue" value={overdue ? "Yes" : "No"} />
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-slate-800 bg-[#020617] p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                  Admin Notes
+                </p>
+
+                <p className="mt-2 whitespace-pre-wrap text-slate-300">
+                  {adminNotes || "No internal notes yet."}
+                </p>
               </div>
             </section>
 
@@ -233,6 +334,45 @@ export default function AdminOrderDetail() {
                   </option>
                 ))}
               </select>
+
+              <label className="mb-2 block text-sm font-bold text-slate-300">
+                Priority
+              </label>
+
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+                className="mb-4 w-full rounded-xl border border-slate-700 bg-[#020617] px-4 py-3 text-white"
+              >
+                {priorityOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+
+              <label className="mb-2 block text-sm font-bold text-slate-300">
+                Internal Due Date
+              </label>
+
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="mb-4 w-full rounded-xl border border-slate-700 bg-[#020617] px-4 py-3 text-white"
+              />
+
+              <label className="mb-2 block text-sm font-bold text-slate-300">
+                Admin Notes
+              </label>
+
+              <textarea
+                rows={4}
+                value={adminNotes}
+                onChange={(e) => setAdminNotes(e.target.value)}
+                placeholder="Production notes, customer requests, materials needed..."
+                className="mb-4 w-full rounded-xl border border-slate-700 bg-[#020617] px-4 py-3 text-white"
+              />
 
               <input
                 value={carrier}

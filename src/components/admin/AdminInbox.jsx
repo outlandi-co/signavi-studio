@@ -1,346 +1,480 @@
-import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo
+} from "react"
+
+import { io } from "socket.io-client"
 import api from "../../services/api"
 
+import MessageBubble from "../../components/admin/MessageBubble"
+import ReplyBox from "../../components/admin/ReplyBox"
+
+const SOCKET_URL =
+  import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "") ||
+  "http://localhost:5050"
+
+const FOLDERS = [
+  { id: "inbox", label: "📥 Inbox" },
+  { id: "archive", label: "🗄 Archive" }
+]
+
 export default function AdminInbox() {
-  const navigate = useNavigate()
-
-  const [notifications, setNotifications] = useState([])
+  const [activeFolder, setActiveFolder] = useState("inbox")
+  const [threads, setThreads] = useState([])
+  const [messages, setMessages] = useState([])
+  const [selectedThread, setSelectedThread] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
 
-  const loadNotifications = async () => {
+  const token = localStorage.getItem("adminToken")
+
+  const authHeaders = useMemo(
+    () => ({
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+    [token]
+  )
+
+  const unreadCount = useMemo(() => {
+    return threads.filter(
+      (thread) => thread.unread && !thread.archived
+    ).length
+  }, [threads])
+
+  const loadThreads = useCallback(async () => {
     try {
-      const res = await api.get("/notifications")
-      setNotifications(res.data.data || [])
+      const endpoint =
+        activeFolder === "archive"
+          ? "/admin-email-threads/archived"
+          : "/admin-email-threads"
+
+      const res = await api.get(endpoint, authHeaders)
+
+      setThreads(res.data?.data || [])
     } catch (error) {
-      console.error("LOAD INBOX ERROR:", error)
+      console.error("LOAD THREADS ERROR:", error)
     } finally {
       setLoading(false)
+    }
+  }, [activeFolder, authHeaders])
+
+  const loadMessages = async (thread) => {
+    try {
+      setSelectedThread(thread)
+
+      const res = await api.get(
+        `/admin-email-threads/${thread._id}/messages`,
+        authHeaders
+      )
+
+      setMessages(res.data?.data || [])
+
+      await loadThreads()
+    } catch (error) {
+      console.error("LOAD MESSAGES ERROR:", error)
+    }
+  }
+
+  const sendReply = async (message) => {
+    if (!message.trim() || !selectedThread) return
+
+    try {
+      setSending(true)
+
+      await api.post(
+        `/admin-email-threads/${selectedThread._id}/reply`,
+        { message },
+        authHeaders
+      )
+
+      await loadMessages(selectedThread)
+    } catch (error) {
+      console.error("SEND REPLY ERROR:", error)
+      alert("Reply could not be sent.")
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const archiveThread = async () => {
+    if (!selectedThread) return
+
+    try {
+      await api.patch(
+        `/admin-email-threads/${selectedThread._id}/archive`,
+        {},
+        authHeaders
+      )
+
+      setSelectedThread(null)
+      setMessages([])
+
+      await loadThreads()
+    } catch (error) {
+      console.error("ARCHIVE THREAD ERROR:", error)
+    }
+  }
+
+  const restoreThread = async () => {
+    if (!selectedThread) return
+
+    try {
+      await api.patch(
+        `/admin-email-threads/${selectedThread._id}/restore`,
+        {},
+        authHeaders
+      )
+
+      setSelectedThread(null)
+      setMessages([])
+
+      await loadThreads()
+    } catch (error) {
+      console.error("RESTORE THREAD ERROR:", error)
     }
   }
 
   useEffect(() => {
-    let mounted = true
-
-    const timer = setTimeout(async () => {
-      try {
-        const res = await api.get("/notifications")
-
-        if (mounted) {
-          setNotifications(res.data.data || [])
-        }
-      } catch (error) {
-        console.error("LOAD INBOX ERROR:", error)
-      } finally {
-        if (mounted) {
-          setLoading(false)
-        }
-      }
+    const timer = setTimeout(() => {
+      loadThreads()
     }, 0)
 
+    return () => clearTimeout(timer)
+  }, [loadThreads])
+
+  useEffect(() => {
+    const socket = io(SOCKET_URL)
+
+    const refreshThreads = async () => {
+      await loadThreads()
+    }
+
+    socket.on("customerEmailReply", refreshThreads)
+    socket.on("threadRestored", refreshThreads)
+    socket.on("adminNotification", refreshThreads)
+
     return () => {
-      mounted = false
-      clearTimeout(timer)
+      socket.off("customerEmailReply", refreshThreads)
+      socket.off("threadRestored", refreshThreads)
+      socket.off("adminNotification", refreshThreads)
+      socket.disconnect()
     }
-  }, [])
+  }, [loadThreads])
 
-  const openNotification = async (item) => {
-    if (!item?.link) return
-
-    if (!item.read) {
-      try {
-        await api.patch(`/notifications/${item._id}/read`)
-      } catch (error) {
-        console.error("MARK READ BEFORE OPEN ERROR:", error)
-      }
-    }
-
-    navigate(item.link)
+  const handleFolderClick = (folderId) => {
+    setActiveFolder(folderId)
+    setSelectedThread(null)
+    setMessages([])
+    setLoading(true)
   }
 
-  const markRead = async (id) => {
-    await api.patch(`/notifications/${id}/read`)
-    await loadNotifications()
-  }
-
-  const archiveNotification = async (id) => {
-    await api.patch(`/notifications/${id}/archive`)
-    await loadNotifications()
-  }
-
-  const markAllRead = async () => {
-    await api.patch("/notifications/read-all")
-    await loadNotifications()
+  if (loading) {
+    return (
+      <main style={page}>
+        Loading inbox...
+      </main>
+    )
   }
 
   return (
-    <div style={page}>
-      <div style={header}>
-        <div>
-          <h1 style={heading}>Inbox</h1>
-          <p style={subheading}>
-            Payments, final proof approvals, and admin alerts.
-          </p>
-        </div>
+    <main style={page}>
+      <h1 style={heading}>
+        📥 Email Inbox
+      </h1>
 
-        <button type="button" onClick={markAllRead} style={button}>
-          Mark All Read
-        </button>
+      <div style={folderBar}>
+        {FOLDERS.map((folder) => (
+          <button
+            key={folder.id}
+            type="button"
+            onClick={() => handleFolderClick(folder.id)}
+            style={{
+              ...folderButton,
+              background:
+                activeFolder === folder.id
+                  ? "#22d3ee"
+                  : "#111827",
+              color:
+                activeFolder === folder.id
+                  ? "#020617"
+                  : "#e5e7eb"
+            }}
+          >
+            {folder.label}
+
+            {folder.id === "inbox" && unreadCount > 0 && (
+              <span style={folderBadge}>
+                {unreadCount}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
-      {loading ? (
-        <p>Loading inbox...</p>
-      ) : notifications.length === 0 ? (
-        <div style={emptyCard}>
-          <h2>No notifications yet</h2>
-          <p>Payment and proof approval alerts will show here.</p>
-        </div>
-      ) : (
-        <div style={list}>
-          {notifications.map((item) => (
-            <div
-              key={item._id}
-              onClick={() => openNotification(item)}
-              role={item.link ? "button" : "article"}
-              tabIndex={item.link ? 0 : -1}
-              onKeyDown={(e) => {
-                if (
-                  item.link &&
-                  (e.key === "Enter" || e.key === " ")
-                ) {
-                  e.preventDefault()
-                  openNotification(item)
-                }
-              }}
-              style={{
-                ...card,
-                cursor: item.link ? "pointer" : "default",
-                borderColor: item.read ? "#1e293b" : "#22d3ee",
-                borderLeft:
-                  item.type === "payment"
-                    ? "5px solid #22c55e"
-                    : item.type === "proof"
-                      ? "5px solid #3b82f6"
-                      : item.type === "invoice"
-                        ? "5px solid #f59e0b"
-                        : item.type === "order"
-                          ? "5px solid #a78bfa"
-                          : "5px solid #64748b",
-                opacity: item.read ? 0.78 : 1
-              }}
-            >
-              <div style={cardTop}>
-                <span style={typeBadge}>
-                  {getIcon(item.type)} {item.type || "system"}
+      <div style={layout}>
+        <aside style={threadList}>
+          {threads.length === 0 ? (
+            <p style={muted}>
+              {activeFolder === "archive"
+                ? "No archived conversations yet."
+                : "No customer replies yet."}
+            </p>
+          ) : (
+            threads.map((thread) => (
+              <button
+                key={thread._id}
+                type="button"
+                onClick={() => loadMessages(thread)}
+                style={{
+                  ...threadButton,
+                  border:
+                    selectedThread?._id === thread._id
+                      ? "1px solid #22d3ee"
+                      : "1px solid #1e293b"
+                }}
+              >
+                <strong>
+                  {thread.customerName ||
+                    thread.customerEmail}
+                </strong>
+
+                <span style={subject}>
+                  {thread.subject}
                 </span>
 
-                {!item.read && <span style={unreadBadge}>Unread</span>}
-              </div>
+                <span style={preview}>
+                  {thread.lastMessage}
+                </span>
 
-              <h2 style={cardTitle}>
-                {item.title || "Notification"}
-              </h2>
-
-              <p style={text}>{item.text}</p>
-
-              {item.link && (
-                <p style={openText}>
-                  Open →
-                </p>
-              )}
-
-              <p style={date}>
-                {item.createdAt
-                  ? new Date(item.createdAt).toLocaleString()
-                  : ""}
-              </p>
-
-              <div style={actions}>
-                {item.link && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      openNotification(item)
-                    }}
-                    style={linkButton}
-                  >
-                    Open
-                  </button>
+                {thread.unread && activeFolder !== "archive" && (
+                  <span style={unread}>
+                    Unread
+                  </span>
                 )}
+              </button>
+            ))
+          )}
+        </aside>
 
-                {!item.read && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      markRead(item._id)
-                    }}
-                    style={smallButton}
-                  >
-                    Mark Read
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    archiveNotification(item._id)
-                  }}
-                  style={archiveButton}
-                >
-                  Archive
-                </button>
-              </div>
+        <section style={conversation}>
+          {!selectedThread ? (
+            <div style={empty}>
+              <h2>Select a conversation</h2>
+              <p>Customer replies will appear here.</p>
             </div>
-          ))}
-        </div>
-      )}
-    </div>
+          ) : (
+            <>
+              <div style={conversationHeader}>
+                <div>
+                  <h2>
+                    {selectedThread.subject}
+                  </h2>
+
+                  <p style={muted}>
+                    {selectedThread.customerEmail}
+                  </p>
+                </div>
+
+                {activeFolder !== "archive" ? (
+                  <button
+                    type="button"
+                    onClick={archiveThread}
+                    style={archiveButton}
+                  >
+                    Archive
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={restoreThread}
+                    style={restoreButton}
+                  >
+                    Restore
+                  </button>
+                )}
+              </div>
+
+              <div style={messageList}>
+                {messages.map((msg) => (
+                  <MessageBubble
+                    key={msg._id}
+                    message={{
+                      sender:
+                        msg.direction === "outbound"
+                          ? "admin"
+                          : "customer",
+                      message: msg.message,
+                      createdAt: msg.createdAt
+                    }}
+                  />
+                ))}
+              </div>
+
+              {activeFolder !== "archive" && (
+                <ReplyBox
+                  loading={sending}
+                  onSend={sendReply}
+                />
+              )}
+            </>
+          )}
+        </section>
+      </div>
+    </main>
   )
 }
 
-function getIcon(type) {
-  if (type === "payment") return "💳"
-  if (type === "proof") return "✅"
-  if (type === "invoice") return "🧾"
-  if (type === "order") return "📦"
-  if (type === "production") return "🏭"
-  return "📥"
-}
-
 const page = {
+  padding: 30,
+  background: "#020617",
+  minHeight: "100vh",
   color: "#e5e7eb"
 }
 
-const header = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 20,
-  marginBottom: 28
-}
-
 const heading = {
-  fontSize: 36,
-  fontWeight: 900,
-  margin: 0
+  marginTop: 0,
+  fontSize: 34
 }
 
-const subheading = {
-  color: "#94a3b8",
-  margin: "8px 0 0"
-}
-
-const button = {
-  background: "#22d3ee",
-  color: "#020617",
-  border: "none",
-  padding: "12px 16px",
-  borderRadius: 14,
-  fontWeight: 900,
-  cursor: "pointer"
-}
-
-const emptyCard = {
-  background: "#020617",
-  border: "1px solid #1e293b",
-  borderRadius: 20,
-  padding: 28
-}
-
-const list = {
-  display: "grid",
-  gap: 16
-}
-
-const card = {
-  background: "#020617",
-  border: "1px solid #1e293b",
-  borderRadius: 20,
-  padding: 22,
-  transition: "0.2s ease"
-}
-
-const cardTop = {
+const folderBar = {
   display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: 12
+  gap: 12,
+  marginBottom: 20,
+  flexWrap: "wrap"
 }
 
-const typeBadge = {
-  color: "#22d3ee",
+const folderButton = {
+  border: "1px solid #334155",
+  padding: "10px 14px",
+  borderRadius: 12,
   fontWeight: 900,
-  textTransform: "capitalize"
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  gap: 8
 }
 
-const unreadBadge = {
+const folderBadge = {
   background: "#ef4444",
   color: "#fff",
   borderRadius: 999,
-  padding: "4px 10px",
-  fontSize: 12,
+  padding: "2px 8px",
+  fontSize: 11,
   fontWeight: 900
 }
 
-const cardTitle = {
-  margin: "0 0 8px",
-  fontSize: 22
+const layout = {
+  display: "grid",
+  gridTemplateColumns: "340px 1fr",
+  gap: 24
 }
 
-const text = {
-  color: "#cbd5e1",
-  lineHeight: 1.6
+const threadList = {
+  background: "#0f172a",
+  border: "1px solid #1e293b",
+  borderRadius: 18,
+  padding: 16,
+  height: "78vh",
+  overflowY: "auto"
 }
 
-const openText = {
-  marginTop: 12,
-  color: "#38bdf8",
+const threadButton = {
+  width: "100%",
+  display: "grid",
+  gap: 6,
+  padding: 14,
+  marginBottom: 12,
+  borderRadius: 14,
+  background: "#020617",
+  color: "#e5e7eb",
+  textAlign: "left",
+  cursor: "pointer"
+}
+
+const subject = {
+  color: "#22d3ee",
+  fontSize: 13,
+  fontWeight: 800
+}
+
+const preview = {
+  color: "#94a3b8",
+  fontSize: 13,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap"
+}
+
+const unread = {
+  color: "#020617",
+  background: "#22c55e",
+  padding: "4px 8px",
+  borderRadius: 999,
+  fontSize: 11,
   fontWeight: 900,
-  fontSize: 14
+  width: "fit-content"
 }
 
-const date = {
-  color: "#64748b",
-  fontSize: 13
-}
-
-const actions = {
+const conversation = {
+  background: "#0f172a",
+  border: "1px solid #1e293b",
+  borderRadius: 18,
+  padding: 22,
+  minHeight: "78vh",
   display: "flex",
-  gap: 10,
-  flexWrap: "wrap",
-  marginTop: 16
+  flexDirection: "column"
 }
 
-const linkButton = {
-  background: "#22d3ee",
-  color: "#020617",
-  border: "none",
-  textDecoration: "none",
-  padding: "10px 14px",
-  borderRadius: 12,
-  fontWeight: 900,
-  cursor: "pointer"
+const conversationHeader = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 16,
+  borderBottom: "1px solid #1e293b",
+  paddingBottom: 16,
+  marginBottom: 16
 }
 
-const smallButton = {
-  background: "#a78bfa",
-  color: "#020617",
-  border: "none",
-  padding: "10px 14px",
-  borderRadius: 12,
-  fontWeight: 900,
-  cursor: "pointer"
+const empty = {
+  margin: "auto",
+  textAlign: "center",
+  color: "#94a3b8"
+}
+
+const muted = {
+  color: "#94a3b8"
+}
+
+const messageList = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 14,
+  flex: 1,
+  overflowY: "auto",
+  paddingRight: 8
 }
 
 const archiveButton = {
-  background: "#334155",
-  color: "#fff",
+  background: "#f59e0b",
+  color: "#020617",
   border: "none",
   padding: "10px 14px",
   borderRadius: 12,
   fontWeight: 900,
-  cursor: "pointer"
+  cursor: "pointer",
+  height: "fit-content"
+}
+
+const restoreButton = {
+  background: "#22c55e",
+  color: "#020617",
+  border: "none",
+  padding: "10px 14px",
+  borderRadius: 12,
+  fontWeight: 900,
+  cursor: "pointer",
+  height: "fit-content"
 }

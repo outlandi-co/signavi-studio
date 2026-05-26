@@ -9,6 +9,7 @@ import {
 } from "react-router-dom"
 
 import api from "../../services/api"
+import MessageBubble from "../../components/admin/MessageBubble"
 
 const getCustomerEmail = () => {
   let email = ""
@@ -73,7 +74,19 @@ export default function CustomerSupport() {
 
         setSelected(found || myTickets[0] || null)
       } else {
-        setSelected(myTickets[0] || null)
+        setSelected((prev) => {
+          if (!prev) {
+            return myTickets[0] || null
+          }
+
+          return (
+            myTickets.find(
+              (ticket) => ticket._id === prev._id
+            ) ||
+            myTickets[0] ||
+            null
+          )
+        })
       }
     } catch (err) {
       console.error("❌ LOAD SUPPORT ERROR:", err)
@@ -105,7 +118,7 @@ export default function CustomerSupport() {
       const newReply = {
         sender: "customer",
         message: reply.trim(),
-        createdAt: new Date()
+        createdAt: new Date().toISOString()
       }
 
       const updatedTicket = {
@@ -131,6 +144,7 @@ export default function CustomerSupport() {
       await loadTickets()
     } catch (err) {
       console.error("❌ REPLY ERROR:", err)
+      alert("Could not send reply.")
     } finally {
       setSending(false)
     }
@@ -151,7 +165,7 @@ export default function CustomerSupport() {
       </h1>
 
       <div style={layout}>
-        <div style={sidebar}>
+        <aside style={sidebar}>
           <h3 style={{ marginTop: 0 }}>
             My Tickets
           </h3>
@@ -165,6 +179,7 @@ export default function CustomerSupport() {
           {tickets.map((ticket) => (
             <button
               key={ticket._id}
+              type="button"
               onClick={() => setSelected(ticket)}
               style={{
                 ...ticketBtn,
@@ -175,11 +190,11 @@ export default function CustomerSupport() {
               }}
             >
               <strong>
-                {ticket.subject}
+                {ticket.subject || "Support Ticket"}
               </strong>
 
               <div>
-                Status: {ticket.status}
+                Status: {ticket.status || "open"}
               </div>
 
               <small>
@@ -187,9 +202,9 @@ export default function CustomerSupport() {
               </small>
             </button>
           ))}
-        </div>
+        </aside>
 
-        <div style={main}>
+        <main style={main}>
           {!selected && (
             <div>
               <h2>
@@ -206,38 +221,28 @@ export default function CustomerSupport() {
             <>
               <div style={header}>
                 <h2>
-                  {selected.subject}
+                  {selected.subject || "Support Ticket"}
                 </h2>
 
                 <div style={{ color: "#22c55e" }}>
-                  Status: {selected.status}
+                  Status: {selected.status || "open"}
                 </div>
               </div>
 
               <div style={thread}>
-                <div style={customerBubble}>
-                  {selected.message}
-                </div>
+                <MessageBubble
+                  message={{
+                    sender: "customer",
+                    message: selected.message,
+                    createdAt: selected.createdAt
+                  }}
+                />
 
                 {selected.replies?.map((item, index) => (
-                  <div
-                    key={index}
-                    style={
-                      item.sender === "admin"
-                        ? adminBubble
-                        : customerBubble
-                    }
-                  >
-                    <div>
-                      {item.message}
-                    </div>
-
-                    {item.createdAt && (
-                      <small style={{ opacity: 0.7 }}>
-                        {new Date(item.createdAt).toLocaleString()}
-                      </small>
-                    )}
-                  </div>
+                  <MessageBubble
+                    key={`${item.createdAt || index}-${index}`}
+                    message={item}
+                  />
                 ))}
               </div>
 
@@ -250,19 +255,23 @@ export default function CustomerSupport() {
               />
 
               <button
+                type="button"
                 onClick={sendReply}
-                disabled={sending}
+                disabled={sending || !reply.trim()}
                 style={{
                   ...sendBtn,
-                  opacity: sending ? 0.6 : 1,
-                  cursor: sending ? "not-allowed" : "pointer"
+                  opacity: sending || !reply.trim() ? 0.6 : 1,
+                  cursor:
+                    sending || !reply.trim()
+                      ? "not-allowed"
+                      : "pointer"
                 }}
               >
                 {sending ? "Sending..." : "Send Reply"}
               </button>
             </>
           )}
-        </div>
+        </main>
       </div>
     </div>
   )
@@ -323,21 +332,6 @@ const thread = {
   overflowY: "auto"
 }
 
-const customerBubble = {
-  background: "#111827",
-  padding: 14,
-  borderRadius: 12,
-  maxWidth: "80%"
-}
-
-const adminBubble = {
-  background: "#2563eb",
-  padding: 14,
-  borderRadius: 12,
-  alignSelf: "flex-end",
-  maxWidth: "80%"
-}
-
 const textarea = {
   width: "100%",
   padding: 14,
@@ -345,7 +339,8 @@ const textarea = {
   background: "#020617",
   border: "1px solid #334155",
   color: "white",
-  marginBottom: 14
+  marginBottom: 14,
+  boxSizing: "border-box"
 }
 
 const sendBtn = {

@@ -14,6 +14,42 @@ const formatStatus = (status = "") => {
     .replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
+const getPriorityColor = (priority = "medium") => {
+  if (priority === "high") {
+    return "border-red-500/40 bg-red-500/10 text-red-300"
+  }
+
+  if (priority === "low") {
+    return "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+  }
+
+  return "border-yellow-500/40 bg-yellow-500/10 text-yellow-300"
+}
+
+const getPriorityLabel = (priority = "medium") => {
+  if (priority === "high") {
+    return "🔴 High Priority"
+  }
+
+  if (priority === "low") {
+    return "🟢 Low Priority"
+  }
+
+  return "🟡 Medium Priority"
+}
+
+const isOverdue = (dueDate) => {
+  if (!dueDate) return false
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const due = new Date(dueDate)
+  due.setHours(0, 0, 0, 0)
+
+  return due < today
+}
+
 const getCustomerName = (job) => {
   return (
     job.customerName ||
@@ -56,12 +92,18 @@ export default function JobCard({
   const email = job.email || job.customerEmail || job.customer?.email || ""
   const phone = job.phone || job.customerPhone || job.customer?.phone || ""
   const quantity = job.quantity || job.items?.[0]?.quantity || 1
+
   const service =
     job.serviceLabel ||
     job.serviceType ||
     job.printType ||
     job.type ||
     "Project"
+
+  const priority = job.priority || "medium"
+  const dueDate = job.dueDate || ""
+  const overdue = isOverdue(dueDate)
+  const adminNotes = job.adminNotes || ""
 
   const handleSave = async () => {
     try {
@@ -97,6 +139,30 @@ export default function JobCard({
         </span>
       </div>
 
+      {!isQuoteCard && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          <span
+            className={`rounded-full border px-3 py-1 text-xs font-bold ${getPriorityColor(
+              priority
+            )}`}
+          >
+            {getPriorityLabel(priority)}
+          </span>
+
+          {dueDate && (
+            <span className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300">
+              📅 {new Date(dueDate).toLocaleDateString()}
+            </span>
+          )}
+
+          {overdue && (
+            <span className="rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-xs font-bold text-red-300">
+              ⚠️ OVERDUE
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="mb-4 grid grid-cols-2 gap-3">
         <InfoBox
           label="Total"
@@ -120,6 +186,18 @@ export default function JobCard({
           {formatStatus(service)}
         </p>
       </div>
+
+      {adminNotes && !isQuoteCard && (
+        <div className="mb-4 rounded-xl border border-slate-800 bg-slate-950/80 p-3">
+          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+            Admin Notes
+          </p>
+
+          <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm text-slate-300">
+            {adminNotes}
+          </p>
+        </div>
+      )}
 
       {(email || phone) && (
         <div className="mb-4 flex flex-wrap gap-2">

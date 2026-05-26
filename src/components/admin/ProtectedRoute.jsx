@@ -1,26 +1,94 @@
 import { Navigate } from "react-router-dom"
 
-export default function ProtectedRoute({ children, roleRequired }) {
+export default function ProtectedRoute({
+  children,
+  roleRequired
+}) {
+  let adminUser = null
+  let customerUser = null
 
-  let admin = null
+  let adminToken = null
+  let customerToken = null
 
   try {
-    admin = JSON.parse(localStorage.getItem("adminUser") || "null")
+    adminUser = JSON.parse(
+      localStorage.getItem("adminUser") || "null"
+    )
+
+    customerUser = JSON.parse(
+      localStorage.getItem("customerUser") || "null"
+    )
+
+    adminToken =
+      localStorage.getItem("adminToken")
+
+    customerToken =
+      localStorage.getItem("customerToken")
   } catch (err) {
-    console.error("❌ ADMIN PARSE ERROR:", err)
-    admin = null
+    console.error(
+      "❌ PROTECTED ROUTE PARSE ERROR:",
+      err
+    )
+
+    adminUser = null
+    customerUser = null
   }
 
-  /* 🔐 NOT LOGGED IN */
-  if (!admin) {
-    return <Navigate to="/login" replace />
+  const user =
+    adminUser ||
+    customerUser
+
+  const token =
+    adminToken ||
+    customerToken
+
+  /* ================= NOT LOGGED IN ================= */
+
+  if (!user || !token) {
+    console.warn(
+      "🚫 USER NOT AUTHENTICATED"
+    )
+
+    return (
+      <Navigate
+        to="/login"
+        replace
+      />
+    )
   }
 
-  /* 🔐 ROLE CHECK */
-  if (roleRequired && admin.role !== roleRequired) {
-    console.warn("⚠️ BLOCKED ROLE:", admin.role)
-    return <Navigate to="/" replace />
+  /* ================= ROLE CHECK ================= */
+
+  if (
+    roleRequired &&
+    user.role !== roleRequired
+  ) {
+    console.warn(
+      "🚫 ROLE BLOCKED:",
+      {
+        required: roleRequired,
+        actual: user.role
+      }
+    )
+
+    if (user.role === "admin") {
+      return (
+        <Navigate
+          to="/admin"
+          replace
+        />
+      )
+    }
+
+    return (
+      <Navigate
+        to="/customer"
+        replace
+      />
+    )
   }
+
+  /* ================= SUCCESS ================= */
 
   return children
 }
