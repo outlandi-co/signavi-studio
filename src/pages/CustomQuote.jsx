@@ -81,7 +81,7 @@ export default function CustomQuote() {
     phone: "",
     quantity: 1,
     printType: initialPrintType,
-    deadline: "",
+    turnaround: "",
     notes: location.state?.idea || ""
   })
 
@@ -108,9 +108,12 @@ export default function CustomQuote() {
     discountMsg = "Order 12+ to unlock possible bulk pricing"
   }
 
+  const rushFee = form.turnaround === "rush" ? 25 : 0
+
   const rawEstimate =
     selectedService.base * qty * discount +
-    selectedService.setup
+    selectedService.setup +
+    rushFee
 
   const estimate = Math.max(rawEstimate, selectedService.minimum)
   const perItemEstimate = estimate / qty
@@ -175,9 +178,9 @@ export default function CustomQuote() {
         printType: form.printType,
         serviceType: form.printType,
         serviceLabel: selectedService.label,
+        turnaround: form.turnaround,
         price: estimate,
         finalPrice: estimate,
-        deadline: form.deadline,
         items: [
           {
             name: selectedService.label,
@@ -323,16 +326,35 @@ export default function CustomQuote() {
 
               <label className="flex flex-col gap-2 md:col-span-2">
                 <span className="text-sm font-semibold text-slate-300">
-                  Deadline
+                  Preferred Turnaround
                 </span>
 
-                <input
-                  name="deadline"
-                  type="date"
-                  value={form.deadline}
+                <select
+                  name="turnaround"
+                  value={form.turnaround}
                   onChange={handleChange}
                   className="rounded-xl border border-slate-700 bg-[#020617] px-4 py-3 text-white outline-none transition focus:border-cyan-400"
-                />
+                >
+                  <option value="">
+                    Select preferred turnaround
+                  </option>
+
+                  <option value="standard">
+                    Standard
+                  </option>
+
+                  <option value="1-2-weeks">
+                    1–2 Weeks
+                  </option>
+
+                  <option value="rush">
+                    Rush Service
+                  </option>
+                </select>
+
+                <span className="text-xs text-slate-500">
+                  Final scheduling is confirmed by SignaVi Studio after review.
+                </span>
               </label>
 
               <label className="flex flex-col gap-2 md:col-span-2">
@@ -426,6 +448,13 @@ export default function CustomQuote() {
                 <span>Minimum</span>
                 <strong>${selectedService.minimum.toFixed(2)}</strong>
               </div>
+
+              {form.turnaround === "rush" && (
+                <div className="flex justify-between border-b border-slate-800 pb-3">
+                  <span>Rush Estimate Add-on</span>
+                  <strong>${rushFee.toFixed(2)}</strong>
+                </div>
+              )}
 
               <div className="rounded-2xl border border-slate-800 bg-[#020617] p-4 text-sm text-cyan-300">
                 {discountMsg}
