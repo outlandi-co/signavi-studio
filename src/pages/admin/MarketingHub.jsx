@@ -177,7 +177,7 @@ ${selected.hashtags}`
 
     <div className="button-row">
      <a
-  href="https://www.tiktok.com/@signavi.studio?is_from_webapp=1&sender_device=pc"
+  href="https://www.tiktok.com/@signavi.studio"
   target="_blank"
   rel="noopener noreferrer"
   aria-label="TikTok"
