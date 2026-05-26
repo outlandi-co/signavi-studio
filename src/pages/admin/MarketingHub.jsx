@@ -133,7 +133,7 @@ ${selected.hashtags}`
 
     <div className="button-row">
       <a
-        href="https://www.facebook.com/signavistudio"
+        href="https://www.facebook.com/signavi"
         target="_blank"
         rel="noopener noreferrer"
       >
@@ -177,14 +177,14 @@ ${selected.hashtags}`
 
     <div className="button-row">
      <a
-  href="https://www.tiktok.com/@signavi.studio"
+  href="https://www.tiktok.com/@signavi.studio?is_from_webapp=1&sender_device=pc"
   target="_blank"
   rel="noopener noreferrer"
   aria-label="TikTok"
   className="hover:text-cyan-400 transition"
 >
-        Visit TikTok
-      </a>
+  Visit TikTok
+</a>
 
       <button onClick={() => copyToClipboard("tiktok", postText)}>
         {copied === "tiktok" ? "Copied!" : "Copy Caption"}

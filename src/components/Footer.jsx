@@ -38,7 +38,7 @@ export default function Footer() {
           </a>
 
           <a
-            href="https://www.tiktok.com/@signavistudio"
+            href="https://www.tiktok.com/@signavi.studio?is_from_webapp=1&sender_device=pc"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="TikTok"
