@@ -176,11 +176,13 @@ ${selected.hashtags}`
     </p>
 
     <div className="button-row">
-      <a
-        href="https://www.tiktok.com/@signavistudio"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
+     <a
+  href="https://www.tiktok.com/@signavi.studio?is_from_webapp=1&sender_device=pc"
+  target="_blank"
+  rel="noopener noreferrer"
+  aria-label="TikTok"
+  className="hover:text-cyan-400 transition"
+>
         Visit TikTok
       </a>
 
