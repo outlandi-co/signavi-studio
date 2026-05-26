@@ -8,8 +8,6 @@ import {
 import { useEffect, useState } from "react"
 import api from "./services/api"
 
-/* ================= CONTEXT ================= */
-
 import ToastProvider from "./context/ToastProvider"
 import LoadingProvider from "./context/LoadingProvider"
 import { CartProvider } from "./context/CartContext"
@@ -17,8 +15,6 @@ import { NotificationProvider } from "./context/NotificationContext"
 import { ProductProvider } from "./context/ProductContext"
 
 import { useToast } from "./hooks/useToast"
-
-/* ================= COMPONENTS ================= */
 
 import Navbar from "./components/Navbar"
 import Footer from "./components/Footer"
@@ -29,11 +25,7 @@ import AdminLayout from "./components/admin/AdminLayout"
 import CustomerRoute from "./components/guards/CustomerRoute"
 import AdminRoute from "./components/admin/AdminRoute"
 
-/* ================= LAYOUT ================= */
-
 import CustomerLayout from "./layouts/CustomerLayout"
-
-/* ================= PAGES ================= */
 
 import Home from "./pages/Home"
 import Store from "./pages/Store"
@@ -62,8 +54,6 @@ import ProofApprovalPage from "./pages/ProofApprovalPage"
 import Gallery from "./pages/Gallery"
 import Services from "./pages/Services"
 
-/* ================= CUSTOMER ================= */
-
 import CustomerLogin from "./pages/customer/CustomerLogin"
 import CustomerRegister from "./pages/CustomerRegister"
 import CustomerDashboard from "./pages/customer/CustomerDashboard"
@@ -71,8 +61,6 @@ import CustomerOrders from "./pages/customer/CustomerOrders"
 import OrderDetail from "./pages/customer/OrderDetail"
 import Security from "./pages/customer/Security"
 import CustomerSupport from "./pages/customer/CustomerSupport"
-
-/* ================= ADMIN ================= */
 
 import ProductionBoard from "./pages/ProductionBoard"
 import Orders from "./pages/admin/Orders"
@@ -239,11 +227,8 @@ function AppContent() {
 
       <Routes>
         <Route path="/" element={<Home />} />
-
         <Route path="/store" element={<Store />} />
-
         <Route path="/gallery" element={<Gallery />} />
-
         <Route path="/services" element={<Services />} />
 
         <Route
@@ -265,12 +250,12 @@ function AppContent() {
 
         <Route path="/quote" element={<CustomQuote />} />
 
-        <Route path="/support" element={<Support />} />
-
         <Route
           path="/quote/:id"
           element={<QuoteResponse />}
         />
+
+        <Route path="/support" element={<Support />} />
 
         <Route path="/track" element={<TrackingPage />} />
 
@@ -315,6 +300,11 @@ function AppContent() {
               path="/my-support"
               element={<CustomerSupport />}
             />
+
+            <Route
+              path="/support/:id"
+              element={<CustomerSupport />}
+            />
           </Route>
         </Route>
 
@@ -355,20 +345,14 @@ function AppContent() {
 
         <Route path="/admin" element={<AdminRoute />}>
           <Route element={<AdminLayout />}>
-            <Route
-              index
-              element={<ProductionBoard />}
-            />
+            <Route index element={<ProductionBoard />} />
 
             <Route
               path="production"
               element={<ProductionBoard />}
             />
 
-            <Route
-              path="orders"
-              element={<Orders />}
-            />
+            <Route path="orders" element={<Orders />} />
 
             <Route
               path="invoices"
@@ -454,7 +438,13 @@ function AppContent() {
 
         <Route
           path="*"
-          element={<h2>Page not found</h2>}
+          element={
+            <main className="min-h-screen bg-[#020617] p-10 text-white">
+              <h2 className="text-3xl font-bold">
+                Page not found
+              </h2>
+            </main>
+          }
         />
       </Routes>
 

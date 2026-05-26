@@ -27,33 +27,99 @@ export default function AdminLayout() {
     )
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem("adminToken")
+    localStorage.removeItem("adminUser")
+    sessionStorage.removeItem("adminToken")
+    sessionStorage.removeItem("adminUser")
+    window.location.href = "/login"
+  }
+
   return (
     <div style={wrapper}>
       <aside style={sidebar}>
         <div style={brandBox}>
-          <div style={brandIcon}>S</div>
+          <div style={brandIcon}>
+            <img
+              src="/logo.png"
+              alt="SignaVi"
+              style={brandImage}
+              onError={(event) => {
+                event.currentTarget.style.display = "none"
+                event.currentTarget.parentElement.textContent = "S"
+              }}
+            />
+          </div>
+
           <div>
-            <h2 style={title}>Signavi</h2>
-            <p style={subtitle}>Admin Panel</p>
+            <h2 style={title}>
+              SignaVi
+            </h2>
+
+            <p style={subtitle}>
+              Admin Panel
+            </p>
           </div>
         </div>
 
-        <SideLink to="/admin/production">🏭 Production</SideLink>
-        <SideLink to="/admin/orders">📦 Orders</SideLink>
-        <SideLink to="/admin/invoices">🧾 Invoices</SideLink>
-        <SideLink to="/admin/custom-order/new">🧾 New Custom Order</SideLink>
-        <SideLink to="/admin/products">🛒 Products</SideLink>
-        <SideLink to="/admin/signavi-store/products">🛍 Store Products</SideLink>
+        <div style={sectionLabel}>
+          Workflow
+        </div>
+
+        <SideLink to="/admin">
+          📊 Dashboard
+        </SideLink>
+
+        <SideLink to="/admin/production">
+          🏭 Production
+        </SideLink>
+
+        <SideLink to="/admin/orders">
+          📦 Orders
+        </SideLink>
+
+        <SideLink to="/admin/invoices">
+          🧾 Invoices
+        </SideLink>
+
+        <SideLink to="/admin/custom-order/new">
+          🧾 New Custom Order
+        </SideLink>
+
+        <div style={sectionLabel}>
+          Store
+        </div>
+
+        <SideLink to="/admin/products">
+          🛒 Products
+        </SideLink>
+
+        <SideLink to="/admin/signavi-store/products">
+          🛍 Store Products
+        </SideLink>
+
         <SideLink to="/admin/signavi-store/create">
           ➕ Create Store Product
         </SideLink>
-        <SideLink to="/admin/customers">👥 Customers</SideLink>
+
+        <div style={sectionLabel}>
+          Customers
+        </div>
+
+        <SideLink to="/admin/customers">
+          👥 Customers
+        </SideLink>
 
         <div onClick={clearEmailUnread}>
           <SideLink to="/admin/emails">
             <div style={linkRow}>
               <span>📧 Emails</span>
-              {emailUnread > 0 && <span style={badge}>{emailUnread}</span>}
+
+              {emailUnread > 0 && (
+                <span style={badge}>
+                  {emailUnread}
+                </span>
+              )}
             </div>
           </SideLink>
         </div>
@@ -62,14 +128,37 @@ export default function AdminLayout() {
           <SideLink to="/admin/support">
             <div style={linkRow}>
               <span>🛟 Support</span>
-              {supportUnread > 0 && <span style={badge}>{supportUnread}</span>}
+
+              {supportUnread > 0 && (
+                <span style={badge}>
+                  {supportUnread}
+                </span>
+              )}
             </div>
           </SideLink>
         </div>
 
-        <SideLink to="/admin/revenue">💰 Revenue</SideLink>
+        <div style={sectionLabel}>
+          Business
+        </div>
 
-        <SideLink to="/admin/marketing">📣 Marketing Hub</SideLink>
+        <SideLink to="/admin/revenue">
+          💰 Revenue
+        </SideLink>
+
+        <SideLink to="/admin/marketing">
+          📣 Marketing Hub
+        </SideLink>
+
+        <div style={quickStats}>
+          <div style={quickStatCard}>
+            <span>💰 Revenue Tools</span>
+          </div>
+
+          <div style={quickStatCard}>
+            <span>📦 Order Exports</span>
+          </div>
+        </div>
 
         <div style={csvGroup}>
           <button
@@ -87,6 +176,14 @@ export default function AdminLayout() {
           >
             🧾 Tax CSV
           </button>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            style={logoutButton}
+          >
+            🚪 Logout
+          </button>
         </div>
       </aside>
 
@@ -97,18 +194,29 @@ export default function AdminLayout() {
   )
 }
 
-function SideLink({ to, children }) {
+function SideLink({
+  to,
+  children
+}) {
   return (
     <NavLink
       to={to}
       style={({ isActive }) => ({
         ...link,
-        background: isActive ? "rgba(34, 211, 238, 0.12)" : "transparent",
+        background: isActive
+          ? "rgba(34, 211, 238, 0.12)"
+          : "transparent",
         border: isActive
           ? "1px solid #22d3ee"
           : "1px solid transparent",
-        color: isActive ? "#22d3ee" : "#cbd5e1"
+        color: isActive
+          ? "#22d3ee"
+          : "#cbd5e1",
+        boxShadow: isActive
+          ? "0 10px 30px rgba(34,211,238,.12)"
+          : "none"
       })}
+      end={to === "/admin"}
     >
       {children}
     </NavLink>
@@ -122,13 +230,13 @@ const wrapper = {
 }
 
 const sidebar = {
-  width: 280,
-  minWidth: 280,
+  width: 320,
+  minWidth: 320,
   background: "#020617",
   color: "#fff",
   display: "flex",
   flexDirection: "column",
-  gap: 14,
+  gap: 10,
   padding: 24,
   borderRight: "1px solid #1e293b",
   position: "sticky",
@@ -142,20 +250,31 @@ const brandBox = {
   display: "flex",
   alignItems: "center",
   gap: 14,
-  marginBottom: 22
+  marginBottom: 22,
+  paddingBottom: 18,
+  borderBottom: "1px solid #1e293b"
 }
 
 const brandIcon = {
   width: 52,
   height: 52,
   borderRadius: 16,
-  background: "#22d3ee",
-  color: "#020617",
+  background: "linear-gradient(135deg, #22d3ee, #2563eb)",
+  color: "#ffffff",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   fontSize: 28,
-  fontWeight: 900
+  fontWeight: 900,
+  overflow: "hidden",
+  boxShadow: "0 14px 30px rgba(34,211,238,.22)"
+}
+
+const brandImage = {
+  width: "100%",
+  height: "100%",
+  objectFit: "contain",
+  borderRadius: 16
 }
 
 const title = {
@@ -180,6 +299,16 @@ const content = {
     "radial-gradient(circle at top left, rgba(34, 211, 238, 0.08), transparent 30%), #020617"
 }
 
+const sectionLabel = {
+  marginTop: 10,
+  marginBottom: 2,
+  color: "#64748b",
+  fontSize: 11,
+  fontWeight: 900,
+  letterSpacing: "0.18em",
+  textTransform: "uppercase"
+}
+
 const link = {
   padding: "14px 16px",
   borderRadius: 16,
@@ -189,10 +318,28 @@ const link = {
   display: "block"
 }
 
+const quickStats = {
+  display: "grid",
+  gap: 10,
+  marginTop: 14,
+  marginBottom: 14
+}
+
+const quickStatCard = {
+  background: "#0f172a",
+  border: "1px solid #1e293b",
+  borderRadius: 16,
+  padding: 12,
+  color: "#cbd5e1",
+  fontWeight: 800
+}
+
 const csvGroup = {
   marginTop: "auto",
   display: "grid",
-  gap: 12
+  gap: 12,
+  paddingTop: 16,
+  borderTop: "1px solid #1e293b"
 }
 
 const csvButton = {
@@ -209,6 +356,17 @@ const csvButton = {
 const taxButton = {
   background: "#38bdf8",
   color: "#020617",
+  border: "none",
+  padding: "14px 16px",
+  borderRadius: 16,
+  fontWeight: 900,
+  cursor: "pointer",
+  textAlign: "left"
+}
+
+const logoutButton = {
+  background: "#dc2626",
+  color: "white",
   border: "none",
   padding: "14px 16px",
   borderRadius: 16,

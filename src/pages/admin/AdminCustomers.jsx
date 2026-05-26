@@ -1,4 +1,11 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from "react"
+import {
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+  useMemo
+} from "react"
+
 import api from "../../services/api"
 import { useNavigate } from "react-router-dom"
 import { io } from "socket.io-client"
@@ -7,7 +14,17 @@ const API_URL =
   import.meta.env.VITE_API_URL ||
   "https://signavi-backend.onrender.com/api"
 
-const SOCKET_URL = API_URL.replace("/api", "")
+const SOCKET_URL =
+  API_URL.replace("/api", "")
+
+const money = (value = 0) =>
+  Number(value || 0).toLocaleString(
+    "en-US",
+    {
+      style: "currency",
+      currency: "USD"
+    }
+  )
 
 export default function AdminCustomers() {
   const [customers, setCustomers] = useState([])
@@ -18,21 +35,25 @@ export default function AdminCustomers() {
   const socketRef = useRef(null)
   const navigate = useNavigate()
 
-  /* ================= LOAD ================= */
-
   const loadCustomers = useCallback(async () => {
     try {
       setLoading(true)
 
       const res = await api.get("/customers")
-      const data = Array.isArray(res.data?.data) ? res.data.data : []
+
+      const data =
+        Array.isArray(res.data?.data)
+          ? res.data.data
+          : []
 
       setCustomers(data)
-
     } catch (err) {
-      console.error("❌ CUSTOMER LOAD ERROR:", err)
-      setCustomers([])
+      console.error(
+        "❌ CUSTOMER LOAD ERROR:",
+        err
+      )
 
+      setCustomers([])
     } finally {
       setLoading(false)
     }
@@ -46,192 +67,452 @@ export default function AdminCustomers() {
     return () => clearTimeout(timer)
   }, [loadCustomers])
 
-  /* ================= SOCKET ================= */
-
   useEffect(() => {
     if (!socketRef.current) {
-      socketRef.current = io(SOCKET_URL, {
-        transports: ["websocket"]
-      })
-    }
-
-    const socket = socketRef.current
-
-    const handleUpdate = () => {
-      console.log("🔄 CUSTOMER LIVE UPDATE")
-      loadCustomers()
-    }
-
-    socket.on("customerUpdated", handleUpdate)
-    socket.on("jobCreated", handleUpdate)
-    socket.on("jobUpdated", handleUpdate)
-
-    return () => {
-      socket.off("customerUpdated", handleUpdate)
-      socket.off("jobCreated", handleUpdate)
-      socket.off("jobUpdated", handleUpdate)
-    }
-  }, [loadCustomers])
-
-  /* ================= FILTERED CUSTOMERS ================= */
-
-  const filtered = useMemo(() => {
-    let data = [...customers]
-
-    if (search.trim()) {
-      const term = search.toLowerCase().trim()
-
-      data = data.filter(customer =>
-        String(customer.email || "").toLowerCase().includes(term) ||
-        String(customer.customerName || "").toLowerCase().includes(term) ||
-        String(customer.name || "").toLowerCase().includes(term)
+      socketRef.current = io(
+        SOCKET_URL,
+        {
+          transports: ["websocket"]
+        }
       )
     }
 
-    if (sort === "spent") {
-      data.sort((a, b) => Number(b.totalSpent || 0) - Number(a.totalSpent || 0))
-    }
+    const socket =
+      socketRef.current
 
-    if (sort === "orders") {
-      data.sort((a, b) => Number(b.totalOrders || 0) - Number(a.totalOrders || 0))
-    }
-
-    if (sort === "latest") {
-      data.sort((a, b) => {
-        const dateA = new Date(a.updatedAt || a.createdAt || 0).getTime()
-        const dateB = new Date(b.updatedAt || b.createdAt || 0).getTime()
-        return dateB - dateA
-      })
-    }
-
-    return data
-  }, [customers, search, sort])
-
-  /* ================= VIP ================= */
-
-  const toggleVIP = async (id, current) => {
-    try {
-      await api.patch(`/customers/${id}`, {
-        isVIP: !current
-      })
-
+    const refresh = () => {
       loadCustomers()
-
-    } catch (err) {
-      console.error("VIP ERROR:", err)
     }
-  }
 
-  /* ================= NOTES ================= */
+    socket.on(
+      "customerUpdated",
+      refresh
+    )
 
-  const updateNotes = async (id, notes) => {
-    try {
-      await api.patch(`/customers/${id}`, { notes })
+    socket.on(
+      "jobCreated",
+      refresh
+    )
 
-    } catch (err) {
-      console.error("NOTES ERROR:", err)
+    socket.on(
+      "jobUpdated",
+      refresh
+    )
+
+    return () => {
+      socket.off(
+        "customerUpdated",
+        refresh
+      )
+
+      socket.off(
+        "jobCreated",
+        refresh
+      )
+
+      socket.off(
+        "jobUpdated",
+        refresh
+      )
     }
-  }
+  }, [loadCustomers])
+
+  const filtered =
+    useMemo(() => {
+      let data = [...customers]
+
+      if (search.trim()) {
+        const term =
+          search
+            .toLowerCase()
+            .trim()
+
+        data = data.filter(
+          customer =>
+            String(
+              customer.email || ""
+            )
+              .toLowerCase()
+              .includes(term) ||
+
+            String(
+              customer.customerName || ""
+            )
+              .toLowerCase()
+              .includes(term) ||
+
+            String(
+              customer.name || ""
+            )
+              .toLowerCase()
+              .includes(term)
+        )
+      }
+
+      if (sort === "spent") {
+        data.sort(
+          (a, b) =>
+            Number(
+              b.totalSpent || 0
+            ) -
+            Number(
+              a.totalSpent || 0
+            )
+        )
+      }
+
+      if (sort === "orders") {
+        data.sort(
+          (a, b) =>
+            Number(
+              b.totalOrders || 0
+            ) -
+            Number(
+              a.totalOrders || 0
+            )
+        )
+      }
+
+      if (sort === "latest") {
+        data.sort(
+          (a, b) => {
+            const dateA =
+              new Date(
+                a.updatedAt ||
+                a.createdAt ||
+                0
+              ).getTime()
+
+            const dateB =
+              new Date(
+                b.updatedAt ||
+                b.createdAt ||
+                0
+              ).getTime()
+
+            return dateB - dateA
+          }
+        )
+      }
+
+      return data
+    }, [
+      customers,
+      search,
+      sort
+    ])
+
+  const totalCustomers =
+    customers.length
+
+  const vipCustomers =
+    customers.filter(
+      customer =>
+        customer.isVIP
+    ).length
+
+  const totalRevenue =
+    customers.reduce(
+      (sum, customer) =>
+        sum +
+        Number(
+          customer.totalSpent || 0
+        ),
+      0
+    )
+
+  const totalOrders =
+    customers.reduce(
+      (sum, customer) =>
+        sum +
+        Number(
+          customer.totalOrders || 0
+        ),
+      0
+    )
+
+  const toggleVIP =
+    async (
+      id,
+      current
+    ) => {
+      try {
+        await api.patch(
+          `/customers/${id}`,
+          {
+            isVIP: !current
+          }
+        )
+
+        loadCustomers()
+      } catch (err) {
+        console.error(
+          "VIP ERROR:",
+          err
+        )
+      }
+    }
+
+  const updateNotes =
+    async (
+      id,
+      notes
+    ) => {
+      try {
+        await api.patch(
+          `/customers/${id}`,
+          {
+            notes
+          }
+        )
+      } catch (err) {
+        console.error(
+          "NOTES ERROR:",
+          err
+        )
+      }
+    }
 
   if (loading) {
-    return <p className="text-white p-4">Loading...</p>
+    return (
+      <main className="min-h-screen bg-[#020617] p-6 text-white">
+        Loading customers...
+      </main>
+    )
   }
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">
-        👥 Customers CRM
-      </h1>
+    <main className="min-h-screen bg-[#020617] text-white">
+      <section className="mx-auto max-w-7xl">
 
-      {/* SEARCH + SORT */}
-      <div className="flex gap-4 mb-6">
-        <input
-          placeholder="Search by email or name..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="bg-gray-900 border border-gray-700 px-3 py-2 rounded-lg w-full"
-        />
+        <div className="mb-8">
+          <p className="mb-3 text-sm font-bold uppercase tracking-[0.25em] text-cyan-400">
+            SignaVi Studio
+          </p>
 
-        <select
-          value={sort}
-          onChange={e => setSort(e.target.value)}
-          className="bg-gray-900 border border-gray-700 px-3 py-2 rounded-lg"
-        >
-          <option value="latest">Latest</option>
-          <option value="spent">Top Spenders</option>
-          <option value="orders">Most Orders</option>
-        </select>
-      </div>
+          <h1 className="text-4xl font-extrabold md:text-5xl">
+            Customer CRM
+          </h1>
 
-      {/* EMPTY */}
-      {filtered.length === 0 && (
-        <div className="bg-gray-900 border border-gray-800 p-4 rounded-lg">
-          <p className="text-gray-400">No customers found.</p>
+          <p className="mt-3 text-slate-400 max-w-2xl">
+            Manage customer
+            relationships,
+            spending history,
+            VIP accounts,
+            notes,
+            and activity.
+          </p>
         </div>
-      )}
 
-      {/* LIST */}
-      <div className="grid gap-4">
-        {filtered.map(customer => (
-          <div
-            key={customer._id}
-            className="bg-gray-900 border border-gray-800 p-4 rounded-lg"
-          >
-            {/* HEADER */}
-            <div className="flex justify-between items-center">
-              <div
-                className="cursor-pointer"
-                onClick={() => navigate(`/admin/customers/${customer._id}`)}
-              >
-                <p className="font-semibold text-white">
-                  {customer.customerName || customer.name || "Customer"}
-                </p>
+        <div className="grid gap-5 mb-8 md:grid-cols-2 xl:grid-cols-4">
 
-                <p className="text-sm text-gray-400">
-                  {customer.email}
-                </p>
+          <Card
+            label="Customers"
+            value={totalCustomers}
+            accent="text-cyan-300"
+          />
 
-                <p className="text-xs text-gray-500">
-                  {customer.isVIP ? "⭐ VIP" : "Standard"}
-                </p>
-              </div>
+          <Card
+            label="VIP Customers"
+            value={vipCustomers}
+            accent="text-yellow-300"
+          />
 
-              <button
-                onClick={() => toggleVIP(customer._id, customer.isVIP)}
-                className={`px-3 py-1 rounded ${
-                  customer.isVIP
-                    ? "bg-yellow-500 text-black"
-                    : "bg-gray-700"
-                }`}
-              >
-                VIP
-              </button>
-            </div>
+          <Card
+            label="Orders"
+            value={totalOrders}
+            accent="text-blue-300"
+          />
 
-            {/* STATS */}
-            <div className="flex justify-between mt-3">
-              <p>
-                Orders: <strong>{customer.totalOrders || 0}</strong>
-              </p>
+          <Card
+            label="Customer Revenue"
+            value={money(totalRevenue)}
+            accent="text-emerald-300"
+          />
 
-              <p>
-                Spent:{" "}
-                <strong>
-                  ${Number(customer.totalSpent || 0).toFixed(2)}
-                </strong>
-              </p>
-            </div>
+        </div>
 
-            {/* NOTES */}
-            <textarea
-              defaultValue={customer.notes || ""}
-              onBlur={(e) => updateNotes(customer._id, e.target.value)}
-              placeholder="Add notes..."
-              className="w-full mt-3 bg-gray-800 p-2 rounded text-sm"
+        <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-5 mb-6">
+
+          <div className="grid gap-4 lg:grid-cols-[1fr_220px]">
+
+            <input
+              value={search}
+              onChange={e =>
+                setSearch(
+                  e.target.value
+                )
+              }
+              placeholder="Search customer name or email..."
+              className="w-full rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white"
             />
+
+            <select
+              value={sort}
+              onChange={e =>
+                setSort(
+                  e.target.value
+                )
+              }
+              className="rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white"
+            >
+              <option value="latest">
+                Latest
+              </option>
+
+              <option value="spent">
+                Top Spenders
+              </option>
+
+              <option value="orders">
+                Most Orders
+              </option>
+            </select>
+
           </div>
-        ))}
-      </div>
+
+        </div>
+
+        {filtered.length === 0 ? (
+          <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-10 text-center">
+            <h2 className="text-2xl font-bold">
+              No Customers Found
+            </h2>
+          </div>
+        ) : (
+          <div className="grid gap-5">
+            {filtered.map(
+              customer => (
+                <article
+                  key={customer._id}
+                  className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6 shadow-xl shadow-black/20"
+                >
+                  <div className="flex flex-col gap-4 md:flex-row md:justify-between">
+
+                    <div
+                      className="cursor-pointer"
+                      onClick={() =>
+                        navigate(
+                          `/admin/customers/${customer._id}`
+                        )
+                      }
+                    >
+                      <h2 className="text-xl font-bold">
+                        {customer.customerName ||
+                          customer.name ||
+                          "Customer"}
+                      </h2>
+
+                      <p className="text-slate-400">
+                        {customer.email}
+                      </p>
+
+                      <p className="text-sm mt-2">
+                        {customer.isVIP
+                          ? "⭐ VIP Customer"
+                          : "Standard Customer"}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() =>
+                        toggleVIP(
+                          customer._id,
+                          customer.isVIP
+                        )
+                      }
+                      className={`rounded-full px-4 py-2 font-bold ${
+                        customer.isVIP
+                          ? "bg-yellow-400 text-black"
+                          : "bg-slate-700 text-white"
+                      }`}
+                    >
+                      VIP
+                    </button>
+
+                  </div>
+
+                  <div className="grid gap-4 mt-6 md:grid-cols-3">
+
+                    <Info
+                      label="Orders"
+                      value={
+                        customer.totalOrders || 0
+                      }
+                    />
+
+                    <Info
+                      label="Spent"
+                      value={money(
+                        customer.totalSpent
+                      )}
+                    />
+
+                    <Info
+                      label="Phone"
+                      value={
+                        customer.phone ||
+                        "Not Provided"
+                      }
+                    />
+
+                  </div>
+
+                  <textarea
+                    defaultValue={
+                      customer.notes || ""
+                    }
+                    onBlur={e =>
+                      updateNotes(
+                        customer._id,
+                        e.target.value
+                      )
+                    }
+                    placeholder="Customer notes..."
+                    className="w-full mt-5 rounded-2xl border border-slate-700 bg-[#020617] p-4 text-sm text-white"
+                  />
+                </article>
+              )
+            )}
+          </div>
+        )}
+
+      </section>
+    </main>
+  )
+}
+
+function Card({
+  label,
+  value,
+  accent
+}) {
+  return (
+    <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6">
+      <p className="text-sm text-slate-400">
+        {label}
+      </p>
+
+      <h2 className={`mt-2 text-3xl font-extrabold ${accent}`}>
+        {value}
+      </h2>
+    </div>
+  )
+}
+
+function Info({
+  label,
+  value
+}) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-[#020617] p-4">
+      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+        {label}
+      </p>
+
+      <p className="mt-1 font-bold">
+        {value}
+      </p>
     </div>
   )
 }

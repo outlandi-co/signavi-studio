@@ -1,16 +1,87 @@
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import axios from "axios"
+
+const pricing = {
+  laser: {
+    label: "Laser Engraving",
+    base: 15,
+    setup: 10,
+    minimum: 25,
+    description:
+      "Tumblers, keychains, leather patches, wood, acrylic, awards, and custom gifts."
+  },
+  vinyl: {
+    label: "Vinyl Printing",
+    base: 5,
+    setup: 0,
+    minimum: 25,
+    description:
+      "Decals, stickers, simple apparel graphics, names, numbers, and small runs."
+  },
+  digital: {
+    label: "Digital Services",
+    base: 75,
+    setup: 0,
+    minimum: 75,
+    description:
+      "Graphic design, branding, logo cleanup, layout design, and digital mockups."
+  },
+  apparel: {
+    label: "Custom Apparel",
+    base: 18,
+    setup: 15,
+    minimum: 45,
+    description:
+      "Shirts, hoodies, hats, uniforms, event merch, and branded apparel."
+  },
+  signs: {
+    label: "Signs & Banners",
+    base: 45,
+    setup: 15,
+    minimum: 60,
+    description:
+      "Business signs, event banners, decals, promotional displays, and graphics."
+  },
+  photography: {
+    label: "Photography",
+    base: 150,
+    setup: 0,
+    minimum: 150,
+    description:
+      "Portraits, products, events, branding, real estate, and commercial photography."
+  }
+}
+
+const getServiceFromSearch = (search) => {
+  const params = new URLSearchParams(search)
+  const service = params.get("service") || ""
+
+  const normalized = service.toLowerCase()
+
+  if (normalized.includes("laser")) return "laser"
+  if (normalized.includes("vinyl")) return "vinyl"
+  if (normalized.includes("digital")) return "digital"
+  if (normalized.includes("apparel")) return "apparel"
+  if (normalized.includes("sign")) return "signs"
+  if (normalized.includes("photo")) return "photography"
+
+  return "laser"
+}
 
 export default function CustomQuote() {
   const location = useLocation()
   const navigate = useNavigate()
 
+  const initialPrintType = getServiceFromSearch(location.search)
+
   const [form, setForm] = useState({
     name: "",
     email: "",
+    phone: "",
     quantity: 1,
-    printType: "laser",
+    printType: initialPrintType,
+    deadline: "",
     notes: location.state?.idea || ""
   })
 
@@ -18,59 +89,23 @@ export default function CustomQuote() {
   const [preview, setPreview] = useState(null)
   const [loading, setLoading] = useState(false)
 
-  const pricing = {
-  laser: {
-    label: "Laser Engraving",
-    base: 15,
-    setup: 10,
-    minimum: 25
-  },
-
-  vinyl: {
-    label: "Vinyl Printing",
-    base: 5,
-    setup: 0,
-    minimum: 5
-  },
-
-  digital: {
-    label: "Digital Services",
-    base: 75,
-    setup: 0,
-    minimum: 75
-  }
-
-
-    /*
-    screenprint: { label: "Screen Print", base: 8, setup: 20, minimum: 50 },
-    dtf: { label: "DTF Transfer", base: 6, setup: 0, minimum: 35 },
-    embroidery: { label: "Embroidery", base: 10, setup: 30, minimum: 60 }
-    */
-  }
-
-  const selectedService = pricing[form.printType] || {
-    label: "Service",
-    base: 0,
-    setup: 0,
-    minimum: 0
-  }
-
-  const qty = Number(form.quantity || 1)
+  const selectedService = pricing[form.printType] || pricing.laser
+  const qty = Math.max(Number(form.quantity || 1), 1)
 
   let discount = 1
   let discountMsg = ""
 
   if (qty >= 100) {
     discount = 0.75
-    discountMsg = "🔥 25% bulk discount applied"
+    discountMsg = "25% bulk discount estimate applied"
   } else if (qty >= 50) {
     discount = 0.85
-    discountMsg = "🔥 15% bulk discount applied"
+    discountMsg = "15% bulk discount estimate applied"
   } else if (qty >= 12) {
     discount = 0.93
-    discountMsg = "🔥 7% bulk discount applied"
+    discountMsg = "7% bulk discount estimate applied"
   } else {
-    discountMsg = "💡 Order 12+ to unlock discounts"
+    discountMsg = "Order 12+ to unlock possible bulk pricing"
   }
 
   const rawEstimate =
@@ -78,38 +113,49 @@ export default function CustomQuote() {
     selectedService.setup
 
   const estimate = Math.max(rawEstimate, selectedService.minimum)
-
   const perItemEstimate = estimate / qty
 
   const handleChange = (e) => {
     const { name, value } = e.target
 
-    setForm(prev => ({
+    setForm((prev) => ({
       ...prev,
       [name]: name === "quantity" ? Number(value) : value
     }))
   }
 
+  const handleServiceSelect = (key) => {
+    setForm((prev) => ({
+      ...prev,
+      printType: key
+    }))
+  }
+
   const handleFile = (e) => {
-    const selected = e.target.files[0]
+    const selected = e.target.files?.[0]
     if (!selected) return
 
     setFile(selected)
 
-    if (preview) URL.revokeObjectURL(preview)
+    if (preview) {
+      URL.revokeObjectURL(preview)
+    }
+
     setPreview(URL.createObjectURL(selected))
   }
 
   useEffect(() => {
     return () => {
-      if (preview) URL.revokeObjectURL(preview)
+      if (preview) {
+        URL.revokeObjectURL(preview)
+      }
     }
   }, [preview])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    if (!form.name || !form.email) {
+    if (!form.name.trim() || !form.email.trim()) {
       alert("Please fill out name and email")
       return
     }
@@ -124,11 +170,14 @@ export default function CustomQuote() {
       const payload = {
         customerName: form.name,
         email: form.email,
+        phone: form.phone,
         quantity: qty,
         printType: form.printType,
         serviceType: form.printType,
         serviceLabel: selectedService.label,
         price: estimate,
+        finalPrice: estimate,
+        deadline: form.deadline,
         items: [
           {
             name: selectedService.label,
@@ -154,141 +203,243 @@ export default function CustomQuote() {
 
       navigate(`/quote/${quoteId}`)
     } catch (err) {
-      console.error("❌ ERROR:", err.response?.data || err.message)
+      console.error("❌ QUOTE ERROR:", err.response?.data || err.message)
       alert("Server error")
     } finally {
       setLoading(false)
     }
   }
 
-  const inputStyle = {
-    padding: "12px",
-    borderRadius: "8px",
-    background: "#020617",
-    border: "1px solid #374151",
-    color: "#fff"
-  }
-
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "#0f172a",
-      color: "#fff",
-      padding: "40px",
-      display: "flex",
-      justifyContent: "center"
-    }}>
-      <div style={{
-        width: "100%",
-        maxWidth: "500px",
-        background: "#111827",
-        padding: "30px",
-        borderRadius: "16px"
-      }}>
-        <h1>Request a Custom Quote</h1>
+    <main className="min-h-screen bg-[#020617] px-6 py-16 text-white">
+      <section className="mx-auto max-w-7xl">
+        <div className="mb-12 text-center">
+          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.25em] text-cyan-400">
+            Custom Quote
+          </p>
 
-        <div style={{
-          margin: "15px 0",
-          padding: "12px",
-          background: "#020617",
-          borderRadius: "8px",
-          border: "1px solid #06b6d4"
-        }}>
-          <div style={{ fontSize: "18px", fontWeight: "bold" }}>
-            💰 Starting Price at: ${estimate.toFixed(2)}
-          </div>
+          <h1 className="mb-5 text-5xl font-bold leading-tight md:text-7xl">
+            Start Your
+            <br />
+            Custom Project
+          </h1>
 
-          <div style={{ fontSize: "13px", opacity: 0.7 }}>
-            ${perItemEstimate.toFixed(2)} per item
-          </div>
-
-          <div style={{ fontSize: "13px", color: "#38bdf8" }}>
-            {discountMsg}
-          </div>
+          <p className="mx-auto max-w-3xl text-lg leading-relaxed text-slate-400">
+            Tell us what you want to create. This estimate gives a starting
+            point, and your final quote will be reviewed before approval.
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "12px"
-        }}>
-          <input
-            name="name"
-            placeholder="Name"
-            value={form.name}
-            onChange={handleChange}
-            style={inputStyle}
-          />
-
-          <input
-            name="email"
-            placeholder="Email"
-            value={form.email}
-            onChange={handleChange}
-            style={inputStyle}
-          />
-
-          <input
-            name="quantity"
-            type="number"
-            value={form.quantity}
-            onChange={handleChange}
-            min="1"
-            style={inputStyle}
-          />
-
-          <select
-            name="printType"
-            value={form.printType}
-            onChange={handleChange}
-            style={inputStyle}
+        <div className="grid gap-8 lg:grid-cols-[1.1fr_.9fr]">
+          <form
+            onSubmit={handleSubmit}
+            className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6 shadow-xl shadow-black/20 backdrop-blur md:p-8"
           >
-            <option value="laser">Laser Engraving</option>
-            <option value="vinyl">Vinyl Printing</option>
-            <option value="digital">Digital Services</option>
+            <h2 className="mb-6 text-2xl font-bold">
+              Project Details
+            </h2>
 
-            {/*
-            <option value="screenprint">Screen Print</option>
-            <option value="dtf">DTF Transfer</option>
-            <option value="embroidery">Embroidery</option>
-            */}
-          </select>
+            <div className="mb-8 grid gap-4 md:grid-cols-2">
+              {Object.entries(pricing).map(([key, service]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => handleServiceSelect(key)}
+                  className={
+                    form.printType === key
+                      ? "rounded-2xl border border-cyan-400 bg-cyan-400/10 p-5 text-left shadow-lg shadow-cyan-500/10"
+                      : "rounded-2xl border border-slate-800 bg-[#020617] p-5 text-left transition hover:border-cyan-400/60"
+                  }
+                >
+                  <h3 className="mb-2 font-bold text-white">
+                    {service.label}
+                  </h3>
 
-          <textarea
-            name="notes"
-            placeholder="Describe your project..."
-            value={form.notes}
-            onChange={handleChange}
-            style={inputStyle}
-          />
+                  <p className="text-sm leading-relaxed text-slate-400">
+                    {service.description}
+                  </p>
+                </button>
+              ))}
+            </div>
 
-          <input type="file" onChange={handleFile} />
+            <div className="grid gap-5 md:grid-cols-2">
+              <label className="flex flex-col gap-2">
+                <span className="text-sm font-semibold text-slate-300">
+                  Name
+                </span>
 
-          {preview && (
-            <img
-              src={preview}
-              alt="preview"
-              style={{ width: "200px", borderRadius: "8px" }}
-            />
-          )}
+                <input
+                  name="name"
+                  value={form.name}
+                  onChange={handleChange}
+                  placeholder="Your name"
+                  className="rounded-xl border border-slate-700 bg-[#020617] px-4 py-3 text-white outline-none transition focus:border-cyan-400"
+                />
+              </label>
 
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              padding: "14px",
-              background: "#06b6d4",
-              border: "none",
-              borderRadius: "10px",
-              color: "#fff",
-              cursor: loading ? "not-allowed" : "pointer",
-              opacity: loading ? 0.7 : 1
-            }}
-          >
-            {loading ? "Submitting..." : "Submit Quote"}
-          </button>
-        </form>
-      </div>
-    </div>
+              <label className="flex flex-col gap-2">
+                <span className="text-sm font-semibold text-slate-300">
+                  Email
+                </span>
+
+                <input
+                  name="email"
+                  type="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  placeholder="you@email.com"
+                  className="rounded-xl border border-slate-700 bg-[#020617] px-4 py-3 text-white outline-none transition focus:border-cyan-400"
+                />
+              </label>
+
+              <label className="flex flex-col gap-2">
+                <span className="text-sm font-semibold text-slate-300">
+                  Phone
+                </span>
+
+                <input
+                  name="phone"
+                  value={form.phone}
+                  onChange={handleChange}
+                  placeholder="Optional"
+                  className="rounded-xl border border-slate-700 bg-[#020617] px-4 py-3 text-white outline-none transition focus:border-cyan-400"
+                />
+              </label>
+
+              <label className="flex flex-col gap-2">
+                <span className="text-sm font-semibold text-slate-300">
+                  Quantity
+                </span>
+
+                <input
+                  name="quantity"
+                  type="number"
+                  value={form.quantity}
+                  onChange={handleChange}
+                  min="1"
+                  className="rounded-xl border border-slate-700 bg-[#020617] px-4 py-3 text-white outline-none transition focus:border-cyan-400"
+                />
+              </label>
+
+              <label className="flex flex-col gap-2 md:col-span-2">
+                <span className="text-sm font-semibold text-slate-300">
+                  Deadline
+                </span>
+
+                <input
+                  name="deadline"
+                  type="date"
+                  value={form.deadline}
+                  onChange={handleChange}
+                  className="rounded-xl border border-slate-700 bg-[#020617] px-4 py-3 text-white outline-none transition focus:border-cyan-400"
+                />
+              </label>
+
+              <label className="flex flex-col gap-2 md:col-span-2">
+                <span className="text-sm font-semibold text-slate-300">
+                  Project Description
+                </span>
+
+                <textarea
+                  name="notes"
+                  value={form.notes}
+                  onChange={handleChange}
+                  placeholder="Describe your project, sizes, colors, material, logo placement, or any important details..."
+                  rows="6"
+                  className="rounded-xl border border-slate-700 bg-[#020617] px-4 py-3 text-white outline-none transition focus:border-cyan-400"
+                />
+              </label>
+
+              <label className="md:col-span-2">
+                <span className="mb-2 block text-sm font-semibold text-slate-300">
+                  Upload Artwork / Reference
+                </span>
+
+                <div className="rounded-2xl border border-dashed border-slate-700 bg-[#020617] p-5">
+                  <input
+                    type="file"
+                    onChange={handleFile}
+                    className="w-full text-sm text-slate-400 file:mr-4 file:rounded-full file:border-0 file:bg-cyan-500 file:px-4 file:py-2 file:font-bold file:text-black hover:file:bg-cyan-400"
+                  />
+
+                  {file && (
+                    <p className="mt-3 text-sm text-slate-400">
+                      Selected: {file.name}
+                    </p>
+                  )}
+
+                  {preview && (
+                    <img
+                      src={preview}
+                      alt="Artwork preview"
+                      className="mt-4 max-h-56 rounded-xl border border-slate-800 object-contain"
+                    />
+                  )}
+                </div>
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="mt-8 w-full rounded-2xl bg-gradient-to-r from-cyan-400 to-blue-600 px-6 py-4 font-bold text-white shadow-lg shadow-cyan-500/20 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? "Submitting..." : "Submit Quote Request"}
+            </button>
+          </form>
+
+          <aside className="h-fit rounded-3xl border border-slate-800 bg-slate-950/80 p-6 shadow-xl shadow-black/20 backdrop-blur md:p-8">
+            <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-cyan-400">
+              Estimate Preview
+            </p>
+
+            <h2 className="mb-4 text-3xl font-bold">
+              {selectedService.label}
+            </h2>
+
+            <div className="mb-6 rounded-3xl border border-cyan-400/30 bg-cyan-400/10 p-6">
+              <p className="text-sm text-slate-400">
+                Starting Estimate
+              </p>
+
+              <p className="mt-2 text-5xl font-bold text-cyan-300">
+                ${estimate.toFixed(2)}
+              </p>
+
+              <p className="mt-2 text-sm text-slate-400">
+                About ${perItemEstimate.toFixed(2)} per item
+              </p>
+            </div>
+
+            <div className="space-y-4 text-slate-300">
+              <div className="flex justify-between border-b border-slate-800 pb-3">
+                <span>Quantity</span>
+                <strong>{qty}</strong>
+              </div>
+
+              <div className="flex justify-between border-b border-slate-800 pb-3">
+                <span>Setup</span>
+                <strong>${selectedService.setup.toFixed(2)}</strong>
+              </div>
+
+              <div className="flex justify-between border-b border-slate-800 pb-3">
+                <span>Minimum</span>
+                <strong>${selectedService.minimum.toFixed(2)}</strong>
+              </div>
+
+              <div className="rounded-2xl border border-slate-800 bg-[#020617] p-4 text-sm text-cyan-300">
+                {discountMsg}
+              </div>
+            </div>
+
+            <p className="mt-6 text-sm leading-relaxed text-slate-500">
+              Final pricing may change based on material, artwork complexity,
+              turnaround time, product availability, setup, shipping, and
+              production requirements.
+            </p>
+          </aside>
+        </div>
+      </section>
+    </main>
   )
 }

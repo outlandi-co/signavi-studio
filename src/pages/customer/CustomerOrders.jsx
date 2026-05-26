@@ -3,15 +3,60 @@ import { useNavigate } from "react-router-dom"
 import api from "../../services/api"
 
 const statusStyles = {
-  pending: "bg-gray-600",
-  payment_required: "bg-yellow-500 text-black",
-  paid: "bg-green-600",
-  production: "bg-purple-600",
-  shipping: "bg-blue-500",
-  shipped: "bg-indigo-500",
-  delivered: "bg-emerald-600",
-  denied: "bg-red-600",
-  archive: "bg-gray-500"
+  pending: "border-slate-500/30 bg-slate-500/10 text-slate-300",
+  payment_required: "border-yellow-500/30 bg-yellow-500/10 text-yellow-300",
+  paid: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+  ready_for_production: "border-blue-500/30 bg-blue-500/10 text-blue-300",
+  production: "border-purple-500/30 bg-purple-500/10 text-purple-300",
+  shipping: "border-sky-500/30 bg-sky-500/10 text-sky-300",
+  shipped: "border-indigo-500/30 bg-indigo-500/10 text-indigo-300",
+  delivered: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+  denied: "border-red-500/30 bg-red-500/10 text-red-300",
+  archive: "border-slate-500/30 bg-slate-500/10 text-slate-300"
+}
+
+const timelineSteps = [
+  "pending",
+  "payment_required",
+  "paid",
+  "production",
+  "shipping",
+  "delivered"
+]
+
+const money = (value = 0) => {
+  return Number(value || 0).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD"
+  })
+}
+
+const formatStatus = (status = "") => {
+  return String(status || "pending")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+const getCustomerEmail = () => {
+  let email = ""
+
+  const storedUser = localStorage.getItem("customerUser")
+  const fallbackEmail = localStorage.getItem("customerEmail")
+
+  if (storedUser) {
+    try {
+      const parsedUser = JSON.parse(storedUser)
+      email = parsedUser?.email || ""
+    } catch {
+      console.warn("⚠️ Failed to parse customerUser")
+    }
+  }
+
+  if (!email && fallbackEmail) {
+    email = fallbackEmail
+  }
+
+  return email.trim().toLowerCase()
 }
 
 export default function CustomerOrders() {
@@ -22,30 +67,14 @@ export default function CustomerOrders() {
   const [error, setError] = useState("")
 
   useEffect(() => {
+    let isMounted = true
+
     const loadOrders = async () => {
       try {
         setLoading(true)
         setError("")
 
-        let email = ""
-
-        const storedUser = localStorage.getItem("customerUser")
-        const fallbackEmail = localStorage.getItem("customerEmail")
-
-        if (storedUser) {
-          try {
-            const parsedUser = JSON.parse(storedUser)
-            email = parsedUser?.email || ""
-          } catch {
-            console.warn("⚠️ Failed to parse customerUser")
-          }
-        }
-
-        if (!email && fallbackEmail) {
-          email = fallbackEmail
-        }
-
-        email = email.trim().toLowerCase()
+        const email = getCustomerEmail()
 
         if (!email) {
           setOrders([])
@@ -53,13 +82,11 @@ export default function CustomerOrders() {
           return
         }
 
-        console.log("📧 FETCHING ORDERS FOR:", email)
-
         const res = await api.get(
           `/orders/my-orders?email=${encodeURIComponent(email)}`
         )
 
-        console.log("📦 ORDERS RESPONSE:", res.data)
+        if (!isMounted) return
 
         const data =
           res.data?.data ||
@@ -70,156 +97,437 @@ export default function CustomerOrders() {
 
         setOrders(Array.isArray(data) ? data : [])
       } catch (err) {
-        console.error("❌ LOAD ORDERS ERROR:", err.response?.data || err.message)
+        if (!isMounted) return
+
+        console.error(
+          "❌ LOAD ORDERS ERROR:",
+          err.response?.data || err.message
+        )
+
         setOrders([])
         setError("Could not load your orders right now.")
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
 
-    loadOrders()
+    const timer = setTimeout(() => {
+      loadOrders()
+    }, 0)
+
+    return () => {
+      isMounted = false
+      clearTimeout(timer)
+    }
   }, [])
+
+  const activeOrders = orders.filter(
+    (order) =>
+      !["delivered", "shipped", "archive", "denied"].includes(
+        order.status || ""
+      )
+  )
+
+  const awaitingPayment = orders.filter(
+    (order) => order.status === "payment_required"
+  )
+
+  const totalSpent = orders.reduce((sum, order) => {
+    return sum + Number(order.finalPrice || order.total || order.subtotal || 0)
+  }, 0)
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center">
+      <main className="flex min-h-screen items-center justify-center bg-[#020617] text-white">
         Loading orders...
-      </div>
+      </main>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white p-6">
-      <div className="max-w-5xl mx-auto">
+    <main className="min-h-screen bg-[#020617] px-6 py-16 text-white">
+      <section className="mx-auto max-w-7xl">
         <button
-          onClick={() => navigate("/customer/dashboard")}
-          className="mb-5 text-sm text-blue-400 hover:text-blue-300"
+          type="button"
+          onClick={() => navigate("/dashboard")}
+          className="mb-8 text-sm font-semibold text-cyan-300 transition hover:text-cyan-200"
         >
           ← Back to Dashboard
         </button>
 
-        <h1 className="text-2xl font-semibold mb-2">📦 My Orders</h1>
+        <div className="mb-10">
+          <p className="mb-3 text-sm font-bold uppercase tracking-[0.25em] text-cyan-400">
+            Customer Orders
+          </p>
 
-        <p className="text-gray-400 mb-6">
-          View your order history, payment status, and tracking updates.
-        </p>
+          <h1 className="text-4xl font-extrabold md:text-5xl">
+            My Orders
+          </h1>
+
+          <p className="mt-3 max-w-2xl text-slate-400">
+            View your order history, payment status, production progress,
+            tracking updates, invoices, and receipts.
+          </p>
+        </div>
 
         {error && (
-          <div className="bg-red-950/40 border border-red-500/40 text-red-300 p-4 rounded mb-4">
+          <div className="mb-6 rounded-3xl border border-red-500/40 bg-red-950/40 p-6 text-red-300">
             {error}
           </div>
         )}
 
-        {!error && orders.length === 0 && (
-          <div className="bg-[#0f172a] border border-white/10 p-5 rounded">
-            <p className="text-gray-400">No orders found.</p>
+        {!error && (
+          <>
+            <div className="mb-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+              <SummaryCard
+                label="Total Orders"
+                value={orders.length}
+                note="All orders"
+                accent="text-cyan-300"
+              />
+
+              <SummaryCard
+                label="Active Orders"
+                value={activeOrders.length}
+                note="Currently in progress"
+                accent="text-blue-300"
+              />
+
+              <SummaryCard
+                label="Awaiting Payment"
+                value={awaitingPayment.length}
+                note="Payment required"
+                accent="text-yellow-300"
+              />
+
+              <SummaryCard
+                label="Total Spent"
+                value={money(totalSpent)}
+                note="Across all orders"
+                accent="text-emerald-300"
+              />
+            </div>
+
+            {orders.length === 0 ? (
+              <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-10 text-center">
+                <h2 className="mb-3 text-2xl font-bold">
+                  No Orders Found
+                </h2>
+
+                <p className="mb-6 text-slate-400">
+                  When you place an order, it will show up here.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => navigate("/store")}
+                  className="rounded-full bg-cyan-500 px-6 py-3 font-bold text-black transition hover:bg-cyan-400"
+                >
+                  Continue Shopping
+                </button>
+              </div>
+            ) : (
+              <div className="grid gap-5">
+                {orders.map((order) => (
+                  <OrderCard
+                    key={order._id}
+                    order={order}
+                    navigate={navigate}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </section>
+    </main>
+  )
+}
+
+function OrderCard({ order, navigate }) {
+  const status = order.status || "pending"
+
+  const total = Number(
+    order.finalPrice ||
+      order.total ||
+      order.subtotal ||
+      0
+  )
+
+  const trackingNumber =
+    order.trackingNumber ||
+    order.tracking ||
+    ""
+
+  const trackingLink =
+    order.trackingLink ||
+    order.trackingUrl ||
+    ""
+
+  const invoiceId =
+    order.invoiceId ||
+    order.invoice?._id ||
+    order.invoice ||
+    ""
+
+  const invoiceUrl =
+    order.invoiceUrl ||
+    order.invoice?.url ||
+    ""
+
+  const receiptUrl =
+    order.receiptUrl ||
+    order.receipt?.url ||
+    ""
+
+  return (
+    <article
+      onClick={() => navigate(`/order/${order._id}`)}
+      className="cursor-pointer rounded-3xl border border-slate-800 bg-slate-950/80 p-6 shadow-xl shadow-black/20 transition hover:border-cyan-500"
+    >
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="mb-1 text-xs uppercase tracking-[0.18em] text-slate-500">
+            Order
+          </p>
+
+          <h2 className="text-2xl font-bold">
+            #{String(order._id || "").slice(-6).toUpperCase()}
+          </h2>
+
+          <p className="mt-1 text-sm text-slate-500">
+            {order.createdAt
+              ? new Date(order.createdAt).toLocaleDateString()
+              : "No date"}
+          </p>
+        </div>
+
+        <span
+          className={`rounded-full border px-4 py-2 text-xs font-bold ${
+            statusStyles[status] ||
+            "border-slate-500/30 bg-slate-500/10 text-slate-300"
+          }`}
+        >
+          {formatStatus(status)}
+        </span>
+      </div>
+
+      <div className="mb-5 grid gap-3 md:grid-cols-3">
+        <DetailBox
+          label="Items"
+          value={`${order.items?.length || 0} item(s)`}
+        />
+
+        <DetailBox
+          label="Total"
+          value={money(total)}
+        />
+
+        <DetailBox
+          label="Tracking"
+          value={trackingNumber || "Not added yet"}
+        />
+      </div>
+
+      {order.items?.length > 0 ? (
+        <div className="mb-5 rounded-2xl border border-slate-800 bg-[#020617] p-4">
+          <p className="mb-3 text-xs uppercase tracking-[0.18em] text-slate-500">
+            Order Items
+          </p>
+
+          <div className="space-y-2">
+            {order.items.map((item, index) => (
+              <div
+                key={`${item.name || "item"}-${index}`}
+                className="flex flex-wrap justify-between gap-3 text-sm text-slate-300"
+              >
+                <span>
+                  {item.name || "Item"}{" "}
+                  <span className="text-slate-500">
+                    (
+                    {item.variant?.color ||
+                      item.selectedVariant?.color ||
+                      "-"}
+                    {" / "}
+                    {item.variant?.size ||
+                      item.selectedVariant?.size ||
+                      "-"}
+                    )
+                  </span>
+                </span>
+
+                <span>
+                  × {item.quantity || 1}
+                </span>
+              </div>
+            ))}
           </div>
+        </div>
+      ) : (
+        <div className="mb-5 rounded-2xl border border-slate-800 bg-[#020617] p-4 text-sm text-slate-500">
+          No items listed.
+        </div>
+      )}
+
+      <Timeline status={status} />
+
+      <div className="mt-6 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            navigate(`/order/${order._id}`)
+          }}
+          className="rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-400 hover:text-cyan-300"
+        >
+          Details
+        </button>
+
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            navigate(`/track/${order._id}`)
+          }}
+          className="rounded-full bg-blue-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-500"
+        >
+          Track
+        </button>
+
+        {trackingLink && (
+          <a
+            href={trackingLink}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(event) => event.stopPropagation()}
+            className="rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-400 hover:text-cyan-300"
+          >
+            Tracking Link
+          </a>
         )}
 
-        {!error && orders.length > 0 && (
-          <div className="grid gap-4">
-            {orders.map((order) => {
-              const status = order.status || "unknown"
+        {order.paymentUrl && status === "payment_required" && (
+          <a
+            href={order.paymentUrl}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(event) => event.stopPropagation()}
+            className="rounded-full bg-yellow-400 px-4 py-2 text-sm font-bold text-black transition hover:bg-yellow-300"
+          >
+            Pay Now
+          </a>
+        )}
 
-              const total = Number(
-                order.finalPrice || order.total || order.subtotal || 0
-              )
+        {invoiceId && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              navigate(`/invoice/${invoiceId}`)
+            }}
+            className="rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-400 hover:text-cyan-300"
+          >
+            Invoice
+          </button>
+        )}
 
-              return (
-                <div
-                  key={order._id}
-                  className="bg-[#0f172a] border border-white/10 rounded-xl p-5 shadow-lg hover:scale-[1.01] transition cursor-pointer"
-                  onClick={() => navigate(`/order/${order._id}`)}
-                >
-                  <div className="flex justify-between items-center mb-3 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-400">Order ID</p>
-                      <p className="font-mono text-xs break-all">
-                        {order._id}
-                      </p>
-                    </div>
+        {invoiceUrl && (
+          <a
+            href={invoiceUrl}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(event) => event.stopPropagation()}
+            className="rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-400 hover:text-cyan-300"
+          >
+            Download Invoice
+          </a>
+        )}
 
-                    <span
-                      className={`px-3 py-1 text-xs rounded-full whitespace-nowrap ${
-                        statusStyles[status] || "bg-gray-700"
-                      }`}
-                    >
-                      {status.replaceAll("_", " ")}
-                    </span>
-                  </div>
-
-                  <div className="mb-3 space-y-1">
-                    {order.items?.length > 0 ? (
-                      order.items.map((item, i) => (
-                        <div key={i} className="text-sm text-gray-300">
-                          {item.name || "Item"} (
-                          {item.variant?.color ||
-                            item.selectedVariant?.color ||
-                            "-"}{" "}
-                          /{" "}
-                          {item.variant?.size ||
-                            item.selectedVariant?.size ||
-                            "-"}
-                          ) × {item.quantity || 1}
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-gray-500">No items listed</p>
-                    )}
-                  </div>
-
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-400">
-                      {order.createdAt
-                        ? new Date(order.createdAt).toLocaleDateString()
-                        : "No date"}
-                    </span>
-
-                    <span className="font-semibold text-green-400">
-                      ${total.toFixed(2)}
-                    </span>
-                  </div>
-
-                  <div className="mt-3 flex gap-2 flex-wrap">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        navigate(`/order/${order._id}`)
-                      }}
-                      className="text-xs bg-gray-700 px-3 py-1 rounded hover:bg-gray-600"
-                    >
-                      Details
-                    </button>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        navigate(`/track/${order._id}`)
-                      }}
-                      className="text-xs bg-blue-600 px-3 py-1 rounded hover:bg-blue-500"
-                    >
-                      Track
-                    </button>
-
-                    {order.paymentUrl && status === "payment_required" && (
-                      <a
-                        href={order.paymentUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-xs bg-yellow-500 text-black px-3 py-1 rounded hover:bg-yellow-400"
-                      >
-                        Pay Now
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+        {receiptUrl && (
+          <a
+            href={receiptUrl}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(event) => event.stopPropagation()}
+            className="rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold text-white transition hover:border-cyan-400 hover:text-cyan-300"
+          >
+            Receipt
+          </a>
         )}
       </div>
+    </article>
+  )
+}
+
+function Timeline({ status }) {
+  const activeIndex = timelineSteps.indexOf(status)
+
+  return (
+    <div className="mt-5">
+      <div className="mb-2 flex justify-between text-[10px] uppercase tracking-[0.14em] text-slate-500">
+        {timelineSteps.map((step) => (
+          <span key={step}>
+            {step === "payment_required"
+              ? "Payment"
+              : formatStatus(step)}
+          </span>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-6 gap-2">
+        {timelineSteps.map((step, index) => (
+          <div
+            key={step}
+            className={
+              index <= activeIndex
+                ? "h-2 rounded-full bg-cyan-400"
+                : "h-2 rounded-full bg-slate-800"
+            }
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SummaryCard({
+  label,
+  value,
+  note,
+  accent
+}) {
+  return (
+    <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6 shadow-xl shadow-black/20">
+      <p className="mb-2 text-sm text-slate-400">
+        {label}
+      </p>
+
+      <h2 className={`text-3xl font-extrabold ${accent}`}>
+        {value}
+      </h2>
+
+      <p className="mt-2 text-sm text-slate-500">
+        {note}
+      </p>
+    </div>
+  )
+}
+
+function DetailBox({
+  label,
+  value
+}) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-[#020617] p-4">
+      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+        {label}
+      </p>
+
+      <p className="mt-1 font-bold text-white">
+        {value}
+      </p>
     </div>
   )
 }

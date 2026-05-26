@@ -11,29 +11,31 @@ export default function Login() {
 
   const navigate = useNavigate()
 
-  /* ================= INIT ================= */
   useEffect(() => {
-    const init = async () => {
-      try {
-        await api.get("/ping").catch(() => {})
+    const token =
+      localStorage.getItem("adminToken") ||
+      sessionStorage.getItem("adminToken")
 
-        const token =
-          localStorage.getItem("adminToken") ||
-          sessionStorage.getItem("adminToken")
+    const userRaw =
+      localStorage.getItem("adminUser") ||
+      sessionStorage.getItem("adminUser")
 
-        if (token) {
-          console.log("✅ Existing admin session → redirect")
-          navigate("/admin/production", { replace: true })
-        }
-      } catch {
-        console.log("⚠️ Init failed")
+    if (!token || !userRaw) return
+
+    try {
+      const user = JSON.parse(userRaw)
+
+      if (user?.role === "admin") {
+        navigate("/admin/production", { replace: true })
       }
+    } catch {
+      localStorage.removeItem("adminToken")
+      localStorage.removeItem("adminUser")
+      sessionStorage.removeItem("adminToken")
+      sessionStorage.removeItem("adminUser")
     }
-
-    init()
   }, [navigate])
 
-  /* ================= LOGIN ================= */
   const handleLogin = async (e) => {
     e.preventDefault()
     if (loading) return
@@ -49,39 +51,37 @@ export default function Login() {
       setLoading(true)
       setError("")
 
-      let res
-      let attempts = 0
+      const res = await api.post("/auth/login", {
+        email: cleanEmail,
+        password
+      })
 
-      while (attempts < 3) {
-        try {
-          res = await api.post("/auth/login", {
-            email: cleanEmail,
-            password
-          })
-          break
-        } catch (err) {
-          attempts++
+      const token =
+        res.data?.token ||
+        res.data?.data?.token
 
-          if (attempts < 3 && err?.code === "ERR_NETWORK") {
-            console.log("⏳ Waking server...")
-            await new Promise((resolve) => setTimeout(resolve, 2500))
-          } else {
-            throw err
-          }
-        }
-      }
+      const user =
+        res.data?.user ||
+        res.data?.data?.user ||
+        res.data?.admin ||
+        null
 
-      if (!res?.data?.token || !res?.data?.user) {
+      if (!token || !user) {
         throw new Error("Invalid login response")
       }
 
-      const { token, user } = res.data
+      const normalizedUser = {
+        ...user,
+        role: user.role || user.userRole || user.accountType
+      }
 
-      if (user.role !== "admin") {
+      console.log("🔍 LOGIN RESPONSE USER:", normalizedUser)
+      console.log("🔍 LOGIN RESPONSE ROLE:", normalizedUser?.role)
+
+      if (normalizedUser.role !== "admin") {
         throw new Error("This login is for admins only")
       }
 
-      /* 🔥 CLEAR OLD ADMIN/CUSTOMER SESSIONS */
       localStorage.removeItem("adminToken")
       localStorage.removeItem("adminUser")
       sessionStorage.removeItem("adminToken")
@@ -93,16 +93,13 @@ export default function Login() {
       sessionStorage.removeItem("customerToken")
       sessionStorage.removeItem("customerUser")
 
-      /* 🔥 STORE BASED ON REMEMBER */
       if (remember) {
         localStorage.setItem("adminToken", token)
-        localStorage.setItem("adminUser", JSON.stringify(user))
+        localStorage.setItem("adminUser", JSON.stringify(normalizedUser))
       } else {
         sessionStorage.setItem("adminToken", token)
-        sessionStorage.setItem("adminUser", JSON.stringify(user))
+        sessionStorage.setItem("adminUser", JSON.stringify(normalizedUser))
       }
-
-      console.log("✅ ADMIN LOGGED IN:", user)
 
       navigate("/admin/production", { replace: true })
     } catch (err) {
@@ -145,7 +142,7 @@ export default function Login() {
           <input
             type="checkbox"
             checked={remember}
-            onChange={() => setRemember(!remember)}
+            onChange={() => setRemember((prev) => !prev)}
           />
           Remember Me
         </label>
@@ -169,8 +166,6 @@ export default function Login() {
     </div>
   )
 }
-
-/* ================= STYLES ================= */
 
 const container = {
   minHeight: "100vh",

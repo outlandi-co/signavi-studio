@@ -1,5 +1,12 @@
-import { useEffect, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState
+} from "react"
+
 import api from "../services/api"
+import { getSocket } from "../services/socket"
 
 import {
   DndContext,
@@ -32,34 +39,177 @@ const COMPLETED_QUOTE_STATUSES = [
   "archive"
 ]
 
-function DropColumn({ id, jobs }) {
-  const { setNodeRef, isOver } = useDroppable({
+const columnLabels = {
+  quotes: "Quotes",
+  payment_required: "Payment Required",
+  ready_for_production: "Ready For Production",
+  production: "Production",
+  shipping: "Shipping",
+  shipped: "Shipped"
+}
+
+const money = (value = 0) => {
+  return Number(value || 0).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD"
+  })
+}
+
+const getJobValue = (job = {}) => {
+  return Number(
+    job.finalPrice ||
+      job.total ||
+      job.price ||
+      job.subtotal ||
+      0
+  )
+}
+
+const searchJob = (job = {}, term = "") => {
+  if (!term.trim()) return true
+
+  const haystack = [
+    job._id,
+    job.customerName,
+    job.name,
+    job.email,
+    job.phone,
+    job.status,
+    job.source,
+    job.orderType,
+    job.invoiceNumber,
+    job.trackingNumber
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+
+  return haystack.includes(term.trim().toLowerCase())
+}
+
+const isOverdue = (job = {}) => {
+  if (!job.dueDate) return false
+
+  return Date.now() > new Date(job.dueDate).getTime()
+}
+
+const cardStyle = {
+  background: "rgba(15, 23, 42, 0.85)",
+  border: "1px solid #1e293b",
+  borderRadius: 18,
+  padding: 20,
+  color: "white",
+  boxShadow: "0 14px 35px rgba(0,0,0,.25)"
+}
+
+function DropColumn({
+  id,
+  jobs
+}) {
+  const {
+    setNodeRef,
+    isOver
+  } = useDroppable({
     id,
     data: {
       columnId: id
     }
   })
 
+  const columnRevenue = jobs.reduce(
+    (sum, job) => sum + getJobValue(job),
+    0
+  )
+
   return (
     <div
       ref={setNodeRef}
       style={{
-        width: 260,
-        minHeight: 400,
-        background: isOver ? "#1e293b" : "#0f172a",
-        padding: 12,
-        borderRadius: 10
+        width: 320,
+        minHeight: 600,
+        background: isOver ? "#172554" : "rgba(15, 23, 42, 0.9)",
+        padding: 16,
+        borderRadius: 22,
+        border: isOver ? "1px solid #38bdf8" : "1px solid #1e293b",
+        boxShadow: "0 16px 40px rgba(0,0,0,.28)",
+        flexShrink: 0,
+        transition: "all .2s ease"
       }}
     >
-      <h3 style={{ color: "white" }}>{id}</h3>
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 2,
+          marginBottom: 16,
+          paddingBottom: 12,
+          borderBottom: "1px solid #1e293b",
+          background: isOver ? "#172554" : "rgba(15, 23, 42, 0.95)"
+        }}
+      >
+        <h3
+          style={{
+            color: "white",
+            fontSize: 16,
+            fontWeight: 800,
+            margin: 0
+          }}
+        >
+          {columnLabels[id] || id.replaceAll("_", " ")}
 
-      {jobs.map(job => (
-        <JobCard
-          key={job._id}
-          job={job}
-          isQuoteCard={false}
-        />
-      ))}
+          <span
+            style={{
+              marginLeft: 8,
+              color: "#67e8f9"
+            }}
+          >
+            ({jobs.length})
+          </span>
+        </h3>
+
+        <p
+          style={{
+            margin: "8px 0 0",
+            color: "#94a3b8",
+            fontSize: 12,
+            fontWeight: 700
+          }}
+        >
+          {money(columnRevenue)}
+        </p>
+      </div>
+
+      {jobs.length === 0 ? (
+        <p
+          style={{
+            color: "#64748b",
+            fontSize: 14,
+            margin: 0
+          }}
+        >
+          No jobs in this column
+        </p>
+      ) : (
+        jobs.map((job) => (
+          <div
+            key={job._id}
+            style={{
+              position: "relative"
+            }}
+          >
+            {isOverdue(job) && (
+              <div style={overdueBadge}>
+                ⚠️ Overdue
+              </div>
+            )}
+
+            <JobCard
+              job={job}
+              isQuoteCard={false}
+            />
+          </div>
+        ))
+      )}
     </div>
   )
 }
@@ -67,12 +217,13 @@ function DropColumn({ id, jobs }) {
 export default function ProductionBoard() {
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(false)
+  const [search, setSearch] = useState("")
 
   const sensors = useSensors(
     useSensor(PointerSensor)
   )
 
-  const isPendingQuote = (quote) => {
+  const isPendingQuote = useCallback((quote) => {
     const approvalStatus = quote.approvalStatus || "pending"
     const quoteStatus = quote.status || "pending"
 
@@ -80,32 +231,45 @@ export default function ProductionBoard() {
       approvalStatus === "pending" &&
       !COMPLETED_QUOTE_STATUSES.includes(quoteStatus)
     )
-  }
+  }, [])
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true)
 
-      const [ordersRes, quotesRes] = await Promise.all([
+      const [
+        ordersRes,
+        quotesRes
+      ] = await Promise.all([
         api.get("/orders"),
         api.get("/quotes").catch(() => ({
-          data: { data: [] }
+          data: {
+            data: []
+          }
         }))
       ])
 
-      const orders = ordersRes.data?.data || []
-      const quotes = quotesRes.data?.data || []
+      const orders =
+        Array.isArray(ordersRes.data)
+          ? ordersRes.data
+          : ordersRes.data?.data || []
 
-      const pendingQuotes = quotes.filter(isPendingQuote)
+      const quotes =
+        Array.isArray(quotesRes.data)
+          ? quotesRes.data
+          : quotesRes.data?.data || []
+
+      const pendingQuotes =
+        quotes.filter(isPendingQuote)
 
       const merged = [
-        ...pendingQuotes.map(q => ({
-          ...q,
+        ...pendingQuotes.map((quote) => ({
+          ...quote,
           status: "quotes",
           source: "quote"
         })),
 
-        ...orders.map(order => ({
+        ...orders.map((order) => ({
           ...order,
           source: order.source || "order"
         }))
@@ -117,37 +281,67 @@ export default function ProductionBoard() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [isPendingQuote])
 
   useEffect(() => {
-  const timer = setTimeout(() => {
-    load()
-  }, 0)
+    const timer = setTimeout(() => {
+      load()
+    }, 0)
 
-  return () => clearTimeout(timer)
+    return () => clearTimeout(timer)
+  }, [load])
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [])
+  useEffect(() => {
+    let socket
+
+    const init = async () => {
+      socket = await getSocket()
+
+      if (!socket) return
+
+      socket.on("orderCreated", load)
+      socket.on("orderUpdated", load)
+      socket.on("jobCreated", load)
+      socket.on("jobUpdated", load)
+      socket.on("quoteUpdated", load)
+      socket.on("pricingUpdated", load)
+    }
+
+    init()
+
+    return () => {
+      socket?.off("orderCreated", load)
+      socket?.off("orderUpdated", load)
+      socket?.off("jobCreated", load)
+      socket?.off("jobUpdated", load)
+      socket?.off("quoteUpdated", load)
+      socket?.off("pricingUpdated", load)
+    }
+  }, [load])
 
   const removeQuoteFromBoard = (quoteId) => {
-    setJobs(prev =>
-      prev.filter(job => job._id !== quoteId)
+    setJobs((prev) =>
+      prev.filter((job) => job._id !== quoteId)
     )
   }
 
   const refreshOrdersOnly = async () => {
     try {
       const ordersRes = await api.get("/orders")
-      const orders = ordersRes.data?.data || []
 
-      setJobs(prev => {
+      const orders =
+        Array.isArray(ordersRes.data)
+          ? ordersRes.data
+          : ordersRes.data?.data || []
+
+      setJobs((prev) => {
         const remainingQuotes = prev.filter(
-          job => job.source === "quote"
+          (job) => job.source === "quote"
         )
 
         return [
           ...remainingQuotes,
-          ...orders.map(order => ({
+          ...orders.map((order) => ({
             ...order,
             source: order.source || "order"
           }))
@@ -164,8 +358,8 @@ export default function ProductionBoard() {
 
       const finalPrice = Number(
         job.finalPrice ||
-        job.price ||
-        0
+          job.price ||
+          0
       )
 
       await api.patch(`/quotes/${job._id}`, {
@@ -207,15 +401,21 @@ export default function ProductionBoard() {
     }
   }
 
-  const handleDragEnd = async ({ active, over }) => {
+  const handleDragEnd = async ({
+    active,
+    over
+  }) => {
     if (!over) return
 
     const jobId = active.id
-    const columnId = over?.data?.current?.columnId
+    const columnId =
+      over?.data?.current?.columnId
 
     if (!VALID_STATUSES.includes(columnId)) return
 
-    const draggedJob = jobs.find(job => job._id === jobId)
+    const draggedJob = jobs.find(
+      (job) => job._id === jobId
+    )
 
     if (!draggedJob || draggedJob.source === "quote") return
 
@@ -224,61 +424,233 @@ export default function ProductionBoard() {
         status: columnId
       })
 
-      setJobs(prev =>
-        prev.map(job =>
+      setJobs((prev) =>
+        prev.map((job) =>
           job._id === jobId
-            ? { ...job, status: columnId }
+            ? {
+                ...job,
+                status: columnId
+              }
             : job
         )
       )
     } catch (err) {
       console.error("❌ DRAG ERROR:", err)
+      await load()
     }
   }
 
-  const grouped = {
-    quotes: jobs.filter(
-      job =>
-        job.status === "quotes" &&
-        job.source === "quote" &&
-        isPendingQuote(job)
-    ),
-
-    payment_required: jobs.filter(
-      job => job.status === "payment_required"
-    ),
-
-    ready_for_production: jobs.filter(
-      job => job.status === "ready_for_production"
-    ),
-
-    production: jobs.filter(
-      job => job.status === "production"
-    ),
-
-    shipping: jobs.filter(
-      job => job.status === "shipping"
-    ),
-
-    shipped: jobs.filter(
-      job => job.status === "shipped"
+  const filteredJobs = useMemo(() => {
+    return jobs.filter((job) =>
+      searchJob(job, search)
     )
-  }
+  }, [jobs, search])
+
+  const grouped = useMemo(() => {
+    return {
+      quotes: filteredJobs.filter(
+        (job) =>
+          job.status === "quotes" &&
+          job.source === "quote" &&
+          isPendingQuote(job)
+      ),
+
+      payment_required: filteredJobs.filter(
+        (job) => job.status === "payment_required"
+      ),
+
+      ready_for_production: filteredJobs.filter(
+        (job) => job.status === "ready_for_production"
+      ),
+
+      production: filteredJobs.filter(
+        (job) => job.status === "production"
+      ),
+
+      shipping: filteredJobs.filter(
+        (job) => job.status === "shipping"
+      ),
+
+      shipped: filteredJobs.filter(
+        (job) => job.status === "shipped"
+      )
+    }
+  }, [
+    filteredJobs,
+    isPendingQuote
+  ])
+
+  const boardColumns = Object.entries(grouped).filter(
+    ([column]) => column !== "quotes"
+  )
+
+  const allOrderJobs = filteredJobs.filter(
+    (job) => job.source !== "quote"
+  )
+
+  const totalRevenue = allOrderJobs.reduce(
+    (sum, job) => sum + getJobValue(job),
+    0
+  )
+
+  const productionRevenue = grouped.production.reduce(
+    (sum, job) => sum + getJobValue(job),
+    0
+  )
+
+  const shippedRevenue = grouped.shipped.reduce(
+    (sum, job) => sum + getJobValue(job),
+    0
+  )
+
+  const averageOrder =
+    allOrderJobs.length > 0
+      ? totalRevenue / allOrderJobs.length
+      : 0
 
   return (
     <div
       style={{
-        padding: 20,
-        background: "#020617",
+        padding: 24,
+        background:
+          "radial-gradient(circle at top right, rgba(6,182,212,.12), transparent 35%), #020617",
         minHeight: "100vh"
       }}
     >
-      <h1 style={{ color: "white" }}>
-        🏭 Production Board
-      </h1>
+      <div
+        style={{
+          marginBottom: 28
+        }}
+      >
+        <p
+          style={{
+            color: "#67e8f9",
+            textTransform: "uppercase",
+            letterSpacing: ".18em",
+            marginBottom: 8,
+            fontSize: 13,
+            fontWeight: 700
+          }}
+        >
+          SignaVi Studio
+        </p>
+
+        <h1
+          style={{
+            color: "white",
+            fontSize: 42,
+            lineHeight: 1,
+            fontWeight: 800,
+            margin: 0
+          }}
+        >
+          Production Board
+        </h1>
+
+        <p
+          style={{
+            color: "#94a3b8",
+            marginTop: 10,
+            maxWidth: 680
+          }}
+        >
+          Track quotes, payments, production, shipping, and completed
+          orders from one organized workflow.
+        </p>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: 16,
+          marginBottom: 18
+        }}
+      >
+        <MetricCard
+          value={grouped.quotes.length}
+          label="Pending Quotes"
+          color="#67e8f9"
+        />
+
+        <MetricCard
+          value={grouped.payment_required.length}
+          label="Awaiting Payment"
+          color="#facc15"
+        />
+
+        <MetricCard
+          value={grouped.production.length}
+          label="In Production"
+          color="#38bdf8"
+        />
+
+        <MetricCard
+          value={grouped.shipping.length}
+          label="Ready To Ship"
+          color="#22c55e"
+        />
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: 16,
+          marginBottom: 26
+        }}
+      >
+        <MetricCard
+          value={money(totalRevenue)}
+          label="Board Revenue"
+          color="#22c55e"
+        />
+
+        <MetricCard
+          value={money(productionRevenue)}
+          label="Production Revenue"
+          color="#38bdf8"
+        />
+
+        <MetricCard
+          value={money(shippedRevenue)}
+          label="Shipped Revenue"
+          color="#a78bfa"
+        />
+
+        <MetricCard
+          value={money(averageOrder)}
+          label="Average Order"
+          color="#f97316"
+        />
+      </div>
+
+      <div style={toolbar}>
+        <input
+          value={search}
+          onChange={(event) =>
+            setSearch(event.target.value)
+          }
+          placeholder="Search customer, email, order, tracking..."
+          style={searchInput}
+        />
+
+        <button
+          type="button"
+          onClick={load}
+          style={refreshButton}
+        >
+          Refresh
+        </button>
+      </div>
 
       {loading && (
-        <p style={{ color: "#94a3b8" }}>
+        <p
+          style={{
+            color: "#94a3b8",
+            marginBottom: 18
+          }}
+        >
           Loading board...
         </p>
       )}
@@ -291,29 +663,76 @@ export default function ProductionBoard() {
         <div
           style={{
             display: "flex",
-            gap: 20,
+            gap: 24,
             overflowX: "auto",
-            paddingBottom: 20
+            paddingBottom: 30,
+            alignItems: "flex-start"
           }}
         >
           <div
             style={{
-              width: 260,
-              minHeight: 400,
-              background: "#0f172a",
-              padding: 12,
-              borderRadius: 10
+              width: 320,
+              minHeight: 600,
+              background: "rgba(15, 23, 42, 0.9)",
+              padding: 16,
+              borderRadius: 22,
+              border: "1px solid #1e293b",
+              boxShadow: "0 16px 40px rgba(0,0,0,.28)",
+              flexShrink: 0
             }}
           >
-            <h3 style={{ color: "white" }}>quotes</h3>
+            <div
+              style={{
+                marginBottom: 16,
+                paddingBottom: 12,
+                borderBottom: "1px solid #1e293b"
+              }}
+            >
+              <h3
+                style={{
+                  color: "white",
+                  fontSize: 16,
+                  fontWeight: 800,
+                  margin: 0
+                }}
+              >
+                Quotes
+
+                <span
+                  style={{
+                    marginLeft: 8,
+                    color: "#67e8f9"
+                  }}
+                >
+                  ({grouped.quotes.length})
+                </span>
+              </h3>
+
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  color: "#94a3b8",
+                  fontSize: 12,
+                  fontWeight: 700
+                }}
+              >
+                Pending approval
+              </p>
+            </div>
 
             {grouped.quotes.length === 0 && (
-              <p style={{ color: "#64748b" }}>
+              <p
+                style={{
+                  color: "#64748b",
+                  fontSize: 14,
+                  margin: 0
+                }}
+              >
                 No pending quotes
               </p>
             )}
 
-            {grouped.quotes.map(job => (
+            {grouped.quotes.map((job) => (
               <JobCard
                 key={job._id}
                 job={job}
@@ -324,17 +743,85 @@ export default function ProductionBoard() {
             ))}
           </div>
 
-          {Object.entries(grouped)
-            .filter(([col]) => col !== "quotes")
-            .map(([col, list]) => (
-              <DropColumn
-                key={col}
-                id={col}
-                jobs={list}
-              />
-            ))}
+          {boardColumns.map(([column, list]) => (
+            <DropColumn
+              key={column}
+              id={column}
+              jobs={list}
+            />
+          ))}
         </div>
       </DndContext>
     </div>
   )
+}
+
+function MetricCard({
+  value,
+  label,
+  color
+}) {
+  return (
+    <div style={cardStyle}>
+      <h2
+        style={{
+          margin: 0,
+          fontSize: 32,
+          color
+        }}
+      >
+        {value}
+      </h2>
+
+      <p
+        style={{
+          margin: "8px 0 0",
+          color: "#94a3b8"
+        }}
+      >
+        {label}
+      </p>
+    </div>
+  )
+}
+
+const toolbar = {
+  display: "grid",
+  gridTemplateColumns: "1fr 140px",
+  gap: 14,
+  marginBottom: 24
+}
+
+const searchInput = {
+  width: "100%",
+  boxSizing: "border-box",
+  padding: "14px 16px",
+  borderRadius: 16,
+  border: "1px solid #334155",
+  background: "#020617",
+  color: "white",
+  outline: "none",
+  fontWeight: 700
+}
+
+const refreshButton = {
+  background: "#22d3ee",
+  color: "#020617",
+  border: "none",
+  borderRadius: 16,
+  fontWeight: 900,
+  cursor: "pointer"
+}
+
+const overdueBadge = {
+  position: "absolute",
+  top: 8,
+  right: 8,
+  zIndex: 2,
+  background: "#dc2626",
+  color: "white",
+  padding: "4px 8px",
+  borderRadius: 999,
+  fontSize: 11,
+  fontWeight: 900
 }
