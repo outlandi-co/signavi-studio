@@ -1,250 +1,136 @@
-import { useNavigate } from "react-router-dom"
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
+import toast from "react-hot-toast"
 
 import ProcessSection from "../components/ProcessSection"
 import FeaturedProjects from "../components/FeaturedProjects"
 import Testimonials from "../components/Testimonials"
 import FAQSection from "../components/FAQSection"
 
-function Home() {
+const services = [
+  {
+    title: "Laser Engraving",
+    image: "/images/services/engraving.jpg",
+    description:
+      "Tumblers, leather patches, wood, acrylic, keychains, awards, and custom gifts."
+  },
+  {
+    title: "Custom Apparel",
+    image: "/images/services/apparel.jpg",
+    description:
+      "DTF transfers, shirts, hoodies, hats, team gear, uniforms, and branded merch."
+  },
+  {
+    title: "Signs & Graphics",
+    image: "/images/services/signs.jpg",
+    description:
+      "Business signage, banners, decals, pop-up event graphics, and promotional displays."
+  },
+  {
+    title: "Graphic Design",
+    image: "/images/services/design.jpg",
+    description:
+      "Logos, brand identity, layout design, product mockups, and marketing graphics."
+  }
+]
+
+const stats = [
+  ["Custom", "Apparel & Merch"],
+  ["Laser", "Engraving"],
+  ["Signs", "Graphics"],
+  ["Veteran", "Owned"]
+]
+
+export default function Home() {
   const navigate = useNavigate()
   const [idea, setIdea] = useState("")
 
   const handleQuickQuote = () => {
     if (!idea.trim()) {
-      alert("Enter a project idea first")
+      toast.error("Enter a project idea first")
       return
     }
 
     navigate("/quote", {
-      state: { idea }
+      state: {
+        idea: idea.trim()
+      }
     })
   }
 
-  const services = [
-    {
-      title: "Laser Engraving",
-      image: "/images/services/engraving.jpg"
-    },
-    {
-      title: "Custom Apparel",
-      image: "/images/services/apparel.jpg"
-    },
-    {
-      title: "Signs & Graphics",
-      image: "/images/services/signs.jpg"
-    },
-    {
-      title: "Graphic Design",
-      image: "/images/services/design.jpg"
-    }
-  ]
-
   return (
-    <main style={{ background: "#020617" }}>
-      <section
-        style={{
-          position: "relative",
-          overflow: "hidden",
-          padding: "110px 20px 90px",
-          textAlign: "center",
-          background:
-            "radial-gradient(circle at top right, rgba(6,182,212,.18), transparent 35%), linear-gradient(180deg, #020617, #0f172a)",
-          color: "#fff"
-        }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            width: "500px",
-            height: "500px",
-            background: "#06b6d4",
-            filter: "blur(180px)",
-            opacity: 0.15,
-            top: "-150px",
-            right: "-100px"
-          }}
-        />
+    <main className="bg-[#020617] text-white">
+      <section className="relative overflow-hidden bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,.18),transparent_35%),linear-gradient(180deg,#020617,#0f172a)] px-6 py-28 text-center md:py-32">
+        <div className="absolute -right-24 -top-36 h-[500px] w-[500px] rounded-full bg-cyan-400 opacity-15 blur-[180px]" />
 
-        <div
-          style={{
-            position: "relative",
-            zIndex: 2,
-            maxWidth: "1100px",
-            margin: "0 auto"
-          }}
-        >
-          <p
-            style={{
-              display: "inline-block",
-              marginBottom: "18px",
-              padding: "8px 14px",
-              borderRadius: "999px",
-              border: "1px solid rgba(148,163,184,.25)",
-              background: "rgba(15,23,42,.7)",
-              color: "#67e8f9",
-              fontSize: "14px",
-              letterSpacing: ".08em",
-              textTransform: "uppercase"
-            }}
-          >
+        <div className="relative z-10 mx-auto max-w-6xl">
+          <p className="mb-5 inline-block rounded-full border border-slate-500/25 bg-slate-900/70 px-4 py-2 text-sm uppercase tracking-[0.18em] text-cyan-300">
             Veteran Owned Creative Studio
           </p>
 
-          <h1
-            style={{
-              fontSize: "clamp(48px, 8vw, 82px)",
-              fontWeight: "700",
-              letterSpacing: "-2px",
-              lineHeight: "1.05",
-              margin: "0 0 20px"
-            }}
-          >
+          <h1 className="mb-6 text-5xl font-extrabold leading-[1.05] tracking-[-0.04em] md:text-7xl lg:text-8xl">
             From Iteration
             <br />
             To Creation
           </h1>
 
-          <p
-            style={{
-              maxWidth: "760px",
-              margin: "0 auto",
-              fontSize: "20px",
-              color: "#94a3b8",
-              lineHeight: "1.8"
-            }}
-          >
+          <p className="mx-auto max-w-3xl text-lg leading-8 text-slate-400 md:text-xl">
             Custom apparel, DTF transfers, laser engraving, signs,
-            photography, graphic design, and branded merchandise crafted
-            with creativity, precision, and purpose.
+            photography, graphic design, and branded merchandise crafted with
+            creativity, precision, and purpose.
           </p>
 
-          <div
-            style={{
-              marginTop: "40px",
-              display: "flex",
-              justifyContent: "center",
-              gap: "12px",
-              flexWrap: "wrap"
-            }}
-          >
+          <div className="mx-auto mt-10 flex max-w-2xl flex-col justify-center gap-3 sm:flex-row">
             <input
               value={idea}
-              onChange={(e) => setIdea(e.target.value)}
-              placeholder="Tell us what you'd like to create..."
-              style={{
-                padding: "15px 16px",
-                width: "min(420px, 100%)",
-                borderRadius: "14px",
-                background: "rgba(2,6,23,.85)",
-                border: "1px solid rgba(148,163,184,.28)",
-                color: "#fff",
-                outline: "none",
-                boxShadow: "0 12px 30px rgba(0,0,0,.25)"
+              onChange={(event) => setIdea(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  handleQuickQuote()
+                }
               }}
+              placeholder="Tell us what you'd like to create..."
+              className="w-full rounded-2xl border border-slate-500/30 bg-[#020617]/90 px-5 py-4 text-white shadow-xl shadow-black/25 outline-none transition focus:border-cyan-400"
             />
 
             <button
+              type="button"
               onClick={handleQuickQuote}
-              style={{
-                padding: "15px 26px",
-                background:
-                  "linear-gradient(90deg, #06b6d4, #2563eb)",
-                border: "none",
-                color: "#fff",
-                borderRadius: "14px",
-                cursor: "pointer",
-                fontWeight: "700",
-                boxShadow: "0 14px 30px rgba(37,99,235,.35)"
-              }}
+              className="rounded-2xl bg-gradient-to-r from-cyan-400 to-blue-600 px-7 py-4 font-bold text-white shadow-xl shadow-blue-600/30 transition hover:scale-[1.02]"
             >
               Start Your Project
             </button>
           </div>
 
-          <div
-            style={{
-              marginTop: "26px",
-              display: "flex",
-              justifyContent: "center",
-              gap: "12px",
-              flexWrap: "wrap"
-            }}
-          >
+          <div className="mt-7 flex flex-wrap justify-center gap-3">
             <button
+              type="button"
               onClick={() => navigate("/store")}
-              style={{
-                padding: "13px 24px",
-                background: "rgba(15,23,42,.75)",
-                border: "1px solid rgba(148,163,184,.28)",
-                color: "#fff",
-                borderRadius: "14px",
-                cursor: "pointer"
-              }}
+              className="rounded-2xl border border-slate-500/30 bg-slate-900/75 px-6 py-3 text-white transition hover:border-cyan-400 hover:text-cyan-300"
             >
               Shop Products
             </button>
 
             <button
+              type="button"
               onClick={() => navigate("/services")}
-              style={{
-                padding: "13px 24px",
-                background:
-                  "linear-gradient(90deg, #06b6d4, #2563eb)",
-                border: "none",
-                color: "#fff",
-                borderRadius: "14px",
-                cursor: "pointer",
-                fontWeight: "700"
-              }}
+              className="rounded-2xl bg-gradient-to-r from-cyan-400 to-blue-600 px-6 py-3 font-bold text-white transition hover:scale-[1.02]"
             >
               View Services
             </button>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              gap: "26px",
-              marginTop: "60px",
-              flexWrap: "wrap"
-            }}
-          >
-            {[
-              ["Custom", "Apparel & Merch"],
-              ["Laser", "Engraving"],
-              ["Signs", "Graphics"],
-              ["Veteran", "Owned"]
-            ].map(([stat, label]) => (
+          <div className="mt-16 flex flex-wrap justify-center gap-6">
+            {stats.map(([stat, label]) => (
               <div
-                key={label}
-                style={{
-                  minWidth: "170px",
-                  padding: "22px",
-                  borderRadius: "20px",
-                  background: "rgba(15,23,42,.72)",
-                  border: "1px solid rgba(148,163,184,.18)",
-                  boxShadow: "0 18px 40px rgba(0,0,0,.28)",
-                  backdropFilter: "blur(18px)"
-                }}
+                key={`${stat}-${label}`}
+                className="min-w-[170px] rounded-3xl border border-slate-500/20 bg-slate-900/70 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl"
               >
-                <h2
-                  style={{
-                    margin: 0,
-                    color: "#67e8f9",
-                    fontSize: "28px"
-                  }}
-                >
+                <h2 className="text-3xl font-black text-cyan-300">
                   {stat}
                 </h2>
 
-                <p
-                  style={{
-                    margin: "8px 0 0",
-                    color: "#cbd5e1"
-                  }}
-                >
+                <p className="mt-2 text-slate-300">
                   {label}
                 </p>
               </div>
@@ -253,124 +139,63 @@ function Home() {
         </div>
       </section>
 
-      <section
-        style={{
-          background: "#020617",
-          padding: "85px 20px",
-          color: "#fff"
-        }}
-      >
-        <div
-          style={{
-            maxWidth: "1200px",
-            margin: "0 auto"
-          }}
-        >
-          <div
-            style={{
-              textAlign: "center",
-              marginBottom: "50px"
-            }}
-          >
-            <p
-              style={{
-                color: "#67e8f9",
-                textTransform: "uppercase",
-                letterSpacing: ".1em",
-                fontSize: "14px",
-                marginBottom: "12px"
-              }}
-            >
+      <section className="bg-[#020617] px-6 py-24">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-14 text-center">
+            <p className="mb-3 text-sm uppercase tracking-[0.18em] text-cyan-300">
               What We Create
             </p>
 
-            <h2
-              style={{
-                fontSize: "clamp(34px, 5vw, 48px)",
-                margin: 0
-              }}
-            >
+            <h2 className="text-4xl font-extrabold md:text-5xl">
               Featured Services
             </h2>
+
+            <p className="mx-auto mt-4 max-w-2xl text-slate-400">
+              Choose a service, send the idea, and SignaVi Studio can turn it
+              into a quote-ready project.
+            </p>
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns:
-                "repeat(auto-fit, minmax(250px, 1fr))",
-              gap: "24px"
-            }}
-          >
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {services.map((service) => (
-              <div
+              <article
                 key={service.title}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform =
-                    "translateY(-6px)"
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)"
-                }}
-                style={{
-                  background: "rgba(15,23,42,0.82)",
-                  border: "1px solid rgba(148,163,184,.16)",
-                  borderRadius: "22px",
-                  overflow: "hidden",
-                  backdropFilter: "blur(18px)",
-                  boxShadow: "0 16px 38px rgba(0,0,0,.28)",
-                  transition: "all .3s ease"
-                }}
+                className="group overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/80 shadow-xl shadow-black/20 transition duration-300 hover:-translate-y-2 hover:border-cyan-500"
               >
-                <img
-                  src={service.image}
-                  alt={service.title}
-                  style={{
-                    width: "100%",
-                    height: "220px",
-                    objectFit: "cover"
-                  }}
-                  onError={(e) => {
-                    e.currentTarget.src =
-                      "/image_placeholder/placeholder.png"
-                  }}
-                />
-
-                <div style={{ padding: "22px" }}>
-                  <h3
-                    style={{
-                      margin: 0,
-                      fontSize: "22px"
+                <div className="h-56 overflow-hidden bg-slate-900">
+                  <img
+                    src={service.image}
+                    alt={service.title}
+                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                    onError={(event) => {
+                      event.currentTarget.src =
+                        "/image_placeholder/placeholder.png"
                     }}
-                  >
+                  />
+                </div>
+
+                <div className="p-6">
+                  <h3 className="text-2xl font-bold">
                     {service.title}
                   </h3>
 
+                  <p className="mt-3 min-h-[72px] text-sm leading-6 text-slate-400">
+                    {service.description}
+                  </p>
+
                   <button
+                    type="button"
                     onClick={() =>
                       navigate(
-                        `/quote?service=${encodeURIComponent(
-                          service.title
-                        )}`
+                        `/quote?service=${encodeURIComponent(service.title)}`
                       )
                     }
-                    style={{
-                      marginTop: "18px",
-                      width: "100%",
-                      padding: "13px",
-                      borderRadius: "12px",
-                      border: "none",
-                      background:
-                        "linear-gradient(90deg,#06b6d4,#2563eb)",
-                      color: "#fff",
-                      cursor: "pointer",
-                      fontWeight: "700"
-                    }}
+                    className="mt-5 w-full rounded-2xl bg-gradient-to-r from-cyan-400 to-blue-600 px-5 py-3 font-bold text-white transition hover:scale-[1.02]"
                   >
                     Request Quote
                   </button>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         </div>
@@ -378,61 +203,39 @@ function Home() {
 
       <FeaturedProjects />
 
-      <section
-        style={{
-          background:
-            "linear-gradient(180deg, #020617, #0f172a)",
-          padding: "85px 20px",
-          color: "#fff"
-        }}
-      >
-        <div
-          style={{
-            maxWidth: "1100px",
-            margin: "0 auto",
-            textAlign: "center",
-            padding: "46px 26px",
-            borderRadius: "28px",
-            background: "rgba(15,23,42,.72)",
-            border: "1px solid rgba(148,163,184,.18)",
-            boxShadow: "0 22px 50px rgba(0,0,0,.32)",
-            backdropFilter: "blur(18px)"
-          }}
-        >
-          <p
-            style={{
-              color: "#67e8f9",
-              textTransform: "uppercase",
-              letterSpacing: ".1em",
-              fontSize: "14px",
-              marginBottom: "12px"
-            }}
-          >
+      <section className="bg-gradient-to-b from-[#020617] to-[#0f172a] px-6 py-24">
+        <div className="mx-auto max-w-6xl rounded-[2rem] border border-slate-500/20 bg-slate-900/70 px-6 py-14 text-center shadow-2xl shadow-black/30 backdrop-blur-xl">
+          <p className="mb-3 text-sm uppercase tracking-[0.18em] text-cyan-300">
             Why SignaVi
           </p>
 
-          <h2
-            style={{
-              fontSize: "clamp(32px, 5vw, 46px)",
-              margin: "0 0 20px"
-            }}
-          >
+          <h2 className="text-4xl font-extrabold md:text-5xl">
             Signature Work With A Clear Vision
           </h2>
 
-          <p
-            style={{
-              maxWidth: "780px",
-              margin: "0 auto",
-              color: "#94a3b8",
-              lineHeight: "1.8",
-              fontSize: "18px"
-            }}
-          >
-            SignaVi Studio brings design, production, and customer
-            experience together so every project feels intentional from
-            concept to finished product.
+          <p className="mx-auto mt-5 max-w-3xl text-lg leading-8 text-slate-400">
+            SignaVi Studio brings design, production, and customer experience
+            together so every project feels intentional from concept to
+            finished product.
           </p>
+
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate("/gallery")}
+              className="rounded-2xl border border-slate-600 px-6 py-3 font-bold text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300"
+            >
+              View Gallery
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate("/quote")}
+              className="rounded-2xl bg-cyan-500 px-6 py-3 font-black text-black transition hover:bg-cyan-400"
+            >
+              Start a Quote
+            </button>
+          </div>
         </div>
       </section>
 
@@ -444,5 +247,3 @@ function Home() {
     </main>
   )
 }
-
-export default Home

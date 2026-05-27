@@ -2,19 +2,21 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState
 } from "react"
 
-import api from "../services/api"
+import {
+  useNavigate
+} from "react-router-dom"
+
 import { io } from "socket.io-client"
+
+import api from "../services/api"
 
 const SOCKET_URL =
   import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "") ||
   "https://signavi-backend.onrender.com"
-
-const socket = io(SOCKET_URL, {
-  transports: ["websocket"]
-})
 
 const columns = [
   {
@@ -80,6 +82,10 @@ const getOrderTotal = (order = {}) => {
 }
 
 function Admin() {
+  const navigate = useNavigate()
+
+  const socketRef = useRef(null)
+
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState(null)
@@ -90,49 +96,84 @@ function Admin() {
       setLoading(true)
 
       const res = await api.get("/orders")
-      setOrders(getOrderArray(res.data))
+
+      const sortedOrders = getOrderArray(res.data).sort(
+        (a, b) =>
+          new Date(b.createdAt || 0) -
+          new Date(a.createdAt || 0)
+      )
+
+      setOrders(sortedOrders)
     } catch (err) {
-      console.error("❌ FETCH ERROR:", err)
+      console.error("❌ FETCH ORDERS ERROR:", err)
       setOrders([])
     } finally {
       setLoading(false)
     }
   }, [])
 
-useEffect(() => {
-  const timer = setTimeout(() => {
-    fetchOrders()
-  }, 0)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchOrders()
+    }, 0)
 
-  const handleCreated = (order) => {
-    setOrders((prev) => [
-      order,
-      ...prev.filter((item) => item._id !== order._id)
-    ])
-  }
+    return () => clearTimeout(timer)
+  }, [fetchOrders])
 
-  const handleUpdated = (updatedOrder) => {
-    setOrders((prev) =>
-      prev.map((order) =>
-        order._id === updatedOrder._id
-          ? updatedOrder
-          : order
+  useEffect(() => {
+    if (!socketRef.current) {
+      socketRef.current = io(SOCKET_URL, {
+        transports: ["websocket"]
+      })
+    }
+
+    const socket = socketRef.current
+
+    const handleCreated = (order) => {
+      if (!order?._id) return
+
+      setOrders((prev) => [
+        order,
+        ...prev.filter(
+          (item) => item._id !== order._id
+        )
+      ])
+    }
+
+    const handleUpdated = (updatedOrder) => {
+      if (!updatedOrder?._id) return
+
+      setOrders((prev) =>
+        prev.map((order) =>
+          order._id === updatedOrder._id
+            ? {
+                ...order,
+                ...updatedOrder
+              }
+            : order
+        )
       )
-    )
-  }
+    }
 
-  socket.on("orderCreated", handleCreated)
-  socket.on("orderUpdated", handleUpdated)
-  socket.on("jobUpdated", handleUpdated)
+    socket.on("orderCreated", handleCreated)
+    socket.on("orderUpdated", handleUpdated)
+    socket.on("jobUpdated", handleUpdated)
 
-  return () => {
-    clearTimeout(timer)
+    return () => {
+      socket.off("orderCreated", handleCreated)
+      socket.off("orderUpdated", handleUpdated)
+      socket.off("jobUpdated", handleUpdated)
+    }
+  }, [])
 
-    socket.off("orderCreated", handleCreated)
-    socket.off("orderUpdated", handleUpdated)
-    socket.off("jobUpdated", handleUpdated)
-  }
-}, [fetchOrders])
+  useEffect(() => {
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect()
+        socketRef.current = null
+      }
+    }
+  }, [])
 
   const updateStatus = async (id, status) => {
     try {
@@ -145,7 +186,10 @@ useEffect(() => {
           status
         })
 
-        updated = res.data?.data || res.data?.order || res.data
+        updated =
+          res.data?.data ||
+          res.data?.order ||
+          res.data
       } catch (statusErr) {
         console.warn(
           "⚠️ /status route failed, trying general PATCH:",
@@ -156,7 +200,10 @@ useEffect(() => {
           status
         })
 
-        updated = res.data?.data || res.data?.order || res.data
+        updated =
+          res.data?.data ||
+          res.data?.order ||
+          res.data
       }
 
       setOrders((prev) =>
@@ -171,7 +218,10 @@ useEffect(() => {
         )
       )
     } catch (err) {
-      console.error("❌ UPDATE STATUS ERROR:", err.response?.data || err)
+      console.error(
+        "❌ UPDATE STATUS ERROR:",
+        err.response?.data || err
+      )
 
       setOrders((prev) =>
         prev.map((order) =>
@@ -210,12 +260,30 @@ useEffect(() => {
     })
   }, [orders, search])
 
-  const getOrders = (status) =>
-    filteredOrders.filter((order) => order.status === status)
+  const activeOrders = useMemo(() => {
+    return filteredOrders.filter((order) => {
+      return ![
+        "delivered",
+        "archive",
+        "denied"
+      ].includes(order.status || "")
+    })
+  }, [filteredOrders])
 
-  const totalRevenue = filteredOrders.reduce(
-    (sum, order) => sum + getOrderTotal(order),
-    0
+  const totalRevenue = useMemo(() => {
+    return filteredOrders.reduce(
+      (sum, order) => sum + getOrderTotal(order),
+      0
+    )
+  }, [filteredOrders])
+
+  const getOrders = useCallback(
+    (status) => {
+      return filteredOrders.filter(
+        (order) => order.status === status
+      )
+    },
+    [filteredOrders]
   )
 
   const Column = ({
@@ -314,6 +382,16 @@ useEffect(() => {
                 )}
 
                 <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(`/admin/orders/${order._id}`)
+                    }
+                    className="rounded-full border border-slate-600 px-3 py-2 text-xs font-bold text-white transition hover:border-cyan-400 hover:text-cyan-300"
+                  >
+                    View
+                  </button>
+
                   {nextStatus && (
                     <button
                       type="button"
@@ -358,7 +436,7 @@ useEffect(() => {
           </h1>
 
           <p className="mt-3 text-slate-400">
-            Live updates enabled • {filteredOrders.length} active orders •{" "}
+            Live updates enabled • {activeOrders.length} active orders •{" "}
             {money(totalRevenue)}
           </p>
         </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import api from "../../services/api"
 
@@ -16,9 +16,9 @@ const statusStyles = {
 }
 
 const timelineSteps = [
-  "pending",
   "payment_required",
   "paid",
+  "ready_for_production",
   "production",
   "shipping",
   "delivered"
@@ -59,6 +59,23 @@ const getCustomerEmail = () => {
   return email.trim().toLowerCase()
 }
 
+const normalizeOrders = (payload) => {
+  const data =
+    payload?.data ||
+    payload?.orders ||
+    payload?.myOrders ||
+    payload ||
+    []
+
+  const list = Array.isArray(data) ? data : []
+
+  return [...list].sort(
+    (a, b) =>
+      new Date(b.createdAt || 0) -
+      new Date(a.createdAt || 0)
+  )
+}
+
 export default function CustomerOrders() {
   const navigate = useNavigate()
 
@@ -88,14 +105,7 @@ export default function CustomerOrders() {
 
         if (!isMounted) return
 
-        const data =
-          res.data?.data ||
-          res.data?.orders ||
-          res.data?.myOrders ||
-          res.data ||
-          []
-
-        setOrders(Array.isArray(data) ? data : [])
+        setOrders(normalizeOrders(res.data))
       } catch (err) {
         if (!isMounted) return
 
@@ -113,30 +123,43 @@ export default function CustomerOrders() {
       }
     }
 
-    const timer = setTimeout(() => {
-      loadOrders()
-    }, 0)
+    loadOrders()
 
     return () => {
       isMounted = false
-      clearTimeout(timer)
     }
   }, [])
 
-  const activeOrders = orders.filter(
-    (order) =>
-      !["delivered", "shipped", "archive", "denied"].includes(
-        order.status || ""
+  const activeOrders = useMemo(() => {
+    return orders.filter((order) => {
+      return ![
+        "delivered",
+        "shipped",
+        "archive",
+        "denied"
+      ].includes(order.status || "")
+    })
+  }, [orders])
+
+  const awaitingPayment = useMemo(() => {
+    return orders.filter(
+      (order) => order.status === "payment_required"
+    )
+  }, [orders])
+
+  const totalSpent = useMemo(() => {
+    return orders.reduce((sum, order) => {
+      return (
+        sum +
+        Number(
+          order.finalPrice ||
+            order.total ||
+            order.subtotal ||
+            0
+        )
       )
-  )
-
-  const awaitingPayment = orders.filter(
-    (order) => order.status === "payment_required"
-  )
-
-  const totalSpent = orders.reduce((sum, order) => {
-    return sum + Number(order.finalPrice || order.total || order.subtotal || 0)
-  }, 0)
+    }, 0)
+  }, [orders])
 
   if (loading) {
     return (
@@ -246,7 +269,10 @@ export default function CustomerOrders() {
   )
 }
 
-function OrderCard({ order, navigate }) {
+function OrderCard({
+  order,
+  navigate
+}) {
   const status = order.status || "pending"
 
   const total = Number(
@@ -264,6 +290,13 @@ function OrderCard({ order, navigate }) {
   const trackingLink =
     order.trackingLink ||
     order.trackingUrl ||
+    order.shippingTrackingLink ||
+    ""
+
+  const paymentUrl =
+    order.paymentUrl ||
+    order.squarePaymentUrl ||
+    order.checkoutUrl ||
     ""
 
   const invoiceId =
@@ -275,11 +308,13 @@ function OrderCard({ order, navigate }) {
   const invoiceUrl =
     order.invoiceUrl ||
     order.invoice?.url ||
+    order.invoiceDownloadUrl ||
     ""
 
   const receiptUrl =
     order.receiptUrl ||
     order.receipt?.url ||
+    order.receiptDownloadUrl ||
     ""
 
   return (
@@ -408,9 +443,9 @@ function OrderCard({ order, navigate }) {
           </a>
         )}
 
-        {order.paymentUrl && status === "payment_required" && (
+        {paymentUrl && status === "payment_required" && (
           <a
-            href={order.paymentUrl}
+            href={paymentUrl}
             target="_blank"
             rel="noreferrer"
             onClick={(event) => event.stopPropagation()}
@@ -461,8 +496,16 @@ function OrderCard({ order, navigate }) {
   )
 }
 
-function Timeline({ status }) {
-  const activeIndex = timelineSteps.indexOf(status)
+function Timeline({
+  status
+}) {
+  const normalizedStatus =
+    status === "shipped"
+      ? "shipping"
+      : status
+
+  const activeIndex =
+    timelineSteps.indexOf(normalizedStatus)
 
   return (
     <div className="mt-5">
@@ -471,7 +514,9 @@ function Timeline({ status }) {
           <span key={step}>
             {step === "payment_required"
               ? "Payment"
-              : formatStatus(step)}
+              : step === "ready_for_production"
+                ? "Ready"
+                : formatStatus(step)}
           </span>
         ))}
       </div>
@@ -481,6 +526,7 @@ function Timeline({ status }) {
           <div
             key={step}
             className={
+              activeIndex >= 0 &&
               index <= activeIndex
                 ? "h-2 rounded-full bg-cyan-400"
                 : "h-2 rounded-full bg-slate-800"

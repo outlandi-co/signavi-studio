@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import api from "../../services/api"
 
@@ -17,9 +17,9 @@ const statusStyles = {
 }
 
 const timelineSteps = [
-  "pending",
   "payment_required",
   "paid",
+  "ready_for_production",
   "production",
   "shipping",
   "delivered"
@@ -58,6 +58,20 @@ const getCustomerEmail = () => {
   }
 
   return email.trim().toLowerCase()
+}
+
+const normalizeList = (payload, keys = []) => {
+  if (Array.isArray(payload)) return payload
+
+  for (const key of keys) {
+    if (Array.isArray(payload?.[key])) {
+      return payload[key]
+    }
+  }
+
+  if (Array.isArray(payload?.data)) return payload.data
+
+  return []
 }
 
 export default function CustomerDashboard() {
@@ -104,28 +118,25 @@ export default function CustomerDashboard() {
 
         if (!isMounted) return
 
-        const orderData =
-          ordersRes.data?.data ||
-          ordersRes.data?.orders ||
-          ordersRes.data?.myOrders ||
-          ordersRes.data ||
-          []
+        setOrders(
+          normalizeList(ordersRes.data, [
+            "orders",
+            "myOrders"
+          ])
+        )
 
-        const quoteData =
-          quotesRes.data?.data ||
-          quotesRes.data?.quotes ||
-          quotesRes.data ||
-          []
+        setQuotes(
+          normalizeList(quotesRes.data, [
+            "quotes"
+          ])
+        )
 
-        const ticketData =
-          supportRes.data?.data ||
-          supportRes.data?.tickets ||
-          supportRes.data ||
-          []
-
-        setOrders(Array.isArray(orderData) ? orderData : [])
-        setQuotes(Array.isArray(quoteData) ? quoteData : [])
-        setSupportTickets(Array.isArray(ticketData) ? ticketData : [])
+        setSupportTickets(
+          normalizeList(supportRes.data, [
+            "tickets",
+            "supportTickets"
+          ])
+        )
       } catch (err) {
         if (!isMounted) return
 
@@ -142,30 +153,49 @@ export default function CustomerDashboard() {
       }
     }
 
-    const timer = setTimeout(() => {
-      loadDashboard()
-    }, 0)
+    loadDashboard()
 
     return () => {
       isMounted = false
-      clearTimeout(timer)
     }
   }, [])
 
-  const recentOrders = orders.slice(0, 5)
-  const recentQuotes = quotes.slice(0, 4)
-  const recentTickets = supportTickets.slice(0, 4)
+  const recentOrders = useMemo(() => {
+    return orders.slice(0, 5)
+  }, [orders])
 
-  const activeOrders = orders.filter(
-    (order) =>
-      !["delivered", "shipped", "archive", "denied"].includes(
-        order.status || ""
+  const recentQuotes = useMemo(() => {
+    return quotes.slice(0, 4)
+  }, [quotes])
+
+  const recentTickets = useMemo(() => {
+    return supportTickets.slice(0, 4)
+  }, [supportTickets])
+
+  const activeOrders = useMemo(() => {
+    return orders.filter((order) => {
+      return ![
+        "delivered",
+        "shipped",
+        "archive",
+        "denied"
+      ].includes(order.status || "")
+    })
+  }, [orders])
+
+  const totalSpent = useMemo(() => {
+    return orders.reduce((sum, order) => {
+      return (
+        sum +
+        Number(
+          order.finalPrice ||
+            order.total ||
+            order.subtotal ||
+            0
+        )
       )
-  )
-
-  const totalSpent = orders.reduce((sum, order) => {
-    return sum + Number(order.finalPrice || order.total || order.subtotal || 0)
-  }, 0)
+    }, 0)
+  }, [orders])
 
   return (
     <main className="min-h-screen bg-[#020617] px-6 py-16 text-white">
@@ -204,7 +234,7 @@ export default function CustomerDashboard() {
 
               <button
                 type="button"
-                onClick={() => navigate("/quote")}
+                onClick={() => navigate("/custom-quote")}
                 className="rounded-full border border-slate-700 px-5 py-3 font-bold text-white transition hover:border-cyan-400 hover:text-cyan-300"
               >
                 Request Quote
@@ -322,15 +352,22 @@ export default function CustomerDashboard() {
                           title={
                             quote.serviceLabel ||
                             quote.printType ||
+                            quote.projectName ||
                             "Quote Request"
                           }
                           meta={formatStatus(
-                            quote.approvalStatus || quote.status || "pending"
+                            quote.approvalStatus ||
+                              quote.status ||
+                              "pending"
                           )}
                           value={money(
-                            quote.finalPrice || quote.price || 0
+                            quote.finalPrice ||
+                              quote.price ||
+                              0
                           )}
-                          onClick={() => navigate(`/quote/${quote._id}`)}
+                          onClick={() =>
+                            navigate(`/customer/quotes/${quote._id}`)
+                          }
                         />
                       ))}
                     </div>
@@ -361,7 +398,9 @@ export default function CustomerDashboard() {
                           title={ticket.subject || "Support Ticket"}
                           meta={formatStatus(ticket.status || "open")}
                           value={ticket.priority || "Normal"}
-                          onClick={() => navigate(`/support/${ticket._id}`)}
+                          onClick={() =>
+                            navigate(`/support/${ticket._id}`)
+                          }
                         />
                       ))}
                     </div>
@@ -421,6 +460,20 @@ function OrderCard({
   )
 
   const itemCount = order.items?.length || 0
+
+  const paymentUrl =
+    order.paymentUrl ||
+    order.squarePaymentUrl ||
+    order.checkoutUrl ||
+    ""
+
+  const openPayment = (event) => {
+    event.stopPropagation()
+
+    if (paymentUrl) {
+      window.location.href = paymentUrl
+    }
+  }
 
   return (
     <article
@@ -493,13 +546,28 @@ function OrderCard({
         >
           Track
         </button>
+
+        {status === "payment_required" && paymentUrl && (
+          <button
+            type="button"
+            onClick={openPayment}
+            className="rounded-full bg-emerald-500 px-4 py-2 text-xs font-bold text-black transition hover:bg-emerald-400"
+          >
+            Pay Now
+          </button>
+        )}
       </div>
     </article>
   )
 }
 
 function Timeline({ status }) {
-  const activeIndex = timelineSteps.indexOf(status)
+  const normalizedStatus =
+    status === "shipped"
+      ? "shipping"
+      : status
+
+  const activeIndex = timelineSteps.indexOf(normalizedStatus)
 
   return (
     <div className="mt-4">
@@ -508,7 +576,9 @@ function Timeline({ status }) {
           <span key={step}>
             {step === "payment_required"
               ? "Payment"
-              : formatStatus(step)}
+              : step === "ready_for_production"
+                ? "Ready"
+                : formatStatus(step)}
           </span>
         ))}
       </div>
@@ -518,7 +588,7 @@ function Timeline({ status }) {
           <div
             key={step}
             className={
-              index <= activeIndex
+              activeIndex >= 0 && index <= activeIndex
                 ? "h-2 rounded-full bg-cyan-400"
                 : "h-2 rounded-full bg-slate-800"
             }

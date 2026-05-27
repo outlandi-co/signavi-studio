@@ -1,316 +1,222 @@
 import { useState } from "react"
+import toast from "react-hot-toast"
 import api from "../services/api"
 
+const initialForm = {
+  customerName: "",
+  email: "",
+  subject: "",
+  message: "",
+  orderNumber: ""
+}
+
+const getStoredCustomer = () => {
+  try {
+    return JSON.parse(
+      localStorage.getItem("customerUser") || "null"
+    )
+  } catch {
+    return null
+  }
+}
+
 export default function Support() {
+  const storedCustomer = getStoredCustomer()
 
   const [form, setForm] = useState({
-
-    customerName: "",
-
-    email: "",
-
-    subject: "",
-
-    message: "",
-
-    orderNumber: ""
+    ...initialForm,
+    customerName:
+      storedCustomer?.name ||
+      storedCustomer?.customerName ||
+      "",
+    email:
+      storedCustomer?.email ||
+      localStorage.getItem("customerEmail") ||
+      ""
   })
 
-  const [loading, setLoading] =
-    useState(false)
+  const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState("")
 
-  /* ================= CHANGE ================= */
+  const handleChange = (event) => {
+    const { name, value } = event.target
 
-  const handleChange = (e) => {
-
-    setForm(prev => ({
-
+    setForm((prev) => ({
       ...prev,
-
-      [e.target.name]:
-        e.target.value
+      [name]: value
     }))
   }
 
-  /* ================= SUBMIT ================= */
+  const validate = () => {
+    if (!form.customerName.trim()) {
+      toast.error("Please enter your name")
+      return false
+    }
 
-  const handleSubmit = async (e) => {
+    if (!form.email.trim()) {
+      toast.error("Please enter your email")
+      return false
+    }
 
-    e.preventDefault()
+    if (!form.subject.trim()) {
+      toast.error("Please enter a subject")
+      return false
+    }
+
+    if (!form.message.trim()) {
+      toast.error("Please enter a message")
+      return false
+    }
+
+    return true
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+
+    if (loading) return
+    if (!validate()) return
 
     try {
-
       setLoading(true)
+      setSuccess("")
 
-      await api.post(
-        "/support",
-        form
-      )
+      const payload = {
+        customerName: form.customerName.trim(),
+        email: form.email.trim().toLowerCase(),
+        subject: form.subject.trim(),
+        message: form.message.trim(),
+        orderNumber: form.orderNumber.trim(),
+        status: "open",
+        priority: "medium"
+      }
 
-      alert(
-        "Support ticket submitted successfully"
+      const res = await api.post("/support", payload)
+
+      const ticket =
+        res.data?.data ||
+        res.data?.ticket ||
+        res.data
+
+      toast.success("Support ticket submitted")
+
+      setSuccess(
+        ticket?._id
+          ? `Ticket submitted. Reference #${String(ticket._id).slice(-6).toUpperCase()}`
+          : "Support ticket submitted successfully."
       )
 
       setForm({
-
-        customerName: "",
-
-        email: "",
-
-        subject: "",
-
-        message: "",
-
-        orderNumber: ""
+        ...initialForm,
+        customerName:
+          storedCustomer?.name ||
+          storedCustomer?.customerName ||
+          "",
+        email:
+          storedCustomer?.email ||
+          localStorage.getItem("customerEmail") ||
+          ""
       })
-
     } catch (err) {
+      console.error("❌ SUPPORT ERROR:", err.response?.data || err)
 
-      console.error(
-        "❌ SUPPORT ERROR:",
-        err
+      toast.error(
+        err.response?.data?.message ||
+          "Failed to submit support ticket"
       )
-
-      alert(
-        "Failed to submit support ticket"
-      )
-
     } finally {
-
       setLoading(false)
     }
   }
 
   return (
-    <div style={page}>
+    <main className="min-h-screen bg-[#020617] px-6 py-16 text-white">
+      <section className="mx-auto max-w-3xl">
+        <div className="mb-10 text-center">
+          <p className="mb-3 text-sm font-bold uppercase tracking-[0.25em] text-cyan-400">
+            SignaVi Studio
+          </p>
 
-      <div style={card}>
+          <h1 className="text-4xl font-extrabold md:text-5xl">
+            🛟 Contact Support
+          </h1>
 
-        <h1 style={title}>
-          🛟 Contact Support
-        </h1>
+          <p className="mx-auto mt-3 max-w-2xl text-slate-400">
+            Need help with an order, quote, shipping, payment, artwork proof,
+            or production update? Send a support ticket and we’ll review it.
+          </p>
+        </div>
 
-        <p style={subtitle}>
-          Need help with an order,
-          quote, shipping, or
-          production update?
-        </p>
+        <form
+          onSubmit={handleSubmit}
+          className="rounded-3xl border border-slate-800 bg-slate-950/80 p-8 shadow-xl shadow-black/20"
+        >
+          {success && (
+            <div className="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-300">
+              {success}
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4">
+            <input
+              type="text"
+              name="customerName"
+              placeholder="Full Name"
+              value={form.customerName}
+              onChange={handleChange}
+              required
+              className="rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none transition focus:border-cyan-400"
+            />
 
-          {/* NAME */}
+            <input
+              type="email"
+              name="email"
+              placeholder="Email Address"
+              value={form.email}
+              onChange={handleChange}
+              required
+              className="rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none transition focus:border-cyan-400"
+            />
 
-          <input
-            type="text"
+            <input
+              type="text"
+              name="orderNumber"
+              placeholder="Order Number optional"
+              value={form.orderNumber}
+              onChange={handleChange}
+              className="rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none transition focus:border-cyan-400"
+            />
 
-            name="customerName"
+            <input
+              type="text"
+              name="subject"
+              placeholder="Subject"
+              value={form.subject}
+              onChange={handleChange}
+              required
+              className="rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none transition focus:border-cyan-400"
+            />
 
-            placeholder="Full Name"
+            <textarea
+              name="message"
+              placeholder="How can we help you?"
+              value={form.message}
+              onChange={handleChange}
+              rows={8}
+              required
+              className="resize-y rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none transition focus:border-cyan-400"
+            />
 
-            value={form.customerName}
-
-            onChange={handleChange}
-
-            style={input}
-
-            required
-          />
-
-          {/* EMAIL */}
-
-          <input
-            type="email"
-
-            name="email"
-
-            placeholder="Email Address"
-
-            value={form.email}
-
-            onChange={handleChange}
-
-            style={input}
-
-            required
-          />
-
-          {/* ORDER */}
-
-          <input
-            type="text"
-
-            name="orderNumber"
-
-            placeholder="Order Number (optional)"
-
-            value={form.orderNumber}
-
-            onChange={handleChange}
-
-            style={input}
-          />
-
-          {/* SUBJECT */}
-
-          <input
-            type="text"
-
-            name="subject"
-
-            placeholder="Subject"
-
-            value={form.subject}
-
-            onChange={handleChange}
-
-            style={input}
-
-            required
-          />
-
-          {/* MESSAGE */}
-
-          <textarea
-
-            name="message"
-
-            placeholder="How can we help you?"
-
-            value={form.message}
-
-            onChange={handleChange}
-
-            rows={8}
-
-            style={textarea}
-
-            required
-          />
-
-          {/* BUTTON */}
-
-          <button
-            type="submit"
-
-            disabled={loading}
-
-            style={button}
-          >
-            {
-              loading
-                ? "Submitting..."
-                : "Submit Ticket"
-            }
-          </button>
-
+            <button
+              type="submit"
+              disabled={loading}
+              className="rounded-2xl bg-cyan-500 px-5 py-4 font-black text-black transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? "Submitting..." : "Submit Ticket"}
+            </button>
+          </div>
         </form>
-
-      </div>
-
-    </div>
+      </section>
+    </main>
   )
-}
-
-/* ================= STYLES ================= */
-
-const page = {
-
-  minHeight: "100vh",
-
-  background: "#020617",
-
-  display: "flex",
-
-  justifyContent: "center",
-
-  alignItems: "center",
-
-  padding: 20
-}
-
-const card = {
-
-  width: "100%",
-
-  maxWidth: 700,
-
-  background: "#0f172a",
-
-  borderRadius: 16,
-
-  padding: 32,
-
-  border:
-    "1px solid #1e293b"
-}
-
-const title = {
-
-  color: "white",
-
-  marginBottom: 10
-}
-
-const subtitle = {
-
-  color: "#94a3b8",
-
-  marginBottom: 24
-}
-
-const input = {
-
-  width: "100%",
-
-  padding: 14,
-
-  borderRadius: 10,
-
-  border:
-    "1px solid #334155",
-
-  background: "#020617",
-
-  color: "white",
-
-  marginBottom: 16
-}
-
-const textarea = {
-
-  width: "100%",
-
-  padding: 14,
-
-  borderRadius: 10,
-
-  border:
-    "1px solid #334155",
-
-  background: "#020617",
-
-  color: "white",
-
-  marginBottom: 20,
-
-  resize: "vertical"
-}
-
-const button = {
-
-  width: "100%",
-
-  padding: 16,
-
-  borderRadius: 10,
-
-  border: "none",
-
-  background: "#22c55e",
-
-  color: "white",
-
-  fontWeight: "bold",
-
-  cursor: "pointer"
 }

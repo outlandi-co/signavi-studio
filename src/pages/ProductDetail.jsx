@@ -28,7 +28,7 @@ export default function ProductDetail() {
   const [imageIndex, setImageIndex] = useState(0)
 
   const BASE_URL =
-    import.meta.env.VITE_API_URL?.replace("/api", "") ||
+    import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "") ||
     "https://signavi-backend.onrender.com"
 
   const resolve = (img) => {
@@ -47,20 +47,27 @@ export default function ProductDetail() {
   useEffect(() => {
     let isMounted = true
 
-    const load = async () => {
+    const timer = setTimeout(async () => {
       try {
         const res = await api.get(`/products/${id}`)
-        const loadedProduct = res.data?.data || res.data
+        const loadedProduct =
+          res.data?.data ||
+          res.data?.product ||
+          res.data
 
         if (!isMounted) return
 
         setProduct(loadedProduct)
+        setImageIndex(0)
 
         if (loadedProduct?.variants?.length) {
           const firstVariant = loadedProduct.variants[0]
 
           setSelectedColor(safeText(firstVariant.color, ""))
           setSelectedSize(safeText(firstVariant.size, ""))
+        } else {
+          setSelectedColor(null)
+          setSelectedSize(null)
         }
       } catch (err) {
         if (!isMounted) return
@@ -76,10 +83,6 @@ export default function ProductDetail() {
           setLoading(false)
         }
       }
-    }
-
-    const timer = setTimeout(() => {
-      load()
     }, 0)
 
     return () => {
@@ -90,10 +93,14 @@ export default function ProductDetail() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#020617] px-6 py-20 text-white">
-        <p className="text-center text-slate-400">
-          Loading product...
-        </p>
+      <main className="flex min-h-screen items-center justify-center bg-[#020617] px-6 py-20 text-white">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-slate-700 border-t-cyan-400" />
+
+          <p className="text-slate-400">
+            Loading product...
+          </p>
+        </div>
       </main>
     )
   }
@@ -122,35 +129,48 @@ export default function ProductDetail() {
   }
 
   const productName = safeText(product.name, "Product")
+
   const productDescription = safeText(
     product.description,
     "Custom SignaVi product made with quality and attention to detail."
   )
 
-  const variants = product.variants || []
+  const variants = Array.isArray(product.variants)
+    ? product.variants
+    : []
 
   const colors = [
-    ...new Set(variants.map((variant) => safeText(variant.color, "")))
+    ...new Set(
+      variants.map((variant) =>
+        safeText(variant.color, "")
+      )
+    )
   ].filter(Boolean)
 
-  const activeColor = selectedColor || colors[0]
+  const activeColor = selectedColor || colors[0] || ""
 
   const colorVariants = variants.filter(
     (variant) => safeText(variant.color, "") === activeColor
   )
 
   const sizes = [
-    ...new Set(colorVariants.map((variant) => safeText(variant.size, "")))
+    ...new Set(
+      colorVariants.map((variant) =>
+        safeText(variant.size, "")
+      )
+    )
   ].filter(Boolean)
 
-  const activeSize = selectedSize || sizes[0]
+  const activeSize = selectedSize || sizes[0] || ""
 
   const variant =
-    variants.find(
-      (item) =>
-        safeText(item.color, "") === activeColor &&
-        safeText(item.size, "") === activeSize
-    ) || colorVariants[0]
+    variants.length > 0
+      ? variants.find(
+          (item) =>
+            safeText(item.color, "") === activeColor &&
+            safeText(item.size, "") === activeSize
+        ) || colorVariants[0]
+      : null
 
   const images = [
     ...new Set(
@@ -172,8 +192,17 @@ export default function ProductDetail() {
     images.push(...product.images)
   }
 
-  const safeIndex = imageIndex >= images.length ? 0 : imageIndex
-  const mainImage = resolve(images[safeIndex] || images[0])
+  if (images.length === 0) {
+    images.push("/image_placeholder/placeholder.png")
+  }
+
+  const safeIndex =
+    imageIndex >= images.length
+      ? 0
+      : imageIndex
+
+  const mainImage =
+    resolve(images[safeIndex] || images[0])
 
   const price = Number(
     variant?.price ||
@@ -198,6 +227,11 @@ export default function ProductDetail() {
   const sku = safeText(variant?.sku || product.sku, "N/A")
 
   const handleAddToCart = () => {
+    if (typeof addToCart !== "function") {
+      toast.error("Cart system unavailable")
+      return
+    }
+
     if (variants.length > 0 && !variant) {
       toast.error("Select color and size")
       return
@@ -247,8 +281,8 @@ export default function ProductDetail() {
                 src={mainImage}
                 alt={productName}
                 className="h-[520px] w-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.src =
+                onError={(event) => {
+                  event.currentTarget.src =
                     "/image_placeholder/placeholder.png"
                 }}
               />
@@ -271,8 +305,8 @@ export default function ProductDetail() {
                       src={resolve(img)}
                       alt={`${productName} thumbnail ${index + 1}`}
                       className="h-full w-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.src =
+                      onError={(event) => {
+                        event.currentTarget.src =
                           "/image_placeholder/placeholder.png"
                       }}
                     />
@@ -332,7 +366,8 @@ export default function ProductDetail() {
                       type="button"
                       onClick={() => {
                         const firstSize = variants.find(
-                          (item) => safeText(item.color, "") === color
+                          (item) =>
+                            safeText(item.color, "") === color
                         )?.size
 
                         setSelectedColor(color)

@@ -1,179 +1,348 @@
-import { useEffect, useState } from "react"
-import { useParams } from "react-router-dom"
+import { useState } from "react"
+import { useNavigate } from "react-router-dom"
+import toast from "react-hot-toast"
 import api from "../services/api"
 
-export default function QuoteResponse() {
-  const { id } = useParams()
+export default function QuotePage() {
+  const navigate = useNavigate()
 
-  const [quote, setQuote] = useState(null)
+  const storedUser = (() => {
+    try {
+      return JSON.parse(
+        localStorage.getItem("customerUser") || "null"
+      )
+    } catch {
+      return null
+    }
+  })()
+
+  const [form, setForm] = useState({
+    customerName: storedUser?.name || "",
+    email:
+      storedUser?.email ||
+      localStorage.getItem("customerEmail") ||
+      "",
+    quantity: 1,
+    notes: ""
+  })
+
+  const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
 
-  /* ================= LOAD QUOTE ================= */
-  useEffect(() => {
-    const loadQuote = async () => {
-      try {
-        const res = await api.get(`/quotes/${id}`)
-        const data = res?.data?.data || res.data
-        setQuote(data)
-      } catch (err) {
-        console.error("❌ LOAD ERROR:", err.response?.data || err.message)
-        setError("Failed to load quote")
-      }
+  const handleChange = (e) => {
+    const { name, value } = e.target
+
+    setForm((prev) => ({
+      ...prev,
+      [name]:
+        name === "quantity"
+          ? Number(value || 1)
+          : value
+    }))
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+
+    if (!form.customerName.trim()) {
+      toast.error("Enter your name")
+      return
     }
 
-    if (id) loadQuote()
-  }, [id])
+    if (!form.email.trim()) {
+      toast.error("Enter your email")
+      return
+    }
 
-  /* ================= PAYMENT ================= */
-  const handleCheckout = async () => {
-    if (!quote) return
-
-    if (quote.approvalStatus !== "approved") {
-      alert("⏳ Awaiting artwork approval")
+    if (!file) {
+      toast.error("Upload a file first")
       return
     }
 
     try {
       setLoading(true)
-      setError("")
 
-      const res = await api.patch(`/orders/${id}/checkout`)
-const url = res?.data?.paymentUrl
+      const formData = new FormData()
 
-      if (!url) throw new Error("No payment URL returned")
+      formData.append(
+        "customerName",
+        form.customerName.trim()
+      )
 
-      window.location.assign(url)
+      formData.append(
+        "email",
+        form.email.trim().toLowerCase()
+      )
 
+      formData.append(
+        "quantity",
+        Number(form.quantity || 1)
+      )
+
+      formData.append(
+        "notes",
+        form.notes.trim()
+      )
+
+      formData.append(
+        "artwork",
+        file
+      )
+
+      const res = await api.post(
+        "/quotes",
+        formData,
+        {
+          headers: {
+            "Content-Type":
+              "multipart/form-data"
+          }
+        }
+      )
+
+      console.log(
+        "✅ QUOTE SUCCESS:",
+        res.data
+      )
+
+      const quote =
+        res.data?.data ||
+        res.data?.quote ||
+        res.data
+
+      const quoteId = quote?._id
+
+      if (!quoteId) {
+        throw new Error(
+          "No quote ID returned"
+        )
+      }
+
+      toast.success(
+        "Quote submitted successfully"
+      )
+
+      navigate(`/quote/${quoteId}`)
     } catch (err) {
-      console.error("❌ CHECKOUT ERROR:", err)
-      setError("Payment failed")
+      console.error(
+        "❌ QUOTE ERROR:",
+        err.response?.data || err
+      )
+
+      toast.error(
+        err.response?.data?.message ||
+          err.message ||
+          "Server error"
+      )
     } finally {
       setLoading(false)
     }
   }
 
-  if (!quote) {
-    return (
-      <div style={center}>
-        <h2 style={{ color: "white" }}>⏳ Loading quote...</h2>
-      </div>
-    )
-  }
-
-  /* ================= PRICE CALC ================= */
-  const subtotal = Number(quote.price || 0)
-  const shipping = Number(quote.shippingCost || 0)
-
-  const TAX_RATE = 0.0825
-  const tax = subtotal * TAX_RATE
-  const total = subtotal + tax + shipping
-
   return (
-    <div style={container}>
-      <h1 style={title}>📄 Review Your Quote</h1>
-
-      <div style={card}>
-        <p><b>Name:</b> {quote.customerName}</p>
-        <p><b>Email:</b> {quote.email}</p>
-        <p><b>Quantity:</b> {quote.quantity}</p>
-
-        <hr style={{ margin: "20px 0", opacity: 0.2 }} />
-
-        {/* 💰 PRICING */}
-        <p>Subtotal: ${subtotal.toFixed(2)}</p>
-        <p>Shipping: ${shipping.toFixed(2)}</p>
-        <p>Tax (8.25%): ${tax.toFixed(2)}</p>
-
-        <h2 style={{ marginTop: 10 }}>
-          Total: ${total.toFixed(2)}
-        </h2>
-
-        {/* 🔥 ESTIMATE MESSAGE */}
-        {quote.approvalStatus !== "approved" && (
-          <p style={estimateText}>
-            ⚠️ Starting price — final price may change after review
-          </p>
-        )}
-
-        {/* ERROR */}
-        {error && <p style={{ color: "red" }}>{error}</p>}
-
-        {/* NOT APPROVED */}
-        {quote.approvalStatus !== "approved" && (
-          <div style={pendingBox}>
-            ⏳ Awaiting artwork approval
-          </div>
-        )}
-
-        {/* APPROVED */}
-        {quote.approvalStatus === "approved" && (
-          <button
-            onClick={handleCheckout}
-            disabled={loading}
-            style={{
-              ...button,
-              opacity: loading ? 0.6 : 1
-            }}
+    <main
+      className="
+        min-h-screen
+        bg-[#020617]
+        px-6
+        py-16
+        text-white
+      "
+    >
+      <section
+        className="
+          mx-auto
+          max-w-3xl
+        "
+      >
+        <div className="mb-10 text-center">
+          <p
+            className="
+              mb-3
+              text-sm
+              font-bold
+              uppercase
+              tracking-[0.25em]
+              text-cyan-400
+            "
           >
-            {loading ? "Redirecting..." : "💳 Pay Now"}
-          </button>
-        )}
-      </div>
-    </div>
+            SignaVi Studio
+          </p>
+
+          <h1
+            className="
+              text-4xl
+              font-extrabold
+              md:text-5xl
+            "
+          >
+            Submit A Quote
+          </h1>
+
+          <p className="mt-3 text-slate-400">
+            Upload your artwork,
+            logo, design, or project
+            files and we'll review
+            your request.
+          </p>
+        </div>
+
+        <form
+          onSubmit={handleSubmit}
+          className="
+            rounded-3xl
+            border
+            border-slate-800
+            bg-slate-950/80
+            p-8
+            shadow-xl
+            shadow-black/20
+          "
+        >
+          <div className="grid gap-4">
+            <input
+              name="customerName"
+              placeholder="Your Name"
+              value={form.customerName}
+              onChange={handleChange}
+              className="
+                rounded-2xl
+                border
+                border-slate-700
+                bg-[#020617]
+                px-5
+                py-4
+                text-white
+                outline-none
+                focus:border-cyan-400
+              "
+            />
+
+            <input
+              name="email"
+              type="email"
+              placeholder="Email"
+              value={form.email}
+              onChange={handleChange}
+              className="
+                rounded-2xl
+                border
+                border-slate-700
+                bg-[#020617]
+                px-5
+                py-4
+                text-white
+                outline-none
+                focus:border-cyan-400
+              "
+            />
+
+            <input
+              name="quantity"
+              type="number"
+              min="1"
+              value={form.quantity}
+              onChange={handleChange}
+              className="
+                rounded-2xl
+                border
+                border-slate-700
+                bg-[#020617]
+                px-5
+                py-4
+                text-white
+                outline-none
+                focus:border-cyan-400
+              "
+            />
+
+            <textarea
+              name="notes"
+              rows="5"
+              placeholder="Tell us about your project..."
+              value={form.notes}
+              onChange={handleChange}
+              className="
+                rounded-2xl
+                border
+                border-slate-700
+                bg-[#020617]
+                px-5
+                py-4
+                text-white
+                outline-none
+                focus:border-cyan-400
+              "
+            />
+
+            <div
+              className="
+                rounded-2xl
+                border
+                border-dashed
+                border-slate-700
+                bg-[#020617]
+                p-5
+              "
+            >
+              <input
+                type="file"
+                accept="
+                  .png,
+                  .jpg,
+                  .jpeg,
+                  .pdf,
+                  .svg,
+                  .ai,
+                  .psd
+                "
+                onChange={(e) =>
+                  setFile(
+                    e.target.files?.[0] || null
+                  )
+                }
+                className="
+                  w-full
+                  text-sm
+                  text-slate-400
+                "
+              />
+
+              {file && (
+                <p
+                  className="
+                    mt-3
+                    text-sm
+                    text-cyan-300
+                  "
+                >
+                  📎 {file.name}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="
+                rounded-2xl
+                bg-cyan-500
+                px-5
+                py-4
+                font-black
+                text-black
+                transition
+                hover:bg-cyan-400
+                disabled:opacity-50
+              "
+            >
+              {loading
+                ? "Uploading..."
+                : "Submit Quote"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </main>
   )
-}
-
-/* ================= STYLES ================= */
-
-const container = {
-  padding: 40,
-  background: "#020617",
-  minHeight: "100vh",
-  color: "white",
-  textAlign: "center"
-}
-
-const title = { marginBottom: 20 }
-
-const card = {
-  background: "#1e293b",
-  padding: 20,
-  borderRadius: 10,
-  maxWidth: 500,
-  margin: "0 auto"
-}
-
-const pendingBox = {
-  marginTop: 15,
-  padding: 10,
-  background: "#f59e0b",
-  borderRadius: 6,
-  color: "black",
-  fontWeight: "bold"
-}
-
-const estimateText = {
-  marginTop: 10,
-  color: "#facc15",
-  fontWeight: "bold"
-}
-
-const button = {
-  marginTop: 20,
-  padding: "12px 24px",
-  borderRadius: 6,
-  border: "none",
-  background: "#06b6d4",
-  color: "black",
-  fontWeight: "bold",
-  cursor: "pointer"
-}
-
-const center = {
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  height: "100vh",
-  background: "#020617"
 }

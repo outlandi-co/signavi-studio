@@ -1,151 +1,294 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import toast from "react-hot-toast"
 import api from "../services/api"
 
+const filters = [
+  "all",
+  "order",
+  "payment",
+  "admin",
+  "system"
+]
+
+const getToken = () => {
+  return (
+    localStorage.getItem("adminToken") ||
+    localStorage.getItem("customerToken") ||
+    localStorage.getItem("token") ||
+    sessionStorage.getItem("adminToken") ||
+    sessionStorage.getItem("customerToken") ||
+    sessionStorage.getItem("token") ||
+    ""
+  )
+}
+
+const normalizeNotifications = (payload) => {
+  const data =
+    payload?.data ||
+    payload?.notifications ||
+    payload ||
+    []
+
+  return Array.isArray(data) ? data : []
+}
+
+const getColorClass = (type = "system") => {
+  switch (type) {
+    case "order":
+      return "border-l-emerald-500"
+
+    case "payment":
+      return "border-l-blue-500"
+
+    case "admin":
+      return "border-l-yellow-500"
+
+    case "system":
+      return "border-l-slate-500"
+
+    default:
+      return "border-l-cyan-500"
+  }
+}
+
+const getNotificationTarget = (notification = {}) => {
+  if (notification.orderId) {
+    return `/order/${notification.orderId}`
+  }
+
+  if (notification.quoteId) {
+    return `/quote/${notification.quoteId}`
+  }
+
+  if (notification.ticketId) {
+    return `/support/${notification.ticketId}`
+  }
+
+  if (notification.url) {
+    return notification.url
+  }
+
+  return ""
+}
+
 export default function NotificationCenter() {
+  const navigate = useNavigate()
 
   const [notifications, setNotifications] = useState([])
   const [filter, setFilter] = useState("all")
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
-  const navigate = useNavigate()
+  const loadNotifications = async () => {
+    try {
+      setLoading(true)
+      setError("")
+
+      const token = getToken()
+
+      const res = await api.get("/notifications", {
+        headers: token
+          ? {
+              Authorization: `Bearer ${token}`
+            }
+          : {}
+      })
+
+      setNotifications(normalizeNotifications(res.data))
+    } catch (err) {
+      console.error("❌ LOAD NOTIFICATIONS ERROR:", err.response?.data || err)
+
+      setNotifications([])
+      setError("Failed to load notifications")
+      toast.error("Failed to load notifications")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await api.get("/notifications", {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`
-          }
-        })
+    const timer = setTimeout(() => {
+      loadNotifications()
+    }, 0)
 
-        setNotifications(res.data)
-
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    load()
+    return () => clearTimeout(timer)
   }, [])
 
-  const markAllRead = async () => {
-    await api.put("/notifications/read", {}, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`
-      }
-    })
+  const filtered = useMemo(() => {
+    if (filter === "all") return notifications
 
-    setNotifications(prev =>
-      prev.map(n => ({ ...n, read: true }))
+    return notifications.filter(
+      (notification) => notification.type === filter
+    )
+  }, [filter, notifications])
+
+  const unreadCount = useMemo(() => {
+    return notifications.filter(
+      (notification) => !notification.read
+    ).length
+  }, [notifications])
+
+  const markAllRead = async () => {
+    try {
+      const token = getToken()
+
+      await api.put(
+        "/notifications/read",
+        {},
+        {
+          headers: token
+            ? {
+                Authorization: `Bearer ${token}`
+              }
+            : {}
+        }
+      )
+
+      setNotifications((prev) =>
+        prev.map((notification) => ({
+          ...notification,
+          read: true
+        }))
+      )
+
+      toast.success("Notifications marked read")
+    } catch (err) {
+      console.error("❌ MARK READ ERROR:", err.response?.data || err)
+      toast.error("Could not mark notifications read")
+    }
+  }
+
+  const handleOpen = (notification) => {
+    const target = getNotificationTarget(notification)
+
+    if (!target) return
+
+    if (target.startsWith("http")) {
+      window.open(target, "_blank")
+      return
+    }
+
+    navigate(target)
+  }
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#020617] text-white">
+        Loading notifications...
+      </main>
     )
   }
 
-  const filtered = filter === "all"
-    ? notifications
-    : notifications.filter(n => n.type === filter)
-
-  if (loading) return <p style={{ padding: 40 }}>Loading...</p>
-
   return (
-    <div style={container}>
+    <main className="min-h-screen bg-[#020617] px-6 py-16 text-white">
+      <section className="mx-auto max-w-5xl">
+        <div className="mb-10 flex flex-col justify-between gap-5 md:flex-row md:items-end">
+          <div>
+            <p className="mb-3 text-sm font-bold uppercase tracking-[0.25em] text-cyan-400">
+              SignaVi Studio
+            </p>
 
-      <div style={header}>
-        <h1>🔔 Notifications</h1>
+            <h1 className="text-4xl font-extrabold md:text-5xl">
+              🔔 Notifications
+            </h1>
 
-        <button onClick={markAllRead} style={btn}>
-          Mark All Read
-        </button>
-      </div>
-
-      {/* FILTERS */}
-      <div style={filters}>
-        {["all","order","payment","admin","system"].map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            style={{
-              ...filterBtn,
-              background: filter === f ? "#06b6d4" : "#020617"
-            }}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
-
-      {/* LIST */}
-      <div style={list}>
-        {filtered.map(n => (
-          <div
-            key={n._id}
-            onClick={() => navigate(`/order/${n.orderId}`)}
-            style={{
-              ...card,
-              borderLeft: `4px solid ${getColor(n.type)}`,
-              background: n.read ? "#020617" : "#1e293b"
-            }}
-          >
-            <p>{n.text}</p>
-            <small>{new Date(n.createdAt).toLocaleString()}</small>
+            <p className="mt-3 text-slate-400">
+              {unreadCount} unread notification
+              {unreadCount === 1 ? "" : "s"}.
+            </p>
           </div>
-        ))}
-      </div>
 
-    </div>
+          <button
+            type="button"
+            onClick={markAllRead}
+            disabled={!notifications.length}
+            className="rounded-full bg-emerald-500 px-5 py-3 font-bold text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Mark All Read
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-6 rounded-3xl border border-red-500/40 bg-red-950/40 p-6 text-red-300">
+            {error}
+          </div>
+        )}
+
+        <div className="mb-8 flex flex-wrap gap-3">
+          {filters.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setFilter(item)}
+              className={
+                filter === item
+                  ? "rounded-full border border-cyan-400 bg-cyan-400 px-5 py-2 font-bold capitalize text-black"
+                  : "rounded-full border border-slate-700 bg-[#020617] px-5 py-2 font-semibold capitalize text-slate-300 transition hover:border-cyan-400 hover:text-cyan-300"
+              }
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+
+        {filtered.length === 0 ? (
+          <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-10 text-center shadow-xl shadow-black/20">
+            <h2 className="mb-3 text-2xl font-bold">
+              No Notifications
+            </h2>
+
+            <p className="text-slate-400">
+              New order, payment, admin, and system updates will show here.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filtered.map((notification) => (
+              <button
+                key={notification._id}
+                type="button"
+                onClick={() => handleOpen(notification)}
+                className={`w-full rounded-3xl border border-slate-800 border-l-4 bg-slate-950/80 p-5 text-left shadow-xl shadow-black/20 transition hover:border-cyan-500 ${
+                  getColorClass(notification.type)
+                } ${
+                  notification.read
+                    ? "opacity-75"
+                    : "bg-slate-900"
+                }`}
+              >
+                <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
+                  <div>
+                    <p className="font-bold text-white">
+                      {notification.text ||
+                        notification.message ||
+                        "Notification"}
+                    </p>
+
+                    <p className="mt-2 text-sm capitalize text-slate-500">
+                      {notification.type || "system"}
+                    </p>
+                  </div>
+
+                  <div className="text-left md:text-right">
+                    {!notification.read && (
+                      <span className="mb-2 inline-block rounded-full bg-cyan-400 px-3 py-1 text-xs font-bold text-black">
+                        New
+                      </span>
+                    )}
+
+                    <p className="text-sm text-slate-500">
+                      {notification.createdAt
+                        ? new Date(notification.createdAt).toLocaleString()
+                        : "No date"}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+    </main>
   )
-}
-
-/* TYPE COLORS */
-const getColor = (type) => {
-  switch (type) {
-    case "order": return "#22c55e"
-    case "payment": return "#3b82f6"
-    case "admin": return "#f59e0b"
-    default: return "#64748b"
-  }
-}
-
-/* STYLES */
-const container = { padding: 40, color: "white" }
-
-const header = {
-  display: "flex",
-  justifyContent: "space-between",
-  marginBottom: 20
-}
-
-const filters = {
-  display: "flex",
-  gap: 10,
-  marginBottom: 20
-}
-
-const filterBtn = {
-  padding: "6px 12px",
-  border: "none",
-  borderRadius: 6,
-  color: "white",
-  cursor: "pointer"
-}
-
-const list = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 10
-}
-
-const card = {
-  padding: 15,
-  borderRadius: 10,
-  cursor: "pointer"
-}
-
-const btn = {
-  background: "#22c55e",
-  padding: "6px 12px",
-  border: "none",
-  borderRadius: 6
 }

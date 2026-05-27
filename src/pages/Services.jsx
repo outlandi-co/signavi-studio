@@ -5,9 +5,33 @@ import FAQSection from "../components/FAQSection"
 
 const services = [
   {
+    title: "Screen Printing",
+    icon: "🖨️",
+    startingAt: "$12",
+    description:
+      "Professional screen printing for shirts, hoodies, uniforms, schools, events, teams, and businesses.",
+    features: [
+      "1–6 color prints",
+      "Bulk discounts",
+      "Business apparel"
+    ]
+  },
+  {
+    title: "DTF Transfers",
+    icon: "🎽",
+    startingAt: "$5",
+    description:
+      "High-quality full-color DTF transfers ready to press onto apparel, merch, uniforms, and custom orders.",
+    features: [
+      "Gang sheets",
+      "Full color graphics",
+      "Fast turnaround"
+    ]
+  },
+  {
     title: "Laser Engraving",
     icon: "🔥",
-    startingAt: "$25",
+    startingAt: "$15",
     description:
       "Custom engraving for leather, wood, acrylic, tumblers, awards, gifts, and promotional products.",
     features: [
@@ -19,9 +43,9 @@ const services = [
   {
     title: "Custom Apparel Printing",
     icon: "👕",
-    startingAt: "$18",
+    startingAt: "$12",
     description:
-      "Shirts, hoodies, hats, uniforms, team apparel, and branded merchandise.",
+      "Shirts, hoodies, hats, uniforms, team apparel, and branded merchandise for businesses and events.",
     features: [
       "Business shirts",
       "Event apparel",
@@ -33,7 +57,7 @@ const services = [
     icon: "🎨",
     startingAt: "$75",
     description:
-      "Logos, brand identity, marketing graphics, mockups, and promotional materials.",
+      "Logos, brand identity, marketing graphics, mockups, layouts, and promotional materials.",
     features: [
       "Logo design",
       "Brand layouts",
@@ -43,9 +67,9 @@ const services = [
   {
     title: "Signs & Banners",
     icon: "🪧",
-    startingAt: "$45",
+    startingAt: "$35",
     description:
-      "Business signage, event banners, decals, stickers, and promotional displays.",
+      "Business signage, event banners, decals, stickers, promotional displays, and graphics.",
     features: [
       "Banners",
       "Decals",
@@ -57,7 +81,7 @@ const services = [
     icon: "📸",
     startingAt: "$150",
     description:
-      "Portraits, products, events, real estate, branding, and commercial photography.",
+      "Portraits, products, events, branding, real estate, and commercial photography.",
     features: [
       "Product photos",
       "Brand portraits",
@@ -65,11 +89,23 @@ const services = [
     ]
   },
   {
+    title: "Real Estate Media",
+    icon: "🏡",
+    startingAt: "$199",
+    description:
+      "Photography, video walkthroughs, and marketing media for real estate listings and property promotion.",
+    features: [
+      "MLS photos",
+      "Video walkthroughs",
+      "Social media content"
+    ]
+  },
+  {
     title: "Web Design & Development",
     icon: "💻",
     startingAt: "$500",
     description:
-      "Custom websites, e-commerce stores, UX/UI design, and web applications.",
+      "Custom websites, e-commerce stores, UX/UI design, frontend builds, and web applications.",
     features: [
       "Business websites",
       "E-commerce stores",
@@ -79,15 +115,22 @@ const services = [
   {
     title: "Promotional Products",
     icon: "🎁",
-    startingAt: "$35",
+    startingAt: "$15",
     description:
-      "Branded giveaways, event products, engraved merchandise, and custom gifts.",
+      "Branded giveaways, event products, engraved merchandise, and custom gifts for businesses and teams.",
     features: [
       "Event giveaways",
       "Custom gifts",
       "Branded merch"
     ]
   }
+]
+
+const stats = [
+  "Veteran Owned",
+  "Fast Turnaround",
+  "Custom Projects",
+  "Local & Nationwide"
 ]
 
 export default function Services() {
@@ -106,10 +149,41 @@ export default function Services() {
           </h1>
 
           <p className="mx-auto max-w-3xl text-lg leading-relaxed text-slate-400">
-            From laser engraving and apparel printing to branding,
-            photography, signs, and web design, SignaVi Studio helps transform
-            ideas into professional products and experiences.
+            From screen printing, DTF transfers, and laser engraving to
+            branding, photography, signs, and web design, SignaVi Studio helps
+            transform ideas into professional products and experiences.
           </p>
+
+          <div className="mx-auto mt-10 grid max-w-5xl gap-4 md:grid-cols-4">
+            {stats.map((stat) => (
+              <div
+                key={stat}
+                className="rounded-2xl border border-slate-800 bg-slate-950/80 px-5 py-4 text-center shadow-xl shadow-black/20"
+              >
+                <p className="font-bold text-cyan-300">
+                  {stat}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-12 flex flex-wrap justify-center gap-3">
+          {[
+            "Printing",
+            "Engraving",
+            "Design",
+            "Photography",
+            "Web",
+            "Promotional"
+          ].map((category) => (
+            <span
+              key={category}
+              className="rounded-full border border-slate-700 bg-[#020617] px-4 py-2 text-sm font-semibold text-slate-300"
+            >
+              {category}
+            </span>
+          ))}
         </div>
 
         <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
@@ -157,12 +231,21 @@ export default function Services() {
                 ))}
               </div>
 
-              <Link
-                to={`/quote?service=${encodeURIComponent(service.title)}`}
-                className="inline-flex w-full justify-center rounded-full bg-gradient-to-r from-cyan-400 to-blue-600 px-5 py-3 font-bold text-white shadow-lg shadow-cyan-500/20 transition hover:scale-105"
-              >
-                Request Quote
-              </Link>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Link
+                  to={`/quote?service=${encodeURIComponent(service.title)}`}
+                  className="inline-flex justify-center rounded-full bg-gradient-to-r from-cyan-400 to-blue-600 px-5 py-3 font-bold text-white shadow-lg shadow-cyan-500/20 transition hover:scale-105"
+                >
+                  Request Quote
+                </Link>
+
+                <Link
+                  to="/gallery"
+                  className="inline-flex justify-center rounded-full border border-slate-700 px-5 py-3 font-bold text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300"
+                >
+                  View Work
+                </Link>
+              </div>
             </article>
           ))}
         </div>

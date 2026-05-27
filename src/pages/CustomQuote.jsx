@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import axios from "axios"
+import toast from "react-hot-toast"
 
 const pricing = {
   laser: {
@@ -50,13 +51,28 @@ const pricing = {
     minimum: 150,
     description:
       "Portraits, products, events, branding, real estate, and commercial photography."
+  },
+  video: {
+    label: "Videography",
+    base: 300,
+    setup: 0,
+    minimum: 300,
+    description:
+      "Commercial video production, social media content, interviews, reels, and events."
+  },
+  web: {
+    label: "Website Design",
+    base: 500,
+    setup: 0,
+    minimum: 500,
+    description:
+      "Custom websites, ecommerce stores, UX/UI design, frontend builds, and development."
   }
 }
 
 const getServiceFromSearch = (search) => {
   const params = new URLSearchParams(search)
   const service = params.get("service") || ""
-
   const normalized = service.toLowerCase()
 
   if (normalized.includes("laser")) return "laser"
@@ -65,6 +81,8 @@ const getServiceFromSearch = (search) => {
   if (normalized.includes("apparel")) return "apparel"
   if (normalized.includes("sign")) return "signs"
   if (normalized.includes("photo")) return "photography"
+  if (normalized.includes("video")) return "video"
+  if (normalized.includes("web")) return "web"
 
   return "laser"
 }
@@ -86,7 +104,7 @@ export default function CustomQuote() {
   })
 
   const [file, setFile] = useState(null)
-  const [preview, setPreview] = useState(null)
+  const [preview, setPreview] = useState("")
   const [loading, setLoading] = useState(false)
 
   const selectedService = pricing[form.printType] || pricing.laser
@@ -118,12 +136,23 @@ export default function CustomQuote() {
   const estimate = Math.max(rawEstimate, selectedService.minimum)
   const perItemEstimate = estimate / qty
 
-  const handleChange = (e) => {
-    const { name, value } = e.target
+  useEffect(() => {
+    return () => {
+      if (preview) {
+        URL.revokeObjectURL(preview)
+      }
+    }
+  }, [preview])
+
+  const handleChange = (event) => {
+    const { name, value } = event.target
 
     setForm((prev) => ({
       ...prev,
-      [name]: name === "quantity" ? Number(value) : value
+      [name]:
+        name === "quantity"
+          ? Number(value)
+          : value
     }))
   }
 
@@ -134,80 +163,93 @@ export default function CustomQuote() {
     }))
   }
 
-  const handleFile = (e) => {
-    const selected = e.target.files?.[0]
-    if (!selected) return
+  const handleFile = (event) => {
+    const selected = event.target.files?.[0]
 
-    setFile(selected)
+    if (!selected) return
 
     if (preview) {
       URL.revokeObjectURL(preview)
     }
 
+    setFile(selected)
     setPreview(URL.createObjectURL(selected))
   }
 
-  useEffect(() => {
-    return () => {
-      if (preview) {
-        URL.revokeObjectURL(preview)
-      }
-    }
-  }, [preview])
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  const handleSubmit = async (event) => {
+    event.preventDefault()
 
     if (!form.name.trim() || !form.email.trim()) {
-      alert("Please fill out name and email")
+      toast.error("Please enter your name and email")
       return
     }
 
-    setLoading(true)
-
     try {
+      setLoading(true)
+
       const API =
         import.meta.env.VITE_API_URL ||
-        "http://localhost:5050/api"
+        "https://signavi-backend.onrender.com/api"
 
-      const payload = {
-        customerName: form.name,
-        email: form.email,
-        phone: form.phone,
-        quantity: qty,
-        printType: form.printType,
-        serviceType: form.printType,
-        serviceLabel: selectedService.label,
-        turnaround: form.turnaround,
-        price: estimate,
-        finalPrice: estimate,
-        items: [
+      const formData = new FormData()
+
+      formData.append("customerName", form.name.trim())
+      formData.append("email", form.email.trim().toLowerCase())
+      formData.append("phone", form.phone.trim())
+
+      formData.append("quantity", qty)
+      formData.append("printType", form.printType)
+      formData.append("serviceType", form.printType)
+      formData.append("serviceLabel", selectedService.label)
+      formData.append("turnaround", form.turnaround)
+
+      formData.append("price", estimate)
+      formData.append("finalPrice", estimate)
+      formData.append("notes", form.notes)
+
+      formData.append(
+        "items",
+        JSON.stringify([
           {
             name: selectedService.label,
             quantity: qty,
             price: estimate
           }
-        ],
-        notes: form.notes,
-        artwork: file?.name || ""
+        ])
+      )
+
+      if (file) {
+        formData.append("artwork", file)
       }
 
-      const res = await axios.post(`${API}/quotes`, payload)
+      const res = await axios.post(
+        `${API}/quotes`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data"
+          }
+        }
+      )
 
       const quoteId =
         res?.data?.data?._id ||
-        res?.data?._id ||
-        null
+        res?.data?.quote?._id ||
+        res?.data?._id
 
       if (!quoteId) {
-        alert("Quote created but failed to redirect")
-        return
+        throw new Error("Quote created but no ID returned")
       }
 
+      toast.success("Quote submitted")
       navigate(`/quote/${quoteId}`)
     } catch (err) {
-      console.error("❌ QUOTE ERROR:", err.response?.data || err.message)
-      alert("Server error")
+      console.error("❌ QUOTE ERROR:", err.response?.data || err)
+
+      toast.error(
+        err.response?.data?.message ||
+          "Failed to submit quote"
+      )
     } finally {
       setLoading(false)
     }
@@ -381,6 +423,7 @@ export default function CustomQuote() {
                   <input
                     type="file"
                     onChange={handleFile}
+                    accept=".png,.jpg,.jpeg,.webp,.svg,.pdf,.ai,.psd"
                     className="w-full text-sm text-slate-400 file:mr-4 file:rounded-full file:border-0 file:bg-cyan-500 file:px-4 file:py-2 file:font-bold file:text-black hover:file:bg-cyan-400"
                   />
 
@@ -390,7 +433,7 @@ export default function CustomQuote() {
                     </p>
                   )}
 
-                  {preview && (
+                  {preview && file?.type?.startsWith("image/") && (
                     <img
                       src={preview}
                       alt="Artwork preview"

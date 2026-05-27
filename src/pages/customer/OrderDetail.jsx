@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
-import api from "../../services/api"
 import { io } from "socket.io-client"
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
+import api from "../../services/api"
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
   "https://signavi-backend.onrender.com/api"
 
-const SOCKET_URL = API_URL.replace("/api", "")
+const SOCKET_URL = API_URL.replace(/\/api\/?$/, "")
 
 const statusStyles = {
   pending: "border-slate-500/30 bg-slate-500/10 text-slate-300",
@@ -25,11 +25,20 @@ const statusStyles = {
 }
 
 const timelineSteps = [
-  "pending",
   "payment_required",
   "paid",
+  "ready_for_production",
   "production",
   "shipping",
+  "delivered"
+]
+
+const paidStatuses = [
+  "paid",
+  "ready_for_production",
+  "production",
+  "shipping",
+  "shipped",
   "delivered"
 ]
 
@@ -68,6 +77,7 @@ export default function OrderDetail() {
 
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(!invalidId)
+
   const socketRef = useRef(null)
 
   const loadOrder = async () => {
@@ -131,6 +141,27 @@ export default function OrderDetail() {
     }
   }, [id, invalidId])
 
+  useEffect(() => {
+    if (invalidId) return
+
+    const interval = setInterval(() => {
+      loadOrder()
+    }, 30000)
+
+    return () => clearInterval(interval)
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, invalidId])
+
+  useEffect(() => {
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect()
+        socketRef.current = null
+      }
+    }
+  }, [])
+
   const handleDownloadInvoice = async () => {
     if (!order) return
 
@@ -138,7 +169,11 @@ export default function OrderDetail() {
       const input = document.getElementById("invoice")
       if (!input) return
 
-      const canvas = await html2canvas(input)
+      const canvas = await html2canvas(input, {
+        scale: 2,
+        useCORS: true
+      })
+
       const imgData = canvas.toDataURL("image/png")
 
       const pdf = new jsPDF("p", "mm", "a4")
@@ -188,6 +223,18 @@ export default function OrderDetail() {
       0
   )
 
+  const paymentUrl =
+    order.paymentUrl ||
+    order.squarePaymentUrl ||
+    order.checkoutUrl ||
+    ""
+
+  const trackingLink =
+    order.trackingLink ||
+    order.trackingUrl ||
+    order.shippingTrackingLink ||
+    ""
+
   const invoiceId =
     order.invoiceId ||
     order.invoice?._id ||
@@ -197,12 +244,18 @@ export default function OrderDetail() {
   const invoiceUrl =
     order.invoiceUrl ||
     order.invoice?.url ||
+    order.invoiceDownloadUrl ||
     ""
 
   const receiptUrl =
     order.receiptUrl ||
     order.receipt?.url ||
+    order.receiptDownloadUrl ||
     ""
+
+  const canShowReceipt =
+    receiptUrl &&
+    paidStatuses.includes(status)
 
   return (
     <main className="min-h-screen bg-[#020617] px-6 py-16 text-white">
@@ -416,9 +469,9 @@ export default function OrderDetail() {
                 value={order.trackingNumber || "Not added yet"}
               />
 
-              {order.trackingLink && (
+              {trackingLink && (
                 <a
-                  href={order.trackingLink}
+                  href={trackingLink}
                   target="_blank"
                   rel="noreferrer"
                   className="mt-4 inline-flex w-full justify-center rounded-xl border border-cyan-400/40 px-4 py-3 font-bold text-cyan-300 transition hover:bg-cyan-400 hover:text-black"
@@ -434,9 +487,9 @@ export default function OrderDetail() {
               </h2>
 
               <div className="grid gap-3">
-                {order.paymentUrl && status === "payment_required" && (
+                {paymentUrl && status === "payment_required" && (
                   <a
-                    href={order.paymentUrl}
+                    href={paymentUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="rounded-xl bg-yellow-400 px-4 py-3 text-center font-bold text-black transition hover:bg-yellow-300"
@@ -466,7 +519,7 @@ export default function OrderDetail() {
                   </a>
                 )}
 
-                {receiptUrl && (
+                {canShowReceipt && (
                   <a
                     href={receiptUrl}
                     target="_blank"
@@ -542,7 +595,13 @@ function OrderItem({ item }) {
 }
 
 function Timeline({ status }) {
-  const activeIndex = timelineSteps.indexOf(status)
+  const normalizedStatus =
+    status === "shipped"
+      ? "shipping"
+      : status
+
+  const activeIndex =
+    timelineSteps.indexOf(normalizedStatus)
 
   return (
     <div>
@@ -551,7 +610,9 @@ function Timeline({ status }) {
           <span key={step}>
             {step === "payment_required"
               ? "Payment"
-              : formatStatus(step)}
+              : step === "ready_for_production"
+                ? "Ready"
+                : formatStatus(step)}
           </span>
         ))}
       </div>
@@ -561,6 +622,7 @@ function Timeline({ status }) {
           <div
             key={step}
             className={
+              activeIndex >= 0 &&
               index <= activeIndex
                 ? "h-2 rounded-full bg-cyan-400"
                 : "h-2 rounded-full bg-slate-800"

@@ -1,12 +1,16 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState
 } from "react"
 
 import {
+  useNavigate,
   useParams
 } from "react-router-dom"
+
+import toast from "react-hot-toast"
 
 import api from "../../services/api"
 import MessageBubble from "../../components/admin/MessageBubble"
@@ -22,7 +26,10 @@ const getCustomerEmail = () => {
       email =
         JSON.parse(customerUser)?.email || ""
     } catch (err) {
-      console.error("❌ PARSE ERROR:", err)
+      console.error(
+        "❌ CUSTOMER USER PARSE ERROR:",
+        err
+      )
     }
   }
 
@@ -35,7 +42,10 @@ const getCustomerEmail = () => {
 }
 
 export default function CustomerSupport() {
+  const navigate = useNavigate()
   const { id } = useParams()
+
+  const threadRef = useRef(null)
 
   const [tickets, setTickets] = useState([])
   const [selected, setSelected] = useState(null)
@@ -56,32 +66,44 @@ export default function CustomerSupport() {
       }
 
       const res = await api.get("/support")
-      const allTickets = res.data?.data || []
 
-      const myTickets = allTickets.filter(
-        (ticket) =>
-          String(ticket.email || "")
-            .trim()
-            .toLowerCase() === email
-      )
+      const allTickets =
+        res.data?.data || []
+
+      const myTickets =
+        allTickets.filter(
+          (ticket) =>
+            String(ticket.email || "")
+              .trim()
+              .toLowerCase() === email
+        )
 
       setTickets(myTickets)
 
       if (id) {
-        const found = myTickets.find(
-          (ticket) => ticket._id === id
-        )
+        const found =
+          myTickets.find(
+            (ticket) =>
+              ticket._id === id
+          )
 
-        setSelected(found || myTickets[0] || null)
+        setSelected(
+          found ||
+            myTickets[0] ||
+            null
+        )
       } else {
         setSelected((prev) => {
           if (!prev) {
-            return myTickets[0] || null
+            return (
+              myTickets[0] || null
+            )
           }
 
           return (
             myTickets.find(
-              (ticket) => ticket._id === prev._id
+              (ticket) =>
+                ticket._id === prev._id
             ) ||
             myTickets[0] ||
             null
@@ -89,11 +111,20 @@ export default function CustomerSupport() {
         })
       }
     } catch (err) {
-      console.error("❌ LOAD SUPPORT ERROR:", err)
+      console.error(
+        "❌ SUPPORT LOAD ERROR:",
+        err
+      )
+
+      toast.error(
+        "Failed to load support tickets"
+      )
     } finally {
       setLoading(false)
     }
   }, [id])
+
+  /* ================= FIX ESLINT WARNING ================= */
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -103,6 +134,15 @@ export default function CustomerSupport() {
     return () => clearTimeout(timer)
   }, [loadTickets])
 
+  /* ================= AUTO SCROLL ================= */
+
+  useEffect(() => {
+    if (threadRef.current) {
+      threadRef.current.scrollTop =
+        threadRef.current.scrollHeight
+    }
+  }, [selected])
+
   const sendReply = async () => {
     if (!reply.trim()) return
     if (!selected?._id) return
@@ -110,21 +150,26 @@ export default function CustomerSupport() {
     try {
       setSending(true)
 
-      await api.post(`/support/${selected._id}/reply`, {
-        sender: "customer",
-        message: reply.trim()
-      })
+      await api.post(
+        `/support/${selected._id}/reply`,
+        {
+          sender: "customer",
+          message: reply.trim()
+        }
+      )
 
       const newReply = {
         sender: "customer",
         message: reply.trim(),
-        createdAt: new Date().toISOString()
+        createdAt:
+          new Date().toISOString()
       }
 
       const updatedTicket = {
         ...selected,
         replies: [
-          ...(selected.replies || []),
+          ...(selected.replies ||
+            []),
           newReply
         ]
       }
@@ -141,10 +186,20 @@ export default function CustomerSupport() {
 
       setReply("")
 
+      toast.success(
+        "Reply sent successfully"
+      )
+
       await loadTickets()
     } catch (err) {
-      console.error("❌ REPLY ERROR:", err)
-      alert("Could not send reply.")
+      console.error(
+        "❌ REPLY ERROR:",
+        err
+      )
+
+      toast.error(
+        "Could not send reply"
+      )
     } finally {
       setSending(false)
     }
@@ -152,211 +207,193 @@ export default function CustomerSupport() {
 
   if (loading) {
     return (
-      <div style={loadingStyle}>
+      <main className="flex min-h-screen items-center justify-center bg-[#020617] text-white">
         Loading support...
-      </div>
+      </main>
     )
   }
 
   return (
-    <div style={page}>
-      <h1 style={title}>
-        Customer Support
-      </h1>
+    <main className="min-h-screen bg-[#020617] px-6 py-16 text-white">
+      <section className="mx-auto max-w-7xl">
 
-      <div style={layout}>
-        <aside style={sidebar}>
-          <h3 style={{ marginTop: 0 }}>
-            My Tickets
-          </h3>
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
 
-          {tickets.length === 0 && (
-            <p style={{ color: "#94a3b8" }}>
-              No support tickets found.
+          <div>
+            <p className="mb-2 text-sm font-bold uppercase tracking-[0.25em] text-cyan-400">
+              Customer Support
             </p>
-          )}
 
-          {tickets.map((ticket) => (
-            <button
-              key={ticket._id}
-              type="button"
-              onClick={() => setSelected(ticket)}
-              style={{
-                ...ticketBtn,
-                border:
-                  selected?._id === ticket._id
-                    ? "1px solid #06b6d4"
-                    : "1px solid #1e293b"
-              }}
-            >
-              <strong>
-                {ticket.subject || "Support Ticket"}
-              </strong>
+            <h1 className="text-4xl font-extrabold">
+              Support Center
+            </h1>
 
-              <div>
-                Status: {ticket.status || "open"}
+            <p className="mt-2 text-slate-400">
+              View and reply to support conversations.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              navigate(
+                "/support/create"
+              )
+            }
+            className="rounded-full bg-cyan-500 px-5 py-3 font-bold text-black transition hover:bg-cyan-400"
+          >
+            + New Ticket
+          </button>
+
+        </div>
+
+        <div className="mb-5 text-sm text-slate-400">
+          {tickets.length} ticket(s)
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
+
+          <aside className="rounded-3xl border border-slate-800 bg-slate-950/80 p-5 shadow-xl shadow-black/20">
+
+            <h2 className="mb-5 text-xl font-bold">
+              My Tickets
+            </h2>
+
+            {tickets.length === 0 && (
+              <div className="rounded-2xl border border-slate-800 bg-[#020617] p-5 text-center">
+                <p className="text-slate-400">
+                  No support tickets found.
+                </p>
               </div>
+            )}
 
-              <small>
-                {ticket.createdAt?.slice(0, 10)}
-              </small>
-            </button>
-          ))}
-        </aside>
+            <div className="space-y-3">
+              {tickets.map((ticket) => (
+                <button
+                  key={ticket._id}
+                  type="button"
+                  onClick={() =>
+                    setSelected(ticket)
+                  }
+                  className={`w-full rounded-2xl border p-4 text-left transition ${
+                    selected?._id ===
+                    ticket._id
+                      ? "border-cyan-500 bg-cyan-500/10"
+                      : "border-slate-800 bg-[#020617] hover:border-slate-600"
+                  }`}
+                >
+                  <p className="font-bold">
+                    {ticket.subject ||
+                      "Support Ticket"}
+                  </p>
 
-        <main style={main}>
-          {!selected && (
-            <div>
-              <h2>
-                Select a ticket
-              </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Status:{" "}
+                    {ticket.status ||
+                      "open"}
+                  </p>
 
-              <p style={{ color: "#94a3b8" }}>
-                Choose a support ticket to view the conversation.
-              </p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    {ticket.createdAt?.slice(
+                      0,
+                      10
+                    )}
+                  </p>
+                </button>
+              ))}
             </div>
-          )}
 
-          {selected && (
-            <>
-              <div style={header}>
-                <h2>
-                  {selected.subject || "Support Ticket"}
-                </h2>
+          </aside>
 
-                <div style={{ color: "#22c55e" }}>
-                  Status: {selected.status || "open"}
+          <section className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6 shadow-xl shadow-black/20">
+
+            {!selected ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold">
+                    Select a Ticket
+                  </h2>
+
+                  <p className="mt-2 text-slate-500">
+                    Choose a support ticket
+                    from the left panel.
+                  </p>
                 </div>
               </div>
+            ) : (
+              <>
+                <div className="mb-5 border-b border-slate-800 pb-4">
+                  <h2 className="text-2xl font-bold">
+                    {selected.subject ||
+                      "Support Ticket"}
+                  </h2>
 
-              <div style={thread}>
-                <MessageBubble
-                  message={{
-                    sender: "customer",
-                    message: selected.message,
-                    createdAt: selected.createdAt
-                  }}
+                  <p className="mt-2 text-emerald-400">
+                    Status:{" "}
+                    {selected.status ||
+                      "open"}
+                  </p>
+                </div>
+
+                <div
+                  ref={threadRef}
+                  className="mb-5 flex max-h-[55vh] flex-col gap-4 overflow-y-auto rounded-2xl border border-slate-800 bg-[#020617] p-4"
+                >
+                  <MessageBubble
+                    message={{
+                      sender:
+                        "customer",
+                      message:
+                        selected.message,
+                      createdAt:
+                        selected.createdAt
+                    }}
+                  />
+
+                  {selected.replies?.map(
+                    (
+                      item,
+                      index
+                    ) => (
+                      <MessageBubble
+                        key={`${item.createdAt || index}-${index}`}
+                        message={item}
+                      />
+                    )
+                  )}
+                </div>
+
+                <textarea
+                  rows={5}
+                  value={reply}
+                  onChange={(e) =>
+                    setReply(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Type your reply..."
+                  className="mb-4 w-full rounded-2xl border border-slate-700 bg-[#020617] p-4 text-white outline-none focus:border-cyan-400"
                 />
 
-                {selected.replies?.map((item, index) => (
-                  <MessageBubble
-                    key={`${item.createdAt || index}-${index}`}
-                    message={item}
-                  />
-                ))}
-              </div>
+                <button
+                  type="button"
+                  onClick={sendReply}
+                  disabled={
+                    sending ||
+                    !reply.trim()
+                  }
+                  className="rounded-2xl bg-emerald-500 px-5 py-3 font-bold text-black transition hover:bg-emerald-400 disabled:opacity-50"
+                >
+                  {sending
+                    ? "Sending..."
+                    : "Send Reply"}
+                </button>
+              </>
+            )}
+          </section>
 
-              <textarea
-                rows={5}
-                value={reply}
-                onChange={(e) => setReply(e.target.value)}
-                placeholder="Type your reply..."
-                style={textarea}
-              />
-
-              <button
-                type="button"
-                onClick={sendReply}
-                disabled={sending || !reply.trim()}
-                style={{
-                  ...sendBtn,
-                  opacity: sending || !reply.trim() ? 0.6 : 1,
-                  cursor:
-                    sending || !reply.trim()
-                      ? "not-allowed"
-                      : "pointer"
-                }}
-              >
-                {sending ? "Sending..." : "Send Reply"}
-              </button>
-            </>
-          )}
-        </main>
-      </div>
-    </div>
+        </div>
+      </section>
+    </main>
   )
-}
-
-const page = {
-  padding: 30,
-  background: "#020617",
-  color: "white",
-  minHeight: "100vh"
-}
-
-const title = {
-  marginBottom: 20
-}
-
-const layout = {
-  display: "grid",
-  gridTemplateColumns: "320px 1fr",
-  gap: 20
-}
-
-const sidebar = {
-  background: "#0f172a",
-  borderRadius: 12,
-  padding: 20,
-  height: "80vh",
-  overflowY: "auto"
-}
-
-const main = {
-  background: "#0f172a",
-  borderRadius: 12,
-  padding: 20
-}
-
-const ticketBtn = {
-  width: "100%",
-  textAlign: "left",
-  padding: 14,
-  borderRadius: 10,
-  background: "#111827",
-  color: "white",
-  marginBottom: 12,
-  cursor: "pointer"
-}
-
-const header = {
-  marginBottom: 20
-}
-
-const thread = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 14,
-  marginBottom: 20,
-  maxHeight: "55vh",
-  overflowY: "auto"
-}
-
-const textarea = {
-  width: "100%",
-  padding: 14,
-  borderRadius: 10,
-  background: "#020617",
-  border: "1px solid #334155",
-  color: "white",
-  marginBottom: 14,
-  boxSizing: "border-box"
-}
-
-const sendBtn = {
-  background: "#22c55e",
-  border: "none",
-  padding: "12px 18px",
-  borderRadius: 10,
-  color: "white",
-  fontWeight: "bold"
-}
-
-const loadingStyle = {
-  minHeight: "100vh",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  background: "#020617",
-  color: "white"
 }

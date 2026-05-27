@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import api from "../../services/api"
 
@@ -25,23 +25,48 @@ const SIZES = [
   "4XL"
 ]
 
+const initialProduct = {
+  name: "",
+  description: "",
+  category: "apparel",
+  cost: "",
+  price: "",
+  stock: "",
+  colors: [],
+  sizes: []
+}
+
 export default function CreateProduct() {
   const navigate = useNavigate()
 
-  const [product, setProduct] = useState({
-    name: "",
-    description: "",
-    category: "apparel",
-    cost: "",
-    price: "",
-    stock: "",
-    colors: [],
-    sizes: []
-  })
-
+  const [product, setProduct] = useState(initialProduct)
   const [image, setImage] = useState(null)
-  const [preview, setPreview] = useState(null)
+  const [preview, setPreview] = useState("")
   const [saving, setSaving] = useState(false)
+  const [status, setStatus] = useState("")
+
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview)
+    }
+  }, [preview])
+
+  const variants = useMemo(() => {
+    if (!product.colors.length || !product.sizes.length) return []
+
+    return product.colors.flatMap((color) =>
+      product.sizes.map((size) => ({
+        color,
+        size,
+        stock: Number(product.stock || 0),
+        quantity: Number(product.stock || 0),
+        price: Number(product.price || 0),
+        basePrice: Number(product.price || 0),
+        listPrice: Number(product.price || 0),
+        images: []
+      }))
+    )
+  }, [product.colors, product.sizes, product.stock, product.price])
 
   const toggleValue = (field, value) => {
     setProduct((prev) => {
@@ -56,65 +81,71 @@ export default function CreateProduct() {
     })
   }
 
+  const handleChange = (e) => {
+    const { name, value } = e.target
+
+    setProduct((prev) => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0]
+
+    if (!file) return
+
+    if (preview) URL.revokeObjectURL(preview)
+
+    setImage(file)
+    setPreview(URL.createObjectURL(file))
+  }
+
   const createProduct = async () => {
+    setStatus("")
+
     if (!product.name.trim()) {
-      alert("Product name is required")
+      setStatus("❌ Product name is required")
       return
     }
 
-    if (!product.price) {
-      alert("Product price is required")
+    if (!product.price || Number(product.price) <= 0) {
+      setStatus("❌ Product price must be greater than 0")
       return
     }
 
     try {
       setSaving(true)
 
+      const price = Number(product.price || 0)
+      const cost = Number(product.cost || 0)
+      const stock = Number(product.stock || 0)
+
       const formData = new FormData()
 
       formData.append("name", product.name.trim())
-      formData.append("description", product.description)
-      formData.append("category", product.category)
-      formData.append("cost", Number(product.cost || 0))
-      formData.append("price", Number(product.price || 0))
-      formData.append("basePrice", Number(product.price || 0))
-      formData.append("listPrice", Number(product.price || 0))
-      formData.append("stock", Number(product.stock || 0))
-      formData.append("quantity", Number(product.stock || 0))
+      formData.append("description", product.description.trim())
+      formData.append("category", product.category.trim() || "apparel")
+
+      formData.append("cost", cost)
+      formData.append("price", price)
+      formData.append("basePrice", price)
+      formData.append("listPrice", price)
+
+      formData.append("stock", stock)
+      formData.append("quantity", stock)
 
       formData.append("productType", "physical")
+      formData.append("storefrontVisible", true)
+      formData.append("salesChannel", "signavi_store")
 
       formData.append(
         "colors",
         JSON.stringify(product.colors.map((name) => ({ name })))
       )
 
-      formData.append(
-        "sizes",
-        JSON.stringify(product.sizes)
-      )
-
-      const variants = []
-
-      product.colors.forEach((color) => {
-        product.sizes.forEach((size) => {
-          variants.push({
-            color,
-            size,
-            stock: Number(product.stock || 0),
-            quantity: Number(product.stock || 0),
-            price: Number(product.price || 0),
-            basePrice: Number(product.price || 0),
-            listPrice: Number(product.price || 0),
-            images: []
-          })
-        })
-      })
-
-      formData.append(
-        "variants",
-        JSON.stringify(variants)
-      )
+      formData.append("sizes", JSON.stringify(product.sizes))
+      formData.append("variants", JSON.stringify(variants))
 
       if (image) {
         formData.append("image", image)
@@ -126,18 +157,14 @@ export default function CreateProduct() {
         }
       })
 
-      alert("✅ Product Created")
-
+      setStatus("✅ Product created successfully")
       navigate("/admin/products")
     } catch (err) {
-      console.error(
-        "❌ CREATE PRODUCT ERROR:",
-        err.response?.data || err
-      )
+      console.error("❌ CREATE PRODUCT ERROR:", err.response?.data || err)
 
-      alert(
+      setStatus(
         err.response?.data?.message ||
-          "Failed to create product"
+          "❌ Failed to create product"
       )
     } finally {
       setSaving(false)
@@ -147,7 +174,6 @@ export default function CreateProduct() {
   return (
     <main className="min-h-screen bg-[#020617] text-white">
       <section className="mx-auto max-w-5xl p-6">
-
         <button
           type="button"
           onClick={() => navigate("/admin/products")}
@@ -166,91 +192,74 @@ export default function CreateProduct() {
           </h1>
 
           <p className="mt-3 text-slate-400">
-            Add a new product to your catalog.
+            Add a storefront product with colors, sizes, inventory, and image.
           </p>
         </div>
 
+        {status && (
+          <div className="mb-5 rounded-2xl border border-slate-700 bg-slate-950 px-5 py-4 text-sm font-semibold text-slate-200">
+            {status}
+          </div>
+        )}
+
         <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6 shadow-xl shadow-black/20">
-
           <div className="grid gap-4">
-
             <input
+              name="name"
               value={product.name}
               placeholder="Product Name"
-              onChange={(e) =>
-                setProduct({
-                  ...product,
-                  name: e.target.value
-                })
-              }
+              onChange={handleChange}
               className="rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none focus:border-cyan-400"
             />
 
             <textarea
+              name="description"
               value={product.description}
               placeholder="Description"
-              onChange={(e) =>
-                setProduct({
-                  ...product,
-                  description: e.target.value
-                })
-              }
+              onChange={handleChange}
               className="min-h-[120px] rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none focus:border-cyan-400"
             />
 
             <input
+              name="category"
               value={product.category}
               placeholder="Category"
-              onChange={(e) =>
-                setProduct({
-                  ...product,
-                  category: e.target.value
-                })
-              }
+              onChange={handleChange}
               className="rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none focus:border-cyan-400"
             />
 
             <div className="grid gap-4 md:grid-cols-3">
-
               <input
+                name="cost"
                 value={product.cost}
                 type="number"
+                min="0"
+                step="0.01"
                 placeholder="Cost"
-                onChange={(e) =>
-                  setProduct({
-                    ...product,
-                    cost: e.target.value
-                  })
-                }
+                onChange={handleChange}
                 className="rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none focus:border-cyan-400"
               />
 
               <input
+                name="price"
                 value={product.price}
                 type="number"
+                min="0"
+                step="0.01"
                 placeholder="Price"
-                onChange={(e) =>
-                  setProduct({
-                    ...product,
-                    price: e.target.value
-                  })
-                }
+                onChange={handleChange}
                 className="rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none focus:border-cyan-400"
               />
 
               <input
+                name="stock"
                 value={product.stock}
                 type="number"
+                min="0"
                 placeholder="Stock"
-                onChange={(e) =>
-                  setProduct({
-                    ...product,
-                    stock: e.target.value
-                  })
-                }
+                onChange={handleChange}
                 className="rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none focus:border-cyan-400"
               />
-
             </div>
           </div>
 
@@ -300,6 +309,16 @@ export default function CreateProduct() {
             </div>
           </div>
 
+          <div className="mt-8 rounded-2xl border border-slate-800 bg-[#020617] p-5">
+            <p className="text-sm text-slate-400">
+              Variants Generated
+            </p>
+
+            <p className="mt-1 text-3xl font-black text-cyan-300">
+              {variants.length}
+            </p>
+          </div>
+
           <div className="mt-8">
             <h3 className="mb-3 text-xl font-bold">
               Product Image
@@ -308,14 +327,7 @@ export default function CreateProduct() {
             <input
               type="file"
               accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-
-                if (!file) return
-
-                setImage(file)
-                setPreview(URL.createObjectURL(file))
-              }}
+              onChange={handleImageChange}
               className="w-full rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white"
             />
 
@@ -323,7 +335,7 @@ export default function CreateProduct() {
               <img
                 src={preview}
                 alt="Product preview"
-                className="mt-4 h-48 w-48 rounded-2xl object-cover"
+                className="mt-4 h-48 w-48 rounded-2xl border border-slate-700 object-cover"
               />
             )}
           </div>
@@ -336,7 +348,6 @@ export default function CreateProduct() {
           >
             {saving ? "Creating Product..." : "Create Product"}
           </button>
-
         </div>
       </section>
     </main>

@@ -1,5 +1,50 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
+import toast from "react-hot-toast"
 import api from "../../services/api"
+
+const getStrength = (password = "") => {
+  if (!password) {
+    return {
+      label: "",
+      score: 0,
+      className: "text-slate-500",
+      bar: "w-0 bg-slate-700"
+    }
+  }
+
+  let score = 0
+
+  if (password.length >= 8) score++
+  if (/[A-Z]/.test(password)) score++
+  if (/[a-z]/.test(password)) score++
+  if (/[0-9]/.test(password)) score++
+  if (/[^A-Za-z0-9]/.test(password)) score++
+
+  if (score <= 2) {
+    return {
+      label: "Weak",
+      score,
+      className: "text-red-400",
+      bar: "w-1/3 bg-red-500"
+    }
+  }
+
+  if (score === 3 || score === 4) {
+    return {
+      label: "Medium",
+      score,
+      className: "text-yellow-300",
+      bar: "w-2/3 bg-yellow-400"
+    }
+  }
+
+  return {
+    label: "Strong",
+    score,
+    className: "text-emerald-400",
+    bar: "w-full bg-emerald-500"
+  }
+}
 
 export default function Security() {
   const [currentPassword, setCurrentPassword] = useState("")
@@ -11,34 +56,37 @@ export default function Security() {
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
 
-  const getStrength = (pwd) => {
-    if (!pwd) return ""
+  const strength = useMemo(() => {
+    return getStrength(newPassword)
+  }, [newPassword])
 
-    let score = 0
+  const passwordsMatch =
+    confirmPassword &&
+    newPassword === confirmPassword
 
-    if (pwd.length >= 6) score++
-    if (/[A-Z]/.test(pwd)) score++
-    if (/[0-9]/.test(pwd)) score++
-    if (/[^A-Za-z0-9]/.test(pwd)) score++
+  const handleSubmit = async (event) => {
+    event.preventDefault()
 
-    if (score <= 1) return "Weak"
-    if (score === 2) return "Medium"
-    return "Strong"
-  }
-
-  const strength = getStrength(newPassword)
-
-  const handleSubmit = async () => {
     setError("")
     setMessage("")
 
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setError("All fields required")
+      setError("All fields are required")
+      return
+    }
+
+    if (newPassword.length < 8) {
+      setError("New password must be at least 8 characters")
       return
     }
 
     if (newPassword !== confirmPassword) {
       setError("Passwords do not match")
+      return
+    }
+
+    if (currentPassword === newPassword) {
+      setError("New password must be different from current password")
       return
     }
 
@@ -50,120 +98,144 @@ export default function Security() {
         newPassword
       })
 
-      setMessage(res.data.message || "Password updated successfully")
+      const successMessage =
+        res.data?.message ||
+        "Password updated successfully"
+
+      setMessage(successMessage)
+      toast.success(successMessage)
 
       setCurrentPassword("")
       setNewPassword("")
       setConfirmPassword("")
     } catch (err) {
-      setError(err?.response?.data?.message || "Error updating password")
+      console.error("❌ CHANGE PASSWORD ERROR:", err.response?.data || err)
+
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        "Error updating password"
+
+      setError(message)
+      toast.error(message)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div>
-      <h2>🔐 Change Password</h2>
+    <section className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6 text-white shadow-xl shadow-black/20">
+      <div className="mb-6">
+        <p className="mb-2 text-sm font-bold uppercase tracking-[0.25em] text-cyan-400">
+          Account Security
+        </p>
 
-      <div style={form}>
+        <h2 className="text-3xl font-extrabold">
+          🔐 Change Password
+        </h2>
+
+        <p className="mt-2 text-sm text-slate-400">
+          Keep your SignaVi Studio customer account protected with a strong password.
+        </p>
+      </div>
+
+      <form
+        onSubmit={handleSubmit}
+        className="max-w-xl space-y-4"
+      >
         <input
           type={show ? "text" : "password"}
           placeholder="Current Password"
           value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-          style={input}
+          onChange={(event) =>
+            setCurrentPassword(event.target.value)
+          }
+          autoComplete="current-password"
+          className="w-full rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none transition focus:border-cyan-400"
         />
 
         <input
           type={show ? "text" : "password"}
           placeholder="New Password"
           value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          style={input}
+          onChange={(event) =>
+            setNewPassword(event.target.value)
+          }
+          autoComplete="new-password"
+          className="w-full rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none transition focus:border-cyan-400"
         />
 
         {newPassword && (
-          <p
-            style={{
-              color:
-                strength === "Strong"
-                  ? "#22c55e"
-                  : strength === "Medium"
-                    ? "#facc15"
-                    : "#ef4444"
-            }}
-          >
-            Strength: {strength}
-          </p>
+          <div>
+            <div className="mb-2 h-2 overflow-hidden rounded-full bg-slate-800">
+              <div
+                className={`h-full rounded-full transition-all ${strength.bar}`}
+              />
+            </div>
+
+            <p className={`text-sm font-bold ${strength.className}`}>
+              Strength: {strength.label}
+            </p>
+
+            <p className="mt-1 text-xs text-slate-500">
+              Use at least 8 characters with uppercase, lowercase, numbers, and a symbol.
+            </p>
+          </div>
         )}
 
         <input
           type={show ? "text" : "password"}
           placeholder="Confirm Password"
           value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          style={input}
+          onChange={(event) =>
+            setConfirmPassword(event.target.value)
+          }
+          autoComplete="new-password"
+          className="w-full rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none transition focus:border-cyan-400"
         />
+
+        {confirmPassword && (
+          <p
+            className={
+              passwordsMatch
+                ? "text-sm font-bold text-emerald-400"
+                : "text-sm font-bold text-red-400"
+            }
+          >
+            {passwordsMatch
+              ? "Passwords match"
+              : "Passwords do not match"}
+          </p>
+        )}
 
         <button
           type="button"
-          onClick={() => setShow(!show)}
-          style={toggleBtn}
+          onClick={() => setShow((prev) => !prev)}
+          className="rounded-xl border border-slate-700 bg-[#020617] px-4 py-3 font-bold text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300"
         >
           {show ? "🙈 Hide Passwords" : "👁 Show Passwords"}
         </button>
 
         <button
-          type="button"
-          onClick={handleSubmit}
+          type="submit"
           disabled={loading}
-          style={{
-            ...button,
-            opacity: loading ? 0.7 : 1,
-            cursor: loading ? "not-allowed" : "pointer"
-          }}
+          className="block w-full rounded-2xl bg-cyan-500 px-5 py-4 font-black text-black transition hover:bg-cyan-400 disabled:opacity-60"
         >
           {loading ? "Updating..." : "Update Password"}
         </button>
 
-        {message && <p style={{ color: "#22c55e" }}>{message}</p>}
-        {error && <p style={{ color: "#ef4444" }}>{error}</p>}
-      </div>
-    </div>
+        {message && (
+          <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-300">
+            {message}
+          </p>
+        )}
+
+        {error && (
+          <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-300">
+            {error}
+          </p>
+        )}
+      </form>
+    </section>
   )
-}
-
-const form = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 12,
-  marginTop: 20,
-  maxWidth: 400
-}
-
-const input = {
-  padding: 12,
-  background: "#0f172a",
-  color: "white",
-  borderRadius: 6,
-  border: "none"
-}
-
-const button = {
-  padding: 12,
-  background: "#22c55e",
-  color: "black",
-  borderRadius: 6,
-  border: "none",
-  fontWeight: 700
-}
-
-const toggleBtn = {
-  padding: 10,
-  background: "#1e293b",
-  color: "white",
-  borderRadius: 6,
-  border: "none",
-  cursor: "pointer"
 }

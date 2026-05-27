@@ -1,19 +1,62 @@
 import { useNavigate } from "react-router-dom"
+import toast from "react-hot-toast"
 
-export default function CustomerLogoutButton() {
+export default function CustomerLogoutButton({
+  className = ""
+}) {
   const navigate = useNavigate()
 
   const handleLogout = () => {
-    localStorage.removeItem("customerToken")
-    localStorage.removeItem("customerUser")
+    try {
+      /* ================= CUSTOMER STORAGE ================= */
 
-    console.log("👋 CUSTOMER LOGGED OUT")
+      localStorage.removeItem("customerToken")
+      localStorage.removeItem("customerUser")
+      localStorage.removeItem("customerEmail")
 
-    navigate("/")
+      /* OPTIONAL CUSTOMER DATA */
+
+      localStorage.removeItem("cart")
+      localStorage.removeItem("wishlist")
+
+      console.log("👋 CUSTOMER LOGGED OUT")
+
+      toast.success("Logged out successfully")
+
+      navigate("/", {
+        replace: true
+      })
+
+    } catch (err) {
+      console.error(
+        "❌ CUSTOMER LOGOUT ERROR:",
+        err
+      )
+
+      toast.error("Logout failed")
+    }
   }
 
   return (
-    <button onClick={handleLogout}>
+    <button
+      type="button"
+      onClick={handleLogout}
+      className={
+        className ||
+        `
+        rounded-xl
+        bg-red-500
+        px-4
+        py-2
+        font-bold
+        text-white
+        transition
+        duration-200
+        hover:bg-red-400
+        active:scale-95
+        `
+      }
+    >
       Logout
     </button>
   )

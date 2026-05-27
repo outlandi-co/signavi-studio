@@ -1,29 +1,50 @@
-export default function Logout() {
+import { useNavigate } from "react-router-dom"
+import toast from "react-hot-toast"
+
+export default function Logout({
+  className = ""
+}) {
+  const navigate = useNavigate()
 
   const handleLogout = () => {
-    console.log("🚪 Logging out...")
+    try {
+      console.log("🚪 Logging out...")
 
-    /* 🔐 CLEAR ALL AUTH */
-    localStorage.removeItem("adminToken")
-    localStorage.removeItem("adminUser")
-    localStorage.removeItem("customerToken")
-    localStorage.removeItem("customerUser")
+      const keys = [
+        "adminToken",
+        "adminUser",
+        "customerToken",
+        "customerUser",
+        "customerEmail",
+        "lastOrderId",
+        "shippingRate"
+      ]
 
-    /* 🔥 HARD REDIRECT */
-    window.location.href = "/login"
+      keys.forEach((key) => {
+        localStorage.removeItem(key)
+        sessionStorage.removeItem(key)
+      })
+
+      toast.success("Logged out")
+
+      navigate("/login", {
+        replace: true
+      })
+    } catch (err) {
+      console.error("❌ LOGOUT ERROR:", err)
+
+      window.location.href = "/login"
+    }
   }
 
   return (
     <button
+      type="button"
       onClick={handleLogout}
-      style={{
-        padding: "8px 14px",
-        background: "#ef4444",
-        color: "white",
-        border: "none",
-        borderRadius: "6px",
-        cursor: "pointer"
-      }}
+      className={
+        className ||
+        "rounded-xl bg-red-500 px-4 py-2 font-bold text-white transition hover:bg-red-400 active:scale-95"
+      }
     >
       Logout
     </button>

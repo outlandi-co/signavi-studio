@@ -1,28 +1,29 @@
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import toast from "react-hot-toast"
 import api from "../../services/api"
 
 export default function CustomerLogin() {
+  const navigate = useNavigate()
+
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const navigate = useNavigate()
-
-  /* ================= SAFE REDIRECT ================= */
   useEffect(() => {
     const token = localStorage.getItem("customerToken")
 
-    if (token && window.location.pathname !== "/dashboard") {
-      navigate("/dashboard")
+    if (token) {
+      navigate("/dashboard", {
+        replace: true
+      })
     }
   }, [navigate])
 
-  /* ================= LOGIN ================= */
-  const handleLogin = async (e) => {
-    e.preventDefault()
+  const handleLogin = async (event) => {
+    event.preventDefault()
 
     setError("")
 
@@ -41,16 +42,22 @@ export default function CustomerLogin() {
         password
       })
 
-      const user = res.data?.user
-      const token = res.data?.token
+      const user =
+        res.data?.user ||
+        res.data?.data?.user
+
+      const token =
+        res.data?.token ||
+        res.data?.data?.token
 
       if (!user?.email || !token) {
         throw new Error("Missing user or token from login response")
       }
 
       const cleanUser = {
+        _id: user._id || user.id || "",
         email: user.email,
-        name: user.name || "Customer",
+        name: user.name || user.customerName || "Customer",
         role: user.role || "customer"
       }
 
@@ -60,156 +67,112 @@ export default function CustomerLogin() {
 
       console.log("✅ CUSTOMER LOGGED IN:", cleanUser)
 
-      navigate("/dashboard")
+      toast.success("Welcome back")
+
+      navigate("/dashboard", {
+        replace: true
+      })
     } catch (err) {
       console.error("❌ LOGIN ERROR:", err.response?.data || err)
 
-      setError(
+      const message =
         err.response?.data?.message ||
-          err.response?.data?.error ||
-          "Invalid email or password"
-      )
+        err.response?.data?.error ||
+        err.message ||
+        "Invalid email or password"
+
+      setError(message)
+      toast.error(message)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div style={container}>
-      <form style={card} onSubmit={handleLogin}>
-        <h1 style={title}>Customer Login</h1>
+    <main className="min-h-screen bg-[#020617] px-6 py-16 text-white">
+      <section className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-6xl items-center justify-center">
+        <form
+          onSubmit={handleLogin}
+          className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-950/80 p-8 shadow-2xl shadow-black/30"
+        >
+          <div className="mb-8 text-center">
+            <p className="mb-3 text-sm font-bold uppercase tracking-[0.25em] text-cyan-400">
+              SignaVi Studio
+            </p>
 
-        <p style={subtitle}>
-          Enter your email and password to view your orders
-        </p>
+            <h1 className="text-4xl font-extrabold">
+              Customer Login
+            </h1>
 
-        <input
-          type="email"
-          placeholder="Enter your email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={input}
-        />
+            <p className="mt-3 text-sm text-slate-400">
+              Enter your email and password to view your orders,
+              quotes, payments, and project updates.
+            </p>
+          </div>
 
-        <div style={{ position: "relative" }}>
-          <input
-            type={showPassword ? "text" : "password"}
-            placeholder="Enter your password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={input}
-          />
+          <div className="space-y-4">
+            <input
+              type="email"
+              autoComplete="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className="w-full rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none transition focus:border-cyan-400"
+            />
 
-          <span
-            onClick={() => setShowPassword(!showPassword)}
-            style={eye}
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className="w-full rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 pr-14 text-white outline-none transition focus:border-cyan-400"
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-cyan-300"
+              >
+                {showPassword ? "🙈" : "👁"}
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-300">
+              {error}
+            </p>
+          )}
+
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={() => navigate("/forgot-password")}
+              className="text-sm font-semibold text-cyan-300 transition hover:text-cyan-200"
+            >
+              Forgot password?
+            </button>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="mt-6 w-full rounded-2xl bg-cyan-500 px-6 py-4 text-lg font-black text-black transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {showPassword ? "🙈" : "👁"}
-          </span>
-        </div>
+            {loading ? "Logging in..." : "Continue"}
+          </button>
 
-        {error && <p style={errorText}>{error}</p>}
-
-       <div style={forgotWrap}>
-  <button
-    type="button"
-    onClick={() => navigate("/forgot-password")}
-    style={forgotButton}
-  >
-    Forgot password?
-  </button>
-</div>
-
-<button type="submit" style={button} disabled={loading}>
-  {loading ? "Logging in..." : "Continue"}
-</button>
-      </form>
-    </div>
+          <button
+            type="button"
+            onClick={() => navigate("/store")}
+            className="mt-4 w-full rounded-2xl border border-slate-700 px-6 py-3 font-bold text-slate-300 transition hover:border-cyan-400 hover:text-cyan-300"
+          >
+            Continue Shopping as Guest
+          </button>
+        </form>
+      </section>
+    </main>
   )
-}
-
-/* ================= STYLES ================= */
-
-const container = {
-  minHeight: "100vh",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  background: "#020617",
-  color: "white"
-}
-
-const card = {
-  background: "#0f172a",
-  padding: "40px",
-  borderRadius: "12px",
-  width: "100%",
-  maxWidth: "400px",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.4)"
-}
-
-const title = {
-  marginBottom: "10px",
-  fontSize: "36px",
-  fontWeight: "bold",
-  lineHeight: "34px"
-}
-
-const subtitle = {
-  marginBottom: "20px",
-  fontSize: "14px",
-  opacity: 0.7
-}
-
-const input = {
-  width: "100%",
-  padding: "12px",
-  marginBottom: "10px",
-  borderRadius: "6px",
-  border: "1px solid #334155",
-  background: "#020617",
-  color: "white",
-  boxSizing: "border-box"
-}
-
-const button = {
-  width: "100%",
-  padding: "12px",
-  background: "#22c55e",
-  border: "none",
-  borderRadius: "6px",
-  color: "#000",
-  fontWeight: "bold",
-  cursor: "pointer"
-}
-
-const errorText = {
-  color: "#ef4444",
-  marginBottom: "10px",
-  fontSize: "14px"
-}
-
-const eye = {
-  position: "absolute",
-  right: 12,
-  top: 12,
-  cursor: "pointer",
-  color: "#94a3b8"
-}
-
-const forgotWrap = {
-  width: "100%",
-  textAlign: "right",
-  marginTop: "-2px",
-  marginBottom: "16px"
-}
-
-const forgotButton = {
-  background: "transparent",
-  border: "none",
-  color: "#60a5fa",
-  fontSize: "14px",
-  fontWeight: "500",
-  cursor: "pointer",
-  padding: "4px 0"
 }
