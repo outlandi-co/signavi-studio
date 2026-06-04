@@ -121,7 +121,7 @@ function AppContent() {
 
       localStorage.setItem("customerEmail", email)
 
-      const res = await api.post("/orders", {
+      const orderRes = await api.post("/orders", {
         customerName,
         email,
         phone,
@@ -132,16 +132,48 @@ function AppContent() {
           zip: customerInfo?.address?.zip || "",
           country: customerInfo?.address?.country || "US"
         },
-        items: cart
+        items: cart,
+        shipping: Number(customerInfo?.shippingCost || 0),
+        shippingRate: customerInfo?.shippingRate || null,
+        shippingProvider: customerInfo?.shippingProvider || "",
+        shippingService: customerInfo?.shippingService || "",
+        subtotal: Number(customerInfo?.subtotal || 0),
+        tax: Number(customerInfo?.tax || 0),
+        finalPrice: Number(customerInfo?.total || 0),
+        source: "cart_drawer",
+        status: "payment_required"
       })
 
-      const orderId = res.data?.data?._id
+      const orderId =
+        orderRes.data?.data?._id ||
+        orderRes.data?.order?._id ||
+        orderRes.data?._id
 
       if (!orderId) {
         throw new Error("Missing order ID")
       }
 
-      window.location.assign(`/client-checkout/${orderId}`)
+      localStorage.setItem("lastOrderId", orderId)
+
+      const squareRes = await api.post("/square/create-checkout", {
+        orderId
+      })
+
+      const paymentUrl =
+        squareRes.data?.paymentUrl ||
+        squareRes.data?.url ||
+        squareRes.data?.checkoutUrl ||
+        squareRes.data?.squarePaymentUrl ||
+        squareRes.data?.data?.paymentUrl ||
+        squareRes.data?.data?.url ||
+        squareRes.data?.data?.checkoutUrl ||
+        squareRes.data?.data?.squarePaymentUrl
+
+      if (!paymentUrl) {
+        throw new Error("Missing Square payment URL")
+      }
+
+      window.location.assign(paymentUrl)
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err)
 
