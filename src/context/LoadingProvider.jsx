@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { LoadingContext } from "./loadingContext"
+import { LoadingContext } from "./LoadingContext"
 
 export default function LoadingProvider({ children }) {
   const [count, setCount] = useState(0)
