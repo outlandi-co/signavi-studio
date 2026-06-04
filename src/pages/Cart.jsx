@@ -252,7 +252,7 @@ export default function Cart() {
             )}
 
             <p className="mt-4 text-center text-sm text-slate-500">
-              Shipping rates and address will be handled once on the shipping page.
+              Shipping rates and address are handled once on the shipping page.
             </p>
           </aside>
         </div>
