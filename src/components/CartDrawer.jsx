@@ -1,25 +1,20 @@
 import { createPortal } from "react-dom"
 import { useMemo, useState } from "react"
+import api from "../services/api"
 import { useCartContext } from "../context/useCartContext"
 
-const money = (value) =>
-  Number(value || 0).toFixed(2)
+const money = (value) => Number(value || 0).toFixed(2)
 
 const formatLicense = (licenseType = "") => {
   return String(licenseType)
     .split("-")
-    .map((word) =>
-      word.charAt(0).toUpperCase() + word.slice(1)
-    )
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ")
 }
 
 const getInitialCustomerInfo = () => {
-  const storedUser =
-    localStorage.getItem("customerUser")
-
-  const storedEmail =
-    localStorage.getItem("customerEmail")
+  const storedUser = localStorage.getItem("customerUser")
+  const storedEmail = localStorage.getItem("customerEmail")
 
   let parsedUser = null
 
@@ -27,24 +22,13 @@ const getInitialCustomerInfo = () => {
     try {
       parsedUser = JSON.parse(storedUser)
     } catch (err) {
-      console.warn(
-        "⚠️ Failed to parse customerUser:",
-        err
-      )
+      console.warn("⚠️ Failed to parse customerUser:", err)
     }
   }
 
   return {
-    customerName:
-      parsedUser?.name ||
-      parsedUser?.customerName ||
-      "",
-
-    email:
-      parsedUser?.email ||
-      storedEmail ||
-      "",
-
+    customerName: parsedUser?.name || parsedUser?.customerName || "",
+    email: parsedUser?.email || storedEmail || "",
     phone: parsedUser?.phone || "",
     street: parsedUser?.address?.street || "",
     city: parsedUser?.address?.city || "",
@@ -55,9 +39,7 @@ const getInitialCustomerInfo = () => {
 }
 
 const getItemKey = (item, index) => {
-  const productType =
-    item.productType ||
-    "physical"
+  const productType = item.productType || "physical"
 
   return [
     item.productId,
@@ -72,54 +54,70 @@ const getItemKey = (item, index) => {
     .join("-")
 }
 
-export default function CartDrawer({
-  isOpen,
-  onClose,
-  onCheckout
-}) {
+const normalizeRate = (rate) => {
+  return {
+    id: rate.object_id || rate.id || rate.rateId || rate.token || "",
+    provider: rate.provider || rate.carrier || "Carrier",
+    servicelevel:
+      rate.servicelevel?.name ||
+      rate.service ||
+      rate.serviceName ||
+      rate.name ||
+      "Shipping",
+    amount: Number(rate.amount || rate.price || rate.rate || 0),
+    currency: rate.currency || "USD",
+    estimatedDays:
+      rate.estimated_days ||
+      rate.estimatedDays ||
+      rate.delivery_days ||
+      null,
+    raw: rate
+  }
+}
+
+export default function CartDrawer({ isOpen, onClose, onCheckout }) {
   const {
     cart,
     updateQuantity,
     removeFromCart,
     subtotal,
-    tax,
-    shipping,
-    total
+    tax
   } = useCartContext()
 
-  const [customerInfo, setCustomerInfo] = useState(
-    getInitialCustomerInfo
-  )
-
+  const [customerInfo, setCustomerInfo] = useState(getInitialCustomerInfo)
   const [formError, setFormError] = useState("")
+  const [shippingRates, setShippingRates] = useState([])
+  const [selectedShippingRate, setSelectedShippingRate] = useState(null)
+  const [shippingLoading, setShippingLoading] = useState(false)
 
   const hasPhysicalItems = useMemo(() => {
     return cart.some(
-      (item) =>
-        (item.productType || "physical") === "physical"
+      (item) => (item.productType || "physical") === "physical"
     )
   }, [cart])
+
+  const selectedShippingCost = hasPhysicalItems
+    ? Number(selectedShippingRate?.amount || 0)
+    : 0
+
+  const finalTotal =
+    Number(subtotal || 0) +
+    Number(tax || 0) +
+    selectedShippingCost
 
   const handleChange = (field, value) => {
     setCustomerInfo((prev) => ({
       ...prev,
       [field]: value
     }))
+
+    if (["street", "city", "state", "zip", "country"].includes(field)) {
+      setShippingRates([])
+      setSelectedShippingRate(null)
+    }
   }
 
-  const validateCheckout = () => {
-    if (cart.length === 0) {
-      return "Your cart is empty."
-    }
-
-    if (!customerInfo.customerName.trim()) {
-      return "Customer name is required."
-    }
-
-    if (!customerInfo.email.trim()) {
-      return "Email is required."
-    }
-
+  const validateShippingAddress = () => {
     if (
       hasPhysicalItems &&
       (
@@ -129,10 +127,82 @@ export default function CartDrawer({
         !customerInfo.zip.trim()
       )
     ) {
-      return "Shipping address is required for physical products."
+      return "Shipping address is required to get live shipping rates."
     }
 
     return ""
+  }
+
+  const validateCheckout = () => {
+    if (cart.length === 0) return "Your cart is empty."
+    if (!customerInfo.customerName.trim()) return "Customer name is required."
+    if (!customerInfo.email.trim()) return "Email is required."
+
+    const shippingError = validateShippingAddress()
+    if (shippingError) return shippingError
+
+    if (hasPhysicalItems && !selectedShippingRate) {
+      return "Please select a shipping rate before checkout."
+    }
+
+    return ""
+  }
+
+  const handleGetShippingRates = async () => {
+    const error = validateShippingAddress()
+
+    if (error) {
+      setFormError(error)
+      return
+    }
+
+    try {
+      setShippingLoading(true)
+      setFormError("")
+      setShippingRates([])
+      setSelectedShippingRate(null)
+
+      const res = await api.post("/shipping/rates", {
+        address: {
+          name: customerInfo.customerName.trim() || "Customer",
+          street: customerInfo.street.trim(),
+          city: customerInfo.city.trim(),
+          state: customerInfo.state.trim(),
+          zip: customerInfo.zip.trim(),
+          country: customerInfo.country.trim() || "US",
+          phone: customerInfo.phone.trim(),
+          email: customerInfo.email.trim()
+        },
+        items: cart
+      })
+
+      const rawRates =
+        res.data?.rates ||
+        res.data?.data?.rates ||
+        res.data?.data ||
+        res.data ||
+        []
+
+      const normalizedRates = Array.isArray(rawRates)
+        ? rawRates.map(normalizeRate).filter((rate) => rate.amount > 0)
+        : []
+
+      if (normalizedRates.length === 0) {
+        setFormError("No shipping rates were returned. Check the address and try again.")
+        return
+      }
+
+      setShippingRates(normalizedRates)
+      setSelectedShippingRate(normalizedRates[0])
+    } catch (err) {
+      console.error("❌ SHIPPO RATE ERROR:", err.response?.data || err)
+      setFormError(
+        err.response?.data?.message ||
+          "Could not get shipping rates. Please check the address."
+      )
+    } finally {
+      setShippingLoading(false)
+    }
   }
 
   const handleCheckoutClick = () => {
@@ -145,30 +215,29 @@ export default function CartDrawer({
 
     setFormError("")
 
-    localStorage.setItem(
-      "customerEmail",
-      customerInfo.email.trim()
-    )
+    localStorage.setItem("customerEmail", customerInfo.email.trim())
 
     onCheckout?.(cart, {
-      customerName:
-        customerInfo.customerName.trim(),
-
-      email:
-        customerInfo.email.trim(),
-
-      phone:
-        customerInfo.phone.trim(),
+      customerName: customerInfo.customerName.trim(),
+      email: customerInfo.email.trim(),
+      phone: customerInfo.phone.trim(),
 
       address: {
         street: customerInfo.street.trim(),
         city: customerInfo.city.trim(),
         state: customerInfo.state.trim(),
         zip: customerInfo.zip.trim(),
-        country:
-          customerInfo.country.trim() ||
-          "US"
-      }
+        country: customerInfo.country.trim() || "US"
+      },
+
+      shippingRate: selectedShippingRate,
+      shippingCost: selectedShippingCost,
+      shippingProvider: selectedShippingRate?.provider || "",
+      shippingService: selectedShippingRate?.servicelevel || "",
+
+      subtotal: Number(subtotal || 0),
+      tax: Number(tax || 0),
+      total: finalTotal
     })
   }
 
@@ -183,28 +252,14 @@ export default function CartDrawer({
         style={overlay}
       />
 
-      <aside
-        onClick={(event) =>
-          event.stopPropagation()
-        }
-        style={drawer}
-      >
+      <aside onClick={(event) => event.stopPropagation()} style={drawer}>
         <div style={header}>
           <div>
-            <p style={eyebrow}>
-              SignaVi Studio
-            </p>
-
-            <h2 style={title}>
-              Cart
-            </h2>
+            <p style={eyebrow}>SignaVi Studio</p>
+            <h2 style={title}>Cart</h2>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            style={closeBtn}
-          >
+          <button type="button" onClick={onClose} style={closeBtn}>
             ✕
           </button>
         </div>
@@ -212,59 +267,32 @@ export default function CartDrawer({
         {cart.length === 0 ? (
           <div style={emptyBox}>
             <h3>Your cart is empty</h3>
-
-            <p style={muted}>
-              Add a product or service to begin checkout.
-            </p>
+            <p style={muted}>Add a product or service to begin checkout.</p>
           </div>
         ) : (
           <>
             <div style={cartList}>
               {cart.map((item, index) => {
-                const productType =
-                  item.productType ||
-                  "physical"
-
-                const isDigital =
-                  productType === "digital"
-
-                const isService =
-                  productType === "service"
-
-                const isPhysical =
-                  productType === "physical"
+                const productType = item.productType || "physical"
+                const isDigital = productType === "digital"
+                const isService = productType === "service"
+                const isPhysical = productType === "physical"
 
                 const price = Number(
-                  item.price ||
-                    item.selectedVariant?.price ||
-                    0
+                  item.price || item.selectedVariant?.price || 0
                 )
 
-                const qty =
-                  Number(item?.quantity || 1)
-
-                const itemTotal =
-                  price * qty
-
-                const key =
-                  getItemKey(item, index)
+                const qty = Number(item?.quantity || 1)
+                const itemTotal = price * qty
+                const key = getItemKey(item, index)
 
                 return (
-                  <article
-                    key={key}
-                    style={cartItem}
-                  >
+                  <article key={key} style={cartItem}>
                     <div style={itemRow}>
                       <div style={thumbBox}>
                         <img
-                          src={
-                            item.image ||
-                            "/image_placeholder/placeholder.png"
-                          }
-                          alt={
-                            item.name ||
-                            "Cart item"
-                          }
+                          src={item.image || "/image_placeholder/placeholder.png"}
+                          alt={item.name || "Cart item"}
                           style={thumbImg}
                           onError={(event) => {
                             event.currentTarget.src =
@@ -274,25 +302,18 @@ export default function CartDrawer({
                       </div>
 
                       <div style={{ flex: 1 }}>
-                        <p style={itemName}>
-                          {item.name}
-                        </p>
+                        <p style={itemName}>{item.name}</p>
 
                         {isPhysical && (
                           <p style={subText}>
-                            {item?.selectedVariant?.color ||
-                              "-"}{" "}
-                            /{" "}
-                            {item?.selectedVariant?.size ||
-                              "-"}
+                            {item?.selectedVariant?.color || "-"} /{" "}
+                            {item?.selectedVariant?.size || "-"}
                           </p>
                         )}
 
                         {isDigital && (
                           <>
-                            <p style={digitalText}>
-                              Digital Download
-                            </p>
+                            <p style={digitalText}>Digital Download</p>
 
                             {item.digitalProduct?.licenseType && (
                               <p style={subText}>
@@ -311,11 +332,7 @@ export default function CartDrawer({
                           </>
                         )}
 
-                        {isService && (
-                          <p style={serviceText}>
-                            Service
-                          </p>
-                        )}
+                        {isService && <p style={serviceText}>Service</p>}
                       </div>
                     </div>
 
@@ -327,9 +344,7 @@ export default function CartDrawer({
 
                           updateQuantity(
                             item.productId,
-                            isPhysical
-                              ? item.selectedVariant
-                              : productType,
+                            isPhysical ? item.selectedVariant : productType,
                             -1
                           )
                         }}
@@ -338,9 +353,7 @@ export default function CartDrawer({
                         −
                       </button>
 
-                      <span style={qtyText}>
-                        {qty}
-                      </span>
+                      <span style={qtyText}>{qty}</span>
 
                       <button
                         type="button"
@@ -350,18 +363,14 @@ export default function CartDrawer({
 
                           updateQuantity(
                             item.productId,
-                            isPhysical
-                              ? item.selectedVariant
-                              : productType,
+                            isPhysical ? item.selectedVariant : productType,
                             1
                           )
                         }}
                         style={{
                           ...qtyBtn,
                           opacity: isDigital ? 0.4 : 1,
-                          cursor: isDigital
-                            ? "not-allowed"
-                            : "pointer"
+                          cursor: isDigital ? "not-allowed" : "pointer"
                         }}
                       >
                         +
@@ -375,9 +384,7 @@ export default function CartDrawer({
                     </div>
 
                     <div style={itemFooter}>
-                      <p style={itemTotalText}>
-                        ${money(itemTotal)}
-                      </p>
+                      <p style={itemTotalText}>${money(itemTotal)}</p>
 
                       <button
                         type="button"
@@ -386,9 +393,7 @@ export default function CartDrawer({
 
                           removeFromCart(
                             item.productId,
-                            isPhysical
-                              ? item.selectedVariant
-                              : productType
+                            isPhysical ? item.selectedVariant : productType
                           )
                         }}
                         style={removeBtn}
@@ -401,41 +406,14 @@ export default function CartDrawer({
               })}
             </div>
 
-            <section style={summaryBox}>
-              <Row
-                label="Subtotal"
-                value={`$${money(subtotal)}`}
-              />
-
-              <Row
-                label="Tax"
-                value={`$${money(tax)}`}
-              />
-
-              <Row
-                label="Shipping"
-                value={`$${money(shipping || 0)}`}
-              />
-
-              <div style={totalRow}>
-                <span>Total</span>
-                <strong>${money(total)}</strong>
-              </div>
-            </section>
-
             <section style={formBox}>
-              <h3 style={{ marginTop: 0 }}>
-                Customer Info
-              </h3>
+              <h3 style={{ marginTop: 0 }}>Customer Info</h3>
 
               <input
                 style={input}
                 value={customerInfo.customerName}
                 onChange={(event) =>
-                  handleChange(
-                    "customerName",
-                    event.target.value
-                  )
+                  handleChange("customerName", event.target.value)
                 }
                 placeholder="Full Name *"
               />
@@ -443,12 +421,7 @@ export default function CartDrawer({
               <input
                 style={input}
                 value={customerInfo.email}
-                onChange={(event) =>
-                  handleChange(
-                    "email",
-                    event.target.value
-                  )
-                }
+                onChange={(event) => handleChange("email", event.target.value)}
                 placeholder="Email *"
                 type="email"
               />
@@ -456,30 +429,20 @@ export default function CartDrawer({
               <input
                 style={input}
                 value={customerInfo.phone}
-                onChange={(event) =>
-                  handleChange(
-                    "phone",
-                    event.target.value
-                  )
-                }
+                onChange={(event) => handleChange("phone", event.target.value)}
                 placeholder="Phone Number"
                 type="tel"
               />
 
               {hasPhysicalItems && (
                 <>
-                  <h4 style={{ marginBottom: 8 }}>
-                    Shipping Address
-                  </h4>
+                  <h4 style={{ marginBottom: 8 }}>Shipping Address</h4>
 
                   <input
                     style={input}
                     value={customerInfo.street}
                     onChange={(event) =>
-                      handleChange(
-                        "street",
-                        event.target.value
-                      )
+                      handleChange("street", event.target.value)
                     }
                     placeholder="Street Address *"
                   />
@@ -488,10 +451,7 @@ export default function CartDrawer({
                     style={input}
                     value={customerInfo.city}
                     onChange={(event) =>
-                      handleChange(
-                        "city",
-                        event.target.value
-                      )
+                      handleChange("city", event.target.value)
                     }
                     placeholder="City *"
                   />
@@ -501,10 +461,7 @@ export default function CartDrawer({
                       style={input}
                       value={customerInfo.state}
                       onChange={(event) =>
-                        handleChange(
-                          "state",
-                          event.target.value
-                        )
+                        handleChange("state", event.target.value)
                       }
                       placeholder="State *"
                     />
@@ -513,22 +470,89 @@ export default function CartDrawer({
                       style={input}
                       value={customerInfo.zip}
                       onChange={(event) =>
-                        handleChange(
-                          "zip",
-                          event.target.value
-                        )
+                        handleChange("zip", event.target.value)
                       }
                       placeholder="ZIP *"
                     />
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={handleGetShippingRates}
+                    disabled={shippingLoading}
+                    style={{
+                      ...rateBtn,
+                      opacity: shippingLoading ? 0.65 : 1,
+                      cursor: shippingLoading ? "not-allowed" : "pointer"
+                    }}
+                  >
+                    {shippingLoading ? "Getting Rates..." : "Get Shipping Rates"}
+                  </button>
+
+                  {shippingRates.length > 0 && (
+                    <div style={ratesBox}>
+                      <h4 style={{ margin: "0 0 10px" }}>
+                        Select Shipping
+                      </h4>
+
+                      {shippingRates.map((rate) => (
+                        <button
+                          type="button"
+                          key={`${rate.id}-${rate.provider}-${rate.servicelevel}-${rate.amount}`}
+                          onClick={() => setSelectedShippingRate(rate)}
+                          style={{
+                            ...rateOption,
+                            border:
+                              selectedShippingRate?.id === rate.id
+                                ? "1px solid #22d3ee"
+                                : "1px solid #334155",
+                            background:
+                              selectedShippingRate?.id === rate.id
+                                ? "rgba(34, 211, 238, 0.12)"
+                                : "#0f172a"
+                          }}
+                        >
+                          <span>
+                            <strong>{rate.provider}</strong>
+                            <br />
+                            <small>
+                              {rate.servicelevel}
+                              {rate.estimatedDays
+                                ? ` • ${rate.estimatedDays} day(s)`
+                                : ""}
+                            </small>
+                          </span>
+
+                          <strong>${money(rate.amount)}</strong>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </>
               )}
 
-              {formError && (
-                <p style={errorText}>
-                  {formError}
-                </p>
-              )}
+              {formError && <p style={errorText}>{formError}</p>}
+            </section>
+
+            <section style={summaryBox}>
+              <Row label="Subtotal" value={`$${money(subtotal)}`} />
+              <Row label="Tax" value={`$${money(tax)}`} />
+
+              <Row
+                label="Shipping"
+                value={
+                  hasPhysicalItems
+                    ? selectedShippingRate
+                      ? `$${money(selectedShippingCost)}`
+                      : "Select rate"
+                    : "$0.00"
+                }
+              />
+
+              <div style={totalRow}>
+                <span>Total</span>
+                <strong>${money(finalTotal)}</strong>
+              </div>
             </section>
 
             <button
@@ -537,14 +561,8 @@ export default function CartDrawer({
               disabled={cart.length === 0}
               style={{
                 ...checkoutBtn,
-                background:
-                  cart.length === 0
-                    ? "#475569"
-                    : "#22c55e",
-                cursor:
-                  cart.length === 0
-                    ? "not-allowed"
-                    : "pointer"
+                background: cart.length === 0 ? "#475569" : "#22c55e",
+                cursor: cart.length === 0 ? "not-allowed" : "pointer"
               }}
             >
               Checkout
@@ -557,10 +575,7 @@ export default function CartDrawer({
   )
 }
 
-function Row({
-  label,
-  value
-}) {
+function Row({ label, value }) {
   return (
     <div style={row}>
       <span>{label}</span>
@@ -806,6 +821,36 @@ const twoCol = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
   gap: 8
+}
+
+const rateBtn = {
+  width: "100%",
+  marginTop: 4,
+  marginBottom: 12,
+  padding: "12px 14px",
+  borderRadius: 12,
+  border: "none",
+  background: "#22d3ee",
+  color: "#020617",
+  fontWeight: 900
+}
+
+const ratesBox = {
+  display: "grid",
+  gap: 8,
+  marginTop: 8
+}
+
+const rateOption = {
+  width: "100%",
+  padding: 12,
+  borderRadius: 12,
+  color: "#fff",
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 12,
+  textAlign: "left",
+  cursor: "pointer"
 }
 
 const errorText = {
