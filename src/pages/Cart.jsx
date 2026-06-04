@@ -254,9 +254,7 @@ export default function Cart() {
 
       localStorage.setItem("lastOrderId", orderId)
 
-      const squareRes = await api.post("/square/create-checkout", {
-        orderId
-      })
+      const squareRes = await api.post(`/square/create-payment/${orderId}`)
 
       const paymentUrl =
         squareRes.data?.paymentUrl ||
