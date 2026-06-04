@@ -162,19 +162,16 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
       setShippingRates([])
       setSelectedShippingRate(null)
 
-      const res = await api.post("/shipping/rates", {
-        address: {
-          name: customerInfo.customerName.trim() || "Customer",
-          street: customerInfo.street.trim(),
-          city: customerInfo.city.trim(),
-          state: customerInfo.state.trim(),
-          zip: customerInfo.zip.trim(),
-          country: customerInfo.country.trim() || "US",
-          phone: customerInfo.phone.trim(),
-          email: customerInfo.email.trim()
-        },
-        items: cart
-      })
+     const res = await api.post("/shipping/get-rates", {
+  address_to: {
+    name: customerInfo.customerName.trim() || "Customer",
+    street1: customerInfo.street.trim(),
+    city: customerInfo.city.trim(),
+    state: customerInfo.state.trim(),
+    zip: customerInfo.zip.trim(),
+    country: customerInfo.country.trim() || "US"
+  }
+})
 
       const rawRates =
         res.data?.rates ||
