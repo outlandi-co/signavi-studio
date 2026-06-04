@@ -94,6 +94,12 @@ export default function AdminLayout() {
   ➕ Create Product
 </SideLink>
 
+<NavLink
+  to="/admin/signavi-store/discounts"
+>
+  Store Discounts
+</NavLink>
+
         <div style={sectionLabel}>
           Customers
         </div>

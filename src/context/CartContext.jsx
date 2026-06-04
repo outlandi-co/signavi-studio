@@ -19,10 +19,13 @@ const getProductType = (product = {}) => {
 
 const getCartItemPrice = (item = {}) => {
   return safeNumber(
-    item.price ||
-      item.selectedVariant?.price ||
-      item.basePrice ||
-      item.listPrice ||
+    item.salePrice ??
+      item.finalPrice ??
+      item.unitPrice ??
+      item.price ??
+      item.selectedVariant?.price ??
+      item.basePrice ??
+      item.listPrice ??
       0
   )
 }
@@ -33,7 +36,7 @@ const normalizeVariant = (variant = null) => {
   return {
     color: variant.color || "",
     size: variant.size || "",
-    price: safeNumber(variant.price),
+    price: safeNumber(variant.price)
   }
 }
 
@@ -48,6 +51,10 @@ const isSameCartItem = (item = {}, product = {}) => {
   }
 
   const variant = product.selectedVariant || null
+
+  if (!variant) {
+    return !item.selectedVariant
+  }
 
   return (
     item.selectedVariant?.color === variant?.color &&
@@ -79,22 +86,66 @@ export function CartProvider({ children }) {
       return false
     }
 
-    if (productType === "physical" && (!variant?.color || !variant?.size)) {
-      console.warn("❌ Missing variant:", product)
-      return false
-    }
-
     const price = safeNumber(
-      product.price ||
-        variant?.price ||
-        product.basePrice ||
-        product.listPrice ||
+      product.salePrice ??
+        product.finalPrice ??
+        product.unitPrice ??
+        product.price ??
+        variant?.price ??
+        product.basePrice ??
+        product.listPrice ??
         0
     )
 
     if (price <= 0) {
       console.warn("❌ Invalid price:", product)
       return false
+    }
+
+    const originalPrice = safeNumber(
+      product.originalPrice ??
+        product.regularPrice ??
+        product.compareAtPrice ??
+        product.listPrice ??
+        product.basePrice ??
+        price
+    )
+
+    const cartPayload = {
+      productId,
+      name: product.name || "Untitled Product",
+      image: product.image || "",
+      productType,
+
+      price,
+      unitPrice: price,
+      salePrice: price,
+      finalPrice: price,
+
+      originalPrice,
+      regularPrice: originalPrice,
+      compareAtPrice: originalPrice,
+      listPrice: price,
+      basePrice: price,
+
+      discountActive: Boolean(product.discountActive),
+      discountType: product.discountType || "",
+      discountValue: safeNumber(product.discountValue, 0),
+      discountLabel: product.discountLabel || "",
+
+      selectedVariant:
+        productType === "physical" && variant
+          ? {
+              color: variant.color,
+              size: variant.size,
+              price
+            }
+          : null,
+
+      digitalProduct:
+        productType === "digital"
+          ? product.digitalProduct || null
+          : null
     }
 
     setCart((prev) => {
@@ -107,19 +158,17 @@ export function CartProvider({ children }) {
           if (productType === "digital") {
             return {
               ...item,
+              ...cartPayload,
               quantity: 1,
-              price,
-              image: product.image || item.image,
               digitalProduct:
-                product.digitalProduct || item.digitalProduct || null,
+                product.digitalProduct || item.digitalProduct || null
             }
           }
 
           return {
             ...item,
-            quantity: safeNumber(item.quantity, 1) + 1,
-            price,
-            image: product.image || item.image,
+            ...cartPayload,
+            quantity: safeNumber(item.quantity, 1) + safeNumber(product.quantity, 1)
           }
         })
       }
@@ -127,25 +176,9 @@ export function CartProvider({ children }) {
       return [
         ...prev,
         {
-          productId,
-          name: product.name || "Untitled Product",
-          image: product.image || "",
-          productType,
-          price,
-          selectedVariant:
-            productType === "physical"
-              ? {
-                  color: variant.color,
-                  size: variant.size,
-                  price,
-                }
-              : null,
-          digitalProduct:
-            productType === "digital"
-              ? product.digitalProduct || null
-              : null,
-          quantity: 1,
-        },
+          ...cartPayload,
+          quantity: safeNumber(product.quantity, 1)
+        }
       ]
     })
 
@@ -163,15 +196,18 @@ export function CartProvider({ children }) {
           const isMatch =
             itemType === "digital" || itemType === "service"
               ? itemType === variantOrType
-              : item.selectedVariant?.color === variantOrType?.color &&
-                item.selectedVariant?.size === variantOrType?.size
+              : !variantOrType ||
+                (
+                  item.selectedVariant?.color === variantOrType?.color &&
+                  item.selectedVariant?.size === variantOrType?.size
+                )
 
           if (!isMatch) return item
 
           if (itemType === "digital" && delta > 0) {
             return {
               ...item,
-              quantity: 1,
+              quantity: 1
             }
           }
 
@@ -181,14 +217,14 @@ export function CartProvider({ children }) {
 
           return {
             ...item,
-            quantity: newQty,
+            quantity: newQty
           }
         })
         .filter(Boolean)
     )
   }
 
-  const removeFromCart = (productId, variantOrType) => {
+  const removeFromCart = (productId, variantOrType = null) => {
     setCart((prev) =>
       prev.filter((item) => {
         if (item.productId !== productId) return true
@@ -197,6 +233,10 @@ export function CartProvider({ children }) {
 
         if (itemType === "digital" || itemType === "service") {
           return itemType !== variantOrType
+        }
+
+        if (!variantOrType) {
+          return false
         }
 
         return !(
@@ -249,7 +289,7 @@ export function CartProvider({ children }) {
         tax,
         shipping,
         total,
-        cartCount,
+        cartCount
       }}
     >
       {children}

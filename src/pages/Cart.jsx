@@ -6,6 +6,27 @@ import api from "../services/api"
 
 const TAX_RATE = 0.0825
 
+const SHIPPING_OPTIONS = [
+  {
+    id: "standard",
+    label: "Standard Shipping",
+    description: "3–7 business days",
+    price: 9.99
+  },
+  {
+    id: "express",
+    label: "Express Shipping",
+    description: "1–3 business days",
+    price: 18.99
+  },
+  {
+    id: "pickup",
+    label: "Local Pickup",
+    description: "No shipping charge",
+    price: 0
+  }
+]
+
 const money = (value = 0) => {
   return Number(value || 0).toLocaleString("en-US", {
     style: "currency",
@@ -39,11 +60,31 @@ const getCustomerEmail = () => {
     .toLowerCase()
 }
 
+const getCustomerName = () => {
+  try {
+    const customerUser = JSON.parse(
+      localStorage.getItem("customerUser") || "null"
+    )
+
+    return (
+      customerUser?.name ||
+      customerUser?.user?.name ||
+      customerUser?.data?.name ||
+      "Guest Customer"
+    )
+  } catch {
+    return "Guest Customer"
+  }
+}
+
 const getPrice = (item = {}) => {
   return Number(
-    item?.selectedVariant?.price ??
-      item?.variant?.price ??
+    item?.salePrice ??
+      item?.finalPrice ??
+      item?.unitPrice ??
       item?.price ??
+      item?.selectedVariant?.price ??
+      item?.variant?.price ??
       item?.basePrice ??
       0
   )
@@ -64,12 +105,30 @@ export default function Cart() {
 
   const {
     cart,
-    total,
     removeFromCart,
     clearCart
   } = useCartContext()
 
   const [loading, setLoading] = useState(false)
+  const [shippingMethod, setShippingMethod] = useState("standard")
+
+  const [shippingAddress, setShippingAddress] = useState({
+    fullName: getCustomerName(),
+    email: getCustomerEmail(),
+    phone: "",
+    address1: "",
+    address2: "",
+    city: "",
+    state: "",
+    zip: "",
+    country: "US"
+  })
+
+  const selectedShipping =
+    SHIPPING_OPTIONS.find((option) => option.id === shippingMethod) ||
+    SHIPPING_OPTIONS[0]
+
+  const requiresAddress = shippingMethod !== "pickup"
 
   const totals = useMemo(() => {
     const subtotal = cart.reduce((sum, item) => {
@@ -77,14 +136,50 @@ export default function Cart() {
     }, 0)
 
     const tax = subtotal * TAX_RATE
-    const finalPrice = subtotal + tax
+    const shipping = Number(selectedShipping.price || 0)
+    const finalPrice = subtotal + tax + shipping
 
     return {
       subtotal,
       tax,
+      shipping,
       finalPrice
     }
-  }, [cart])
+  }, [cart, selectedShipping])
+
+  const handleAddressChange = (event) => {
+    const { name, value } = event.target
+
+    setShippingAddress((prev) => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  const validateShipping = () => {
+    if (!requiresAddress) return true
+
+    const requiredFields = [
+      "fullName",
+      "email",
+      "phone",
+      "address1",
+      "city",
+      "state",
+      "zip"
+    ]
+
+    const missing = requiredFields.find(
+      (field) => !String(shippingAddress[field] || "").trim()
+    )
+
+    if (missing) {
+      toast.error("Please complete the shipping address")
+      return false
+    }
+
+    return true
+  }
 
   const handleCheckout = async () => {
     if (!cart.length) {
@@ -92,40 +187,71 @@ export default function Cart() {
       return
     }
 
+    if (!validateShipping()) return
+
     try {
       setLoading(true)
 
       const email = getCustomerEmail()
 
-      const items = cart.map((item) => ({
-        productId: getProductId(item),
-        name: item.name || "Product",
-        quantity: Number(item.quantity || 1),
-        price: getPrice(item),
-        variant:
-          item.selectedVariant ||
-          item.variant ||
-          null,
-        image:
-          item.image ||
-          item.imageUrl ||
-          item.selectedVariant?.image ||
-          ""
-      }))
+      const items = cart.map((item) => {
+        const price = getPrice(item)
+
+        return {
+          productId: getProductId(item),
+          name: item.name || "Product",
+          quantity: Number(item.quantity || 1),
+
+          price,
+          unitPrice: price,
+          salePrice: price,
+          finalPrice: price,
+
+          originalPrice:
+            Number(
+              item.originalPrice ||
+                item.regularPrice ||
+                item.compareAtPrice ||
+                price
+            ),
+
+          discountActive: Boolean(item.discountActive),
+          discountType: item.discountType || "",
+          discountValue: Number(item.discountValue || 0),
+          discountLabel: item.discountLabel || "",
+
+          variant:
+            item.selectedVariant ||
+            item.variant ||
+            null,
+
+          image:
+            item.image ||
+            item.imageUrl ||
+            item.selectedVariant?.image ||
+            ""
+        }
+      })
 
       const payload = {
         email,
-        customerName:
-          JSON.parse(
-            localStorage.getItem("customerUser") || "null"
-          )?.name || "Guest Customer",
+        customerName: getCustomerName(),
         items,
+
         subtotal: totals.subtotal,
         tax: totals.tax,
+        shipping: totals.shipping,
+        shippingCost: totals.shipping,
+        shippingMethod: selectedShipping.label,
+        shippingMethodId: selectedShipping.id,
+        shippingAddress: requiresAddress ? shippingAddress : null,
+
         finalPrice: totals.finalPrice,
         source: "store",
         status: "payment_required"
       }
+
+      console.log("🧾 CART ORDER PAYLOAD:", payload)
 
       const res = await api.post("/orders", payload)
 
@@ -141,7 +267,6 @@ export default function Cart() {
       }
 
       toast.success("Order created")
-
       navigate(`/client-checkout/${orderId}`)
     } catch (err) {
       console.error("❌ CART CHECKOUT ERROR:", err.response?.data || err)
@@ -200,7 +325,7 @@ export default function Cart() {
           </h1>
 
           <p className="mt-3 text-slate-400">
-            Review your items before secure checkout.
+            Review your items, choose shipping, then continue to secure payment.
           </p>
         </div>
 
@@ -292,6 +417,100 @@ export default function Cart() {
                 </article>
               )
             })}
+
+            <section className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6 shadow-xl shadow-black/20">
+              <h2 className="mb-4 text-2xl font-bold">
+                Shipping
+              </h2>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                {SHIPPING_OPTIONS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setShippingMethod(option.id)}
+                    className={
+                      shippingMethod === option.id
+                        ? "rounded-2xl border border-cyan-400 bg-cyan-500/10 p-4 text-left"
+                        : "rounded-2xl border border-slate-800 bg-[#020617] p-4 text-left transition hover:border-cyan-400"
+                    }
+                  >
+                    <p className="font-bold text-white">
+                      {option.label}
+                    </p>
+
+                    <p className="mt-1 text-sm text-slate-400">
+                      {option.description}
+                    </p>
+
+                    <p className="mt-3 font-extrabold text-cyan-300">
+                      {money(option.price)}
+                    </p>
+                  </button>
+                ))}
+              </div>
+
+              {requiresAddress && (
+                <div className="mt-6 grid gap-3 md:grid-cols-2">
+                  <Input
+                    name="fullName"
+                    label="Full Name"
+                    value={shippingAddress.fullName}
+                    onChange={handleAddressChange}
+                  />
+
+                  <Input
+                    name="email"
+                    label="Email"
+                    value={shippingAddress.email}
+                    onChange={handleAddressChange}
+                  />
+
+                  <Input
+                    name="phone"
+                    label="Phone"
+                    value={shippingAddress.phone}
+                    onChange={handleAddressChange}
+                  />
+
+                  <Input
+                    name="address1"
+                    label="Address"
+                    value={shippingAddress.address1}
+                    onChange={handleAddressChange}
+                  />
+
+                  <Input
+                    name="address2"
+                    label="Apt / Suite"
+                    value={shippingAddress.address2}
+                    onChange={handleAddressChange}
+                    required={false}
+                  />
+
+                  <Input
+                    name="city"
+                    label="City"
+                    value={shippingAddress.city}
+                    onChange={handleAddressChange}
+                  />
+
+                  <Input
+                    name="state"
+                    label="State"
+                    value={shippingAddress.state}
+                    onChange={handleAddressChange}
+                  />
+
+                  <Input
+                    name="zip"
+                    label="ZIP Code"
+                    value={shippingAddress.zip}
+                    onChange={handleAddressChange}
+                  />
+                </div>
+              )}
+            </section>
           </section>
 
           <aside className="h-fit rounded-3xl border border-slate-800 bg-slate-950/80 p-6 shadow-xl shadow-black/20">
@@ -301,7 +520,7 @@ export default function Cart() {
 
             <SummaryRow
               label="Subtotal"
-              value={money(totals.subtotal || total)}
+              value={money(totals.subtotal)}
             />
 
             <SummaryRow
@@ -310,8 +529,8 @@ export default function Cart() {
             />
 
             <SummaryRow
-              label="Shipping"
-              value="Calculated later"
+              label={selectedShipping.label}
+              value={money(totals.shipping)}
             />
 
             <SummaryRow
@@ -342,12 +561,35 @@ export default function Cart() {
             )}
 
             <p className="mt-4 text-center text-sm text-slate-500">
-              Secure payment will be completed through Square.
+              Shipping is collected here. Square will only collect payment.
             </p>
           </aside>
         </div>
       </section>
     </main>
+  )
+}
+
+function Input({
+  name,
+  label,
+  value,
+  onChange,
+  required = true
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+        {label}{required ? " *" : ""}
+      </span>
+
+      <input
+        name={name}
+        value={value}
+        onChange={onChange}
+        className="w-full rounded-xl border border-slate-700 bg-[#020617] px-4 py-3 text-white outline-none transition focus:border-cyan-400"
+      />
+    </label>
   )
 }
 

@@ -80,6 +80,7 @@ import MarketingHub from "./pages/admin/MarketingHub"
 import StoreProducts from "./pages/admin/signavi-store/StoreProducts"
 import CreateStoreProduct from "./pages/admin/signavi-store/CreateStoreProduct"
 import EditStoreProduct from "./pages/admin/signavi-store/EditStoreProduct"
+import Discounts from "./pages/admin/signavi-store/Discounts"
 
 function AppContent() {
   const location = useLocation()
@@ -274,6 +275,11 @@ function AppContent() {
 
             <Route path="invoices" element={<AdminInvoices />} />
             <Route path="custom-order/new" element={<CreateCustomOrder />} />
+
+            <Route
+  path="signavi-store/discounts"
+  element={<Discounts />}
+/>
 
             <Route path="customers" element={<AdminCustomers />} />
             <Route path="customers/:id" element={<AdminCustomerDetail />} />
