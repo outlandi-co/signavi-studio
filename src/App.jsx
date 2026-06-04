@@ -276,11 +276,6 @@ function AppContent() {
             <Route path="invoices" element={<AdminInvoices />} />
             <Route path="custom-order/new" element={<CreateCustomOrder />} />
 
-            <Route
-  path="signavi-store/discounts"
-  element={<Discounts />}
-/>
-
             <Route path="customers" element={<AdminCustomers />} />
             <Route path="customers/:id" element={<AdminCustomerDetail />} />
 
@@ -333,6 +328,11 @@ function AppContent() {
             <Route
               path="signavi-store/edit/:id"
               element={<EditStoreProduct />}
+            />
+
+            <Route
+              path="signavi-store/discounts"
+              element={<Discounts />}
             />
           </Route>
         </Route>
