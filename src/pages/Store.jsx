@@ -19,6 +19,23 @@ const safeText = (value, fallback = "") => {
 
 const money = (value = 0) => `$${Number(value || 0).toFixed(2)}`
 
+const getNumber = (...values) => {
+  for (const value of values) {
+    const num = Number(value)
+    if (!Number.isNaN(num) && num > 0) return num
+  }
+
+  return 0
+}
+
+const getCustomerUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem("customerUser") || "null")
+  } catch {
+    return null
+  }
+}
+
 export default function Store() {
   const navigate = useNavigate()
   const { addToCart } = useCartContext()
@@ -125,8 +142,8 @@ export default function Store() {
     })
 
     return filtered.sort((a, b) => {
-      const priceA = getDisplayPricing(a).displayPrice
-      const priceB = getDisplayPricing(b).displayPrice
+      const priceA = getDisplayPricing(a, 1).displayPrice
+      const priceB = getDisplayPricing(b, 1).displayPrice
 
       if (sort === "priceLow") return priceA - priceB
       if (sort === "priceHigh") return priceB - priceA
@@ -146,8 +163,18 @@ export default function Store() {
     )
   }
 
+  const updateQty = (productId, nextQty, stock) => {
+    const cleanQty = Math.max(1, Number(nextQty || 1))
+    const maxQty = stock > 0 ? Math.min(cleanQty, stock) : cleanQty
+
+    setQuantity((prev) => ({
+      ...prev,
+      [productId]: maxQty
+    }))
+  }
+
   const addRecent = (product) => {
-    const pricing = getDisplayPricing(product)
+    const pricing = getDisplayPricing(product, 1)
 
     const next = [
       {
@@ -176,6 +203,11 @@ export default function Store() {
 
     if (stock <= 0) {
       toast.error("This item is out of stock")
+      return
+    }
+
+    if (qty > stock) {
+      toast.error(`Only ${stock} available`)
       return
     }
 
@@ -218,23 +250,33 @@ export default function Store() {
     mainImage,
     price,
     regularPrice,
-    productType
+    productType,
+    stock
   }) => {
     try {
       const productId = product._id
       const qty = quantity[productId] || 1
+
+      if (stock <= 0) {
+        toast.error("This item is out of stock")
+        return
+      }
+
+      if (qty > stock) {
+        toast.error(`Only ${stock} available`)
+        return
+      }
+
+      const customerUser = getCustomerUser()
+
       const cartPrice = Number(price || 0)
       const originalPrice = Number(regularPrice || cartPrice || 0)
       const subtotal = cartPrice * qty
       const tax = subtotal * 0.0825
 
       const res = await api.post("/orders", {
-        email:
-          JSON.parse(localStorage.getItem("customerUser") || "null")?.email ||
-          "guest@signavi.com",
-        customerName:
-          JSON.parse(localStorage.getItem("customerUser") || "null")?.name ||
-          "Guest Customer",
+        email: customerUser?.email || "guest@signavi.com",
+        customerName: customerUser?.name || "Guest Customer",
         source: "store",
         status: "payment_required",
         items: [
@@ -375,22 +417,13 @@ export default function Store() {
               const images = getProductImages(product)
               const mainImage = resolve(images[0])
 
+              const stock = Number(product.stock ?? product.quantity ?? 0)
               const qty = quantity[productId] || 1
-              const regularPrice = getRegularPrice(product)
-              const salePrice = Number(product.salePrice || 0)
 
-              const hasSale =
-                product.discountActive === true &&
-                salePrice > 0
-
-              const displayPrice = hasSale
-                ? salePrice
-                : getDiscountedPrice(regularPrice, qty, product)
-
-              const stock =
-                product.stock ??
-                product.quantity ??
-                0
+              const pricing = getDisplayPricing(product, qty)
+              const regularPrice = pricing.regularPrice
+              const displayPrice = pricing.displayPrice
+              const hasSale = pricing.hasSale
 
               const reviews = product.reviews || []
               const avgRating =
@@ -479,12 +512,7 @@ export default function Store() {
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() =>
-                            setQuantity((prev) => ({
-                              ...prev,
-                              [productId]: Math.max(1, qty - 1)
-                            }))
-                          }
+                          onClick={() => updateQty(productId, qty - 1, stock)}
                           className="rounded-lg border border-slate-700 px-2.5 py-1 text-sm"
                         >
                           -
@@ -493,27 +521,17 @@ export default function Store() {
                         <input
                           type="number"
                           min="1"
+                          max={stock > 0 ? stock : undefined}
                           value={qty}
                           onChange={(event) =>
-                            setQuantity((prev) => ({
-                              ...prev,
-                              [productId]: Math.max(
-                                1,
-                                Number(event.target.value || 1)
-                              )
-                            }))
+                            updateQty(productId, event.target.value, stock)
                           }
                           className="w-full rounded-lg border border-slate-700 bg-[#020617] px-2 py-1 text-center text-sm"
                         />
 
                         <button
                           type="button"
-                          onClick={() =>
-                            setQuantity((prev) => ({
-                              ...prev,
-                              [productId]: qty + 1
-                            }))
-                          }
+                          onClick={() => updateQty(productId, qty + 1, stock)}
                           className="rounded-lg border border-slate-700 px-2.5 py-1 text-sm"
                         >
                           +
@@ -530,7 +548,7 @@ export default function Store() {
                         </p>
 
                         <div className="flex items-end gap-2">
-                          {hasSale && (
+                          {hasSale && regularPrice > displayPrice && (
                             <span className="text-xs text-slate-500 line-through">
                               {money(regularPrice)}
                             </span>
@@ -559,6 +577,7 @@ export default function Store() {
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         <button
                           type="button"
+                          disabled={stock <= 0}
                           onClick={() =>
                             handleAddToCart({
                               product,
@@ -569,23 +588,33 @@ export default function Store() {
                               stock
                             })
                           }
-                          className="rounded-lg bg-cyan-500 px-3 py-2 text-xs font-bold text-black transition hover:bg-cyan-400"
+                          className={
+                            stock <= 0
+                              ? "cursor-not-allowed rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold text-slate-400"
+                              : "rounded-lg bg-cyan-500 px-3 py-2 text-xs font-bold text-black transition hover:bg-cyan-400"
+                          }
                         >
                           Add Cart
                         </button>
 
                         <button
                           type="button"
+                          disabled={stock <= 0}
                           onClick={() =>
                             handleBuyNow({
                               product,
                               mainImage,
                               price: displayPrice,
                               regularPrice,
-                              productType
+                              productType,
+                              stock
                             })
                           }
-                          className="rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-black transition hover:bg-emerald-400"
+                          className={
+                            stock <= 0
+                              ? "cursor-not-allowed rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold text-slate-400"
+                              : "rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-black transition hover:bg-emerald-400"
+                          }
                         >
                           Buy Now
                         </button>
@@ -607,7 +636,7 @@ export default function Store() {
                 const freshProduct =
                   products.find((product) => product._id === item._id) || item
 
-                const pricing = getDisplayPricing(freshProduct)
+                const pricing = getDisplayPricing(freshProduct, 1)
 
                 const freshImage =
                   getProductImages(freshProduct)[0] ||
@@ -727,61 +756,80 @@ function PricingNotice({ product, qty }) {
   )
 }
 
-function getProductImages(product) {
+function getProductImages(product = {}) {
   const variants = product.variants || []
-
   const images = [...new Set(variants.flatMap((v) => v.images || []))]
 
   if (images.length === 0 && product.image) images.push(product.image)
   if (images.length === 0 && product.imageUrl) images.push(product.imageUrl)
-  if (images.length === 0 && product.images?.length) {
+  if (images.length === 0 && Array.isArray(product.images)) {
     images.push(...product.images)
   }
+
   if (images.length === 0) images.push("/image_placeholder/placeholder.png")
 
   return images
 }
 
-function getProductPrice(product) {
+function getProductPrice(product = {}) {
   const variantPrices = product.variants
-    ?.map((v) => Number(v.price || v.basePrice || v.listPrice || 0))
+    ?.map((v) =>
+      getNumber(
+        v.finalPrice,
+        v.storefrontPrice,
+        v.profitAdjustedPrice,
+        v.listPrice,
+        v.price,
+        v.basePrice
+      )
+    )
     .filter((price) => price > 0)
 
-  return Number(
-    (variantPrices?.length ? Math.min(...variantPrices) : 0) ||
-      product.price ||
-      product.basePrice ||
-      product.listPrice ||
-      product.finalPrice ||
-      0
+  return getNumber(
+    variantPrices?.length ? Math.min(...variantPrices) : 0,
+    product.finalPrice,
+    product.storefrontPrice,
+    product.profitAdjustedPrice,
+    product.listPrice,
+    product.price,
+    product.basePrice,
+    product.cost
   )
 }
 
-function getRegularPrice(product) {
-  return Number(
-    product.originalPrice ||
-      product.listPrice ||
-      product.price ||
-      getProductPrice(product) ||
-      0
+function getRegularPrice(product = {}) {
+  return getNumber(
+    product.originalPrice,
+    product.regularPrice,
+    product.finalPrice,
+    product.storefrontPrice,
+    product.profitAdjustedPrice,
+    product.listPrice,
+    product.price,
+    product.basePrice,
+    getProductPrice(product)
   )
 }
 
-function getDisplayPricing(product) {
+function getDisplayPricing(product = {}, qty = 1) {
   const regularPrice = getRegularPrice(product)
   const salePrice = Number(product.salePrice || 0)
 
   const hasSale = product.discountActive === true && salePrice > 0
 
+  const displayPrice = hasSale
+    ? salePrice
+    : getDiscountedPrice(regularPrice, qty, product)
+
   return {
     regularPrice,
     salePrice,
     hasSale,
-    displayPrice: hasSale ? salePrice : regularPrice
+    displayPrice
   }
 }
 
-function getDiscountedPrice(basePrice, qty, product) {
+function getDiscountedPrice(basePrice, qty, product = {}) {
   const category = safeText(product.category).toLowerCase()
   const name = safeText(product.name).toLowerCase()
 
