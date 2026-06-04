@@ -59,6 +59,34 @@ const getProductPrice = (product) => {
   )
 }
 
+const getProductCost = (product) => {
+  return Number(
+    product.cost ||
+      product.wholesaleCost ||
+      product.unitCost ||
+      product.baseCost ||
+      product.variants?.[0]?.cost ||
+      product.variants?.[0]?.unitCost ||
+      0
+  )
+}
+
+const getProductProfit = (product) => {
+  const price = getProductPrice(product)
+  const cost = getProductCost(product)
+
+  return price - cost
+}
+
+const getProductMargin = (product) => {
+  const price = getProductPrice(product)
+  const profit = getProductProfit(product)
+
+  if (!price || price <= 0) return 0
+
+  return (profit / price) * 100
+}
+
 const getProductStock = (product) => {
   if (product.variants?.length) {
     return product.variants.reduce(
@@ -116,7 +144,8 @@ export default function StoreProducts() {
 
     if (typeFilter !== "all") {
       data = data.filter(
-        (product) => displayText(product.productType, "physical") === typeFilter
+        (product) =>
+          displayText(product.productType, "physical") === typeFilter
       )
     }
 
@@ -147,6 +176,11 @@ export default function StoreProducts() {
 
   const totalInventory = products.reduce(
     (sum, product) => sum + getProductStock(product),
+    0
+  )
+
+  const totalProfit = products.reduce(
+    (sum, product) => sum + getProductProfit(product),
     0
   )
 
@@ -188,9 +222,9 @@ export default function StoreProducts() {
               SignaVi Store
             </p>
 
-            <h1 className="text-4xl font-extrabold md:text-5xl">
-              Store Products
-            </h1>
+            <h1 className="text-4xl font-extrabold md:text-5xl text-red-500">
+  STORE PRODUCTS PROFIT TEST
+</h1>
 
             <p className="mt-3 max-w-2xl text-slate-400">
               Manage products currently visible on signavi.store.
@@ -206,11 +240,12 @@ export default function StoreProducts() {
           </button>
         </div>
 
-        <div className="mb-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mb-8 grid gap-5 md:grid-cols-2 xl:grid-cols-5">
           <MetricCard label="Store Products" value={totalProducts} />
           <MetricCard label="Physical" value={physicalProducts} />
           <MetricCard label="Digital" value={digitalProducts} />
           <MetricCard label="Inventory" value={totalInventory} />
+          <MetricCard label="Projected Profit" value={money(totalProfit)} />
         </div>
 
         <div className="mb-6 rounded-3xl border border-slate-800 bg-slate-950/80 p-5">
@@ -265,6 +300,9 @@ export default function StoreProducts() {
           <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
             {filteredProducts.map((product) => {
               const price = getProductPrice(product)
+              const cost = getProductCost(product)
+              const profit = getProductProfit(product)
+              const margin = getProductMargin(product)
               const stock = getProductStock(product)
               const image = getProductImage(product)
 
@@ -302,8 +340,29 @@ export default function StoreProducts() {
                       {displayText(product.category, "No category")}
                     </p>
 
-                    <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2">
                       <Info label="Price" value={money(price)} />
+                      <Info label="Cost" value={money(cost)} />
+                      <Info
+                        label="Profit"
+                        value={money(profit)}
+                        valueClass={
+                          profit >= 0
+                            ? "text-emerald-300"
+                            : "text-red-300"
+                        }
+                      />
+                      <Info
+                        label="Margin"
+                        value={`${margin.toFixed(1)}%`}
+                        valueClass={
+                          margin >= 40
+                            ? "text-emerald-300"
+                            : margin >= 20
+                              ? "text-yellow-300"
+                              : "text-red-300"
+                        }
+                      />
                       <Info label="Stock" value={stock} />
                       <Info
                         label="Variants"
@@ -365,14 +424,14 @@ function MetricCard({ label, value }) {
   )
 }
 
-function Info({ label, value }) {
+function Info({ label, value, valueClass = "text-white" }) {
   return (
     <div className="rounded-xl border border-slate-800 bg-[#020617] p-3">
       <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
         {label}
       </p>
 
-      <p className="mt-1 font-bold text-white">
+      <p className={`mt-1 font-bold ${valueClass}`}>
         {value}
       </p>
     </div>

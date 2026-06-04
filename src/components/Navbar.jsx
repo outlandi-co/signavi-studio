@@ -8,6 +8,8 @@ import {
   useState
 } from "react"
 
+import logo from "../assets/SignaVi_Logo.jpg"
+
 import {
   useCartContext
 } from "../context/useCartContext"
@@ -24,6 +26,8 @@ const safeParse = (key) => {
     return null
   }
 }
+
+
 
 function Navbar({
   setCartOpen = () => {},
@@ -97,9 +101,13 @@ function Navbar({
           onClick={closeMobile}
           className="flex items-center gap-3"
         >
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 font-bold text-white shadow-lg shadow-cyan-500/20">
-            S
-          </div>
+         <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-cyan-400/30 bg-slate-950 shadow-lg shadow-cyan-500/20">
+  <img
+    src={logo}
+    alt="SignaVi Studio"
+    className="h-full w-full object-contain"
+  />
+</div>
 
           <div>
             <span className="block text-lg font-bold text-white">

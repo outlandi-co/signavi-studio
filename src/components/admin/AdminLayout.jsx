@@ -79,8 +79,8 @@ export default function AdminLayout() {
         </SideLink>
 
         <SideLink to="/admin/invoices">
-          🧾 Invoices
-        </SideLink>
+  🧾 Invoices
+</SideLink>
 
         <SideLink to="/admin/custom-order/new">
           🧾 New Custom Order
@@ -90,17 +90,9 @@ export default function AdminLayout() {
           Store
         </div>
 
-        <SideLink to="/admin/products">
-          🛒 Products
-        </SideLink>
-
-        <SideLink to="/admin/signavi-store/products">
-          🛍 Store Products
-        </SideLink>
-
-        <SideLink to="/admin/signavi-store/create">
-          ➕ Create Store Product
-        </SideLink>
+<SideLink to="/admin/products/new">
+  ➕ Create Product
+</SideLink>
 
         <div style={sectionLabel}>
           Customers

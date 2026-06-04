@@ -234,16 +234,14 @@ export default function CustomerSupport() {
           </div>
 
           <button
-            type="button"
-            onClick={() =>
-              navigate(
-                "/support/create"
-              )
-            }
-            className="rounded-full bg-cyan-500 px-5 py-3 font-bold text-black transition hover:bg-cyan-400"
-          >
-            + New Ticket
-          </button>
+  type="button"
+  onClick={() =>
+    navigate("/support")
+  }
+  className="rounded-full bg-cyan-500 px-5 py-3 font-bold text-black transition hover:bg-cyan-400"
+>
+  + New Ticket
+</button>
 
         </div>
 

@@ -6,6 +6,8 @@ import {
   FaLocationDot
 } from "react-icons/fa6"
 
+import logo from "../assets/SignaVi_Logo.jpg"
+
 import { Link } from "react-router-dom"
 
 export default function Footer() {
@@ -16,18 +18,20 @@ export default function Footer() {
           {/* BRAND */}
           <div className="lg:col-span-2">
             <div className="mb-5 flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 font-bold text-lg shadow-lg shadow-cyan-500/20">
-                S
-              </div>
+              <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-cyan-400/30 bg-slate-950 shadow-lg shadow-cyan-500/20">
+  <img
+    src={logo}
+    alt="SignaVi Studio"
+    className="h-full w-full object-contain"
+  />
+</div>
 
               <div>
                 <h3 className="text-2xl font-bold">
                   SignaVi Studio
                 </h3>
 
-                <p className="text-xs uppercase tracking-[0.25em] text-cyan-300">
-                  Veteran Owned
-                </p>
+              
               </div>
             </div>
 
@@ -40,7 +44,11 @@ export default function Footer() {
 
             <div className="mt-6 flex flex-wrap gap-3">
               <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-300">
-                Veteran Owned
+              Canopy Designs
+              </span>
+
+              <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-300">
+              Table Cloth Designs
               </span>
 
               <span className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300">

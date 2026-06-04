@@ -25,6 +25,15 @@ const timelineSteps = [
   "delivered"
 ]
 
+const paidStatuses = [
+  "paid",
+  "ready_for_production",
+  "production",
+  "shipping",
+  "shipped",
+  "delivered"
+]
+
 const formatStatus = (status = "") => {
   return String(status || "pending")
     .replaceAll("_", " ")
@@ -80,9 +89,11 @@ export default function CustomerDashboard() {
   const [orders, setOrders] = useState([])
   const [quotes, setQuotes] = useState([])
   const [supportTickets, setSupportTickets] = useState([])
+  const [customerEmail, setCustomerEmail] = useState("")
+  const [customerUser, setCustomerUser] = useState(null)
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [customerEmail, setCustomerEmail] = useState("")
 
   useEffect(() => {
     let isMounted = true
@@ -93,6 +104,15 @@ export default function CustomerDashboard() {
         setError("")
 
         const email = getCustomerEmail()
+        const storedUser = localStorage.getItem("customerUser")
+
+        if (storedUser) {
+          try {
+            setCustomerUser(JSON.parse(storedUser))
+          } catch {
+            setCustomerUser(null)
+          }
+        }
 
         if (!isMounted) return
 
@@ -160,17 +180,9 @@ export default function CustomerDashboard() {
     }
   }, [])
 
-  const recentOrders = useMemo(() => {
-    return orders.slice(0, 5)
-  }, [orders])
-
-  const recentQuotes = useMemo(() => {
-    return quotes.slice(0, 4)
-  }, [quotes])
-
-  const recentTickets = useMemo(() => {
-    return supportTickets.slice(0, 4)
-  }, [supportTickets])
+  const recentOrders = useMemo(() => orders.slice(0, 5), [orders])
+  const recentQuotes = useMemo(() => quotes.slice(0, 4), [quotes])
+  const recentTickets = useMemo(() => supportTickets.slice(0, 4), [supportTickets])
 
   const activeOrders = useMemo(() => {
     return orders.filter((order) => {
@@ -197,6 +209,8 @@ export default function CustomerDashboard() {
     }, 0)
   }, [orders])
 
+
+
   return (
     <main className="min-h-screen bg-[#020617] px-6 py-16 text-white">
       <section className="mx-auto max-w-7xl">
@@ -212,8 +226,8 @@ export default function CustomerDashboard() {
               </h1>
 
               <p className="mt-3 max-w-2xl text-slate-400">
-                View your orders, quotes, support tickets, payment status, and
-                production updates from SignaVi Studio.
+                View your orders, quotes, support tickets, payment status,
+                receipts, invoices, and production updates from SignaVi Studio.
               </p>
 
               {customerEmail && (
@@ -239,6 +253,8 @@ export default function CustomerDashboard() {
               >
                 Request Quote
               </button>
+
+              
             </div>
           </div>
         </div>
@@ -285,6 +301,75 @@ export default function CustomerDashboard() {
                 note="Completed and active orders"
                 accent="text-emerald-300"
               />
+            </div>
+
+            <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <QuickLinkCard
+                title="My Account"
+                icon="👤"
+                note="Profile and shipping info"
+                onClick={() => navigate("/dashboard/account")}
+              />
+
+              <QuickLinkCard
+                title="Security"
+                icon="🔐"
+                note="Password and login settings"
+                onClick={() => navigate("/dashboard/security")}
+              />
+
+              <QuickLinkCard
+                title="Artwork Library"
+                icon="🎨"
+                note="Saved files and uploads"
+                onClick={() => navigate("/artwork-library")}
+              />
+
+              <QuickLinkCard
+                title="Invoices"
+                icon="🧾"
+                note="Quotes, invoices, and receipts"
+                onClick={() => navigate("/customer/invoices")}
+              />
+            </div>
+
+            <div className="mb-8 rounded-3xl border border-slate-800 bg-slate-950/80 p-6 shadow-xl shadow-black/20">
+              <div className="mb-5">
+                <h2 className="text-2xl font-bold">
+                  Membership Rewards
+                </h2>
+
+                <p className="text-sm text-slate-500">
+                  Track your customer rewards and account achievements.
+                </p>
+              </div>
+
+              <div className="grid gap-5 md:grid-cols-3">
+                <DashboardCard
+                  label="Tier"
+                  value={customerUser?.membershipTier || "Standard"}
+                  note="Current membership"
+                  accent="text-cyan-300"
+                />
+
+                <DashboardCard
+                  label="Reward Points"
+                  value={Number(customerUser?.points || 0)}
+                  note="Available points"
+                  accent="text-emerald-300"
+                />
+
+                <DashboardCard
+                  label="Badges"
+                  value={
+                    Array.isArray(customerUser?.badges)
+                      ? customerUser.badges.length
+                      : 0
+                  }
+                  note="Earned achievements"
+                  accent="text-yellow-300"
+                />
+              </div>
             </div>
 
             <div className="grid gap-6 xl:grid-cols-[1.15fr_.85fr]">
@@ -446,6 +531,33 @@ function DashboardCard({
   )
 }
 
+function QuickLinkCard({
+  title,
+  icon,
+  note,
+  onClick
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-3xl border border-slate-800 bg-slate-950/80 p-5 text-left shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-cyan-500/60"
+    >
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-500/10 text-2xl">
+        {icon}
+      </div>
+
+      <h3 className="text-lg font-black text-white">
+        {title}
+      </h3>
+
+      <p className="mt-2 text-sm text-slate-500">
+        {note}
+      </p>
+    </button>
+  )
+}
+
 function OrderCard({
   order,
   navigate
@@ -547,11 +659,35 @@ function OrderCard({
           Track
         </button>
 
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            navigate(`/invoice/${order._id}`)
+          }}
+          className="rounded-full bg-purple-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-purple-500"
+        >
+          Invoice
+        </button>
+
+        {paidStatuses.includes(status) && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              navigate(`/receipt/${order._id}`)
+            }}
+            className="rounded-full bg-emerald-500 px-4 py-2 text-xs font-bold text-black transition hover:bg-emerald-400"
+          >
+            Receipt
+          </button>
+        )}
+
         {status === "payment_required" && paymentUrl && (
           <button
             type="button"
             onClick={openPayment}
-            className="rounded-full bg-emerald-500 px-4 py-2 text-xs font-bold text-black transition hover:bg-emerald-400"
+            className="rounded-full bg-yellow-400 px-4 py-2 text-xs font-bold text-black transition hover:bg-yellow-300"
           >
             Pay Now
           </button>
