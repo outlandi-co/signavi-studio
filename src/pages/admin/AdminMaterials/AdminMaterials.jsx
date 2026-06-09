@@ -3,6 +3,8 @@ import { useRef, useState } from "react"
 import api from "../../../services/api"
 
 import useMaterials from "./hooks/useMaterials"
+import useSuppliers from "./hooks/useSuppliers"
+import usePurchaseOrders from "./hooks/usePurchaseOrders"
 
 import MaterialsSearch from "./components/MaterialsSearch"
 import MaterialFilters from "./components/MaterialFilters"
@@ -26,6 +28,20 @@ export default function AdminMaterials() {
     loading,
     error
   } = useMaterials()
+
+  const {
+    suppliers,
+    loadingSuppliers,
+    supplierError,
+    loadSuppliers
+  } = useSuppliers()
+
+  const {
+    purchaseOrders,
+    loadingPurchaseOrders,
+    purchaseOrderError,
+    loadPurchaseOrders
+  } = usePurchaseOrders()
 
   const fileInputRef = useRef(null)
 
@@ -81,6 +97,17 @@ export default function AdminMaterials() {
     }
   }
 
+  const handleLoadDashboardData = async () => {
+    setStatus("")
+
+    await Promise.all([
+      loadSuppliers(),
+      loadPurchaseOrders()
+    ])
+
+    setStatus("✅ Dashboard data loaded")
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 p-6 text-white">
       <div className="mx-auto max-w-7xl">
@@ -102,6 +129,17 @@ export default function AdminMaterials() {
           </div>
 
           <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={handleLoadDashboardData}
+              disabled={loadingSuppliers || loadingPurchaseOrders}
+              className="rounded-xl border border-cyan-700 bg-cyan-950/40 px-4 py-3 text-sm font-bold text-cyan-200 hover:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loadingSuppliers || loadingPurchaseOrders
+                ? "Loading Data..."
+                : "Load Dashboard Data"}
+            </button>
+
             <button
               type="button"
               onClick={handleDownloadCSV}
@@ -135,13 +173,19 @@ export default function AdminMaterials() {
           </div>
         )}
 
+        {(supplierError || purchaseOrderError) && (
+          <div className="mb-6 rounded-xl border border-red-800 bg-red-950/40 p-4 text-sm text-red-300">
+            {supplierError || purchaseOrderError}
+          </div>
+        )}
+
         {!loading && !error && (
           <>
             <div className="mb-6">
               <MaterialAnalytics
                 materials={materials}
-                suppliers={[]}
-                purchaseOrders={[]}
+                suppliers={suppliers}
+                purchaseOrders={purchaseOrders}
               />
             </div>
 
