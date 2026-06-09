@@ -77,10 +77,16 @@ import AdminInvoices from "./components/admin/AdminInvoices"
 import CreateCustomOrder from "./pages/admin/CreateCustomOrder"
 import MarketingHub from "./pages/admin/MarketingHub"
 
+/* ================= MATERIAL CATALOG ================= */
+
+import AdminMaterials from "./pages/admin/AdminMaterials/AdminMaterials"
+
 import StoreProducts from "./pages/admin/signavi-store/StoreProducts"
 import CreateStoreProduct from "./pages/admin/signavi-store/CreateStoreProduct"
 import EditStoreProduct from "./pages/admin/signavi-store/EditStoreProduct"
 import Discounts from "./pages/admin/signavi-store/Discounts"
+
+
 
 function AppContent() {
   const location = useLocation()
@@ -314,6 +320,23 @@ function AppContent() {
             <Route path="support" element={<AdminSupport />} />
             <Route path="revenue" element={<AdminRevenue />} />
             <Route path="marketing" element={<MarketingHub />} />
+
+             /* ================= MATERIAL CATALOG ================= */
+
+            <Route
+              path="materials"
+              element={<AdminMaterials />}
+            />
+
+            <Route
+              path="products"
+              element={
+                <Navigate
+                  to="/admin/signavi-store/products"
+                  replace
+                />
+              }
+            />
 
             <Route
               path="products"

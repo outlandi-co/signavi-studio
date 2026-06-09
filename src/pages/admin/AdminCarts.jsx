@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import api from "../services/api"
+import api from "./AdminMaterials/services/api"
 
 export default function AdminCarts() {
   const [carts, setCarts] = useState([])

@@ -102,6 +102,10 @@ export default function AdminLayout() {
           💸 Store Discounts
         </SideLink>
 
+                <SideLink to="/admin/materials">
+          🧵 Materials Catalog
+        </SideLink>
+
         <div style={sectionLabel}>
           Customers
         </div>
