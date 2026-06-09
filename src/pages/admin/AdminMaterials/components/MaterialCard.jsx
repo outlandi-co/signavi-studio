@@ -1,6 +1,6 @@
 import MaterialColorGrid from "./MaterialColorGrid"
-import MaterialSourceLink from "./MaterialSourceLink"
 import LowStockBadge from "./LowStockBadge"
+import MaterialQuickActions from "./MaterialQuickActions"
 
 export default function MaterialCard({
   material,
@@ -15,7 +15,11 @@ export default function MaterialCard({
       {material.image?.url ? (
         <img
           src={material.image.url}
-          alt={material.image.alt || material.fullName || material.productName}
+          alt={
+            material.image.alt ||
+            material.fullName ||
+            material.productName
+          }
           className="mb-4 h-48 w-full rounded-xl border border-slate-800 object-cover"
         />
       ) : (
@@ -84,24 +88,12 @@ export default function MaterialCard({
         />
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => onView?.(material)}
-          className="flex-1 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-500"
-        >
-          View Details
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onEdit?.(material)}
-          className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500"
-        >
-          Edit
-        </button>
-
-        <MaterialSourceLink url={material.source?.url} />
+      <div className="mt-5">
+        <MaterialQuickActions
+          material={material}
+          onView={onView}
+          onEdit={onEdit}
+        />
       </div>
     </div>
   )

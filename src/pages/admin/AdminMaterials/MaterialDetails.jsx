@@ -6,6 +6,8 @@ import MaterialPriceTable from "./components/MaterialPriceTable"
 import MaterialPricing from "./components/MaterialPricing"
 import MaterialSpecs from "./components/MaterialSpecs"
 import MaterialSupplierCard from "./components/MaterialSupplierCard"
+import MaterialPriceHistory from "./MaterialPriceHistory"
+import MaterialSupplier from "./MaterialSupplier"
 
 export default function MaterialDetails({
   material,
@@ -40,27 +42,66 @@ export default function MaterialDetails({
       </div>
 
       <div className="mb-6 grid gap-4 md:grid-cols-4">
-        <InfoCard label="Current Price" value={`$${material.price}`} />
-        <InfoCard label="Regular Price" value={`$${material.regularPrice}`} />
-        <InfoCard label="Unit" value={material.unit} />
-        <InfoCard label="Colors" value={material.colors?.length || 0} />
+        <InfoCard
+          label="Current Price"
+          value={`$${material.price}`}
+        />
+
+        <InfoCard
+          label="Regular Price"
+          value={`$${material.regularPrice}`}
+        />
+
+        <InfoCard
+          label="Unit"
+          value={material.unit}
+        />
+
+        <InfoCard
+          label="Colors"
+          value={material.colors?.length || 0}
+        />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-2">
         <MaterialPriceTable material={material} />
+
         <MaterialPricing material={material} />
+
         <MaterialSpecs material={material} />
-        <MaterialInventory inventory={material.inventory} />
-        <MaterialSupplierCard source={material.source} />
+
+        <MaterialInventory
+          inventory={material.inventory}
+        />
+
+        <MaterialSupplierCard
+          source={material.source}
+        />
+      </div>
+
+      <div className="mt-5">
+        <MaterialPriceHistory
+          material={material}
+        />
+      </div>
+
+      <div className="mt-5">
+        <MaterialSupplier
+          material={material}
+        />
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-2">
         <MaterialApplication
-          applicationInstructions={material.applicationInstructions}
+          applicationInstructions={
+            material.applicationInstructions
+          }
         />
 
         <MaterialCare
-          careInstructions={material.careInstructions}
+          careInstructions={
+            material.careInstructions
+          }
         />
       </div>
 
@@ -69,13 +110,18 @@ export default function MaterialDetails({
           Colors & SKUs
         </h3>
 
-        <MaterialColorGrid colors={material.colors || []} />
+        <MaterialColorGrid
+          colors={material.colors || []}
+        />
       </div>
     </div>
   )
 }
 
-function InfoCard({ label, value }) {
+function InfoCard({
+  label,
+  value
+}) {
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
       <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">

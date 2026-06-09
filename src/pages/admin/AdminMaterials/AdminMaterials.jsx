@@ -10,6 +10,10 @@ import MaterialCard from "./components/MaterialCard"
 import MaterialStats from "./components/MaterialStats"
 import MaterialDetails from "./MaterialDetails"
 import MaterialEditor from "./MaterialEditor"
+import MaterialCostCalculator from "./MaterialCostCalculator"
+import MaterialQuotePreview from "./MaterialQuotePreview"
+import PurchaseOrders from "./PurchaseOrders"
+import SupplierManager from "./SupplierManager"
 
 export default function AdminMaterials() {
   const {
@@ -131,7 +135,25 @@ export default function AdminMaterials() {
         )}
 
         {!loading && !error && (
-          <MaterialStats materials={materials} />
+          <>
+            <MaterialStats materials={materials} />
+
+            <div className="mb-6">
+              <MaterialCostCalculator materials={materials} />
+            </div>
+
+            <div className="mb-6">
+              <MaterialQuotePreview materials={materials} />
+            </div>
+
+            <div className="mb-6">
+              <PurchaseOrders materials={materials} />
+            </div>
+
+            <div className="mb-6">
+              <SupplierManager />
+            </div>
+          </>
         )}
 
         <div className="mb-6 space-y-4">

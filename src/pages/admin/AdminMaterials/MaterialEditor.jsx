@@ -1,4 +1,6 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
+
+import api from "../../../services/api"
 
 import {
   updateMaterial
@@ -26,8 +28,11 @@ export default function MaterialEditor({
   onClose,
   onSaved
 }) {
+  const fileInputRef = useRef(null)
+
   const [form, setForm] = useState(() => getInitialForm(material))
   const [saving, setSaving] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
   const [status, setStatus] = useState("")
 
   if (!material) return null
@@ -39,6 +44,61 @@ export default function MaterialEditor({
       ...prev,
       [name]: value
     }))
+  }
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleImageUpload = async (event) => {
+    const file = event.target.files?.[0]
+
+    if (!file) return
+
+    try {
+      setUploadingImage(true)
+      setStatus("")
+
+      const formData = new FormData()
+      formData.append("images", file)
+
+      const res = await api.post("/uploads", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data"
+        }
+      })
+
+      const uploadedUrl =
+        res.data?.urls?.[0] ||
+        res.data?.images?.[0]?.url ||
+        ""
+
+      if (!uploadedUrl) {
+        throw new Error("No image URL returned")
+      }
+
+      setForm((prev) => ({
+        ...prev,
+        imageUrl: uploadedUrl,
+        imageAlt:
+          prev.imageAlt ||
+          material.fullName ||
+          material.productName ||
+          "Material image"
+      }))
+
+      setStatus("✅ Image uploaded. Click Save Material to store it.")
+    } catch (err) {
+      console.error("❌ MATERIAL IMAGE UPLOAD ERROR:", err)
+
+      setStatus(
+        err?.response?.data?.message ||
+          "❌ Failed to upload image"
+      )
+    } finally {
+      setUploadingImage(false)
+      event.target.value = ""
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -128,19 +188,42 @@ export default function MaterialEditor({
         </div>
       )}
 
-      {form.imageUrl && (
-        <div className="mb-6">
-          <p className="mb-2 text-sm font-semibold text-slate-300">
-            Image Preview
+      <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-slate-300">
+            Material Image
           </p>
 
+          <button
+            type="button"
+            onClick={handleImageClick}
+            disabled={uploadingImage}
+            className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-bold text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {uploadingImage ? "Uploading..." : "Upload Image"}
+          </button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            className="hidden"
+          />
+        </div>
+
+        {form.imageUrl ? (
           <img
             src={form.imageUrl}
             alt={form.imageAlt || "Material preview"}
             className="h-56 w-full rounded-xl border border-slate-700 object-cover"
           />
-        </div>
-      )}
+        ) : (
+          <div className="flex h-56 w-full items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-950 text-sm text-slate-500">
+            No image selected
+          </div>
+        )}
+      </div>
 
       <form
         onSubmit={handleSubmit}
