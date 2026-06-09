@@ -12,6 +12,7 @@ import MaterialDetails from "./MaterialDetails"
 import MaterialEditor from "./MaterialEditor"
 import MaterialCostCalculator from "./MaterialCostCalculator"
 import MaterialQuotePreview from "./MaterialQuotePreview"
+import MaterialAnalytics from "./MaterialAnalytics"
 import PurchaseOrders from "./PurchaseOrders"
 import SupplierManager from "./SupplierManager"
 
@@ -136,6 +137,14 @@ export default function AdminMaterials() {
 
         {!loading && !error && (
           <>
+            <div className="mb-6">
+              <MaterialAnalytics
+                materials={materials}
+                suppliers={[]}
+                purchaseOrders={[]}
+              />
+            </div>
+
             <MaterialStats materials={materials} />
 
             <div className="mb-6">
