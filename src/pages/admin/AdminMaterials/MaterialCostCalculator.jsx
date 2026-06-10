@@ -4,28 +4,52 @@ const JOB_TYPES = [
   { value: "htv", label: "HTV / Vinyl Cutting" },
   { value: "dtf", label: "DTF Transfer" },
   { value: "screenprint", label: "Screen Print" },
+  { value: "laser", label: "Laser Engraving" },
   { value: "manual", label: "Manual Cost" }
 ]
 
-export default function MaterialCostCalculator({
-  materials = []
-}) {
+const PRODUCT_PRESETS = [
+  { value: "custom", label: "Custom Product" },
+  { value: "shirt", label: "Blank Shirt" },
+  { value: "leather-keychain", label: "Leather Keychain" },
+  { value: "dog-tag", label: "Dog Tag" },
+  { value: "glass", label: "Glass / Cup" },
+  { value: "tumbler", label: "Tumbler" },
+  { value: "wood", label: "Wood Item" },
+  { value: "acrylic", label: "Acrylic Item" }
+]
+
+export default function MaterialCostCalculator({ materials = [] }) {
   const [jobType, setJobType] = useState("htv")
+  const [productPreset, setProductPreset] = useState("custom")
   const [selectedMaterialId, setSelectedMaterialId] = useState("")
+
+  const [quantity, setQuantity] = useState(1)
+
+  const [substrateCostEach, setSubstrateCostEach] = useState(2.5)
+  const [hardwareCostEach, setHardwareCostEach] = useState(0)
+  const [packagingCostEach, setPackagingCostEach] = useState(0.25)
 
   const [designWidth, setDesignWidth] = useState(10)
   const [designHeight, setDesignHeight] = useState(12)
   const [layers, setLayers] = useState(1)
-  const [quantity, setQuantity] = useState(1)
 
   const [manualMaterialCost, setManualMaterialCost] = useState(10)
+
   const [dtfRatePerSqIn, setDtfRatePerSqIn] = useState(0.04)
+
   const [screenSetupCost, setScreenSetupCost] = useState(25)
   const [screenCount, setScreenCount] = useState(1)
   const [screenInkCostPerPrint, setScreenInkCostPerPrint] = useState(0.15)
 
+  const [laserMinutesEach, setLaserMinutesEach] = useState(2)
+  const [laserSetupMinutes, setLaserSetupMinutes] = useState(10)
+  const [machineRatePerMinute, setMachineRatePerMinute] = useState(0.1)
+  const [maskingCostEach, setMaskingCostEach] = useState(0)
+
   const [laborMinutes, setLaborMinutes] = useState(30)
   const [hourlyRate, setHourlyRate] = useState(35)
+
   const [shippingCost, setShippingCost] = useState(5)
   const [wastePercent, setWastePercent] = useState(15)
   const [markupPercent, setMarkupPercent] = useState(60)
@@ -57,6 +81,91 @@ export default function MaterialCostCalculator({
     }
   }
 
+  const handlePresetChange = (preset) => {
+    setProductPreset(preset)
+
+    if (preset === "shirt") {
+      setSubstrateCostEach(4)
+      setHardwareCostEach(0)
+      setPackagingCostEach(0.25)
+      setDesignWidth(10)
+      setDesignHeight(12)
+      setLaborMinutes(30)
+    }
+
+    if (preset === "leather-keychain") {
+      setJobType("laser")
+      setSubstrateCostEach(0.75)
+      setHardwareCostEach(0.15)
+      setPackagingCostEach(0.2)
+      setLaserMinutesEach(2)
+      setLaserSetupMinutes(10)
+      setLaborMinutes(25)
+      setDesignWidth(2)
+      setDesignHeight(3)
+    }
+
+    if (preset === "dog-tag") {
+      setJobType("laser")
+      setSubstrateCostEach(0.45)
+      setHardwareCostEach(0.2)
+      setPackagingCostEach(0.15)
+      setLaserMinutesEach(0.75)
+      setLaserSetupMinutes(8)
+      setLaborMinutes(20)
+      setDesignWidth(1.2)
+      setDesignHeight(2)
+    }
+
+    if (preset === "glass") {
+      setJobType("laser")
+      setSubstrateCostEach(3.5)
+      setHardwareCostEach(0)
+      setPackagingCostEach(0.5)
+      setMaskingCostEach(0.25)
+      setLaserMinutesEach(8)
+      setLaserSetupMinutes(12)
+      setLaborMinutes(35)
+      setDesignWidth(3)
+      setDesignHeight(3)
+    }
+
+    if (preset === "tumbler") {
+      setJobType("laser")
+      setSubstrateCostEach(6.25)
+      setHardwareCostEach(0)
+      setPackagingCostEach(0.75)
+      setMaskingCostEach(0.35)
+      setLaserMinutesEach(12)
+      setLaserSetupMinutes(15)
+      setLaborMinutes(40)
+      setDesignWidth(4)
+      setDesignHeight(4)
+    }
+
+    if (preset === "wood") {
+      setJobType("laser")
+      setSubstrateCostEach(2.5)
+      setHardwareCostEach(0)
+      setPackagingCostEach(0.35)
+      setMaskingCostEach(0.1)
+      setLaserMinutesEach(6)
+      setLaserSetupMinutes(10)
+      setLaborMinutes(30)
+    }
+
+    if (preset === "acrylic") {
+      setJobType("laser")
+      setSubstrateCostEach(3)
+      setHardwareCostEach(0)
+      setPackagingCostEach(0.35)
+      setMaskingCostEach(0.15)
+      setLaserMinutesEach(5)
+      setLaserSetupMinutes(10)
+      setLaborMinutes(30)
+    }
+  }
+
   const calculations = useMemo(() => {
     const safeQuantity = Math.max(Number(quantity) || 1, 1)
     const safeWidth = Math.max(Number(designWidth) || 0, 0)
@@ -74,15 +183,28 @@ export default function MaterialCostCalculator({
         ? totalSqInWithWaste / (rollActualWidth * 36)
         : 0
 
-    let materialCost = Number(manualMaterialCost) || 0
+    const substrateCost =
+      safeQuantity * (Number(substrateCostEach) || 0)
+
+    const hardwareCost =
+      safeQuantity * (Number(hardwareCostEach) || 0)
+
+    const packagingCost =
+      safeQuantity * (Number(packagingCostEach) || 0)
+
+    const maskingCost =
+      safeQuantity * (Number(maskingCostEach) || 0)
+
+    let decorationMaterialCost = Number(manualMaterialCost) || 0
     let setupCost = 0
+    let machineCost = 0
 
     if (jobType === "htv") {
-      materialCost = yardsUsed * materialUnitPrice
+      decorationMaterialCost = yardsUsed * materialUnitPrice
     }
 
     if (jobType === "dtf") {
-      materialCost = totalSqInWithWaste * (Number(dtfRatePerSqIn) || 0)
+      decorationMaterialCost = totalSqInWithWaste * (Number(dtfRatePerSqIn) || 0)
     }
 
     if (jobType === "screenprint") {
@@ -90,25 +212,46 @@ export default function MaterialCostCalculator({
         (Number(screenSetupCost) || 0) *
         Math.max(Number(screenCount) || 1, 1)
 
-      materialCost =
+      decorationMaterialCost =
         safeQuantity *
         Math.max(Number(screenCount) || 1, 1) *
         (Number(screenInkCostPerPrint) || 0)
     }
 
+    if (jobType === "laser") {
+      const totalLaserMinutes =
+        (Number(laserMinutesEach) || 0) * safeQuantity +
+        (Number(laserSetupMinutes) || 0)
+
+      machineCost =
+        totalLaserMinutes * (Number(machineRatePerMinute) || 0)
+
+      decorationMaterialCost = maskingCost
+    }
+
     if (jobType === "manual") {
-      materialCost = Number(manualMaterialCost) || 0
+      decorationMaterialCost = Number(manualMaterialCost) || 0
     }
 
     const laborCost =
       ((Number(laborMinutes) || 0) / 60) *
       (Number(hourlyRate) || 0)
 
-    const costBasis =
-      materialCost +
+    const costBeforeWaste =
+      substrateCost +
+      hardwareCost +
+      packagingCost +
+      decorationMaterialCost +
+      machineCost +
       laborCost +
       setupCost +
       (Number(shippingCost) || 0)
+
+    const wasteCost =
+      costBeforeWaste * ((Number(wastePercent) || 0) / 100)
+
+    const costBasis =
+      costBeforeWaste + wasteCost
 
     const markupAmount =
       costBasis * ((Number(markupPercent) || 0) / 100)
@@ -134,9 +277,16 @@ export default function MaterialCostCalculator({
       totalSqIn,
       totalSqInWithWaste,
       yardsUsed,
-      materialCost,
+      substrateCost,
+      hardwareCost,
+      packagingCost,
+      maskingCost,
+      decorationMaterialCost,
+      machineCost,
       laborCost,
       setupCost,
+      wasteCost,
+      costBeforeWaste,
       costBasis,
       markupAmount,
       customerPrice,
@@ -150,6 +300,10 @@ export default function MaterialCostCalculator({
     designHeight,
     layers,
     quantity,
+    substrateCostEach,
+    hardwareCostEach,
+    packagingCostEach,
+    maskingCostEach,
     manualMaterialCost,
     materialUnitPrice,
     rollActualWidth,
@@ -157,6 +311,9 @@ export default function MaterialCostCalculator({
     screenSetupCost,
     screenCount,
     screenInkCostPerPrint,
+    laserMinutesEach,
+    laserSetupMinutes,
+    machineRatePerMinute,
     laborMinutes,
     hourlyRate,
     shippingCost,
@@ -172,33 +329,63 @@ export default function MaterialCostCalculator({
         </h2>
 
         <p className="mt-2 text-slate-400">
-          Calculate vinyl usage, DTF cost, screen print setup, labor, waste,
-          markup, profit, and suggested customer pricing.
+          Price the full finished product: substrate, decoration, machine time,
+          labor, packaging, waste, markup, profit, and customer price.
         </p>
+      </div>
+
+      <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <SelectField
+          label="Product / Substrate Preset"
+          value={productPreset}
+          onChange={handlePresetChange}
+          options={PRODUCT_PRESETS}
+        />
+
+        <SelectField
+          label="Job Type"
+          value={jobType}
+          onChange={setJobType}
+          options={JOB_TYPES}
+        />
+
+        <NumberField
+          label="Quantity"
+          value={quantity}
+          onChange={setQuantity}
+        />
+      </div>
+
+      <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <NumberField
+          label="Substrate Cost Each"
+          value={substrateCostEach}
+          onChange={setSubstrateCostEach}
+        />
+
+        <NumberField
+          label="Hardware / Add-On Cost Each"
+          value={hardwareCostEach}
+          onChange={setHardwareCostEach}
+        />
+
+        <NumberField
+          label="Packaging Cost Each"
+          value={packagingCostEach}
+          onChange={setPackagingCostEach}
+        />
+
+        <NumberField
+          label="Shipping / Extra Supplies"
+          value={shippingCost}
+          onChange={setShippingCost}
+        />
       </div>
 
       <div className="mb-5 grid gap-4 md:grid-cols-2">
         <label>
           <span className="mb-2 block text-sm font-semibold text-slate-300">
-            Job Type
-          </span>
-
-          <select
-            value={jobType}
-            onChange={(e) => setJobType(e.target.value)}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-cyan-400"
-          >
-            {JOB_TYPES.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          <span className="mb-2 block text-sm font-semibold text-slate-300">
-            Select Material
+            Select Decoration Material
           </span>
 
           <select
@@ -220,6 +407,12 @@ export default function MaterialCostCalculator({
             ))}
           </select>
         </label>
+
+        <NumberField
+          label="Manual Material Price / Cost"
+          value={manualMaterialCost}
+          onChange={setManualMaterialCost}
+        />
       </div>
 
       {selectedMaterial && (
@@ -248,7 +441,7 @@ export default function MaterialCostCalculator({
           <p>
             Roll Width Used:{" "}
             <span className="font-semibold text-white">
-              {rollActualWidth}" 
+              {rollActualWidth}"
             </span>
           </p>
 
@@ -275,24 +468,10 @@ export default function MaterialCostCalculator({
         />
 
         <NumberField
-          label="Quantity"
-          value={quantity}
-          onChange={setQuantity}
-        />
-
-        <NumberField
           label="Layers / Colors"
           value={layers}
           onChange={setLayers}
         />
-
-        {jobType === "manual" && (
-          <NumberField
-            label="Manual Material Cost"
-            value={manualMaterialCost}
-            onChange={setManualMaterialCost}
-          />
-        )}
 
         {jobType === "dtf" && (
           <NumberField
@@ -324,12 +503,32 @@ export default function MaterialCostCalculator({
           </>
         )}
 
-        {jobType === "htv" && (
-          <NumberField
-            label="Material Price Per Yard"
-            value={manualMaterialCost}
-            onChange={setManualMaterialCost}
-          />
+        {jobType === "laser" && (
+          <>
+            <NumberField
+              label="Laser Minutes Each"
+              value={laserMinutesEach}
+              onChange={setLaserMinutesEach}
+            />
+
+            <NumberField
+              label="Laser Setup Minutes"
+              value={laserSetupMinutes}
+              onChange={setLaserSetupMinutes}
+            />
+
+            <NumberField
+              label="Machine Cost Per Minute"
+              value={machineRatePerMinute}
+              onChange={setMachineRatePerMinute}
+            />
+
+            <NumberField
+              label="Masking / Prep Cost Each"
+              value={maskingCostEach}
+              onChange={setMaskingCostEach}
+            />
+          </>
         )}
 
         <NumberField
@@ -342,12 +541,6 @@ export default function MaterialCostCalculator({
           label="Hourly Labor Rate"
           value={hourlyRate}
           onChange={setHourlyRate}
-        />
-
-        <NumberField
-          label="Shipping / Supply Cost"
-          value={shippingCost}
-          onChange={setShippingCost}
         />
 
         <NumberField
@@ -365,29 +558,28 @@ export default function MaterialCostCalculator({
 
       <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          title="Design Sq In"
-          value={calculations.designSqIn}
-          suffix=" sq in"
-          money={false}
+          title="Substrate Cost"
+          value={calculations.substrateCost}
         />
 
         <StatCard
-          title="Total Sq In + Waste"
-          value={calculations.totalSqInWithWaste}
-          suffix=" sq in"
-          money={false}
+          title="Hardware Cost"
+          value={calculations.hardwareCost}
         />
 
         <StatCard
-          title="Yards Used"
-          value={calculations.yardsUsed}
-          suffix=" yd"
-          money={false}
+          title="Packaging Cost"
+          value={calculations.packagingCost}
         />
 
         <StatCard
-          title="Material Cost"
-          value={calculations.materialCost}
+          title="Decoration Cost"
+          value={calculations.decorationMaterialCost}
+        />
+
+        <StatCard
+          title="Machine Cost"
+          value={calculations.machineCost}
         />
 
         <StatCard
@@ -398,6 +590,11 @@ export default function MaterialCostCalculator({
         <StatCard
           title="Setup Cost"
           value={calculations.setupCost}
+        />
+
+        <StatCard
+          title="Waste Cost"
+          value={calculations.wasteCost}
         />
 
         <StatCard
@@ -429,11 +626,57 @@ export default function MaterialCostCalculator({
         />
 
         <StatCard
-          title="Markup Amount"
-          value={calculations.markupAmount}
+          title="Design Sq In"
+          value={calculations.designSqIn}
+          suffix=" sq in"
+          money={false}
+        />
+
+        <StatCard
+          title="Total Sq In + Waste"
+          value={calculations.totalSqInWithWaste}
+          suffix=" sq in"
+          money={false}
+        />
+
+        <StatCard
+          title="Yards Used"
+          value={calculations.yardsUsed}
+          suffix=" yd"
+          money={false}
         />
       </div>
     </div>
+  )
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  options
+}) {
+  return (
+    <label>
+      <span className="mb-2 block text-sm font-semibold text-slate-300">
+        {label}
+      </span>
+
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-cyan-400"
+      >
+        {options.map((option) => (
+          <option
+            key={option.value}
+            value={option.value}
+          >
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
   )
 }
 
@@ -452,9 +695,7 @@ function NumberField({
         type="number"
         step="0.01"
         value={value}
-        onChange={(e) =>
-          onChange(Number(e.target.value))
-        }
+        onChange={(e) => onChange(Number(e.target.value))}
         className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-cyan-400"
       />
     </label>
