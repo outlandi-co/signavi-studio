@@ -18,6 +18,17 @@ import MaterialAnalytics from "./MaterialAnalytics"
 import PurchaseOrders from "./PurchaseOrders"
 import SupplierManager from "./SupplierManager"
 
+const initialGeneratorForm = {
+  productName: "",
+  skuPrefix: "",
+  price: "",
+  regularPrice: "",
+  listedWidth: "",
+  actualWidth: "",
+  thickness: "",
+  colorText: ""
+}
+
 export default function AdminMaterials() {
   const {
     materials,
@@ -48,7 +59,10 @@ export default function AdminMaterials() {
   const [selectedMaterial, setSelectedMaterial] = useState(null)
   const [editingMaterial, setEditingMaterial] = useState(null)
   const [uploading, setUploading] = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const [showGenerator, setShowGenerator] = useState(false)
   const [status, setStatus] = useState("")
+  const [generatorForm, setGeneratorForm] = useState(initialGeneratorForm)
 
   const handleDownloadCSV = () => {
     window.open(
@@ -59,6 +73,61 @@ export default function AdminMaterials() {
 
   const handleUploadClick = () => {
     fileInputRef.current?.click()
+  }
+
+  const handleGeneratorChange = (event) => {
+    const { name, value } = event.target
+
+    setGeneratorForm((prev) => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  const handleGenerateMaterial = async (event) => {
+    event.preventDefault()
+
+    try {
+      setGenerating(true)
+      setStatus("")
+
+      const payload = {
+        productName: generatorForm.productName.trim(),
+        skuPrefix: generatorForm.skuPrefix.trim().toUpperCase(),
+        price: Number(generatorForm.price),
+        regularPrice: generatorForm.regularPrice
+          ? Number(generatorForm.regularPrice)
+          : undefined,
+        listedWidth: generatorForm.listedWidth.trim(),
+        actualWidth: generatorForm.actualWidth.trim(),
+        thickness: generatorForm.thickness.trim(),
+        colorText: generatorForm.colorText.trim()
+      }
+
+      const { data } = await api.post("/materials/generate", payload)
+
+      setStatus(
+        data?.updatedExisting
+          ? "✅ Material updated successfully."
+          : "✅ Material generated successfully."
+      )
+
+      setGeneratorForm(initialGeneratorForm)
+
+      setTimeout(() => {
+        window.location.reload()
+      }, 900)
+    } catch (err) {
+      console.error("❌ MATERIAL GENERATE ERROR:", err)
+
+      setStatus(
+        err?.response?.data?.message ||
+          err?.response?.data?.error ||
+          "❌ Failed to generate material"
+      )
+    } finally {
+      setGenerating(false)
+    }
   }
 
   const handleUploadCSV = async (event) => {
@@ -131,6 +200,14 @@ export default function AdminMaterials() {
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
+              onClick={() => setShowGenerator((prev) => !prev)}
+              className="rounded-xl border border-emerald-700 bg-emerald-950/40 px-4 py-3 text-sm font-bold text-emerald-200 hover:border-emerald-400"
+            >
+              {showGenerator ? "Hide Generator" : "⚡ Generate Material"}
+            </button>
+
+            <button
+              type="button"
               onClick={handleLoadDashboardData}
               disabled={loadingSuppliers || loadingPurchaseOrders}
               className="rounded-xl border border-cyan-700 bg-cyan-950/40 px-4 py-3 text-sm font-bold text-cyan-200 hover:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
@@ -171,6 +248,158 @@ export default function AdminMaterials() {
           <div className="mb-6 rounded-xl border border-slate-800 bg-slate-900 p-4 text-sm text-slate-200">
             {status}
           </div>
+        )}
+
+        {showGenerator && (
+          <form
+            onSubmit={handleGenerateMaterial}
+            className="mb-8 rounded-2xl border border-emerald-900 bg-slate-900/80 p-5 shadow-lg shadow-emerald-950/20"
+          >
+            <div className="mb-5">
+              <h2 className="text-xl font-bold text-emerald-300">
+                Generate Material
+              </h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Paste product details and color names. SignaVi will auto-create
+                SKUs, hex colors, inventory values, and the MongoDB material record.
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <label className="space-y-2">
+                <span className="text-xs font-bold uppercase text-slate-400">
+                  Product Name
+                </span>
+                <input
+                  name="productName"
+                  value={generatorForm.productName}
+                  onChange={handleGeneratorChange}
+                  required
+                  placeholder={'Glitter Heat Transfer Vinyl 20" - By the Yard'}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-xs font-bold uppercase text-slate-400">
+                  SKU Prefix
+                </span>
+                <input
+                  name="skuPrefix"
+                  value={generatorForm.skuPrefix}
+                  onChange={handleGeneratorChange}
+                  required
+                  placeholder="GL20"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm uppercase outline-none focus:border-emerald-400"
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-xs font-bold uppercase text-slate-400">
+                  Price
+                </span>
+                <input
+                  name="price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={generatorForm.price}
+                  onChange={handleGeneratorChange}
+                  required
+                  placeholder="11.69"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-xs font-bold uppercase text-slate-400">
+                  Regular Price
+                </span>
+                <input
+                  name="regularPrice"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={generatorForm.regularPrice}
+                  onChange={handleGeneratorChange}
+                  placeholder="12.99"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-xs font-bold uppercase text-slate-400">
+                  Listed Width
+                </span>
+                <input
+                  name="listedWidth"
+                  value={generatorForm.listedWidth}
+                  onChange={handleGeneratorChange}
+                  placeholder={'20"'}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-xs font-bold uppercase text-slate-400">
+                  Actual Width
+                </span>
+                <input
+                  name="actualWidth"
+                  value={generatorForm.actualWidth}
+                  onChange={handleGeneratorChange}
+                  placeholder={'19.66"'}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
+                />
+              </label>
+
+              <label className="space-y-2 md:col-span-2">
+                <span className="text-xs font-bold uppercase text-slate-400">
+                  Thickness
+                </span>
+                <input
+                  name="thickness"
+                  value={generatorForm.thickness}
+                  onChange={handleGeneratorChange}
+                  placeholder="325 microns / 12.8 mils"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
+                />
+              </label>
+            </div>
+
+            <label className="mt-4 block space-y-2">
+              <span className="text-xs font-bold uppercase text-slate-400">
+                Colors — one per line
+              </span>
+              <textarea
+                name="colorText"
+                value={generatorForm.colorText}
+                onChange={handleGeneratorChange}
+                required
+                rows={10}
+                placeholder={"Glitter White\nGlitter Black\nGlitter Royal\nGlitter Red\nGlitter Gold"}
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
+              />
+            </label>
+
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <button
+                type="submit"
+                disabled={generating}
+                className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {generating ? "Generating..." : "Create / Update Material"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setGeneratorForm(initialGeneratorForm)}
+                className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-bold text-slate-300 hover:border-slate-400"
+              >
+                Clear
+              </button>
+            </div>
+          </form>
         )}
 
         {(supplierError || purchaseOrderError) && (
