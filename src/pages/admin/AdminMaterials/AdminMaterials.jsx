@@ -30,6 +30,59 @@ const initialGeneratorForm = {
   specsJson: ""
 }
 
+const initialMaterialJson = `{
+  "brand": "Siser",
+  "productName": "EasyWeed EcoStretch Heat Transfer Vinyl 12\\" - By the Yard",
+  "fullName": "Siser EasyWeed EcoStretch Heat Transfer Vinyl 12\\" - By the Yard",
+  "category": "HTV",
+  "materialType": "Eco Stretch Heat Transfer Vinyl",
+  "unit": "yard",
+  "skuPrefix": "ECO12",
+  "price": 8.99,
+  "regularPrice": 9.99,
+  "listedWidth": "12\\"",
+  "actualWidth": "11.8\\"",
+  "thickness": "90 Microns / 3.5 Mils",
+  "sourceUrl": "https://www.heatpressnation.com",
+  "colorText": "White\\nBlack\\nRoyal\\nNavy\\nRed\\nYellow\\nGreen\\nOrange",
+  "specs": {
+    "composition": "Water-Based Polyurethane",
+    "backing": "Pressure Sensitive",
+    "finish": "Matte",
+    "blade": "45° or 60°",
+    "certification": "CPSIA Certified"
+  },
+  "adheresTo": [
+    "100% Cotton",
+    "Poly / Cotton Blends",
+    "100% Uncoated Polyester",
+    "Lycra / Spandex"
+  ],
+  "applicationInstructions": [
+    "Cut in reverse",
+    "Weed excess material",
+    "Preheat garment for 2-3 seconds",
+    "Apply design at 250°F / 120°C",
+    "Use medium pressure for 10-15 seconds",
+    "Peel carrier hot"
+  ],
+  "careInstructions": [
+    "Wait 24 hours before first wash",
+    "Machine wash cold with mild detergent",
+    "Do not dry clean",
+    "Hang item to dry",
+    "Do not bleach",
+    "Dry at low setting"
+  ],
+  "recommendedAccessories": [
+    "Siser Hook Tool",
+    "Siser Color Guide",
+    "Pro-Grade Non-Stick Sheet",
+    "Pro-Grade Parchment Paper",
+    "Sof-Fusion Pressing Pillows"
+  ]
+}`
+
 export default function AdminMaterials() {
   const {
     materials,
@@ -62,8 +115,10 @@ export default function AdminMaterials() {
   const [uploading, setUploading] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [showGenerator, setShowGenerator] = useState(false)
+  const [generatorMode, setGeneratorMode] = useState("manual")
   const [status, setStatus] = useState("")
   const [generatorForm, setGeneratorForm] = useState(initialGeneratorForm)
+  const [materialJson, setMaterialJson] = useState("")
 
   const handleDownloadCSV = () => {
     window.open(
@@ -92,35 +147,58 @@ export default function AdminMaterials() {
       setGenerating(true)
       setStatus("")
 
-      let parsedSpecsJson = {}
+      let payload = {}
 
-      if (generatorForm.specsJson.trim()) {
+      if (generatorMode === "json") {
+        if (!materialJson.trim()) {
+          setStatus("❌ Paste full material JSON before creating.")
+          setGenerating(false)
+          return
+        }
+
         try {
-          parsedSpecsJson = JSON.parse(generatorForm.specsJson)
+          payload = JSON.parse(materialJson)
         } catch (jsonError) {
-          console.error("❌ SPECS JSON PARSE ERROR:", jsonError)
+          console.error("❌ FULL MATERIAL JSON PARSE ERROR:", jsonError)
 
           setStatus(
-            "❌ Specs JSON Override is not valid JSON. Check commas, quotes, and brackets."
+            "❌ Full Material JSON is not valid JSON. Check commas, quotes, and brackets."
           )
 
           setGenerating(false)
           return
         }
-      }
+      } else {
+        let parsedSpecsJson = {}
 
-      const payload = {
-        productName: generatorForm.productName.trim(),
-        skuPrefix: generatorForm.skuPrefix.trim().toUpperCase(),
-        price: Number(generatorForm.price),
-        regularPrice: generatorForm.regularPrice
-          ? Number(generatorForm.regularPrice)
-          : undefined,
-        listedWidth: generatorForm.listedWidth.trim(),
-        actualWidth: generatorForm.actualWidth.trim(),
-        thickness: generatorForm.thickness.trim(),
-        colorText: generatorForm.colorText.trim(),
-        ...parsedSpecsJson
+        if (generatorForm.specsJson.trim()) {
+          try {
+            parsedSpecsJson = JSON.parse(generatorForm.specsJson)
+          } catch (jsonError) {
+            console.error("❌ SPECS JSON PARSE ERROR:", jsonError)
+
+            setStatus(
+              "❌ Specs JSON Override is not valid JSON. Check commas, quotes, and brackets."
+            )
+
+            setGenerating(false)
+            return
+          }
+        }
+
+        payload = {
+          productName: generatorForm.productName.trim(),
+          skuPrefix: generatorForm.skuPrefix.trim().toUpperCase(),
+          price: Number(generatorForm.price),
+          regularPrice: generatorForm.regularPrice
+            ? Number(generatorForm.regularPrice)
+            : undefined,
+          listedWidth: generatorForm.listedWidth.trim(),
+          actualWidth: generatorForm.actualWidth.trim(),
+          thickness: generatorForm.thickness.trim(),
+          colorText: generatorForm.colorText.trim(),
+          ...parsedSpecsJson
+        }
       }
 
       const { data } = await api.post("/materials/generate", payload)
@@ -132,6 +210,7 @@ export default function AdminMaterials() {
       )
 
       setGeneratorForm(initialGeneratorForm)
+      setMaterialJson("")
 
       setTimeout(() => {
         window.location.reload()
@@ -278,141 +357,179 @@ export default function AdminMaterials() {
               <h2 className="text-xl font-bold text-emerald-300">
                 Generate Material
               </h2>
+
               <p className="mt-1 text-sm text-slate-400">
-                Paste product details, color names, and optional specs JSON.
-                SignaVi will auto-create SKUs, hex colors, inventory values,
-                and the MongoDB material record.
+                Choose manual entry or paste a complete JSON object. JSON Import
+                lets you skip the fields and create/update MongoDB directly.
               </p>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <label className="space-y-2">
-                <span className="text-xs font-bold uppercase text-slate-400">
-                  Product Name
-                </span>
-                <input
-                  name="productName"
-                  value={generatorForm.productName}
-                  onChange={handleGeneratorChange}
-                  required
-                  placeholder={'Glitter Heat Transfer Vinyl 20" - By the Yard'}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
-                />
-              </label>
+            <div className="mb-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => setGeneratorMode("manual")}
+                className={
+                  generatorMode === "manual"
+                    ? "rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white"
+                    : "rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:border-emerald-400"
+                }
+              >
+                Manual Entry
+              </button>
 
-              <label className="space-y-2">
-                <span className="text-xs font-bold uppercase text-slate-400">
-                  SKU Prefix
-                </span>
-                <input
-                  name="skuPrefix"
-                  value={generatorForm.skuPrefix}
-                  onChange={handleGeneratorChange}
-                  required
-                  placeholder="GL20"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm uppercase outline-none focus:border-emerald-400"
-                />
-              </label>
+              <button
+                type="button"
+                onClick={() => setGeneratorMode("json")}
+                className={
+                  generatorMode === "json"
+                    ? "rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white"
+                    : "rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 hover:border-emerald-400"
+                }
+              >
+                JSON Import
+              </button>
 
-              <label className="space-y-2">
-                <span className="text-xs font-bold uppercase text-slate-400">
-                  Price
-                </span>
-                <input
-                  name="price"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={generatorForm.price}
-                  onChange={handleGeneratorChange}
-                  required
-                  placeholder="11.69"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
-                />
-              </label>
-
-              <label className="space-y-2">
-                <span className="text-xs font-bold uppercase text-slate-400">
-                  Regular Price
-                </span>
-                <input
-                  name="regularPrice"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={generatorForm.regularPrice}
-                  onChange={handleGeneratorChange}
-                  placeholder="12.99"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
-                />
-              </label>
-
-              <label className="space-y-2">
-                <span className="text-xs font-bold uppercase text-slate-400">
-                  Listed Width
-                </span>
-                <input
-                  name="listedWidth"
-                  value={generatorForm.listedWidth}
-                  onChange={handleGeneratorChange}
-                  placeholder={'20"'}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
-                />
-              </label>
-
-              <label className="space-y-2">
-                <span className="text-xs font-bold uppercase text-slate-400">
-                  Actual Width
-                </span>
-                <input
-                  name="actualWidth"
-                  value={generatorForm.actualWidth}
-                  onChange={handleGeneratorChange}
-                  placeholder={'19.66"'}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
-                />
-              </label>
-
-              <label className="space-y-2 md:col-span-2">
-                <span className="text-xs font-bold uppercase text-slate-400">
-                  Thickness
-                </span>
-                <input
-                  name="thickness"
-                  value={generatorForm.thickness}
-                  onChange={handleGeneratorChange}
-                  placeholder="325 microns / 12.8 mils"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
-                />
-              </label>
+              {generatorMode === "json" && (
+                <button
+                  type="button"
+                  onClick={() => setMaterialJson(initialMaterialJson)}
+                  className="rounded-xl border border-cyan-700 bg-cyan-950/40 px-4 py-2 text-sm font-bold text-cyan-200 hover:border-cyan-400"
+                >
+                  Load Example JSON
+                </button>
+              )}
             </div>
 
-            <label className="mt-4 block space-y-2">
-              <span className="text-xs font-bold uppercase text-slate-400">
-                Colors — one per line
-              </span>
-              <textarea
-                name="colorText"
-                value={generatorForm.colorText}
-                onChange={handleGeneratorChange}
-                required
-                rows={10}
-                placeholder={"Glitter White\nGlitter Black\nGlitter Royal\nGlitter Red\nGlitter Gold"}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
-              />
-            </label>
+            {generatorMode === "manual" && (
+              <>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <label className="space-y-2">
+                    <span className="text-xs font-bold uppercase text-slate-400">
+                      Product Name
+                    </span>
+                    <input
+                      name="productName"
+                      value={generatorForm.productName}
+                      onChange={handleGeneratorChange}
+                      required={generatorMode === "manual"}
+                      placeholder={'Glitter Heat Transfer Vinyl 20" - By the Yard'}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
+                    />
+                  </label>
 
-            <label className="mt-4 block space-y-2">
-              <span className="text-xs font-bold uppercase text-slate-400">
-                Specs JSON Override
-              </span>
+                  <label className="space-y-2">
+                    <span className="text-xs font-bold uppercase text-slate-400">
+                      SKU Prefix
+                    </span>
+                    <input
+                      name="skuPrefix"
+                      value={generatorForm.skuPrefix}
+                      onChange={handleGeneratorChange}
+                      required={generatorMode === "manual"}
+                      placeholder="GL20"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm uppercase outline-none focus:border-emerald-400"
+                    />
+                  </label>
 
-              <textarea
-                name="specsJson"
-                value={generatorForm.specsJson}
-                onChange={handleGeneratorChange}
-                rows={14}
-                placeholder={`{
+                  <label className="space-y-2">
+                    <span className="text-xs font-bold uppercase text-slate-400">
+                      Price
+                    </span>
+                    <input
+                      name="price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={generatorForm.price}
+                      onChange={handleGeneratorChange}
+                      required={generatorMode === "manual"}
+                      placeholder="11.69"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
+                    />
+                  </label>
+
+                  <label className="space-y-2">
+                    <span className="text-xs font-bold uppercase text-slate-400">
+                      Regular Price
+                    </span>
+                    <input
+                      name="regularPrice"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={generatorForm.regularPrice}
+                      onChange={handleGeneratorChange}
+                      placeholder="12.99"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
+                    />
+                  </label>
+
+                  <label className="space-y-2">
+                    <span className="text-xs font-bold uppercase text-slate-400">
+                      Listed Width
+                    </span>
+                    <input
+                      name="listedWidth"
+                      value={generatorForm.listedWidth}
+                      onChange={handleGeneratorChange}
+                      placeholder={'20"'}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
+                    />
+                  </label>
+
+                  <label className="space-y-2">
+                    <span className="text-xs font-bold uppercase text-slate-400">
+                      Actual Width
+                    </span>
+                    <input
+                      name="actualWidth"
+                      value={generatorForm.actualWidth}
+                      onChange={handleGeneratorChange}
+                      placeholder={'19.66"'}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
+                    />
+                  </label>
+
+                  <label className="space-y-2 md:col-span-2">
+                    <span className="text-xs font-bold uppercase text-slate-400">
+                      Thickness
+                    </span>
+                    <input
+                      name="thickness"
+                      value={generatorForm.thickness}
+                      onChange={handleGeneratorChange}
+                      placeholder="325 microns / 12.8 mils"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
+                    />
+                  </label>
+                </div>
+
+                <label className="mt-4 block space-y-2">
+                  <span className="text-xs font-bold uppercase text-slate-400">
+                    Colors — one per line
+                  </span>
+                  <textarea
+                    name="colorText"
+                    value={generatorForm.colorText}
+                    onChange={handleGeneratorChange}
+                    required={generatorMode === "manual"}
+                    rows={10}
+                    placeholder={"Glitter White\nGlitter Black\nGlitter Royal\nGlitter Red\nGlitter Gold"}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
+                  />
+                </label>
+
+                <label className="mt-4 block space-y-2">
+                  <span className="text-xs font-bold uppercase text-slate-400">
+                    Specs JSON Override
+                  </span>
+
+                  <textarea
+                    name="specsJson"
+                    value={generatorForm.specsJson}
+                    onChange={handleGeneratorChange}
+                    rows={14}
+                    placeholder={`{
   "specs": {
     "composition": "Water-Based Polyurethane",
     "backing": "Pressure Sensitive",
@@ -434,9 +551,28 @@ export default function AdminMaterials() {
     "Siser Hook Tool"
   ]
 }`}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 font-mono text-sm outline-none focus:border-emerald-400"
-              />
-            </label>
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 font-mono text-sm outline-none focus:border-emerald-400"
+                  />
+                </label>
+              </>
+            )}
+
+            {generatorMode === "json" && (
+              <label className="block space-y-2">
+                <span className="text-xs font-bold uppercase text-slate-400">
+                  Full Material JSON
+                </span>
+
+                <textarea
+                  value={materialJson}
+                  onChange={(event) => setMaterialJson(event.target.value)}
+                  required={generatorMode === "json"}
+                  rows={28}
+                  placeholder={initialMaterialJson}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 font-mono text-sm outline-none focus:border-emerald-400"
+                />
+              </label>
+            )}
 
             <div className="mt-5 flex flex-wrap items-center gap-3">
               <button
@@ -449,7 +585,10 @@ export default function AdminMaterials() {
 
               <button
                 type="button"
-                onClick={() => setGeneratorForm(initialGeneratorForm)}
+                onClick={() => {
+                  setGeneratorForm(initialGeneratorForm)
+                  setMaterialJson("")
+                }}
                 className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-bold text-slate-300 hover:border-slate-400"
               >
                 Clear
