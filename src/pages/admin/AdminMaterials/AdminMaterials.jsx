@@ -26,7 +26,8 @@ const initialGeneratorForm = {
   listedWidth: "",
   actualWidth: "",
   thickness: "",
-  colorText: ""
+  colorText: "",
+  specsJson: ""
 }
 
 export default function AdminMaterials() {
@@ -91,6 +92,23 @@ export default function AdminMaterials() {
       setGenerating(true)
       setStatus("")
 
+      let parsedSpecsJson = {}
+
+      if (generatorForm.specsJson.trim()) {
+        try {
+          parsedSpecsJson = JSON.parse(generatorForm.specsJson)
+        } catch (jsonError) {
+          console.error("❌ SPECS JSON PARSE ERROR:", jsonError)
+
+          setStatus(
+            "❌ Specs JSON Override is not valid JSON. Check commas, quotes, and brackets."
+          )
+
+          setGenerating(false)
+          return
+        }
+      }
+
       const payload = {
         productName: generatorForm.productName.trim(),
         skuPrefix: generatorForm.skuPrefix.trim().toUpperCase(),
@@ -101,7 +119,8 @@ export default function AdminMaterials() {
         listedWidth: generatorForm.listedWidth.trim(),
         actualWidth: generatorForm.actualWidth.trim(),
         thickness: generatorForm.thickness.trim(),
-        colorText: generatorForm.colorText.trim()
+        colorText: generatorForm.colorText.trim(),
+        ...parsedSpecsJson
       }
 
       const { data } = await api.post("/materials/generate", payload)
@@ -260,8 +279,9 @@ export default function AdminMaterials() {
                 Generate Material
               </h2>
               <p className="mt-1 text-sm text-slate-400">
-                Paste product details and color names. SignaVi will auto-create
-                SKUs, hex colors, inventory values, and the MongoDB material record.
+                Paste product details, color names, and optional specs JSON.
+                SignaVi will auto-create SKUs, hex colors, inventory values,
+                and the MongoDB material record.
               </p>
             </div>
 
@@ -379,6 +399,42 @@ export default function AdminMaterials() {
                 rows={10}
                 placeholder={"Glitter White\nGlitter Black\nGlitter Royal\nGlitter Red\nGlitter Gold"}
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm outline-none focus:border-emerald-400"
+              />
+            </label>
+
+            <label className="mt-4 block space-y-2">
+              <span className="text-xs font-bold uppercase text-slate-400">
+                Specs JSON Override
+              </span>
+
+              <textarea
+                name="specsJson"
+                value={generatorForm.specsJson}
+                onChange={handleGeneratorChange}
+                rows={14}
+                placeholder={`{
+  "specs": {
+    "composition": "Water-Based Polyurethane",
+    "backing": "Pressure Sensitive",
+    "finish": "Matte",
+    "blade": "45° or 60°",
+    "certification": "CPSIA Certified"
+  },
+  "adheresTo": [
+    "100% Cotton",
+    "Poly / Cotton Blends"
+  ],
+  "applicationInstructions": [
+    "Cut in reverse"
+  ],
+  "careInstructions": [
+    "Wait 24 hours before first wash"
+  ],
+  "recommendedAccessories": [
+    "Siser Hook Tool"
+  ]
+}`}
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 font-mono text-sm outline-none focus:border-emerald-400"
               />
             </label>
 
