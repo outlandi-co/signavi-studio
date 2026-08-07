@@ -30,14 +30,19 @@ export default function AdminLayout() {
   const handleLogout = () => {
     localStorage.removeItem("adminToken")
     localStorage.removeItem("adminUser")
+
     sessionStorage.removeItem("adminToken")
     sessionStorage.removeItem("adminUser")
+
     window.location.href = "/login"
   }
 
   return (
     <div style={wrapper}>
       <aside style={sidebar}>
+
+        {/* ================= BRAND ================= */}
+
         <div style={brandBox}>
           <div style={brandIcon}>
             <img
@@ -45,8 +50,11 @@ export default function AdminLayout() {
               alt="SignaVi"
               style={brandImage}
               onError={(event) => {
-                event.currentTarget.style.display = "none"
-                event.currentTarget.parentElement.textContent = "S"
+                event.currentTarget.style.display =
+                  "none"
+
+                event.currentTarget.parentElement.textContent =
+                  "S"
               }}
             />
           </div>
@@ -61,6 +69,8 @@ export default function AdminLayout() {
             </p>
           </div>
         </div>
+
+        {/* ================= WORKFLOW ================= */}
 
         <div style={sectionLabel}>
           Workflow
@@ -86,6 +96,8 @@ export default function AdminLayout() {
           🧾 New Custom Order
         </SideLink>
 
+        {/* ================= STORE ================= */}
+
         <div style={sectionLabel}>
           Store
         </div>
@@ -102,9 +114,11 @@ export default function AdminLayout() {
           💸 Store Discounts
         </SideLink>
 
-                <SideLink to="/admin/materials">
+        <SideLink to="/admin/materials">
           🧵 Materials Catalog
         </SideLink>
+
+        {/* ================= CUSTOMERS ================= */}
 
         <div style={sectionLabel}>
           Customers
@@ -114,10 +128,14 @@ export default function AdminLayout() {
           👥 Customers
         </SideLink>
 
+        {/* ================= COMMUNICATIONS ================= */}
+
         <div onClick={clearEmailUnread}>
           <SideLink to="/admin/emails">
             <div style={linkRow}>
-              <span>📧 Emails</span>
+              <span>
+                💬 Communications
+              </span>
 
               {emailUnread > 0 && (
                 <span style={badge}>
@@ -128,10 +146,14 @@ export default function AdminLayout() {
           </SideLink>
         </div>
 
+        {/* ================= SUPPORT ================= */}
+
         <div onClick={clearSupportUnread}>
           <SideLink to="/admin/support">
             <div style={linkRow}>
-              <span>🛟 Support</span>
+              <span>
+                🛟 Support
+              </span>
 
               {supportUnread > 0 && (
                 <span style={badge}>
@@ -141,6 +163,8 @@ export default function AdminLayout() {
             </div>
           </SideLink>
         </div>
+
+        {/* ================= BUSINESS ================= */}
 
         <div style={sectionLabel}>
           Business
@@ -154,15 +178,23 @@ export default function AdminLayout() {
           📣 Marketing Hub
         </SideLink>
 
+        {/* ================= QUICK TOOLS ================= */}
+
         <div style={quickStats}>
           <div style={quickStatCard}>
-            <span>💰 Revenue Tools</span>
+            <span>
+              💰 Revenue Tools
+            </span>
           </div>
 
           <div style={quickStatCard}>
-            <span>📦 Order Exports</span>
+            <span>
+              📦 Order Exports
+            </span>
           </div>
         </div>
+
+        {/* ================= EXPORT / LOGOUT ================= */}
 
         <div style={csvGroup}>
           <button
@@ -191,12 +223,16 @@ export default function AdminLayout() {
         </div>
       </aside>
 
+      {/* ================= PAGE CONTENT ================= */}
+
       <main style={content}>
         <Outlet />
       </main>
     </div>
   )
 }
+
+/* ================= SIDE LINK ================= */
 
 function SideLink({
   to,
@@ -207,15 +243,19 @@ function SideLink({
       to={to}
       style={({ isActive }) => ({
         ...link,
+
         background: isActive
           ? "rgba(34, 211, 238, 0.12)"
           : "transparent",
+
         border: isActive
           ? "1px solid #22d3ee"
           : "1px solid transparent",
+
         color: isActive
           ? "#22d3ee"
           : "#cbd5e1",
+
         boxShadow: isActive
           ? "0 10px 30px rgba(34,211,238,.12)"
           : "none"
@@ -227,6 +267,8 @@ function SideLink({
   )
 }
 
+/* ================= STYLES ================= */
+
 const wrapper = {
   display: "flex",
   minHeight: "100vh",
@@ -236,17 +278,27 @@ const wrapper = {
 const sidebar = {
   width: 320,
   minWidth: 320,
+
   background: "#020617",
   color: "#fff",
+
   display: "flex",
   flexDirection: "column",
+
   gap: 10,
+
   padding: 24,
-  borderRight: "1px solid #1e293b",
+
+  borderRight:
+    "1px solid #1e293b",
+
   position: "sticky",
   top: 0,
+
   height: "100vh",
+
   boxSizing: "border-box",
+
   overflowY: "auto"
 }
 
@@ -254,51 +306,72 @@ const brandBox = {
   display: "flex",
   alignItems: "center",
   gap: 14,
+
   marginBottom: 22,
   paddingBottom: 18,
-  borderBottom: "1px solid #1e293b"
+
+  borderBottom:
+    "1px solid #1e293b"
 }
 
 const brandIcon = {
   width: 52,
   height: 52,
+
   borderRadius: 16,
-  background: "linear-gradient(135deg, #22d3ee, #2563eb)",
+
+  background:
+    "linear-gradient(135deg, #22d3ee, #2563eb)",
+
   color: "#ffffff",
+
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
+
   fontSize: 28,
   fontWeight: 900,
+
   overflow: "hidden",
-  boxShadow: "0 14px 30px rgba(34,211,238,.22)"
+
+  boxShadow:
+    "0 14px 30px rgba(34,211,238,.22)"
 }
 
 const brandImage = {
   width: "100%",
   height: "100%",
+
   objectFit: "contain",
+
   borderRadius: 16
 }
 
 const title = {
   margin: 0,
+
   fontSize: 28,
   fontWeight: 900,
+
   letterSpacing: "-0.04em"
 }
 
 const subtitle = {
   margin: 0,
+
   color: "#94a3b8",
+
   fontSize: 13,
   fontWeight: 700
 }
 
 const content = {
   flex: 1,
+
   padding: "42px 48px",
+
   minWidth: 0,
+
   background:
     "radial-gradient(circle at top left, rgba(34, 211, 238, 0.08), transparent 30%), #020617"
 }
@@ -306,96 +379,150 @@ const content = {
 const sectionLabel = {
   marginTop: 10,
   marginBottom: 2,
+
   color: "#64748b",
+
   fontSize: 11,
   fontWeight: 900,
+
   letterSpacing: "0.18em",
+
   textTransform: "uppercase"
 }
 
 const link = {
   padding: "14px 16px",
+
   borderRadius: 16,
+
   textDecoration: "none",
+
   fontWeight: 800,
+
   transition: "0.2s ease",
+
   display: "block"
 }
 
 const quickStats = {
   display: "grid",
+
   gap: 10,
+
   marginTop: 14,
   marginBottom: 14
 }
 
 const quickStatCard = {
   background: "#0f172a",
-  border: "1px solid #1e293b",
+
+  border:
+    "1px solid #1e293b",
+
   borderRadius: 16,
+
   padding: 12,
+
   color: "#cbd5e1",
+
   fontWeight: 800
 }
 
 const csvGroup = {
   marginTop: "auto",
+
   display: "grid",
+
   gap: 12,
+
   paddingTop: 16,
-  borderTop: "1px solid #1e293b"
+
+  borderTop:
+    "1px solid #1e293b"
 }
 
 const csvButton = {
   background: "#22d3ee",
+
   color: "#020617",
+
   border: "none",
+
   padding: "14px 16px",
+
   borderRadius: 16,
+
   fontWeight: 900,
+
   cursor: "pointer",
+
   textAlign: "left"
 }
 
 const taxButton = {
   background: "#38bdf8",
+
   color: "#020617",
+
   border: "none",
+
   padding: "14px 16px",
+
   borderRadius: 16,
+
   fontWeight: 900,
+
   cursor: "pointer",
+
   textAlign: "left"
 }
 
 const logoutButton = {
   background: "#dc2626",
-  color: "white",
+
+  color: "#ffffff",
+
   border: "none",
+
   padding: "14px 16px",
+
   borderRadius: 16,
+
   fontWeight: 900,
+
   cursor: "pointer",
+
   textAlign: "left"
 }
 
 const linkRow = {
   display: "flex",
-  justifyContent: "space-between",
+
+  justifyContent:
+    "space-between",
+
   alignItems: "center",
+
   gap: 10
 }
 
 const badge = {
   minWidth: 22,
   height: 22,
+
   borderRadius: "999px",
+
   background: "#ef4444",
-  color: "white",
+
+  color: "#ffffff",
+
   fontSize: 12,
   fontWeight: "bold",
+
   display: "flex",
+
   alignItems: "center",
   justifyContent: "center",
+
   padding: "0 6px"
 }

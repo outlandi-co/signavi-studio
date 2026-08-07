@@ -16,12 +16,25 @@ const SOCKET_URL =
   "http://localhost:5050"
 
 const FOLDERS = [
-  { id: "inbox", label: "📥 Inbox" },
-  { id: "archive", label: "🗄 Archive" }
+  {
+    id: "info",
+    label: "📥 Information",
+    channel: "info"
+  },
+  {
+    id: "quotes",
+    label: "💲 Quotes",
+    channel: "quotes"
+  },
+  {
+    id: "archive",
+    label: "🗄 Archive",
+    channel: null
+  }
 ]
 
 export default function AdminInbox() {
-  const [activeFolder, setActiveFolder] = useState("inbox")
+  const [activeFolder, setActiveFolder] = useState("info")
   const [threads, setThreads] = useState([])
   const [messages, setMessages] = useState([])
   const [selectedThread, setSelectedThread] = useState(null)
@@ -39,24 +52,51 @@ export default function AdminInbox() {
     [token]
   )
 
+  const currentFolder = useMemo(() => {
+    return FOLDERS.find(
+      (folder) => folder.id === activeFolder
+    )
+  }, [activeFolder])
+
   const unreadCount = useMemo(() => {
     return threads.filter(
-      (thread) => thread.unread && !thread.archived
+      (thread) =>
+        thread.unread &&
+        !thread.archived
     ).length
   }, [threads])
 
   const loadThreads = useCallback(async () => {
     try {
-      const endpoint =
-        activeFolder === "archive"
-          ? "/admin-email-threads/archived"
-          : "/admin-email-threads"
+      setLoading(true)
 
-      const res = await api.get(endpoint, authHeaders)
+      let endpoint = "/admin-email-threads"
 
-      setThreads(res.data?.data || [])
+      if (activeFolder === "archive") {
+        endpoint =
+          "/admin-email-threads/archived"
+      } else {
+        endpoint =
+          `/admin-email-threads?channel=${activeFolder}`
+      }
+
+      const res = await api.get(
+        endpoint,
+        authHeaders
+      )
+
+      setThreads(
+        Array.isArray(res.data?.data)
+          ? res.data.data
+          : []
+      )
     } catch (error) {
-      console.error("LOAD THREADS ERROR:", error)
+      console.error(
+        "LOAD THREADS ERROR:",
+        error
+      )
+
+      setThreads([])
     } finally {
       setLoading(false)
     }
@@ -71,29 +111,44 @@ export default function AdminInbox() {
         authHeaders
       )
 
-      setMessages(res.data?.data || [])
+      setMessages(
+        Array.isArray(res.data?.data)
+          ? res.data.data
+          : []
+      )
 
       await loadThreads()
     } catch (error) {
-      console.error("LOAD MESSAGES ERROR:", error)
+      console.error(
+        "LOAD MESSAGES ERROR:",
+        error
+      )
     }
   }
 
   const sendReply = async (message) => {
-    if (!message.trim() || !selectedThread) return
+    if (!message.trim() || !selectedThread) {
+      return
+    }
 
     try {
       setSending(true)
 
       await api.post(
         `/admin-email-threads/${selectedThread._id}/reply`,
-        { message },
+        {
+          message
+        },
         authHeaders
       )
 
       await loadMessages(selectedThread)
     } catch (error) {
-      console.error("SEND REPLY ERROR:", error)
+      console.error(
+        "SEND REPLY ERROR:",
+        error
+      )
+
       alert("Reply could not be sent.")
     } finally {
       setSending(false)
@@ -101,7 +156,9 @@ export default function AdminInbox() {
   }
 
   const archiveThread = async () => {
-    if (!selectedThread) return
+    if (!selectedThread) {
+      return
+    }
 
     try {
       await api.patch(
@@ -115,12 +172,17 @@ export default function AdminInbox() {
 
       await loadThreads()
     } catch (error) {
-      console.error("ARCHIVE THREAD ERROR:", error)
+      console.error(
+        "ARCHIVE THREAD ERROR:",
+        error
+      )
     }
   }
 
   const restoreThread = async () => {
-    if (!selectedThread) return
+    if (!selectedThread) {
+      return
+    }
 
     try {
       await api.patch(
@@ -134,7 +196,10 @@ export default function AdminInbox() {
 
       await loadThreads()
     } catch (error) {
-      console.error("RESTORE THREAD ERROR:", error)
+      console.error(
+        "RESTORE THREAD ERROR:",
+        error
+      )
     }
   }
 
@@ -153,14 +218,47 @@ export default function AdminInbox() {
       await loadThreads()
     }
 
-    socket.on("customerEmailReply", refreshThreads)
-    socket.on("threadRestored", refreshThreads)
-    socket.on("adminNotification", refreshThreads)
+    socket.on(
+      "customerEmailReply",
+      refreshThreads
+    )
+
+    socket.on(
+      "threadRestored",
+      refreshThreads
+    )
+
+    socket.on(
+      "threadArchived",
+      refreshThreads
+    )
+
+    socket.on(
+      "adminNotification",
+      refreshThreads
+    )
 
     return () => {
-      socket.off("customerEmailReply", refreshThreads)
-      socket.off("threadRestored", refreshThreads)
-      socket.off("adminNotification", refreshThreads)
+      socket.off(
+        "customerEmailReply",
+        refreshThreads
+      )
+
+      socket.off(
+        "threadRestored",
+        refreshThreads
+      )
+
+      socket.off(
+        "threadArchived",
+        refreshThreads
+      )
+
+      socket.off(
+        "adminNotification",
+        refreshThreads
+      )
+
       socket.disconnect()
     }
   }, [loadThreads])
@@ -172,114 +270,245 @@ export default function AdminInbox() {
     setLoading(true)
   }
 
+  const getChannelLabel = (thread) => {
+    if (thread?.channel === "quotes") {
+      return "Quote"
+    }
+
+    return "Information"
+  }
+
+  const getSenderEmail = (thread) => {
+    if (thread?.channel === "quotes") {
+      return "quotes@signavistudio.store"
+    }
+
+    return "info@signavistudio.store"
+  }
+
   if (loading) {
     return (
       <main style={page}>
-        Loading inbox...
+        Loading communications...
       </main>
     )
   }
 
   return (
     <main style={page}>
-      <h1 style={heading}>
-        📥 Email Inbox
-      </h1>
+      <div style={pageHeader}>
+        <div>
+          <p style={eyebrow}>
+            SignaVi Studio
+          </p>
+
+          <h1 style={heading}>
+            💬 Communications
+          </h1>
+
+          <p style={subheading}>
+            Customer information and quote
+            conversations in one place.
+          </p>
+        </div>
+      </div>
 
       <div style={folderBar}>
-        {FOLDERS.map((folder) => (
-          <button
-            key={folder.id}
-            type="button"
-            onClick={() => handleFolderClick(folder.id)}
-            style={{
-              ...folderButton,
-              background:
-                activeFolder === folder.id
+        {FOLDERS.map((folder) => {
+          const isActive =
+            activeFolder === folder.id
+
+          return (
+            <button
+              key={folder.id}
+              type="button"
+              onClick={() =>
+                handleFolderClick(folder.id)
+              }
+              style={{
+                ...folderButton,
+                background: isActive
                   ? "#22d3ee"
                   : "#111827",
-              color:
-                activeFolder === folder.id
+                color: isActive
                   ? "#020617"
                   : "#e5e7eb"
-            }}
-          >
-            {folder.label}
+              }}
+            >
+              {folder.label}
 
-            {folder.id === "inbox" && unreadCount > 0 && (
-              <span style={folderBadge}>
-                {unreadCount}
-              </span>
-            )}
-          </button>
-        ))}
+              {folder.id !== "archive" &&
+                isActive &&
+                unreadCount > 0 && (
+                  <span style={folderBadge}>
+                    {unreadCount}
+                  </span>
+                )}
+            </button>
+          )
+        })}
       </div>
 
       <div style={layout}>
         <aside style={threadList}>
+          <div style={threadListHeader}>
+            <div>
+              <p style={threadListLabel}>
+                {currentFolder?.label ||
+                  "Communications"}
+              </p>
+
+              <p style={threadCount}>
+                {threads.length} conversation
+                {threads.length === 1
+                  ? ""
+                  : "s"}
+              </p>
+            </div>
+          </div>
+
           {threads.length === 0 ? (
-            <p style={muted}>
-              {activeFolder === "archive"
-                ? "No archived conversations yet."
-                : "No customer replies yet."}
-            </p>
+            <div style={noThreads}>
+              <p style={muted}>
+                {activeFolder === "archive"
+                  ? "No archived conversations yet."
+                  : activeFolder === "quotes"
+                    ? "No quote emails yet."
+                    : "No information emails yet."}
+              </p>
+            </div>
           ) : (
-            threads.map((thread) => (
-              <button
-                key={thread._id}
-                type="button"
-                onClick={() => loadMessages(thread)}
-                style={{
-                  ...threadButton,
-                  border:
-                    selectedThread?._id === thread._id
+            threads.map((thread) => {
+              const active =
+                selectedThread?._id ===
+                thread._id
+
+              return (
+                <button
+                  key={thread._id}
+                  type="button"
+                  onClick={() =>
+                    loadMessages(thread)
+                  }
+                  style={{
+                    ...threadButton,
+                    border: active
                       ? "1px solid #22d3ee"
-                      : "1px solid #1e293b"
-                }}
-              >
-                <strong>
-                  {thread.customerName ||
-                    thread.customerEmail}
-                </strong>
+                      : "1px solid #1e293b",
+                    background: active
+                      ? "#082f49"
+                      : "#020617"
+                  }}
+                >
+                  <div style={threadTopRow}>
+                    <strong>
+                      {thread.customerName ||
+                        thread.customerEmail}
+                    </strong>
 
-                <span style={subject}>
-                  {thread.subject}
-                </span>
+                    {thread.unread &&
+                      activeFolder !==
+                        "archive" && (
+                        <span
+                          style={unreadDot}
+                        />
+                      )}
+                  </div>
 
-                <span style={preview}>
-                  {thread.lastMessage}
-                </span>
-
-                {thread.unread && activeFolder !== "archive" && (
-                  <span style={unread}>
-                    Unread
+                  <span style={subject}>
+                    {thread.subject ||
+                      "(No Subject)"}
                   </span>
-                )}
-              </button>
-            ))
+
+                  <span style={preview}>
+                    {thread.lastMessage ||
+                      "No message preview"}
+                  </span>
+
+                  <div style={threadMeta}>
+                    <span
+                      style={
+                        thread.channel ===
+                        "quotes"
+                          ? quoteBadge
+                          : infoBadge
+                      }
+                    >
+                      {getChannelLabel(thread)}
+                    </span>
+
+                    {thread.unread &&
+                      activeFolder !==
+                        "archive" && (
+                        <span style={unread}>
+                          Unread
+                        </span>
+                      )}
+                  </div>
+                </button>
+              )
+            })
           )}
         </aside>
 
         <section style={conversation}>
           {!selectedThread ? (
             <div style={empty}>
-              <h2>Select a conversation</h2>
-              <p>Customer replies will appear here.</p>
+              <h2>
+                Select a conversation
+              </h2>
+
+              <p>
+                Customer messages will appear
+                here.
+              </p>
             </div>
           ) : (
             <>
-              <div style={conversationHeader}>
+              <div
+                style={conversationHeader}
+              >
                 <div>
-                  <h2>
-                    {selectedThread.subject}
+                  <div
+                    style={
+                      selectedThread.channel ===
+                      "quotes"
+                        ? quoteBadgeLarge
+                        : infoBadgeLarge
+                    }
+                  >
+                    {getChannelLabel(
+                      selectedThread
+                    )}
+                  </div>
+
+                  <h2 style={conversationTitle}>
+                    {selectedThread.subject ||
+                      "(No Subject)"}
                   </h2>
 
                   <p style={muted}>
-                    {selectedThread.customerEmail}
+                    Customer:{" "}
+                    {
+                      selectedThread.customerEmail
+                    }
                   </p>
+
+                  {activeFolder !==
+                    "archive" && (
+                    <p style={fromLine}>
+                      Replies send from:{" "}
+                      <strong>
+                        {getSenderEmail(
+                          selectedThread
+                        )}
+                      </strong>
+                    </p>
+                  )}
                 </div>
 
-                {activeFolder !== "archive" ? (
+                {activeFolder !==
+                "archive" ? (
                   <button
                     type="button"
                     onClick={archiveThread}
@@ -299,25 +528,50 @@ export default function AdminInbox() {
               </div>
 
               <div style={messageList}>
-                {messages.map((msg) => (
-                  <MessageBubble
-                    key={msg._id}
-                    message={{
-                      sender:
-                        msg.direction === "outbound"
-                          ? "admin"
-                          : "customer",
-                      message: msg.message,
-                      createdAt: msg.createdAt
-                    }}
-                  />
-                ))}
+                {messages.length === 0 ? (
+                  <p style={muted}>
+                    No messages in this
+                    conversation.
+                  </p>
+                ) : (
+                  messages.map((msg) => (
+                    <MessageBubble
+                      key={msg._id}
+                      message={{
+                        sender:
+                          msg.direction ===
+                          "outbound"
+                            ? "admin"
+                            : "customer",
+
+                        message:
+                          msg.message,
+
+                        createdAt:
+                          msg.createdAt
+                      }}
+                    />
+                  ))
+                )}
               </div>
 
-              {activeFolder !== "archive" && (
+              {activeFolder !==
+                "archive" && (
                 <ReplyBox
                   loading={sending}
                   onSend={sendReply}
+                  placeholder={
+                    selectedThread.channel ===
+                    "quotes"
+                      ? "Reply to this quote inquiry..."
+                      : "Reply to this customer..."
+                  }
+                  buttonText={
+                    selectedThread.channel ===
+                    "quotes"
+                      ? "Send Quote Reply"
+                      : "Send Reply"
+                  }
                 />
               )}
             </>
@@ -328,6 +582,8 @@ export default function AdminInbox() {
   )
 }
 
+/* ================= STYLES ================= */
+
 const page = {
   padding: 30,
   background: "#020617",
@@ -335,9 +591,28 @@ const page = {
   color: "#e5e7eb"
 }
 
+const pageHeader = {
+  marginBottom: 24
+}
+
+const eyebrow = {
+  margin: 0,
+  marginBottom: 6,
+  color: "#22d3ee",
+  fontWeight: 900,
+  textTransform: "uppercase",
+  letterSpacing: "0.18em",
+  fontSize: 12
+}
+
 const heading = {
-  marginTop: 0,
+  margin: 0,
   fontSize: 34
+}
+
+const subheading = {
+  marginTop: 8,
+  color: "#94a3b8"
 }
 
 const folderBar = {
@@ -369,7 +644,8 @@ const folderBadge = {
 
 const layout = {
   display: "grid",
-  gridTemplateColumns: "340px 1fr",
+  gridTemplateColumns:
+    "340px minmax(0, 1fr)",
   gap: 24
 }
 
@@ -382,6 +658,30 @@ const threadList = {
   overflowY: "auto"
 }
 
+const threadListHeader = {
+  marginBottom: 14,
+  paddingBottom: 12,
+  borderBottom:
+    "1px solid #1e293b"
+}
+
+const threadListLabel = {
+  margin: 0,
+  fontWeight: 900
+}
+
+const threadCount = {
+  marginTop: 4,
+  marginBottom: 0,
+  color: "#64748b",
+  fontSize: 12
+}
+
+const noThreads = {
+  padding: "30px 10px",
+  textAlign: "center"
+}
+
 const threadButton = {
   width: "100%",
   display: "grid",
@@ -389,10 +689,24 @@ const threadButton = {
   padding: 14,
   marginBottom: 12,
   borderRadius: 14,
-  background: "#020617",
   color: "#e5e7eb",
   textAlign: "left",
   cursor: "pointer"
+}
+
+const threadTopRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 10
+}
+
+const unreadDot = {
+  width: 9,
+  height: 9,
+  borderRadius: "50%",
+  background: "#22c55e",
+  flexShrink: 0
 }
 
 const subject = {
@@ -409,6 +723,14 @@ const preview = {
   whiteSpace: "nowrap"
 }
 
+const threadMeta = {
+  display: "flex",
+  gap: 8,
+  alignItems: "center",
+  flexWrap: "wrap",
+  marginTop: 4
+}
+
 const unread = {
   color: "#020617",
   background: "#22c55e",
@@ -419,6 +741,42 @@ const unread = {
   width: "fit-content"
 }
 
+const infoBadge = {
+  color: "#67e8f9",
+  background: "#164e63",
+  border:
+    "1px solid rgba(34,211,238,.35)",
+  padding: "4px 8px",
+  borderRadius: 999,
+  fontSize: 11,
+  fontWeight: 900,
+  width: "fit-content"
+}
+
+const quoteBadge = {
+  color: "#fde68a",
+  background: "#713f12",
+  border:
+    "1px solid rgba(245,158,11,.4)",
+  padding: "4px 8px",
+  borderRadius: 999,
+  fontSize: 11,
+  fontWeight: 900,
+  width: "fit-content"
+}
+
+const infoBadgeLarge = {
+  ...infoBadge,
+  display: "inline-block",
+  marginBottom: 10
+}
+
+const quoteBadgeLarge = {
+  ...quoteBadge,
+  display: "inline-block",
+  marginBottom: 10
+}
+
 const conversation = {
   background: "#0f172a",
   border: "1px solid #1e293b",
@@ -426,16 +784,29 @@ const conversation = {
   padding: 22,
   minHeight: "78vh",
   display: "flex",
-  flexDirection: "column"
+  flexDirection: "column",
+  minWidth: 0
 }
 
 const conversationHeader = {
   display: "flex",
   justifyContent: "space-between",
   gap: 16,
-  borderBottom: "1px solid #1e293b",
+  borderBottom:
+    "1px solid #1e293b",
   paddingBottom: 16,
   marginBottom: 16
+}
+
+const conversationTitle = {
+  marginTop: 0,
+  marginBottom: 8
+}
+
+const fromLine = {
+  color: "#64748b",
+  fontSize: 12,
+  marginTop: 6
 }
 
 const empty = {

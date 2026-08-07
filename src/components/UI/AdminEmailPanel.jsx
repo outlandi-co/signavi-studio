@@ -2,10 +2,9 @@ import { useState } from "react"
 import api from "../../services/api"
 
 export default function AdminEmailPanel({ customer }) {
-
+  const [channel, setChannel] = useState("info")
   const [subject, setSubject] = useState("")
   const [message, setMessage] = useState("")
-
   const [sending, setSending] = useState(false)
 
   if (!customer) return null
@@ -16,8 +15,32 @@ export default function AdminEmailPanel({ customer }) {
     customer.user?.email ||
     ""
 
-  const handleSend = async () => {
+  const customerName =
+    customer.name ||
+    customer.customerName ||
+    customer.fullName ||
+    ""
 
+  const fromEmail =
+    channel === "quotes"
+      ? "quotes@signavistudio.store"
+      : "info@signavistudio.store"
+
+  const handleChannelChange = (value) => {
+    setChannel(value)
+
+    if (value === "quotes") {
+      setSubject(
+        customerName
+          ? `Quote Information - ${customerName}`
+          : "SignaVi Studio Quote"
+      )
+    } else {
+      setSubject("")
+    }
+  }
+
+  const handleSend = async () => {
     if (!email) {
       alert("Customer email missing")
       return
@@ -34,7 +57,6 @@ export default function AdminEmailPanel({ customer }) {
     }
 
     try {
-
       setSending(true)
 
       const token = localStorage.getItem("adminToken")
@@ -43,8 +65,17 @@ export default function AdminEmailPanel({ customer }) {
         "/admin-email/send-email",
         {
           to: email,
-          subject,
-          message
+          subject: subject.trim(),
+          message: message.trim(),
+
+          channel,
+
+          customerId:
+            customer._id ||
+            customer.id ||
+            null,
+
+          customerName
         },
         {
           headers: {
@@ -53,25 +84,30 @@ export default function AdminEmailPanel({ customer }) {
         }
       )
 
-      console.log("✅ EMAIL RESPONSE:", res.data)
+      console.log(
+        "✅ EMAIL RESPONSE:",
+        res.data
+      )
 
-      alert("Email sent successfully")
+      alert(
+        channel === "quotes"
+          ? "Quote email sent successfully"
+          : "Information email sent successfully"
+      )
 
       setSubject("")
       setMessage("")
-
     } catch (err) {
-
       console.error(
         "❌ EMAIL ERROR:",
-        err.response?.data || err.message
+        err.response?.data ||
+          err.message
       )
 
       alert(
         err.response?.data?.message ||
-        "Failed to send email"
+          "Failed to send email"
       )
-
     } finally {
       setSending(false)
     }
@@ -79,13 +115,80 @@ export default function AdminEmailPanel({ customer }) {
 
   return (
     <div style={container}>
+      <div style={header}>
+        <div>
+          <h2 style={title}>
+            Customer Email
+          </h2>
 
-      <h2 style={title}>
-  Admin Panel TEST 123
-</h2>
+          <p style={subtitle}>
+            Send customer communication from a
+            public SignaVi Studio address.
+          </p>
+        </div>
+      </div>
+
+      {/* ================= FROM TYPE ================= */}
 
       <div style={field}>
-        <label style={label}>To</label>
+        <label style={label}>
+          Email Type
+        </label>
+
+        <div style={channelButtons}>
+          <button
+            type="button"
+            onClick={() =>
+              handleChannelChange("info")
+            }
+            style={{
+              ...channelButton,
+              ...(channel === "info"
+                ? activeChannelButton
+                : {})
+            }}
+          >
+            Information
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              handleChannelChange("quotes")
+            }
+            style={{
+              ...channelButton,
+              ...(channel === "quotes"
+                ? activeChannelButton
+                : {})
+            }}
+          >
+            Quote
+          </button>
+        </div>
+      </div>
+
+      {/* ================= FROM ================= */}
+
+      <div style={field}>
+        <label style={label}>
+          From
+        </label>
+
+        <input
+          type="text"
+          value={fromEmail}
+          disabled
+          style={inputDisabled}
+        />
+      </div>
+
+      {/* ================= TO ================= */}
+
+      <div style={field}>
+        <label style={label}>
+          To
+        </label>
 
         <input
           type="text"
@@ -95,12 +198,20 @@ export default function AdminEmailPanel({ customer }) {
         />
       </div>
 
+      {/* ================= SUBJECT ================= */}
+
       <div style={field}>
-        <label style={label}>Subject</label>
+        <label style={label}>
+          Subject
+        </label>
 
         <input
           type="text"
-          placeholder="Enter subject..."
+          placeholder={
+            channel === "quotes"
+              ? "Enter quote subject..."
+              : "Enter subject..."
+          }
           value={subject}
           onChange={(e) =>
             setSubject(e.target.value)
@@ -109,33 +220,60 @@ export default function AdminEmailPanel({ customer }) {
         />
       </div>
 
+      {/* ================= MESSAGE ================= */}
+
       <div style={field}>
-        <label style={label}>Message</label>
+        <label style={label}>
+          Message
+        </label>
 
         <textarea
-          placeholder="Write message..."
+          placeholder={
+            channel === "quotes"
+              ? "Write quote information..."
+              : "Write message..."
+          }
           value={message}
           onChange={(e) =>
             setMessage(e.target.value)
           }
-          rows={8}
+          rows={10}
           style={textarea}
         />
       </div>
+
+      {/* ================= SEND ================= */}
 
       <button
         onClick={handleSend}
         disabled={sending}
         style={{
           ...button,
-          opacity: sending ? 0.7 : 1
+          opacity: sending ? 0.7 : 1,
+          cursor:
+            sending
+              ? "not-allowed"
+              : "pointer"
         }}
       >
         {sending
           ? "Sending..."
-          : "Send Email"}
+          : channel === "quotes"
+            ? "Send Quote Email"
+            : "Send Information Email"}
       </button>
 
+      <div style={privacyNotice}>
+        <strong>
+          Internal admin email is hidden.
+        </strong>
+
+        <span>
+          Customers only see the public
+          SignaVi Studio email address selected
+          above.
+        </span>
+      </div>
     </div>
   )
 }
@@ -144,15 +282,30 @@ export default function AdminEmailPanel({ customer }) {
 
 const container = {
   marginTop: 30,
-  padding: 20,
+  padding: 22,
   borderRadius: 14,
   background: "#0f172a",
   border: "1px solid #1e293b",
   color: "#fff"
 }
 
+const header = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  marginBottom: 24
+}
+
 const title = {
-  marginBottom: 20
+  margin: 0,
+  fontSize: 22
+}
+
+const subtitle = {
+  marginTop: 6,
+  marginBottom: 0,
+  color: "#94a3b8",
+  fontSize: 14
 }
 
 const field = {
@@ -161,12 +314,14 @@ const field = {
 
 const label = {
   display: "block",
-  marginBottom: 6,
-  fontWeight: "600"
+  marginBottom: 7,
+  fontWeight: "600",
+  fontSize: 14
 }
 
 const input = {
   width: "100%",
+  boxSizing: "border-box",
   padding: 12,
   borderRadius: 8,
   border: "1px solid #334155",
@@ -177,11 +332,13 @@ const input = {
 
 const inputDisabled = {
   ...input,
-  opacity: 0.7
+  opacity: 0.75,
+  cursor: "not-allowed"
 }
 
 const textarea = {
   width: "100%",
+  boxSizing: "border-box",
   padding: 12,
   borderRadius: 8,
   border: "1px solid #334155",
@@ -191,6 +348,28 @@ const textarea = {
   outline: "none"
 }
 
+const channelButtons = {
+  display: "flex",
+  gap: 10
+}
+
+const channelButton = {
+  flex: 1,
+  padding: "11px 14px",
+  borderRadius: 8,
+  border: "1px solid #334155",
+  background: "#020617",
+  color: "#cbd5e1",
+  cursor: "pointer",
+  fontWeight: "600"
+}
+
+const activeChannelButton = {
+  background: "#164e63",
+  border: "1px solid #22d3ee",
+  color: "#fff"
+}
+
 const button = {
   width: "100%",
   padding: 14,
@@ -198,6 +377,18 @@ const button = {
   borderRadius: 10,
   background: "#22c55e",
   color: "#fff",
-  fontWeight: "700",
-  cursor: "pointer"
+  fontWeight: "700"
+}
+
+const privacyNotice = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 4,
+  marginTop: 14,
+  padding: 12,
+  background: "#020617",
+  border: "1px solid #1e293b",
+  borderRadius: 8,
+  color: "#94a3b8",
+  fontSize: 12
 }
