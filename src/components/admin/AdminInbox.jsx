@@ -27,6 +27,11 @@ const FOLDERS = [
     channel: "quotes"
   },
   {
+    id: "support",
+    label: "🛟 Support",
+    channel: "support"
+  },
+  {
     id: "archive",
     label: "🗄 Archive",
     channel: null
@@ -271,20 +276,28 @@ export default function AdminInbox() {
   }
 
   const getChannelLabel = (thread) => {
-    if (thread?.channel === "quotes") {
-      return "Quote"
-    }
-
-    return "Information"
+  if (thread?.channel === "quotes") {
+    return "Quote"
   }
+
+  if (thread?.channel === "support") {
+    return "Support"
+  }
+
+  return "Information"
+}
 
   const getSenderEmail = (thread) => {
-    if (thread?.channel === "quotes") {
-      return "quotes@signavistudio.store"
-    }
-
-    return "info@signavistudio.store"
+  if (thread?.channel === "quotes") {
+    return "quotes@signavistudio.store"
   }
+
+  if (thread?.channel === "support") {
+    return "support@signavistudio.store"
+  }
+
+  return "info@signavistudio.store"
+}
 
   if (loading) {
     return (
@@ -307,9 +320,9 @@ export default function AdminInbox() {
           </h1>
 
           <p style={subheading}>
-            Customer information and quote
-            conversations in one place.
-          </p>
+  Customer information, quote, and support
+  conversations in one place.
+</p>
         </div>
       </div>
 
@@ -371,10 +384,12 @@ export default function AdminInbox() {
             <div style={noThreads}>
               <p style={muted}>
                 {activeFolder === "archive"
-                  ? "No archived conversations yet."
-                  : activeFolder === "quotes"
-                    ? "No quote emails yet."
-                    : "No information emails yet."}
+  ? "No archived conversations yet."
+  : activeFolder === "quotes"
+    ? "No quote emails yet."
+    : activeFolder === "support"
+      ? "No support emails yet."
+      : "No information emails yet."}
               </p>
             </div>
           ) : (
@@ -428,11 +443,12 @@ export default function AdminInbox() {
                   <div style={threadMeta}>
                     <span
                       style={
-                        thread.channel ===
-                        "quotes"
-                          ? quoteBadge
-                          : infoBadge
-                      }
+  thread.channel === "quotes"
+    ? quoteBadge
+    : thread.channel === "support"
+      ? supportBadge
+      : infoBadge
+}
                     >
                       {getChannelLabel(thread)}
                     </span>
@@ -470,12 +486,14 @@ export default function AdminInbox() {
               >
                 <div>
                   <div
-                    style={
-                      selectedThread.channel ===
-                      "quotes"
-                        ? quoteBadgeLarge
-                        : infoBadgeLarge
-                    }
+                    
+                      style={
+  selectedThread.channel === "quotes"
+    ? quoteBadgeLarge
+    : selectedThread.channel === "support"
+      ? supportBadgeLarge
+      : infoBadgeLarge
+}
                   >
                     {getChannelLabel(
                       selectedThread
@@ -744,8 +762,7 @@ const unread = {
 const infoBadge = {
   color: "#67e8f9",
   background: "#164e63",
-  border:
-    "1px solid rgba(34,211,238,.35)",
+  border: "1px solid rgba(34,211,238,.35)",
   padding: "4px 8px",
   borderRadius: 999,
   fontSize: 11,
@@ -756,8 +773,18 @@ const infoBadge = {
 const quoteBadge = {
   color: "#fde68a",
   background: "#713f12",
-  border:
-    "1px solid rgba(245,158,11,.4)",
+  border: "1px solid rgba(245,158,11,.4)",
+  padding: "4px 8px",
+  borderRadius: 999,
+  fontSize: 11,
+  fontWeight: 900,
+  width: "fit-content"
+}
+
+const supportBadge = {
+  color: "#bbf7d0",
+  background: "#14532d",
+  border: "1px solid rgba(34,197,94,.4)",
   padding: "4px 8px",
   borderRadius: 999,
   fontSize: 11,
@@ -773,6 +800,12 @@ const infoBadgeLarge = {
 
 const quoteBadgeLarge = {
   ...quoteBadge,
+  display: "inline-block",
+  marginBottom: 10
+}
+
+const supportBadgeLarge = {
+  ...supportBadge,
   display: "inline-block",
   marginBottom: 10
 }
