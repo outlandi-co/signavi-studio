@@ -23,7 +23,7 @@ export default function AdminEmailPanel({ customer }) {
 
   const fromEmail =
     channel === "quotes"
-      ? "quotes@signavistudio.store"
+      ? "quote@signavistudio.store"
       : "info@signavistudio.store"
 
   const handleChannelChange = (value) => {
