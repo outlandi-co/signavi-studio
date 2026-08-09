@@ -156,6 +156,9 @@ const sortProductionJobs = (jobs = []) => {
 }
 
 const cardStyle = {
+  width: "100%",
+  minWidth: 0,
+  boxSizing: "border-box",
   background: "rgba(15, 23, 42, 0.85)",
   border: "1px solid #1e293b",
   borderRadius: 18,
@@ -166,7 +169,8 @@ const cardStyle = {
 
 function DropColumn({
   id,
-  jobs
+  jobs,
+  isMobile = false
 }) {
   const {
     setNodeRef,
@@ -187,10 +191,13 @@ function DropColumn({
     <div
       ref={setNodeRef}
       style={{
-        width: 320,
-        minHeight: 600,
+        width: isMobile ? "100%" : 320,
+        maxWidth: isMobile ? "100%" : 320,
+        minWidth: 0,
+        minHeight: isMobile ? 360 : 600,
         background: isOver ? "#172554" : "rgba(15, 23, 42, 0.9)",
-        padding: 16,
+        padding: isMobile ? 12 : 16,
+        boxSizing: "border-box",
         borderRadius: 22,
         border: isOver ? "1px solid #38bdf8" : "1px solid #1e293b",
         boxShadow: "0 16px 40px rgba(0,0,0,.28)",
@@ -281,6 +288,22 @@ export default function ProductionBoard() {
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState("")
   const [viewFilter, setViewFilter] = useState("all")
+  const [isMobile, setIsMobile] = useState(
+    () => window.innerWidth <= 900
+  )
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 900)
+    }
+
+    handleResize()
+    window.addEventListener("resize", handleResize)
+
+    return () => {
+      window.removeEventListener("resize", handleResize)
+    }
+  }, [])
 
   const sensors = useSensors(
     useSensor(PointerSensor)
@@ -601,7 +624,12 @@ export default function ProductionBoard() {
   return (
     <div
       style={{
-        padding: 24,
+        width: "100%",
+        maxWidth: "100%",
+        minWidth: 0,
+        padding: isMobile ? "18px 14px 90px" : 24,
+        boxSizing: "border-box",
+        overflowX: "hidden",
         background:
           "radial-gradient(circle at top right, rgba(6,182,212,.12), transparent 35%), #020617",
         minHeight: "100vh"
@@ -628,8 +656,9 @@ export default function ProductionBoard() {
         <h1
           style={{
             color: "white",
-            fontSize: 42,
-            lineHeight: 1,
+            fontSize: isMobile ? 38 : 42,
+            lineHeight: 1.02,
+            overflowWrap: "anywhere",
             fontWeight: 800,
             margin: 0
           }}
@@ -649,7 +678,14 @@ export default function ProductionBoard() {
         </p>
       </div>
 
-      <div style={metricGrid}>
+      <div
+        style={{
+          ...metricGrid,
+          gridTemplateColumns: isMobile
+            ? "minmax(0, 1fr)"
+            : metricGrid.gridTemplateColumns
+        }}
+      >
         <MetricCard
           value={grouped.quotes.length}
           label="Pending Quotes"
@@ -675,7 +711,14 @@ export default function ProductionBoard() {
         />
       </div>
 
-      <div style={metricGrid}>
+      <div
+        style={{
+          ...metricGrid,
+          gridTemplateColumns: isMobile
+            ? "minmax(0, 1fr)"
+            : metricGrid.gridTemplateColumns
+        }}
+      >
         <MetricCard
           value={highPriorityJobs.length}
           label="High Priority"
@@ -701,7 +744,14 @@ export default function ProductionBoard() {
         />
       </div>
 
-      <div style={metricGrid}>
+      <div
+        style={{
+          ...metricGrid,
+          gridTemplateColumns: isMobile
+            ? "minmax(0, 1fr)"
+            : metricGrid.gridTemplateColumns
+        }}
+      >
         <MetricCard
           value={money(productionRevenue)}
           label="Production Revenue"
@@ -721,7 +771,15 @@ export default function ProductionBoard() {
         />
       </div>
 
-      <div style={toolbar}>
+      <div
+        style={{
+          ...toolbar,
+          gridTemplateColumns: isMobile
+            ? "minmax(0, 1fr)"
+            : toolbar.gridTemplateColumns,
+          gap: isMobile ? 10 : 14
+        }}
+      >
         <input
           value={search}
           onChange={(event) =>
@@ -758,7 +816,12 @@ export default function ProductionBoard() {
         <button
           type="button"
           onClick={load}
-          style={refreshButton}
+          style={{
+            ...refreshButton,
+            width: "100%",
+            minHeight: 50,
+            padding: "14px 16px"
+          }}
         >
           Refresh
         </button>
@@ -782,19 +845,27 @@ export default function ProductionBoard() {
       >
         <div
           style={{
-            display: "flex",
-            gap: 24,
-            overflowX: "auto",
+            display: isMobile ? "grid" : "flex",
+            gridTemplateColumns: isMobile
+              ? "minmax(0, 1fr)"
+              : undefined,
+            gap: isMobile ? 14 : 24,
+            width: "100%",
+            minWidth: 0,
+            overflowX: isMobile ? "hidden" : "auto",
             paddingBottom: 30,
             alignItems: "flex-start"
           }}
         >
           <div
             style={{
-              width: 320,
-              minHeight: 600,
+              width: isMobile ? "100%" : 320,
+              maxWidth: isMobile ? "100%" : 320,
+              minWidth: 0,
+              minHeight: isMobile ? 360 : 600,
               background: "rgba(15, 23, 42, 0.9)",
-              padding: 16,
+              padding: isMobile ? 12 : 16,
+              boxSizing: "border-box",
               borderRadius: 22,
               border: "1px solid #1e293b",
               boxShadow: "0 16px 40px rgba(0,0,0,.28)",
@@ -868,6 +939,7 @@ export default function ProductionBoard() {
               key={column}
               id={column}
               jobs={list}
+              isMobile={isMobile}
             />
           ))}
         </div>
@@ -887,6 +959,7 @@ function MetricCard({
         style={{
           margin: 0,
           fontSize: 32,
+          overflowWrap: "anywhere",
           color
         }}
       >
@@ -916,6 +989,8 @@ const toolbar = {
   display: "grid",
   gridTemplateColumns: "1fr 220px 140px",
   gap: 14,
+  width: "100%",
+  minWidth: 0,
   marginBottom: 24
 }
 
@@ -928,10 +1003,13 @@ const searchInput = {
   background: "#020617",
   color: "white",
   outline: "none",
-  fontWeight: 700
+  fontWeight: 700,
+  minWidth: 0
 }
 
 const refreshButton = {
+  width: "100%",
+  boxSizing: "border-box",
   background: "#22d3ee",
   color: "#020617",
   border: "none",
