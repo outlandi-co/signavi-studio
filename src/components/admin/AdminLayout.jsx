@@ -1,6 +1,12 @@
 import {
+  useEffect,
+  useState
+} from "react"
+
+import {
   Outlet,
-  NavLink
+  NavLink,
+  useLocation
 } from "react-router-dom"
 
 import useNotifications from "../../hooks/useNotifications"
@@ -12,6 +18,75 @@ export default function AdminLayout() {
     clearSupportUnread,
     clearEmailUnread
   } = useNotifications()
+
+const [sidebarOpen, setSidebarOpen] = useState(false)
+
+const [isMobile, setIsMobile] = useState(
+  () => window.innerWidth <= 900
+)
+
+const location = useLocation()
+
+useEffect(() => {
+  const handleResize = () => {
+    const mobile = window.innerWidth <= 900
+
+    setIsMobile(mobile)
+
+    if (!mobile) {
+      setSidebarOpen(false)
+    }
+  }
+
+  handleResize()
+
+  window.addEventListener("resize", handleResize)
+
+  return () => {
+    window.removeEventListener("resize", handleResize)
+  }
+}, [])
+
+useEffect(() => {
+  const handleResize = () => {
+    const mobile = window.innerWidth <= 900
+
+    setIsMobile(mobile)
+
+    if (!mobile) {
+      setSidebarOpen(false)
+    }
+  }
+
+  window.addEventListener("resize", handleResize)
+
+  handleResize()
+
+  return () => {
+    window.removeEventListener("resize", handleResize)
+  }
+}, [])
+
+  /* Close mobile sidebar whenever route changes */
+  useEffect(() => {
+    setSidebarOpen(false)
+  }, [location.pathname])
+
+  /* Stop page behind sidebar from scrolling */
+  useEffect(() => {
+    if (!sidebarOpen) {
+      document.body.style.overflow = ""
+      return
+    }
+
+    if (window.innerWidth <= 900) {
+      document.body.style.overflow = "hidden"
+    }
+
+    return () => {
+      document.body.style.overflow = ""
+    }
+  }, [sidebarOpen])
 
   const downloadOrdersCSV = () => {
     window.open(
@@ -38,199 +113,615 @@ export default function AdminLayout() {
   }
 
   return (
-    <div style={wrapper}>
-      <aside style={sidebar}>
+    <>
+      <style>
+        {`
+          /* ==========================================
+             ADMIN LAYOUT
+             ========================================== */
 
-        {/* ================= BRAND ================= */}
+          .admin-layout {
+            width: 100%;
+            min-height: 100vh;
 
-        <div style={brandBox}>
-          <div style={brandIcon}>
-            <img
-              src="/logo.png"
-              alt="SignaVi"
-              style={brandImage}
-              onError={(event) => {
-                event.currentTarget.style.display =
-                  "none"
+            display: flex;
 
-                event.currentTarget.parentElement.textContent =
-                  "S"
-              }}
-            />
-          </div>
+            background: #020617;
 
-          <div>
-            <h2 style={title}>
-              SignaVi
-            </h2>
+            overflow-x: hidden;
+          }
 
-            <p style={subtitle}>
-              Admin Panel
-            </p>
-          </div>
-        </div>
 
-        {/* ================= WORKFLOW ================= */}
+          /* ==========================================
+             ADMIN SIDEBAR - DESKTOP
+             ========================================== */
 
-        <div style={sectionLabel}>
-          Workflow
-        </div>
+          .admin-sidebar {
+            width: 320px;
+            min-width: 320px;
+            height: 100vh;
 
-        <SideLink to="/admin">
-          📊 Dashboard
-        </SideLink>
+            padding: 24px;
 
-        <SideLink to="/admin/production">
-          🏭 Production
-        </SideLink>
+            background: #020617;
+            color: #ffffff;
 
-        <SideLink to="/admin/orders">
-          📦 Orders
-        </SideLink>
+            border-right: 1px solid #1e293b;
 
-        <SideLink to="/admin/invoices">
-          🧾 Invoices
-        </SideLink>
+            display: flex;
+            flex-direction: column;
 
-        <SideLink to="/admin/custom-order/new">
-          🧾 New Custom Order
-        </SideLink>
+            gap: 10px;
 
-        {/* ================= STORE ================= */}
+            position: sticky;
+            top: 0;
 
-        <div style={sectionLabel}>
-          Store
-        </div>
+            overflow-y: auto;
+            overflow-x: hidden;
 
-        <SideLink to="/admin/products/new">
-          ➕ Create Product
-        </SideLink>
+            box-sizing: border-box;
 
-        <SideLink to="/admin/signavi-store/products">
-          🛍️ Store Products
-        </SideLink>
+            z-index: 100;
+          }
 
-        <SideLink to="/admin/signavi-store/discounts">
-          💸 Store Discounts
-        </SideLink>
 
-        <SideLink to="/admin/materials">
-          🧵 Materials Catalog
-        </SideLink>
+          /* ==========================================
+             PAGE CONTENT
+             ========================================== */
 
-        {/* ================= CUSTOMERS ================= */}
+          .admin-content {
+            flex: 1;
 
-        <div style={sectionLabel}>
-          Customers
-        </div>
+            width: 100%;
+            min-width: 0;
 
-        <SideLink to="/admin/customers">
-          👥 Customers
-        </SideLink>
+            padding: 42px 48px;
 
-        {/* ================= COMMUNICATIONS ================= */}
+            background:
+              radial-gradient(
+                circle at top left,
+                rgba(34, 211, 238, 0.08),
+                transparent 30%
+              ),
+              #020617;
 
-        <div onClick={clearEmailUnread}>
-          <SideLink to="/admin/emails">
-            <div style={linkRow}>
-              <span>
-                💬 Communications
-              </span>
+            box-sizing: border-box;
 
-              {emailUnread > 0 && (
-                <span style={badge}>
-                  {emailUnread}
-                </span>
-              )}
+            overflow-x: hidden;
+          }
+
+
+          /* ==========================================
+             MOBILE ADMIN MENU BUTTON
+             ========================================== */
+
+          .admin-mobile-menu-button {
+            display: none;
+
+            position: fixed;
+
+            right: 18px;
+            bottom: 22px;
+
+            width: 58px;
+            height: 58px;
+
+            border-radius: 50%;
+            border: 1px solid rgba(34, 211, 238, 0.55);
+
+            background: #0f172a;
+            color: #22d3ee;
+
+            align-items: center;
+            justify-content: center;
+
+            font-size: 25px;
+
+            cursor: pointer;
+
+            z-index: 220;
+
+            box-shadow:
+              0 12px 30px rgba(0, 0, 0, 0.35),
+              0 0 25px rgba(34, 211, 238, 0.12);
+          }
+
+          .admin-mobile-menu-button:hover {
+            background: #162032;
+            border-color: #22d3ee;
+          }
+
+
+          /* ==========================================
+             MOBILE CLOSE BUTTON
+             ========================================== */
+
+          .admin-sidebar-close {
+            display: none;
+
+            width: 44px;
+            height: 44px;
+
+            border-radius: 12px;
+            border: 1px solid #334155;
+
+            background: #0f172a;
+            color: #ffffff;
+
+            align-items: center;
+            justify-content: center;
+
+            font-size: 22px;
+
+            cursor: pointer;
+
+            flex-shrink: 0;
+          }
+
+
+          /* ==========================================
+             DARK BACKDROP
+             ========================================== */
+
+          .admin-sidebar-overlay {
+            display: none;
+          }
+
+
+          /* ==========================================
+             TABLET / MOBILE
+             ========================================== */
+
+          @media (max-width: 900px) {
+
+            .admin-layout {
+              display: block;
+
+              width: 100%;
+
+              overflow-x: hidden;
+            }
+
+
+            /* Sidebar now floats OVER the content */
+
+            .admin-sidebar {
+              position: fixed;
+
+              top: 0;
+              left: 0;
+
+              width: min(86vw, 340px);
+              min-width: 0;
+
+              height: 100dvh;
+
+              padding: 20px;
+
+              z-index: 210;
+
+              transform: translateX(-105%);
+
+              transition:
+                transform 0.28s ease,
+                box-shadow 0.28s ease;
+
+              box-shadow: none;
+            }
+
+            .admin-sidebar.admin-sidebar-open {
+              transform: translateX(0);
+
+              box-shadow:
+                20px 0 60px rgba(0, 0, 0, 0.6);
+            }
+
+
+            /* Main content stays full phone width */
+
+            .admin-content {
+              width: 100%;
+              max-width: 100%;
+
+              min-width: 0;
+
+              margin: 0;
+
+              padding:
+                24px
+                18px
+                100px;
+
+              overflow-x: hidden;
+            }
+
+
+            /* Floating menu button */
+
+            .admin-mobile-menu-button {
+              display: flex;
+            }
+
+
+            /* Sidebar close X */
+
+            .admin-sidebar-close {
+              display: flex;
+            }
+
+
+            /* Overlay behind sidebar */
+
+            .admin-sidebar-overlay {
+              display: block;
+
+              position: fixed;
+
+              inset: 0;
+
+              background: rgba(0, 0, 0, 0.68);
+
+              backdrop-filter: blur(3px);
+
+              opacity: 0;
+              visibility: hidden;
+
+              transition:
+                opacity 0.25s ease,
+                visibility 0.25s ease;
+
+              z-index: 200;
+            }
+
+            .admin-sidebar-overlay.admin-sidebar-overlay-open {
+              opacity: 1;
+              visibility: visible;
+            }
+          }
+
+
+          /* ==========================================
+             SMALL PHONES
+             ========================================== */
+
+          @media (max-width: 480px) {
+
+            .admin-sidebar {
+              width: 88vw;
+
+              padding: 18px 16px;
+            }
+
+            .admin-content {
+              padding:
+                20px
+                14px
+                100px;
+            }
+
+            .admin-mobile-menu-button {
+              width: 54px;
+              height: 54px;
+
+              right: 14px;
+              bottom: 18px;
+
+              font-size: 22px;
+            }
+          }
+        `}
+      </style>
+
+      <div className="admin-layout">
+
+        {/* ================= MOBILE OVERLAY ================= */}
+
+        <div
+          className={
+            sidebarOpen
+              ? "admin-sidebar-overlay admin-sidebar-overlay-open"
+              : "admin-sidebar-overlay"
+          }
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden={!sidebarOpen}
+        />
+
+        {/* ================= SIDEBAR ================= */}
+
+        <aside
+  className="admin-sidebar"
+  style={{
+    ...(isMobile
+      ? {
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "88vw",
+          maxWidth: "340px",
+          minWidth: 0,
+          height: "100dvh",
+          zIndex: 210,
+          transform: sidebarOpen
+            ? "translateX(0)"
+            : "translateX(-105%)",
+          transition: "transform 0.28s ease",
+          boxShadow: sidebarOpen
+            ? "20px 0 60px rgba(0,0,0,.6)"
+            : "none"
+        }
+      : {
+          position: "sticky",
+          top: 0,
+          width: 320,
+          minWidth: 320,
+          height: "100vh",
+          transform: "none"
+        })
+  }}
+>
+
+          {/* ================= BRAND ================= */}
+
+          <div style={brandBox}>
+
+            <div style={brandIcon}>
+              <img
+                src="/logo.png"
+                alt="SignaVi"
+                style={brandImage}
+                onError={(event) => {
+                  event.currentTarget.style.display = "none"
+
+                  event.currentTarget.parentElement.textContent = "S"
+                }}
+              />
             </div>
-          </SideLink>
-        </div>
 
-        {/* ================= SUPPORT ================= */}
+            <div style={brandText}>
+              <h2 style={title}>
+                SignaVi
+              </h2>
 
-        <div onClick={clearSupportUnread}>
-          <SideLink to="/admin/support">
-            <div style={linkRow}>
-              <span>
-                🛟 Support
-              </span>
-
-              {supportUnread > 0 && (
-                <span style={badge}>
-                  {supportUnread}
-                </span>
-              )}
+              <p style={subtitle}>
+                Admin Panel
+              </p>
             </div>
+
+            <button
+              type="button"
+              className="admin-sidebar-close"
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Close admin menu"
+            >
+              ✕
+            </button>
+
+          </div>
+
+
+          {/* ================= WORKFLOW ================= */}
+
+          <div style={sectionLabel}>
+            Workflow
+          </div>
+
+          <SideLink to="/admin">
+            📊 Dashboard
           </SideLink>
-        </div>
 
-        {/* ================= BUSINESS ================= */}
+          <SideLink to="/admin/production">
+            🏭 Production
+          </SideLink>
 
-        <div style={sectionLabel}>
-          Business
-        </div>
+          <SideLink to="/admin/orders">
+            📦 Orders
+          </SideLink>
 
-        <SideLink to="/admin/revenue">
-          💰 Revenue
-        </SideLink>
+          <SideLink to="/admin/invoices">
+            🧾 Invoices
+          </SideLink>
 
-        <SideLink to="/admin/marketing">
-          📣 Marketing Hub
-        </SideLink>
+          <SideLink to="/admin/custom-order/new">
+            🧾 New Custom Order
+          </SideLink>
 
-        {/* ================= QUICK TOOLS ================= */}
 
-        <div style={quickStats}>
-          <div style={quickStatCard}>
-            <span>
-              💰 Revenue Tools
-            </span>
+          {/* ================= STORE ================= */}
+
+          <div style={sectionLabel}>
+            Store
           </div>
 
-          <div style={quickStatCard}>
-            <span>
-              📦 Order Exports
-            </span>
+          <SideLink to="/admin/products/new">
+            ➕ Create Product
+          </SideLink>
+
+          <SideLink to="/admin/signavi-store/products">
+            🛍️ Store Products
+          </SideLink>
+
+          <SideLink to="/admin/signavi-store/discounts">
+            💸 Store Discounts
+          </SideLink>
+
+          <SideLink to="/admin/materials">
+            🧵 Materials Catalog
+          </SideLink>
+
+
+          {/* ================= CUSTOMERS ================= */}
+
+          <div style={sectionLabel}>
+            Customers
           </div>
-        </div>
 
-        {/* ================= EXPORT / LOGOUT ================= */}
+          <SideLink to="/admin/customers">
+            👥 Customers
+          </SideLink>
 
-        <div style={csvGroup}>
-          <button
-            type="button"
-            onClick={downloadOrdersCSV}
-            style={csvButton}
-          >
-            📄 Orders CSV
-          </button>
 
-          <button
-            type="button"
-            onClick={downloadTaxCSV}
-            style={taxButton}
-          >
-            🧾 Tax CSV
-          </button>
+          {/* ================= COMMUNICATIONS ================= */}
 
-          <button
-            type="button"
-            onClick={handleLogout}
-            style={logoutButton}
-          >
-            🚪 Logout
-          </button>
-        </div>
-      </aside>
+          <div onClick={clearEmailUnread}>
+            <SideLink to="/admin/emails">
 
-      {/* ================= PAGE CONTENT ================= */}
+              <div style={linkRow}>
 
-      <main style={content}>
-        <Outlet />
-      </main>
-    </div>
+                <span>
+                  💬 Communications
+                </span>
+
+                {emailUnread > 0 && (
+                  <span style={badge}>
+                    {emailUnread}
+                  </span>
+                )}
+
+              </div>
+
+            </SideLink>
+          </div>
+
+
+          {/* ================= SUPPORT ================= */}
+
+          <div onClick={clearSupportUnread}>
+            <SideLink to="/admin/support">
+
+              <div style={linkRow}>
+
+                <span>
+                  🛟 Support
+                </span>
+
+                {supportUnread > 0 && (
+                  <span style={badge}>
+                    {supportUnread}
+                  </span>
+                )}
+
+              </div>
+
+            </SideLink>
+          </div>
+
+
+          {/* ================= BUSINESS ================= */}
+
+          <div style={sectionLabel}>
+            Business
+          </div>
+
+          <SideLink to="/admin/revenue">
+            💰 Revenue
+          </SideLink>
+
+          <SideLink to="/admin/marketing">
+            📣 Marketing Hub
+          </SideLink>
+
+
+          {/* ================= QUICK TOOLS ================= */}
+
+          <div style={quickStats}>
+
+            <div style={quickStatCard}>
+              <span>
+                💰 Revenue Tools
+              </span>
+            </div>
+
+            <div style={quickStatCard}>
+              <span>
+                📦 Order Exports
+              </span>
+            </div>
+
+          </div>
+
+
+          {/* ================= EXPORT / LOGOUT ================= */}
+
+          <div style={csvGroup}>
+
+            <button
+              type="button"
+              onClick={downloadOrdersCSV}
+              style={csvButton}
+            >
+              📄 Orders CSV
+            </button>
+
+            <button
+              type="button"
+              onClick={downloadTaxCSV}
+              style={taxButton}
+            >
+              🧾 Tax CSV
+            </button>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              style={logoutButton}
+            >
+              🚪 Logout
+            </button>
+
+          </div>
+
+        </aside>
+
+
+        {/* ================= PAGE CONTENT ================= */}
+
+        <main
+  className="admin-content"
+  style={
+    isMobile
+      ? {
+          width: "100%",
+          maxWidth: "100%",
+          minWidth: 0,
+          margin: 0,
+          padding: "20px 14px 100px",
+          overflowX: "hidden"
+        }
+      : undefined
+  }
+>
+  <Outlet />
+</main>
+
+
+        {/* ================= MOBILE OPEN BUTTON ================= */}
+
+        {isMobile && (
+  <button
+    type="button"
+    className="admin-mobile-menu-button"
+    style={{
+      display: "flex"
+    }}
+    onClick={() =>
+      setSidebarOpen((current) => !current)
+    }
+    aria-label={
+      sidebarOpen
+        ? "Close admin menu"
+        : "Open admin menu"
+    }
+    aria-expanded={sidebarOpen}
+  >
+    {sidebarOpen ? "✕" : "☰"}
+  </button>
+)}
+
+      </div>
+    </>
   )
 }
+
 
 /* ================= SIDE LINK ================= */
 
@@ -267,44 +758,15 @@ function SideLink({
   )
 }
 
-/* ================= STYLES ================= */
 
-const wrapper = {
-  display: "flex",
-  minHeight: "100vh",
-  background: "#020617"
-}
-
-const sidebar = {
-  width: 320,
-  minWidth: 320,
-
-  background: "#020617",
-  color: "#fff",
-
-  display: "flex",
-  flexDirection: "column",
-
-  gap: 10,
-
-  padding: 24,
-
-  borderRight:
-    "1px solid #1e293b",
-
-  position: "sticky",
-  top: 0,
-
-  height: "100vh",
-
-  boxSizing: "border-box",
-
-  overflowY: "auto"
-}
+/* ================= INLINE STYLES ================= */
 
 const brandBox = {
   display: "flex",
   alignItems: "center",
+
+  width: "100%",
+
   gap: 14,
 
   marginBottom: 22,
@@ -314,9 +776,16 @@ const brandBox = {
     "1px solid #1e293b"
 }
 
+const brandText = {
+  flex: 1,
+  minWidth: 0
+}
+
 const brandIcon = {
   width: 52,
   height: 52,
+
+  minWidth: 52,
 
   borderRadius: 16,
 
@@ -365,17 +834,6 @@ const subtitle = {
   fontWeight: 700
 }
 
-const content = {
-  flex: 1,
-
-  padding: "42px 48px",
-
-  minWidth: 0,
-
-  background:
-    "radial-gradient(circle at top left, rgba(34, 211, 238, 0.08), transparent 30%), #020617"
-}
-
 const sectionLabel = {
   marginTop: 10,
   marginBottom: 2,
@@ -391,6 +849,8 @@ const sectionLabel = {
 }
 
 const link = {
+  width: "100%",
+
   padding: "14px 16px",
 
   borderRadius: 16,
@@ -401,7 +861,9 @@ const link = {
 
   transition: "0.2s ease",
 
-  display: "block"
+  display: "block",
+
+  boxSizing: "border-box"
 }
 
 const quickStats = {
@@ -442,6 +904,8 @@ const csvGroup = {
 }
 
 const csvButton = {
+  width: "100%",
+
   background: "#22d3ee",
 
   color: "#020617",
@@ -460,6 +924,8 @@ const csvButton = {
 }
 
 const taxButton = {
+  width: "100%",
+
   background: "#38bdf8",
 
   color: "#020617",
@@ -478,6 +944,8 @@ const taxButton = {
 }
 
 const logoutButton = {
+  width: "100%",
+
   background: "#dc2626",
 
   color: "#ffffff",
@@ -496,6 +964,8 @@ const logoutButton = {
 }
 
 const linkRow = {
+  width: "100%",
+
   display: "flex",
 
   justifyContent:

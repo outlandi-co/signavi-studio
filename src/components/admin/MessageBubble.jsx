@@ -87,38 +87,96 @@ export default function MessageBubble({
     return "📎"
   }
 
+  const downloadAttachment = async (
+    url,
+    fileName
+  ) => {
+    if (!url) {
+      return
+    }
+
+    try {
+      const response = await fetch(url)
+
+      if (!response.ok) {
+        throw new Error(
+          `Download failed: ${response.status}`
+        )
+      }
+
+      const blob = await response.blob()
+      const blobUrl =
+        window.URL.createObjectURL(blob)
+
+      const link =
+        document.createElement("a")
+
+      link.href = blobUrl
+      link.download =
+        fileName || "attachment"
+
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+
+      window.URL.revokeObjectURL(blobUrl)
+    } catch (error) {
+      console.error(
+        "ATTACHMENT DOWNLOAD ERROR:",
+        error
+      )
+
+      alert(
+        "The attachment could not be downloaded directly."
+      )
+    }
+  }
+
+  const messageText =
+    message.message ||
+    message.text ||
+    message.body ||
+    (attachments.length
+      ? "Attachment received."
+      : "No message")
+
   return (
     <div
       className={
         isAdminMessage
-          ? "flex justify-end"
-          : "flex justify-start"
+          ? "flex w-full min-w-0 justify-end"
+          : "flex w-full min-w-0 justify-start"
       }
     >
       <div
         className={
           isAdminMessage
-            ? "max-w-[80%] rounded-2xl rounded-tr-sm bg-cyan-500 px-4 py-3 text-black shadow-lg shadow-cyan-500/10"
-            : "max-w-[80%] rounded-2xl rounded-tl-sm border border-slate-800 bg-slate-950 px-4 py-3 text-white"
+            ? "w-full min-w-0 rounded-2xl rounded-tr-sm bg-cyan-500 px-4 py-3 text-black shadow-lg shadow-cyan-500/10 sm:w-auto sm:max-w-[85%]"
+            : "w-full min-w-0 rounded-2xl rounded-tl-sm border border-slate-800 bg-slate-950 px-4 py-3 text-white sm:w-auto sm:max-w-[85%]"
         }
+        style={{
+          boxSizing: "border-box",
+          overflow: "hidden"
+        }}
       >
-        <p className="mb-2 text-xs font-bold uppercase tracking-wide opacity-70">
+        <p className="mb-2 text-xs font-black uppercase tracking-wide opacity-70">
           {isAdminMessage
             ? "Admin"
             : "Customer"}
         </p>
 
-        <p className="whitespace-pre-wrap text-sm leading-relaxed">
-          {message.message ||
-            message.text ||
-            message.body ||
-            (attachments.length
-              ? "Attachment received."
-              : "No message")}
-        </p>
+        <div
+          className="w-full min-w-0 whitespace-pre-wrap break-words text-sm leading-relaxed"
+          style={{
+            overflowWrap: "anywhere",
+            wordBreak: "break-word"
+          }}
+        >
+          {messageText}
+        </div>
 
         {attachments.length > 0 && (
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 w-full min-w-0 space-y-3">
             <p className="text-xs font-bold uppercase tracking-wide opacity-70">
               📎 Attachments ({attachments.length})
             </p>
@@ -147,8 +205,8 @@ export default function MessageBubble({
                     key={`${fileName}-${index}`}
                     className={
                       isAdminMessage
-                        ? "rounded-xl border border-black/10 bg-white/20 p-3"
-                        : "rounded-xl border border-slate-800 bg-slate-900 p-3"
+                        ? "w-full min-w-0 rounded-xl border border-black/10 bg-white/20 p-3"
+                        : "w-full min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-3"
                     }
                   >
                     {isImage && url && (
@@ -156,19 +214,25 @@ export default function MessageBubble({
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block"
+                        className="block w-full"
                       >
                         <img
                           src={url}
                           alt={fileName}
-                          className="mb-3 max-h-64 w-auto max-w-full rounded-lg object-contain"
+                          className="mb-3 h-auto max-h-64 w-auto max-w-full rounded-lg object-contain"
                         />
                       </a>
                     )}
 
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-bold">
+                    <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className="break-words text-sm font-bold"
+                          style={{
+                            overflowWrap: "anywhere",
+                            wordBreak: "break-word"
+                          }}
+                        >
                           {getFileIcon(
                             attachment
                           )}{" "}
@@ -183,7 +247,7 @@ export default function MessageBubble({
                       </div>
 
                       {url && (
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <a
                             href={url}
                             target="_blank"
@@ -197,9 +261,14 @@ export default function MessageBubble({
                             View
                           </a>
 
-                          <a
-                            href={url}
-                            download={fileName}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              downloadAttachment(
+                                url,
+                                fileName
+                              )
+                            }
                             className={
                               isAdminMessage
                                 ? "rounded-lg bg-black/15 px-3 py-2 text-xs font-bold text-black hover:bg-black/25"
@@ -207,7 +276,7 @@ export default function MessageBubble({
                             }
                           >
                             Download
-                          </a>
+                          </button>
                         </div>
                       )}
                     </div>
@@ -220,7 +289,9 @@ export default function MessageBubble({
 
         {createdAt && (
           <p className="mt-3 text-[11px] opacity-60">
-            {new Date(createdAt).toLocaleString()}
+            {new Date(
+              createdAt
+            ).toLocaleString()}
           </p>
         )}
       </div>

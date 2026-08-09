@@ -45,8 +45,25 @@ export default function AdminInbox() {
   const [selectedThread, setSelectedThread] = useState(null)
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
+  const [isMobile, setIsMobile] = useState(
+  () => window.innerWidth <= 900
+)
 
   const token = localStorage.getItem("adminToken")
+  
+useEffect(() => {
+  const handleResize = () => {
+    setIsMobile(window.innerWidth <= 900)
+  }
+
+  handleResize()
+
+  window.addEventListener("resize", handleResize)
+
+  return () => {
+    window.removeEventListener("resize", handleResize)
+  }
+}, [])
 
   const authHeaders = useMemo(
     () => ({
@@ -289,7 +306,7 @@ export default function AdminInbox() {
 
   const getSenderEmail = (thread) => {
   if (thread?.channel === "quotes") {
-    return "quotes@signavistudio.store"
+    return "quote@signavistudio.store"
   }
 
   if (thread?.channel === "support") {
@@ -362,8 +379,25 @@ export default function AdminInbox() {
         })}
       </div>
 
-      <div style={layout}>
-        <aside style={threadList}>
+      <div
+  style={{
+    ...layout,
+    gridTemplateColumns: isMobile
+      ? "minmax(0, 1fr)"
+      : "340px minmax(0, 1fr)",
+    gap: isMobile ? 14 : 24,
+    width: "100%",
+    minWidth: 0
+  }}
+>
+        {(!isMobile || !selectedThread) && (
+  <aside
+    style={{
+      ...threadList,
+      width: "100%",
+      height: isMobile ? "auto" : "78vh"
+    }}
+  >
           <div style={threadListHeader}>
             <div>
               <p style={threadListLabel}>
@@ -466,135 +500,205 @@ export default function AdminInbox() {
             })
           )}
         </aside>
+        )}
 
-        <section style={conversation}>
-          {!selectedThread ? (
-            <div style={empty}>
-              <h2>
-                Select a conversation
-              </h2>
+        {(!isMobile || selectedThread) && (
+  <section
+    style={{
+      ...conversation,
+      width: "100%",
+      minWidth: 0,
+      minHeight: isMobile ? "auto" : "78vh",
+      padding: isMobile ? 8 : 22
+    }}
+  >
+    {isMobile && selectedThread && (
+      <button
+        type="button"
+        onClick={() => {
+          setSelectedThread(null)
+          setMessages([])
+        }}
+        style={{
+          width: "fit-content",
+          marginBottom: 12,
+          background: "#1e293b",
+          color: "#e5e7eb",
+          border: "1px solid #334155",
+          borderRadius: 12,
+          padding: "10px 14px",
+          fontWeight: 800,
+          cursor: "pointer"
+        }}
+      >
+        ← Back to Inbox
+      </button>
+    )}
 
-              <p>
-                Customer messages will appear
-                here.
-              </p>
+    {!selectedThread ? (
+      <div style={empty}>
+        <h2>
+          Select a conversation
+        </h2>
+
+        <p>
+          Customer messages will appear here.
+        </p>
+      </div>
+    ) : (
+      <>
+        <div
+          style={{
+            ...conversationHeader,
+            flexDirection: isMobile
+              ? "column"
+              : "row"
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              minWidth: 0
+            }}
+          >
+            <div
+              style={
+                selectedThread.channel === "quotes"
+                  ? quoteBadgeLarge
+                  : selectedThread.channel === "support"
+                    ? supportBadgeLarge
+                    : infoBadgeLarge
+              }
+            >
+              {getChannelLabel(selectedThread)}
             </div>
-          ) : (
-            <>
-              <div
-                style={conversationHeader}
+
+            <h2
+              style={{
+                ...conversationTitle,
+                overflowWrap: "anywhere",
+                wordBreak: "break-word"
+              }}
+            >
+              {selectedThread.subject || "(No Subject)"}
+            </h2>
+
+            <p
+              style={{
+                ...muted,
+                overflowWrap: "anywhere",
+                wordBreak: "break-word"
+              }}
+            >
+              Customer: {selectedThread.customerEmail}
+            </p>
+
+            {activeFolder !== "archive" && (
+              <p
+                style={{
+                  ...fromLine,
+                  overflowWrap: "anywhere",
+                  wordBreak: "break-word"
+                }}
               >
-                <div>
-                  <div
-                    
-                      style={
-  selectedThread.channel === "quotes"
-    ? quoteBadgeLarge
-    : selectedThread.channel === "support"
-      ? supportBadgeLarge
-      : infoBadgeLarge
-}
-                  >
-                    {getChannelLabel(
-                      selectedThread
-                    )}
-                  </div>
+                Replies send from:{" "}
+                <strong>
+                  {getSenderEmail(selectedThread)}
+                </strong>
+              </p>
+            )}
+          </div>
 
-                  <h2 style={conversationTitle}>
-                    {selectedThread.subject ||
-                      "(No Subject)"}
-                  </h2>
-
-                  <p style={muted}>
-                    Customer:{" "}
-                    {
-                      selectedThread.customerEmail
-                    }
-                  </p>
-
-                  {activeFolder !==
-                    "archive" && (
-                    <p style={fromLine}>
-                      Replies send from:{" "}
-                      <strong>
-                        {getSenderEmail(
-                          selectedThread
-                        )}
-                      </strong>
-                    </p>
-                  )}
-                </div>
-
-                {activeFolder !==
-                "archive" ? (
-                  <button
-                    type="button"
-                    onClick={archiveThread}
-                    style={archiveButton}
-                  >
-                    Archive
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={restoreThread}
-                    style={restoreButton}
-                  >
-                    Restore
-                  </button>
-                )}
-              </div>
-
-              <div style={messageList}>
-                {messages.length === 0 ? (
-                  <p style={muted}>
-                    No messages in this
-                    conversation.
-                  </p>
-                ) : (
-                  messages.map((msg) => (
-                    <MessageBubble
-                      key={msg._id}
-                      message={{
-                        sender:
-                          msg.direction ===
-                          "outbound"
-                            ? "admin"
-                            : "customer",
-
-                        message:
-                          msg.message,
-
-                        createdAt:
-                          msg.createdAt
-                      }}
-                    />
-                  ))
-                )}
-              </div>
-
-              {activeFolder !==
-                "archive" && (
-                <ReplyBox
-                  loading={sending}
-                  onSend={sendReply}
-                  placeholder={
-                    selectedThread.channel ===
-                    "quotes"
-                      ? "Reply to this quote inquiry..."
-                      : "Reply to this customer..."
-                  }
-                  buttonText={
-                    selectedThread.channel ===
-                    "quotes"
-                      ? "Send Quote Reply"
-                      : "Send Reply"
-                  }
-                />
-              )}
-            </>
+          {activeFolder !== "archive" ? (
+            <button
+              type="button"
+              onClick={archiveThread}
+              style={{
+                ...archiveButton,
+                width: isMobile ? "100%" : "auto"
+              }}
+            >
+              Archive
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={restoreThread}
+              style={{
+                ...restoreButton,
+                width: isMobile ? "100%" : "auto"
+              }}
+            >
+              Restore
+            </button>
           )}
-        </section>
+        </div>
+
+        <div
+          style={{
+            ...messageList,
+            width: "100%",
+            minWidth: 0,
+            overflowX: "hidden",
+            paddingRight: isMobile ? 0 : 8
+          }}
+        >
+          {messages.length === 0 ? (
+            <p style={muted}>
+              No messages in this conversation.
+            </p>
+          ) : (
+            messages.map((msg) => (
+              <MessageBubble
+                key={msg._id}
+                message={{
+                  sender:
+                    msg.direction === "outbound"
+                      ? "admin"
+                      : "customer",
+
+                  message: msg.message,
+
+                  createdAt: msg.createdAt,
+
+                  attachments:
+                    Array.isArray(msg.attachments)
+                      ? msg.attachments
+                      : []
+                }}
+              />
+            ))
+          )}
+        </div>
+
+        {activeFolder !== "archive" && (
+          <div
+            style={{
+              width: "100%",
+              minWidth: 0,
+              marginTop: 18
+            }}
+          >
+            <ReplyBox
+              loading={sending}
+              onSend={sendReply}
+              placeholder={
+                selectedThread.channel === "quotes"
+                  ? "Reply to this quote inquiry..."
+                  : "Reply to this customer..."
+              }
+              buttonText={
+                selectedThread.channel === "quotes"
+                  ? "Send Quote Reply"
+                  : "Send Reply"
+              }
+            />
+          </div>
+        )}
+      </>
+    )}
+    </section>
+)}
       </div>
     </main>
   )
