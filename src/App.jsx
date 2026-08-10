@@ -77,6 +77,8 @@ import AdminInvoices from "./components/admin/AdminInvoices"
 import CreateCustomOrder from "./pages/admin/CreateCustomOrder"
 import MarketingHub from "./pages/admin/MarketingHub"
 
+import AdminInstagram from "./pages/admin/AdminInstagram"
+
 /* ================= MATERIAL CATALOG ================= */
 
 import AdminMaterials from "./pages/admin/AdminMaterials/AdminMaterials"
@@ -320,6 +322,7 @@ function AppContent() {
             <Route path="support" element={<AdminSupport />} />
             <Route path="revenue" element={<AdminRevenue />} />
             <Route path="marketing" element={<MarketingHub />} />
+            <Route path="instagram" element={<AdminInstagram />} />
 
              /* ================= MATERIAL CATALOG ================= */
 

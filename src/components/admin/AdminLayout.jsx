@@ -620,6 +620,10 @@ useEffect(() => {
             📣 Marketing Hub
           </SideLink>
 
+          <SideLink to="/admin/instagram">
+            📸 Instagram
+          </SideLink>
+
 
           {/* ================= QUICK TOOLS ================= */}
 
