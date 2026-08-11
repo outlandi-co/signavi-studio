@@ -9,82 +9,260 @@ import {
 import api from "../../services/api"
 
 export default function AdminInstagram() {
-  const [profile, setProfile] = useState(null)
-  const [media, setMedia] = useState([])
+  /* =========================================================
+     INSTAGRAM ACCOUNT
+  ========================================================= */
 
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [error, setError] = useState("")
+  const [profile, setProfile] =
+    useState(null)
 
-  /* ================= CREATE POST ================= */
+  const [media, setMedia] =
+    useState([])
 
-  const [composerOpen, setComposerOpen] = useState(false)
-  const [selectedImage, setSelectedImage] = useState(null)
-  const [previewUrl, setPreviewUrl] = useState("")
-  const [caption, setCaption] = useState("")
-  const [publishing, setPublishing] = useState(false)
-  const [publishMessage, setPublishMessage] = useState("")
-  const [publishSuccess, setPublishSuccess] = useState(false)
+  const [loading, setLoading] =
+    useState(true)
 
-  const fileInputRef = useRef(null)
+  const [refreshing, setRefreshing] =
+    useState(false)
 
-  /* ================= LOAD INSTAGRAM ================= */
+  const [error, setError] =
+    useState("")
 
-  const loadInstagram = useCallback(
-    async ({ silent = false } = {}) => {
-      try {
-        if (silent) {
-          setRefreshing(true)
-        } else {
-          setLoading(true)
-        }
+  /* =========================================================
+     SOCIAL PLATFORM STATUS
+  ========================================================= */
 
-        setError("")
+  const [platforms, setPlatforms] =
+    useState({
+      instagram: {
+        configured: false
+      },
 
-        const [
-          profileResponse,
-          mediaResponse
-        ] = await Promise.all([
-          api.get("/instagram/profile"),
-          api.get("/instagram/media")
-        ])
+      facebook: {
+        configured: false
+      },
 
-        setProfile(
-          profileResponse?.data?.profile ||
-          null
-        )
-
-        setMedia(
-          Array.isArray(
-            mediaResponse?.data?.media
-          )
-            ? mediaResponse.data.media
-            : []
-        )
-      } catch (err) {
-        console.error(
-          "❌ INSTAGRAM ADMIN LOAD ERROR:",
-          err
-        )
-
-        setError(
-          err?.response?.data?.message ||
-          err?.message ||
-          "Unable to load Instagram data."
-        )
-      } finally {
-        setLoading(false)
-        setRefreshing(false)
+      tiktok: {
+        configured: false
       }
-    },
-    []
-  )
+    })
+
+  /* =========================================================
+     SOCIAL POST COMPOSER
+  ========================================================= */
+
+  const [
+    composerOpen,
+    setComposerOpen
+  ] =
+    useState(false)
+
+  const [
+    selectedImage,
+    setSelectedImage
+  ] =
+    useState(null)
+
+  const [
+    previewUrl,
+    setPreviewUrl
+  ] =
+    useState("")
+
+  const [
+    caption,
+    setCaption
+  ] =
+    useState("")
+
+  const [
+    publishing,
+    setPublishing
+  ] =
+    useState(false)
+
+  const [
+    publishMessage,
+    setPublishMessage
+  ] =
+    useState("")
+
+  const [
+    publishSuccess,
+    setPublishSuccess
+  ] =
+    useState(false)
+
+  const [
+    publishResults,
+    setPublishResults
+  ] =
+    useState(null)
+
+  /* =========================================================
+     PLATFORM SELECTION
+  ========================================================= */
+
+  const [
+    selectedPlatforms,
+    setSelectedPlatforms
+  ] =
+    useState({
+      instagram: true,
+      facebook: false,
+      tiktok: false
+    })
+
+  const fileInputRef =
+    useRef(null)
+
+  /* =========================================================
+     LOAD INSTAGRAM
+  ========================================================= */
+
+  const loadInstagram =
+    useCallback(
+      async ({
+        silent = false
+      } = {}) => {
+        try {
+          if (silent) {
+            setRefreshing(true)
+          } else {
+            setLoading(true)
+          }
+
+          setError("")
+
+          const [
+            profileResponse,
+            mediaResponse
+          ] =
+            await Promise.all([
+              api.get(
+                "/instagram/profile"
+              ),
+
+              api.get(
+                "/instagram/media"
+              )
+            ])
+
+          setProfile(
+            profileResponse
+              ?.data
+              ?.profile ||
+            null
+          )
+
+          setMedia(
+            Array.isArray(
+              mediaResponse
+                ?.data
+                ?.media
+            )
+              ? mediaResponse
+                  .data
+                  .media
+              : []
+          )
+        } catch (err) {
+          console.error(
+            "❌ INSTAGRAM LOAD ERROR:",
+            err
+          )
+
+          setError(
+            err?.response
+              ?.data
+              ?.message ||
+            err?.message ||
+            "Unable to load Instagram data."
+          )
+        } finally {
+          setLoading(false)
+          setRefreshing(false)
+        }
+      },
+      []
+    )
+
+  /* =========================================================
+     LOAD SOCIAL STATUS
+  ========================================================= */
+
+  const loadSocialStatus =
+    useCallback(
+      async () => {
+        try {
+          const response =
+            await api.get(
+              "/social/status"
+            )
+
+          const nextPlatforms =
+            response
+              ?.data
+              ?.platforms
+
+          if (nextPlatforms) {
+            setPlatforms(
+              nextPlatforms
+            )
+
+            setSelectedPlatforms(
+              (current) => ({
+                instagram:
+                  Boolean(
+                    nextPlatforms
+                      ?.instagram
+                      ?.configured
+                  ) &&
+                  current.instagram,
+
+                facebook:
+                  Boolean(
+                    nextPlatforms
+                      ?.facebook
+                      ?.configured
+                  ) &&
+                  current.facebook,
+
+                tiktok:
+                  Boolean(
+                    nextPlatforms
+                      ?.tiktok
+                      ?.configured
+                  ) &&
+                  current.tiktok
+              })
+            )
+          }
+        } catch (err) {
+          console.error(
+            "❌ SOCIAL STATUS ERROR:",
+            err
+          )
+        }
+      },
+      []
+    )
+
+  /* =========================================================
+     INITIAL LOAD
+  ========================================================= */
 
   useEffect(() => {
     loadInstagram()
-  }, [loadInstagram])
+    loadSocialStatus()
+  }, [
+    loadInstagram,
+    loadSocialStatus
+  ])
 
-  /* ================= CLEAN PREVIEW ================= */
+  /* =========================================================
+     CLEAN IMAGE PREVIEW
+  ========================================================= */
 
   useEffect(() => {
     return () => {
@@ -96,50 +274,103 @@ export default function AdminInstagram() {
     }
   }, [previewUrl])
 
-  /* ================= STATS ================= */
+  /* =========================================================
+     ACCOUNT STATS
+  ========================================================= */
 
-  const stats = useMemo(() => {
-    return [
-      {
-        label: "Followers",
-        value:
-          profile?.followers_count ??
-          "—"
-      },
-      {
-        label: "Following",
-        value:
-          profile?.follows_count ??
-          "—"
-      },
-      {
-        label: "Posts",
-        value:
-          profile?.media_count ??
-          media.length
-      },
-      {
-        label: "Account",
-        value:
-          profile?.account_type ||
-          "—"
-      }
-    ]
-  }, [
-    profile,
-    media.length
-  ])
+  const stats =
+    useMemo(
+      () => [
+        {
+          label:
+            "Followers",
 
-  const connected = Boolean(
-    profile?.id &&
-    profile?.username
-  )
+          value:
+            profile
+              ?.followers_count ??
+            "—"
+        },
 
-  /* ================= IMAGE PICKER ================= */
+        {
+          label:
+            "Following",
 
-  const handleImageChange = (event) => {
+          value:
+            profile
+              ?.follows_count ??
+            "—"
+        },
+
+        {
+          label:
+            "Posts",
+
+          value:
+            profile
+              ?.media_count ??
+            media.length
+        },
+
+        {
+          label:
+            "Account",
+
+          value:
+            profile
+              ?.account_type ||
+            "—"
+        }
+      ],
+      [
+        profile,
+        media.length
+      ]
+    )
+
+  const connected =
+    Boolean(
+      profile?.id &&
+      profile?.username
+    )
+
+  /* =========================================================
+     SELECT PLATFORM
+  ========================================================= */
+
+  const togglePlatform = (
+    platform
+  ) => {
+    if (
+      !platforms
+        ?.[platform]
+        ?.configured
+    ) {
+      return
+    }
+
+    setSelectedPlatforms(
+      (current) => ({
+        ...current,
+
+        [platform]:
+          !current[
+            platform
+          ]
+      })
+    )
+  }
+
+  /* =========================================================
+     IMAGE PICKER
+  ========================================================= */
+
+  const handleImageChange = (
+    event
+  ) => {
     const file =
-      event.target.files?.[0]
+      event
+        .target
+        .files?.[0]
 
     if (!file) {
       return
@@ -156,7 +387,9 @@ export default function AdminInstagram() {
         file.type
       )
     ) {
-      setPublishSuccess(false)
+      setPublishSuccess(
+        false
+      )
 
       setPublishMessage(
         "Please choose a JPG, PNG, or WEBP image."
@@ -166,13 +399,17 @@ export default function AdminInstagram() {
     }
 
     const maxSize =
-      15 * 1024 * 1024
+      15 *
+      1024 *
+      1024
 
     if (
       file.size >
       maxSize
     ) {
-      setPublishSuccess(false)
+      setPublishSuccess(
+        false
+      )
 
       setPublishMessage(
         "Image must be smaller than 15 MB."
@@ -187,99 +424,27 @@ export default function AdminInstagram() {
       )
     }
 
-    const nextPreview =
+    setSelectedImage(
+      file
+    )
+
+    setPreviewUrl(
       URL.createObjectURL(
         file
       )
+    )
 
-    setSelectedImage(file)
-    setPreviewUrl(nextPreview)
     setPublishMessage("")
+    setPublishResults(null)
     setPublishSuccess(false)
   }
 
-  /* ================= RESET COMPOSER ================= */
+  /* =========================================================
+     RESET COMPOSER
+  ========================================================= */
 
-  const resetComposer = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(
-        previewUrl
-      )
-    }
-
-    setSelectedImage(null)
-    setPreviewUrl("")
-    setCaption("")
-    setPublishMessage("")
-    setPublishSuccess(false)
-
-    if (
-      fileInputRef.current
-    ) {
-      fileInputRef.current.value =
-        ""
-    }
-  }
-
-  /* ================= PUBLISH ================= */
-
-  const publishPost = async (
-    event
-  ) => {
-    event.preventDefault()
-
-    if (!selectedImage) {
-      setPublishSuccess(false)
-
-      setPublishMessage(
-        "Choose an image before publishing."
-      )
-
-      return
-    }
-
-    try {
-      setPublishing(true)
-      setPublishMessage("")
-      setPublishSuccess(false)
-
-      const formData =
-        new FormData()
-
-      formData.append(
-        "image",
-        selectedImage
-      )
-
-      formData.append(
-        "caption",
-        caption
-      )
-
-      console.log(
-        "📤 Publishing Instagram post..."
-      )
-
-      const response =
-        await api.post(
-          "/instagram/publish",
-          formData
-        )
-
-      console.log(
-        "✅ INSTAGRAM PUBLISH RESPONSE:",
-        response.data
-      )
-
-      setPublishSuccess(true)
-
-      setPublishMessage(
-        response?.data?.message ||
-        "Instagram post published successfully."
-      )
-
-      /* ================= RESET FORM ================= */
-
+  const resetComposer =
+    () => {
       if (previewUrl) {
         URL.revokeObjectURL(
           previewUrl
@@ -287,215 +452,359 @@ export default function AdminInstagram() {
       }
 
       setSelectedImage(null)
+
       setPreviewUrl("")
+
       setCaption("")
+
+      setPublishMessage("")
+
+      setPublishResults(null)
+
+      setPublishSuccess(false)
 
       if (
         fileInputRef.current
       ) {
-        fileInputRef.current.value =
-          ""
+        fileInputRef
+          .current
+          .value = ""
+      }
+    }
+
+  /* =========================================================
+     PUBLISH SOCIAL POST
+  ========================================================= */
+
+  const publishPost =
+    async (event) => {
+      event.preventDefault()
+
+      if (!selectedImage) {
+        setPublishSuccess(
+          false
+        )
+
+        setPublishMessage(
+          "Choose an image before publishing."
+        )
+
+        return
       }
 
-      /* ================= REFRESH POSTS ================= */
+      const selectedCount =
+        Object
+          .values(
+            selectedPlatforms
+          )
+          .filter(Boolean)
+          .length
 
-      window.setTimeout(
-        () => {
-          loadInstagram({
-            silent: true
-          })
-        },
-        2000
-      )
-    } catch (err) {
-      console.error(
-        "❌ INSTAGRAM PUBLISH ERROR:",
-        err
-      )
+      if (
+        selectedCount === 0
+      ) {
+        setPublishSuccess(
+          false
+        )
 
-      const instagramError =
-        err?.response?.data
-          ?.instagram?.error
-          ?.message
+        setPublishMessage(
+          "Select at least one social platform."
+        )
 
-      setPublishSuccess(false)
+        return
+      }
 
-      setPublishMessage(
-        instagramError ||
-        err?.response?.data?.message ||
-        err?.message ||
-        "Instagram post failed."
-      )
-    } finally {
-      setPublishing(false)
+      try {
+        setPublishing(true)
+
+        setPublishMessage(
+          ""
+        )
+
+        setPublishResults(
+          null
+        )
+
+        setPublishSuccess(
+          false
+        )
+
+        const formData =
+          new FormData()
+
+        formData.append(
+          "image",
+          selectedImage
+        )
+
+        formData.append(
+          "caption",
+          caption
+        )
+
+        formData.append(
+          "instagram",
+          String(
+            selectedPlatforms
+              .instagram
+          )
+        )
+
+        formData.append(
+          "facebook",
+          String(
+            selectedPlatforms
+              .facebook
+          )
+        )
+
+        formData.append(
+          "tiktok",
+          String(
+            selectedPlatforms
+              .tiktok
+          )
+        )
+
+        console.log(
+          "🌐 Publishing social post..."
+        )
+
+        console.log(
+          "📸 Instagram:",
+          selectedPlatforms
+            .instagram
+        )
+
+        console.log(
+          "📘 Facebook:",
+          selectedPlatforms
+            .facebook
+        )
+
+        console.log(
+          "🎵 TikTok:",
+          selectedPlatforms
+            .tiktok
+        )
+
+        const response =
+          await api.post(
+            "/social/publish",
+            formData
+          )
+
+        console.log(
+          "✅ SOCIAL PUBLISH RESPONSE:",
+          response.data
+        )
+
+        const results =
+          response
+            ?.data
+            ?.results ||
+          {}
+
+        setPublishResults(
+          results
+        )
+
+        const successful =
+          Object
+            .values(
+              results
+            )
+            .filter(
+              (result) =>
+                result?.success
+            )
+            .length
+
+        const total =
+          Object.keys(
+            results
+          ).length
+
+        if (
+          successful ===
+          total &&
+          total > 0
+        ) {
+          setPublishSuccess(
+            true
+          )
+
+          setPublishMessage(
+            "Post published successfully."
+          )
+        } else if (
+          successful > 0
+        ) {
+          setPublishSuccess(
+            true
+          )
+
+          setPublishMessage(
+            "Post published to some platforms. Check the results below."
+          )
+        } else {
+          setPublishSuccess(
+            false
+          )
+
+          setPublishMessage(
+            "The post could not be published."
+          )
+        }
+
+        /*
+         * Instagram may take a moment before
+         * the new post appears in /media.
+         */
+
+        window.setTimeout(
+          () => {
+            loadInstagram({
+              silent:
+                true
+            })
+          },
+          2000
+        )
+      } catch (err) {
+        console.error(
+          "❌ SOCIAL PUBLISH ERROR:",
+          err
+        )
+
+        setPublishSuccess(
+          false
+        )
+
+        setPublishMessage(
+          err?.response
+            ?.data
+            ?.message ||
+          err?.message ||
+          "Social publishing failed."
+        )
+      } finally {
+        setPublishing(
+          false
+        )
+      }
     }
-  }
+
+  /* =========================================================
+     UI
+  ========================================================= */
 
   return (
     <>
       <style>
         {`
 
-          /* ==========================================
-             PAGE
-          ========================================== */
-
-          .instagram-admin-page {
+          .social-admin-page {
             width: 100%;
             min-width: 0;
-
             color: #e2e8f0;
           }
 
-          /* ==========================================
-             HEADER
-          ========================================== */
+          /* ================= HEADER ================= */
 
-          .instagram-page-header {
+          .social-header {
             display: flex;
             align-items: flex-start;
             justify-content: space-between;
-
             gap: 20px;
-
             margin-bottom: 28px;
           }
 
-          .instagram-page-header h1 {
+          .social-header h1 {
             margin: 4px 0 8px;
-
             color: #ffffff;
-
-            font-size:
-              clamp(
-                32px,
-                5vw,
-                52px
-              );
-
+            font-size: clamp(
+              34px,
+              5vw,
+              52px
+            );
             line-height: 1;
-
             letter-spacing:
               -0.04em;
           }
 
-          .instagram-page-header p {
+          .social-header p {
             margin: 0;
-
-            max-width: 720px;
-
+            max-width: 760px;
             color: #94a3b8;
-
             line-height: 1.65;
           }
 
-          .instagram-kicker {
+          .social-kicker {
             color: #22d3ee;
-
             font-size: 11px;
             font-weight: 900;
-
             letter-spacing:
               0.18em;
-
             text-transform:
               uppercase;
           }
 
-          .instagram-header-actions {
+          .social-header-actions {
             display: flex;
-
             gap: 10px;
-
             flex-wrap: wrap;
           }
 
-          /* ==========================================
-             BUTTONS
-          ========================================== */
-
-          .instagram-create-button,
-          .instagram-refresh {
+          .social-button {
+            border: 1px solid
+              #334155;
             border-radius: 14px;
-
-            padding:
-              12px 16px;
-
+            padding: 12px 16px;
+            background: #0f172a;
+            color: #e2e8f0;
             font-weight: 900;
-
             cursor: pointer;
-
-            transition:
-              0.2s ease;
           }
 
-          .instagram-create-button {
-            border:
-              1px solid #22d3ee;
-
+          .social-button.primary {
+            border-color:
+              #22d3ee;
             background:
               #22d3ee;
-
             color:
               #020617;
           }
 
-          .instagram-create-button:hover {
+          .social-button.primary:hover {
             background:
               #67e8f9;
           }
 
-          .instagram-refresh {
-            border:
-              1px solid #334155;
-
-            background:
-              #0f172a;
-
-            color:
-              #e2e8f0;
-          }
-
-          .instagram-refresh:hover {
+          .social-button:hover {
             border-color:
               #22d3ee;
-
-            color:
-              #22d3ee;
           }
 
-          .instagram-refresh:disabled,
-          .instagram-create-button:disabled {
-            opacity:
-              0.55;
-
-            cursor:
-              wait;
+          .social-button:disabled {
+            opacity: 0.5;
+            cursor: wait;
           }
 
-          /* ==========================================
-             ERROR
-          ========================================== */
+          /* ================= ERRORS ================= */
 
-          .instagram-error {
-            margin-bottom:
-              20px;
-
+          .social-error {
+            margin-bottom: 20px;
+            padding: 14px 16px;
             border:
               1px solid
               rgba(
                 248,
                 113,
                 113,
-                0.45
+                0.4
               );
-
-            border-radius:
-              16px;
-
-            padding:
-              14px 16px;
-
+            border-radius: 15px;
             background:
               rgba(
                 127,
@@ -503,34 +812,23 @@ export default function AdminInstagram() {
                 29,
                 0.22
               );
-
-            color:
-              #fecaca;
+            color: #fecaca;
           }
 
-          /* ==========================================
-             COMPOSER
-          ========================================== */
+          /* ================= COMPOSER ================= */
 
-          .instagram-composer {
-            margin-bottom:
-              26px;
-
-            padding:
-              24px;
-
+          .social-composer {
+            margin-bottom: 26px;
+            padding: 24px;
             border:
               1px solid
               rgba(
                 34,
                 211,
                 238,
-                0.45
+                0.4
               );
-
-            border-radius:
-              22px;
-
+            border-radius: 22px;
             background:
               linear-gradient(
                 135deg,
@@ -550,63 +848,35 @@ export default function AdminInstagram() {
               #0f172a;
           }
 
-          .instagram-composer-header {
+          .social-composer-header {
             display: flex;
-
             justify-content:
               space-between;
-
-            align-items:
-              center;
-
-            gap:
-              14px;
-
-            margin-bottom:
-              20px;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
           }
 
-          .instagram-composer-header h2 {
-            margin:
-              4px 0 0;
-
-            color:
-              white;
-
-            font-size:
-              26px;
+          .social-composer-header h2 {
+            margin: 4px 0 0;
+            color: white;
+            font-size: 26px;
           }
 
-          .instagram-composer-close {
-            width:
-              40px;
-
-            height:
-              40px;
-
+          .social-close {
+            width: 40px;
+            height: 40px;
             border:
               1px solid #334155;
-
-            border-radius:
-              12px;
-
-            background:
-              #020617;
-
-            color:
-              white;
-
-            cursor:
-              pointer;
-
-            font-size:
-              20px;
+            border-radius: 12px;
+            background: #020617;
+            color: white;
+            cursor: pointer;
+            font-size: 20px;
           }
 
-          .instagram-composer-grid {
-            display:
-              grid;
-
+          .social-composer-grid {
+            display: grid;
             grid-template-columns:
               minmax(
                 260px,
@@ -616,227 +886,228 @@ export default function AdminInstagram() {
                 0,
                 1.15fr
               );
-
-            gap:
-              22px;
+            gap: 22px;
           }
 
-          /* ==========================================
-             IMAGE UPLOAD
-          ========================================== */
+          /* ================= IMAGE ================= */
 
-          .instagram-upload-box {
-            width:
-              100%;
-
-            min-height:
-              360px;
-
-            display:
-              grid;
-
-            place-items:
-              center;
-
-            overflow:
-              hidden;
-
+          .social-upload {
+            width: 100%;
+            min-height: 360px;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
             border:
               2px dashed
               #334155;
-
-            border-radius:
-              18px;
-
-            background:
-              #020617;
-
-            cursor:
-              pointer;
-
-            transition:
-              0.2s ease;
+            border-radius: 18px;
+            background: #020617;
+            cursor: pointer;
           }
 
-          .instagram-upload-box:hover {
+          .social-upload:hover {
             border-color:
               #22d3ee;
           }
 
-          .instagram-upload-placeholder {
-            padding:
-              30px;
-
-            text-align:
-              center;
-
-            color:
-              #94a3b8;
-
-            line-height:
-              1.7;
+          .social-upload-placeholder {
+            padding: 30px;
+            text-align: center;
+            color: #94a3b8;
+            line-height: 1.7;
           }
 
-          .instagram-upload-icon {
-            margin-bottom:
-              12px;
-
-            font-size:
-              46px;
+          .social-upload-placeholder strong {
+            display: block;
+            margin-bottom: 8px;
+            color: white;
+            font-size: 18px;
           }
 
-          .instagram-upload-placeholder strong {
-            display:
-              block;
-
-            margin-bottom:
-              8px;
-
-            color:
-              white;
-
-            font-size:
-              18px;
+          .social-upload-icon {
+            margin-bottom: 12px;
+            font-size: 46px;
           }
 
-          .instagram-post-preview {
-            width:
-              100%;
-
-            height:
-              100%;
-
-            max-height:
-              520px;
-
-            object-fit:
-              contain;
-
-            background:
-              #000000;
+          .social-preview {
+            width: 100%;
+            height: 100%;
+            max-height: 520px;
+            object-fit: contain;
+            background: #000;
           }
 
-          /* ==========================================
-             CAPTION
-          ========================================== */
+          /* ================= CAPTION ================= */
 
-          .instagram-composer-fields {
-            display:
-              flex;
-
+          .social-fields {
+            display: flex;
             flex-direction:
               column;
           }
 
-          .instagram-composer-fields label {
-            margin-bottom:
-              8px;
-
-            color:
-              #94a3b8;
-
-            font-size:
-              11px;
-
-            font-weight:
-              900;
-
+          .social-label {
+            margin-bottom: 8px;
+            color: #94a3b8;
+            font-size: 11px;
+            font-weight: 900;
             letter-spacing:
               0.14em;
-
             text-transform:
               uppercase;
           }
 
-          .instagram-caption {
-            width:
-              100%;
-
-            min-height:
-              250px;
-
-            padding:
-              15px;
-
-            resize:
-              vertical;
-
+          .social-caption {
+            width: 100%;
+            min-height: 190px;
             box-sizing:
               border-box;
-
+            resize: vertical;
+            padding: 15px;
             border:
-              1px solid
-              #334155;
-
-            border-radius:
-              15px;
-
-            outline:
-              none;
-
-            background:
-              #020617;
-
-            color:
-              #ffffff;
-
-            font:
-              inherit;
-
-            line-height:
-              1.6;
+              1px solid #334155;
+            border-radius: 15px;
+            outline: none;
+            background: #020617;
+            color: white;
+            font: inherit;
+            line-height: 1.6;
           }
 
-          .instagram-caption:focus {
+          .social-caption:focus {
             border-color:
               #22d3ee;
+          }
 
-            box-shadow:
-              0 0 0 2px
+          .social-caption-count {
+            margin:
+              7px 0 18px;
+            color: #64748b;
+            font-size: 11px;
+            text-align: right;
+          }
+
+          /* ================= PLATFORMS ================= */
+
+          .social-platforms {
+            display: grid;
+            grid-template-columns:
+              repeat(
+                3,
+                minmax(
+                  0,
+                  1fr
+                )
+              );
+            gap: 10px;
+            margin-bottom: 18px;
+          }
+
+          .social-platform {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-height: 72px;
+            padding: 14px;
+            border:
+              1px solid #334155;
+            border-radius: 15px;
+            background: #020617;
+            cursor: pointer;
+            user-select: none;
+          }
+
+          .social-platform.selected {
+            border-color:
+              #22d3ee;
+            background:
               rgba(
                 34,
                 211,
                 238,
-                0.1
+                0.08
               );
           }
 
-          .instagram-caption-count {
-            margin:
-              8px 0 18px;
-
-            color:
-              #64748b;
-
-            text-align:
-              right;
-
-            font-size:
-              11px;
+          .social-platform.disabled {
+            opacity: 0.45;
+            cursor:
+              not-allowed;
           }
 
-          /* ==========================================
-             PUBLISH MESSAGE
-          ========================================== */
-
-          .instagram-publish-message {
-            margin-bottom:
-              14px;
-
-            padding:
-              12px 14px;
-
-            border-radius:
-              12px;
-
-            font-size:
-              13px;
-
-            line-height:
-              1.5;
+          .social-platform-icon {
+            font-size: 25px;
           }
 
-          .instagram-publish-message.success {
+          .social-platform-text strong {
+            display: block;
+            color: white;
+            font-size: 13px;
+          }
+
+          .social-platform-text span {
+            display: block;
+            margin-top: 3px;
+            color: #64748b;
+            font-size: 10px;
+          }
+
+          .social-check {
+            margin-left: auto;
+            width: 22px;
+            height: 22px;
+            display: grid;
+            place-items: center;
+            border:
+              1px solid #475569;
+            border-radius: 7px;
+            color: #020617;
+            font-size: 13px;
+            font-weight: 900;
+          }
+
+          .social-platform.selected
+          .social-check {
+            border-color:
+              #22d3ee;
+            background:
+              #22d3ee;
+          }
+
+          /* ================= PUBLISH ================= */
+
+          .social-publish-button {
+            width: 100%;
+            margin-top: auto;
+            border: none;
+            border-radius: 14px;
+            padding: 15px 18px;
+            background:
+              #22d3ee;
+            color: #020617;
+            font-weight: 900;
+            cursor: pointer;
+          }
+
+          .social-publish-button:hover {
+            background:
+              #67e8f9;
+          }
+
+          .social-publish-button:disabled {
+            opacity: 0.5;
+            cursor: wait;
+          }
+
+          .social-message {
+            margin-bottom: 14px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            font-size: 13px;
+            line-height: 1.5;
+          }
+
+          .social-message.success {
             border:
               1px solid
               rgba(
@@ -845,7 +1116,6 @@ export default function AdminInstagram() {
                 94,
                 0.4
               );
-
             background:
               rgba(
                 34,
@@ -853,12 +1123,10 @@ export default function AdminInstagram() {
                 94,
                 0.1
               );
-
-            color:
-              #86efac;
+            color: #86efac;
           }
 
-          .instagram-publish-message.error {
+          .social-message.error {
             border:
               1px solid
               rgba(
@@ -867,72 +1135,82 @@ export default function AdminInstagram() {
                 113,
                 0.4
               );
-
             background:
               rgba(
                 127,
                 29,
                 29,
-                0.25
+                0.22
               );
-
-            color:
-              #fecaca;
+            color: #fecaca;
           }
 
-          .instagram-publish-button {
-            margin-top:
-              auto;
+          /* ================= RESULTS ================= */
 
-            width:
-              100%;
+          .social-results {
+            display: grid;
+            gap: 8px;
+            margin-bottom: 15px;
+          }
 
+          .social-result {
+            display: flex;
+            align-items: center;
+            justify-content:
+              space-between;
+            gap: 12px;
+            padding: 10px 12px;
             border:
-              none;
-
-            border-radius:
-              14px;
-
-            padding:
-              15px 18px;
-
-            background:
-              #22d3ee;
-
-            color:
-              #020617;
-
-            font-size:
-              14px;
-
-            font-weight:
-              900;
-
-            cursor:
-              pointer;
+              1px solid #1e293b;
+            border-radius: 11px;
+            background: #020617;
           }
 
-          .instagram-publish-button:hover {
-            background:
-              #67e8f9;
+          .social-result-name {
+            color: #cbd5e1;
+            font-size: 12px;
+            font-weight: 900;
           }
 
-          .instagram-publish-button:disabled {
-            opacity:
-              0.5;
-
-            cursor:
-              wait;
+          .social-result.success {
+            border-color:
+              rgba(
+                34,
+                197,
+                94,
+                0.35
+              );
           }
 
-          /* ==========================================
-             PROFILE
-          ========================================== */
+          .social-result.failed {
+            border-color:
+              rgba(
+                248,
+                113,
+                113,
+                0.35
+              );
+          }
+
+          .social-result-status {
+            font-size: 11px;
+            font-weight: 900;
+          }
+
+          .social-result.success
+          .social-result-status {
+            color: #86efac;
+          }
+
+          .social-result.failed
+          .social-result-status {
+            color: #fecaca;
+          }
+
+          /* ================= PROFILE ================= */
 
           .instagram-profile-card {
-            display:
-              grid;
-
+            display: grid;
             grid-template-columns:
               auto
               minmax(
@@ -940,58 +1218,22 @@ export default function AdminInstagram() {
                 1fr
               )
               auto;
-
-            gap:
-              20px;
-
-            align-items:
-              center;
-
-            margin-bottom:
-              24px;
-
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 24px;
+            padding: 22px;
             border:
-              1px solid
-              #1e293b;
-
-            border-radius:
-              22px;
-
-            padding:
-              22px;
-
+              1px solid #1e293b;
+            border-radius: 22px;
             background:
-              linear-gradient(
-                135deg,
-                rgba(
-                  34,
-                  211,
-                  238,
-                  0.06
-                ),
-                rgba(
-                  37,
-                  99,
-                  235,
-                  0.04
-                )
-              ),
               #0f172a;
           }
 
           .instagram-avatar {
-            width:
-              88px;
-
-            height:
-              88px;
-
-            border-radius:
-              50%;
-
-            object-fit:
-              cover;
-
+            width: 88px;
+            height: 88px;
+            border-radius: 50%;
+            object-fit: cover;
             border:
               3px solid
               rgba(
@@ -1000,157 +1242,73 @@ export default function AdminInstagram() {
                 238,
                 0.65
               );
-
-            background:
-              #020617;
           }
 
           .instagram-avatar-fallback {
-            width:
-              88px;
-
-            height:
-              88px;
-
-            display:
-              grid;
-
-            place-items:
-              center;
-
-            border-radius:
-              50%;
-
-            border:
-              3px solid
-              #22d3ee;
-
+            width: 88px;
+            height: 88px;
+            display: grid;
+            place-items: center;
+            border-radius: 50%;
             background:
-              linear-gradient(
-                135deg,
-                #7c3aed,
-                #db2777,
-                #f97316
-              );
-
-            color:
-              white;
-
-            font-size:
-              30px;
-
-            font-weight:
-              900;
+              #020617;
+            color: white;
+            font-weight: 900;
           }
 
           .instagram-profile-main h2 {
-            margin:
-              0;
-
-            color:
-              white;
-
-            font-size:
-              28px;
+            margin: 0;
+            color: white;
+            font-size: 28px;
           }
 
           .instagram-profile-main p {
-            margin:
-              4px 0 0;
-
-            color:
-              #94a3b8;
+            margin: 4px 0 0;
+            color: #94a3b8;
           }
 
           .instagram-connected {
             display:
               inline-flex;
-
-            align-items:
-              center;
-
-            gap:
-              8px;
-
-            margin-top:
-              12px;
-
-            padding:
-              7px 11px;
-
-            border:
-              1px solid
-              rgba(
-                34,
-                197,
-                94,
-                0.35
-              );
-
-            border-radius:
-              999px;
-
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+            padding: 7px 11px;
+            border-radius: 999px;
             background:
               rgba(
                 34,
                 197,
                 94,
-                0.09
+                0.1
               );
-
-            color:
-              #86efac;
-
-            font-size:
-              12px;
-
-            font-weight:
-              900;
+            color: #86efac;
+            font-size: 12px;
+            font-weight: 900;
           }
 
           .instagram-dot {
-            width:
-              8px;
-
-            height:
-              8px;
-
-            border-radius:
-              50%;
-
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
             background:
               #22c55e;
           }
 
           .instagram-open-link {
-            padding:
-              11px 14px;
-
+            padding: 11px 14px;
             border:
-              1px solid
-              #334155;
-
-            border-radius:
-              14px;
-
-            color:
-              #cbd5e1;
-
-            text-decoration:
-              none;
-
-            font-weight:
-              800;
+              1px solid #334155;
+            border-radius: 14px;
+            color: #cbd5e1;
+            text-decoration: none;
+            font-weight: 800;
           }
 
-          /* ==========================================
-             STATS
-          ========================================== */
+          /* ================= STATS ================= */
 
           .instagram-stats {
-            display:
-              grid;
-
+            display: grid;
             grid-template-columns:
               repeat(
                 4,
@@ -1159,129 +1317,71 @@ export default function AdminInstagram() {
                   1fr
                 )
               );
-
-            gap:
-              14px;
-
-            margin-bottom:
-              24px;
+            gap: 14px;
+            margin-bottom: 24px;
           }
 
           .instagram-stat {
-            padding:
-              18px;
-
+            padding: 18px;
             border:
-              1px solid
-              #1e293b;
-
-            border-radius:
-              18px;
-
-            background:
-              #0f172a;
+              1px solid #1e293b;
+            border-radius: 18px;
+            background: #0f172a;
           }
 
           .instagram-stat span {
-            display:
-              block;
-
-            margin-bottom:
-              8px;
-
-            color:
-              #64748b;
-
-            font-size:
-              10px;
-
-            font-weight:
-              900;
-
+            display: block;
+            margin-bottom: 8px;
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 900;
             letter-spacing:
               0.14em;
-
             text-transform:
               uppercase;
           }
 
           .instagram-stat strong {
-            color:
-              white;
-
-            font-size:
-              26px;
+            color: white;
+            font-size: 26px;
           }
 
-          /* ==========================================
-             POSTS
-          ========================================== */
+          /* ================= POSTS ================= */
 
           .instagram-section {
-            margin-bottom:
-              24px;
-
-            overflow:
-              hidden;
-
+            margin-bottom: 24px;
+            overflow: hidden;
             border:
-              1px solid
-              #1e293b;
-
-            border-radius:
-              22px;
-
-            background:
-              #0f172a;
+              1px solid #1e293b;
+            border-radius: 22px;
+            background: #0f172a;
           }
 
           .instagram-section-header {
-            display:
-              flex;
-
-            align-items:
-              center;
-
+            display: flex;
+            align-items: center;
             justify-content:
               space-between;
-
-            gap:
-              16px;
-
-            padding:
-              20px 22px;
-
+            gap: 16px;
+            padding: 20px 22px;
             border-bottom:
-              1px solid
-              #1e293b;
+              1px solid #1e293b;
           }
 
           .instagram-section-header h2 {
-            margin:
-              0;
-
-            color:
-              white;
-
-            font-size:
-              24px;
+            margin: 0;
+            color: white;
+            font-size: 24px;
           }
 
           .instagram-section-header span {
-            color:
-              #64748b;
-
-            font-size:
-              12px;
-
-            font-weight:
-              800;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 800;
           }
 
           .instagram-media-grid {
-            display:
-              grid;
-
+            display: grid;
             grid-template-columns:
               repeat(
                 3,
@@ -1290,285 +1390,96 @@ export default function AdminInstagram() {
                   1fr
                 )
               );
-
-            gap:
-              1px;
-
-            background:
-              #1e293b;
+            gap: 1px;
+            background: #1e293b;
           }
 
           .instagram-media-card {
-            background:
-              #020617;
+            min-width: 0;
+            background: #020617;
           }
 
           .instagram-media-preview,
           .instagram-media-video {
-            width:
-              100%;
-
-            aspect-ratio:
-              1 / 1;
-
-            display:
-              block;
-
-            object-fit:
-              cover;
-
-            background:
-              #111827;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            display: block;
+            object-fit: cover;
+            background: #111827;
           }
 
           .instagram-media-body {
-            padding:
-              14px;
+            padding: 14px;
           }
 
           .instagram-media-type {
-            color:
-              #22d3ee;
-
-            font-size:
-              10px;
-
-            font-weight:
-              900;
-
+            color: #22d3ee;
+            font-size: 10px;
+            font-weight: 900;
             text-transform:
               uppercase;
           }
 
           .instagram-media-caption {
-            margin:
-              8px 0 12px;
-
-            color:
-              #cbd5e1;
-
-            font-size:
-              13px;
-
-            line-height:
-              1.5;
+            margin: 8px 0 12px;
+            color: #cbd5e1;
+            font-size: 13px;
+            line-height: 1.5;
           }
 
           .instagram-media-meta {
-            color:
-              #64748b;
-
-            font-size:
-              11px;
+            color: #64748b;
+            font-size: 11px;
           }
 
           .instagram-media-link {
-            display:
-              inline-flex;
-
-            margin-top:
-              12px;
-
-            color:
-              #22d3ee;
-
-            font-size:
-              12px;
-
-            font-weight:
-              900;
-
-            text-decoration:
-              none;
+            display: inline-flex;
+            margin-top: 12px;
+            color: #22d3ee;
+            font-size: 12px;
+            font-weight: 900;
+            text-decoration: none;
           }
 
           .instagram-empty {
             grid-column:
               1 / -1;
-
-            padding:
-              52px 24px;
-
-            text-align:
-              center;
-
-            background:
-              #0f172a;
+            padding: 52px 24px;
+            text-align: center;
+            background: #0f172a;
           }
 
           .instagram-empty-icon {
-            margin-bottom:
-              12px;
-
-            font-size:
-              42px;
+            margin-bottom: 12px;
+            font-size: 42px;
           }
 
           .instagram-empty h3 {
-            margin:
-              0 0 8px;
-
-            color:
-              white;
-
-            font-size:
-              22px;
+            margin: 0 0 8px;
+            color: white;
+            font-size: 22px;
           }
 
           .instagram-empty p {
-            margin:
-              0 auto;
-
-            max-width:
-              560px;
-
-            color:
-              #64748b;
-
-            line-height:
-              1.6;
+            margin: 0 auto;
+            max-width: 560px;
+            color: #64748b;
+            line-height: 1.6;
           }
-
-          /* ==========================================
-             TOOLS
-          ========================================== */
-
-          .instagram-tools {
-            display:
-              grid;
-
-            grid-template-columns:
-              repeat(
-                3,
-                minmax(
-                  0,
-                  1fr
-                )
-              );
-
-            gap:
-              14px;
-          }
-
-          .instagram-tool-card {
-            padding:
-              20px;
-
-            border:
-              1px solid
-              #1e293b;
-
-            border-radius:
-              18px;
-
-            background:
-              #0f172a;
-          }
-
-          .instagram-tool-card h3 {
-            margin:
-              8px 0;
-
-            color:
-              white;
-
-            font-size:
-              18px;
-          }
-
-          .instagram-tool-card p {
-            margin:
-              0 0 14px;
-
-            color:
-              #64748b;
-
-            font-size:
-              13px;
-
-            line-height:
-              1.55;
-          }
-
-          .instagram-tool-status {
-            display:
-              inline-flex;
-
-            padding:
-              6px 9px;
-
-            border-radius:
-              999px;
-
-            background:
-              rgba(
-                148,
-                163,
-                184,
-                0.12
-              );
-
-            color:
-              #94a3b8;
-
-            font-size:
-              10px;
-
-            font-weight:
-              900;
-          }
-
-          .instagram-tool-status.available {
-            background:
-              rgba(
-                34,
-                197,
-                94,
-                0.12
-              );
-
-            color:
-              #86efac;
-          }
-
-          /* ==========================================
-             LOADING
-          ========================================== */
 
           .instagram-loading {
-            display:
-              grid;
-
-            min-height:
-              360px;
-
-            place-items:
-              center;
-
+            min-height: 360px;
+            display: grid;
+            place-items: center;
             border:
-              1px solid
-              #1e293b;
-
-            border-radius:
-              20px;
-
-            background:
-              #0f172a;
-
-            color:
-              #94a3b8;
-
-            font-weight:
-              800;
+              1px solid #1e293b;
+            border-radius: 20px;
+            background: #0f172a;
+            color: #94a3b8;
           }
 
-          /* ==========================================
-             RESPONSIVE
-          ========================================== */
-
           @media (
-            max-width:
-            1000px
+            max-width: 1000px
           ) {
             .instagram-stats {
               grid-template-columns:
@@ -1586,40 +1497,35 @@ export default function AdminInstagram() {
                 );
             }
 
-            .instagram-tools {
+            .social-platforms {
               grid-template-columns:
                 1fr;
             }
           }
 
           @media (
-            max-width:
-            800px
+            max-width: 800px
           ) {
-            .instagram-composer-grid {
+            .social-composer-grid {
               grid-template-columns:
                 1fr;
             }
           }
 
           @media (
-            max-width:
-            700px
+            max-width: 700px
           ) {
-            .instagram-page-header {
+            .social-header {
               flex-direction:
                 column;
             }
 
-            .instagram-header-actions {
-              width:
-                100%;
+            .social-header-actions {
+              width: 100%;
             }
 
-            .instagram-create-button,
-            .instagram-refresh {
-              flex:
-                1;
+            .social-button {
+              flex: 1;
             }
 
             .instagram-profile-card {
@@ -1630,9 +1536,7 @@ export default function AdminInstagram() {
             .instagram-open-link {
               grid-column:
                 1 / -1;
-
-              text-align:
-                center;
+              text-align: center;
             }
 
             .instagram-media-grid {
@@ -1642,8 +1546,7 @@ export default function AdminInstagram() {
           }
 
           @media (
-            max-width:
-            480px
+            max-width: 480px
           ) {
             .instagram-stats {
               grid-template-columns:
@@ -1653,115 +1556,124 @@ export default function AdminInstagram() {
             .instagram-profile-card {
               grid-template-columns:
                 1fr;
-
-              text-align:
-                center;
+              text-align: center;
             }
 
             .instagram-avatar,
             .instagram-avatar-fallback {
-              margin:
-                0 auto;
+              margin: 0 auto;
             }
           }
 
         `}
       </style>
 
-      <section className="instagram-admin-page">
+      <section className="social-admin-page">
 
-        {/* ================= HEADER ================= */}
+        {/* ==========================================
+            HEADER
+        ========================================== */}
 
-        <div className="instagram-page-header">
+        <div className="social-header">
 
           <div>
-            <div className="instagram-kicker">
+
+            <div className="social-kicker">
               Social Media
             </div>
 
             <h1>
-              Instagram
+              Social Publisher
             </h1>
 
             <p>
-              Manage your connected SignaVi Studio
-              Instagram Business account directly
-              from your admin panel.
+              Create one post and publish it
+              to Instagram, Facebook, and TikTok
+              from your SignaVi Studio admin panel.
             </p>
+
           </div>
 
-          <div className="instagram-header-actions">
+          <div className="social-header-actions">
 
             <button
               type="button"
-              className="instagram-create-button"
-              onClick={() => {
+              className="social-button primary"
+              onClick={() =>
                 setComposerOpen(
                   (current) =>
                     !current
                 )
-              }}
+              }
             >
-              ＋ Create Post
+              ＋ Create Social Post
             </button>
 
             <button
               type="button"
-              className="instagram-refresh"
-              onClick={() =>
-                loadInstagram({
-                  silent: true
-                })
-              }
+              className="social-button"
               disabled={
                 refreshing
               }
+              onClick={() => {
+                loadInstagram({
+                  silent: true
+                })
+
+                loadSocialStatus()
+              }}
             >
               {refreshing
                 ? "Refreshing..."
-                : "↻ Refresh Instagram"}
+                : "↻ Refresh"}
             </button>
 
           </div>
 
         </div>
 
-        {/* ================= ERROR ================= */}
-
         {error && (
-          <div className="instagram-error">
+          <div className="social-error">
             {error}
           </div>
         )}
 
-        {/* ================= CREATE POST ================= */}
+        {/* ==========================================
+            COMPOSER
+        ========================================== */}
 
         {composerOpen && (
+
           <form
-            className="instagram-composer"
+            className="social-composer"
             onSubmit={
               publishPost
             }
           >
 
-            <div className="instagram-composer-header">
+            <div className="social-composer-header">
 
               <div>
-                <div className="instagram-kicker">
-                  New Instagram Post
+
+                <div className="social-kicker">
+                  New Post
                 </div>
 
                 <h2>
-                  Create Post
+                  Create Social Post
                 </h2>
+
               </div>
 
               <button
                 type="button"
-                className="instagram-composer-close"
+                className="social-close"
                 onClick={() => {
                   resetComposer()
-                  setComposerOpen(false)
+
+                  setComposerOpen(
+                    false
+                  )
                 }}
               >
                 ×
@@ -1769,7 +1681,7 @@ export default function AdminInstagram() {
 
             </div>
 
-            <div className="instagram-composer-grid">
+            <div className="social-composer-grid">
 
               {/* IMAGE */}
 
@@ -1792,16 +1704,14 @@ export default function AdminInstagram() {
                 />
 
                 <div
-                  className="instagram-upload-box"
+                  className="social-upload"
                   role="button"
                   tabIndex={0}
-
                   onClick={() =>
                     fileInputRef
                       .current
                       ?.click()
                   }
-
                   onKeyDown={(
                     event
                   ) => {
@@ -1819,29 +1729,26 @@ export default function AdminInstagram() {
                 >
 
                   {previewUrl ? (
+
                     <img
+                      className="social-preview"
                       src={
                         previewUrl
                       }
-                      alt="Instagram post preview"
-                      className="instagram-post-preview"
+                      alt="Social post preview"
                     />
-                  ) : (
-                    <div className="instagram-upload-placeholder">
 
-                      <div className="instagram-upload-icon">
+                  ) : (
+
+                    <div className="social-upload-placeholder">
+
+                      <div className="social-upload-icon">
                         📸
                       </div>
 
                       <strong>
                         Choose an Image
                       </strong>
-
-                      Click here to select
-                      an Instagram image.
-
-                      <br />
-                      <br />
 
                       JPG, PNG, or WEBP
 
@@ -1850,73 +1757,311 @@ export default function AdminInstagram() {
                       Maximum 15 MB
 
                     </div>
+
                   )}
 
                 </div>
 
               </div>
 
-              {/* CAPTION */}
+              {/* RIGHT SIDE */}
 
-              <div className="instagram-composer-fields">
+              <div className="social-fields">
 
-                <label htmlFor="instagram-caption">
+                <label
+                  className="social-label"
+                  htmlFor="social-caption"
+                >
                   Caption
                 </label>
 
                 <textarea
-                  id="instagram-caption"
-                  className="instagram-caption"
-
+                  id="social-caption"
+                  className="social-caption"
                   value={
                     caption
                   }
-
                   maxLength={
                     2200
                   }
-
                   onChange={(
                     event
                   ) =>
                     setCaption(
-                      event.target.value
+                      event
+                        .target
+                        .value
                     )
                   }
-
-                  placeholder="Write your Instagram caption here..."
+                  placeholder="Write your social media caption..."
                 />
 
-                <div className="instagram-caption-count">
+                <div className="social-caption-count">
                   {caption.length}
                   {" / "}
                   2200
                 </div>
 
+                {/* ================= PLATFORMS ================= */}
+
+                <div className="social-label">
+                  Publish To
+                </div>
+
+                <div className="social-platforms">
+
+                  {/* INSTAGRAM */}
+
+                  <div
+                    className={[
+                      "social-platform",
+
+                      selectedPlatforms
+                        .instagram
+                        ? "selected"
+                        : "",
+
+                      !platforms
+                        ?.instagram
+                        ?.configured
+                        ? "disabled"
+                        : ""
+                    ].join(" ")}
+                    onClick={() =>
+                      togglePlatform(
+                        "instagram"
+                      )
+                    }
+                  >
+
+                    <div className="social-platform-icon">
+                      📸
+                    </div>
+
+                    <div className="social-platform-text">
+
+                      <strong>
+                        Instagram
+                      </strong>
+
+                      <span>
+                        {platforms
+                          ?.instagram
+                          ?.configured
+                          ? "@signavistudio • Connected"
+                          : "Setup required"}
+                      </span>
+
+                    </div>
+
+                    <div className="social-check">
+                      {selectedPlatforms
+                        .instagram
+                        ? "✓"
+                        : ""}
+                    </div>
+
+                  </div>
+
+                  {/* FACEBOOK */}
+
+                  <div
+                    className={[
+                      "social-platform",
+
+                      selectedPlatforms
+                        .facebook
+                        ? "selected"
+                        : "",
+
+                      !platforms
+                        ?.facebook
+                        ?.configured
+                        ? "disabled"
+                        : ""
+                    ].join(" ")}
+                    onClick={() =>
+                      togglePlatform(
+                        "facebook"
+                      )
+                    }
+                  >
+
+                    <div className="social-platform-icon">
+                      📘
+                    </div>
+
+                    <div className="social-platform-text">
+
+                      <strong>
+                        Facebook
+                      </strong>
+
+                      <span>
+                        {platforms
+                          ?.facebook
+                          ?.configured
+                          ? "SignaVi Studio • Connected"
+                          : "Setup required"}
+                      </span>
+
+                    </div>
+
+                    <div className="social-check">
+                      {selectedPlatforms
+                        .facebook
+                        ? "✓"
+                        : ""}
+                    </div>
+
+                  </div>
+
+                  {/* TIKTOK */}
+
+                  <div
+                    className={[
+                      "social-platform",
+
+                      selectedPlatforms
+                        .tiktok
+                        ? "selected"
+                        : "",
+
+                      !platforms
+                        ?.tiktok
+                        ?.configured
+                        ? "disabled"
+                        : ""
+                    ].join(" ")}
+                    onClick={() =>
+                      togglePlatform(
+                        "tiktok"
+                      )
+                    }
+                  >
+
+                    <div className="social-platform-icon">
+                      🎵
+                    </div>
+
+                    <div className="social-platform-text">
+
+                      <strong>
+                        TikTok
+                      </strong>
+
+                      <span>
+                        {platforms
+                          ?.tiktok
+                          ?.configured
+                          ? "Connected"
+                          : "Setup required"}
+                      </span>
+
+                    </div>
+
+                    <div className="social-check">
+                      {selectedPlatforms
+                        .tiktok
+                        ? "✓"
+                        : ""}
+                    </div>
+
+                  </div>
+
+                </div>
+
+                {/* ================= RESULT ================= */}
+
                 {publishMessage && (
+
                   <div
                     className={
                       publishSuccess
-                        ? "instagram-publish-message success"
-                        : "instagram-publish-message error"
+                        ? "social-message success"
+                        : "social-message error"
                     }
                   >
                     {publishMessage}
                   </div>
+
+                )}
+
+                {publishResults && (
+
+                  <div className="social-results">
+
+                    {Object.entries(
+                      publishResults
+                    ).map(
+                      ([
+                        platform,
+                        result
+                      ]) => (
+
+                        <div
+                          key={
+                            platform
+                          }
+                          className={
+                            result
+                              ?.success
+                              ? "social-result success"
+                              : "social-result failed"
+                          }
+                        >
+
+                          <div className="social-result-name">
+
+                            {platform ===
+                              "instagram" &&
+                              "📸 Instagram"}
+
+                            {platform ===
+                              "facebook" &&
+                              "📘 Facebook"}
+
+                            {platform ===
+                              "tiktok" &&
+                              "🎵 TikTok"}
+
+                          </div>
+
+                          <div className="social-result-status">
+
+                            {result
+                              ?.success
+                              ? "✓ Published"
+                              : `✕ ${
+                                  result
+                                    ?.message ||
+                                  "Failed"
+                                }`}
+
+                          </div>
+
+                        </div>
+
+                      )
+                    )}
+
+                  </div>
+
                 )}
 
                 <button
                   type="submit"
-                  className="instagram-publish-button"
-
+                  className="social-publish-button"
                   disabled={
                     publishing ||
                     !selectedImage
                   }
                 >
+
                   {publishing
-                    ? "Publishing to Instagram..."
-                    : "Publish to Instagram"}
+                    ? "Publishing..."
+                    : "Publish Selected Platforms"}
+
                 </button>
 
               </div>
@@ -1924,52 +2069,69 @@ export default function AdminInstagram() {
             </div>
 
           </form>
+
         )}
 
-        {/* ================= ACCOUNT ================= */}
+        {/* ==========================================
+            INSTAGRAM ACCOUNT
+        ========================================== */}
 
         {loading ? (
+
           <div className="instagram-loading">
-            Loading Instagram account...
+            Loading social account...
           </div>
+
         ) : (
+
           <>
 
             <div className="instagram-profile-card">
 
-              {profile?.profile_picture_url ? (
-                <img
-                  src={
-                    profile.profile_picture_url
-                  }
-                  alt={
-                    profile?.username
-                      ? `@${profile.username}`
-                      : "Instagram profile"
-                  }
-                  className="instagram-avatar"
-                />
-              ) : (
-                <div className="instagram-avatar-fallback">
-                  IG
-                </div>
-              )}
+              {profile
+                ?.profile_picture_url
+                ? (
+
+                  <img
+                    className="instagram-avatar"
+                    src={
+                      profile
+                        .profile_picture_url
+                    }
+                    alt={
+                      profile
+                        ?.username
+                        ? `@${profile.username}`
+                        : "Instagram"
+                    }
+                  />
+
+                ) : (
+
+                  <div className="instagram-avatar-fallback">
+                    IG
+                  </div>
+
+                )}
 
               <div className="instagram-profile-main">
 
                 <h2>
-                  {profile?.username
+                  {profile
+                    ?.username
                     ? `@${profile.username}`
                     : "Instagram"}
                 </h2>
 
                 <p>
-                  {profile?.account_type
+                  {profile
+                    ?.account_type
                     ? `${profile.account_type} Account`
                     : "Professional Account"}
                 </p>
 
                 {connected && (
+
                   <div className="instagram-connected">
 
                     <span className="instagram-dot" />
@@ -1977,34 +2139,39 @@ export default function AdminInstagram() {
                     Connected
 
                   </div>
+
                 )}
 
               </div>
 
-              {profile?.username && (
-                <a
-                  className="instagram-open-link"
+              {profile
+                ?.username &&
+                (
 
-                  href={
-                    `https://www.instagram.com/${profile.username}/`
-                  }
+                  <a
+                    className="instagram-open-link"
+                    href={
+                      `https://www.instagram.com/${profile.username}/`
+                    }
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open Instagram ↗
+                  </a>
 
-                  target="_blank"
-
-                  rel="noreferrer"
-                >
-                  Open Instagram ↗
-                </a>
-              )}
+                )}
 
             </div>
 
-            {/* ================= STATS ================= */}
+            {/* ==========================================
+                STATS
+            ========================================== */}
 
             <div className="instagram-stats">
 
               {stats.map(
                 (item) => (
+
                   <article
                     className="instagram-stat"
                     key={
@@ -2021,19 +2188,22 @@ export default function AdminInstagram() {
                     </strong>
 
                   </article>
+
                 )
               )}
 
             </div>
 
-            {/* ================= POSTS ================= */}
+            {/* ==========================================
+                RECENT POSTS
+            ========================================== */}
 
             <section className="instagram-section">
 
               <div className="instagram-section-header">
 
                 <h2>
-                  Recent Posts
+                  Instagram Recent Posts
                 </h2>
 
                 <span>
@@ -2045,7 +2215,8 @@ export default function AdminInstagram() {
 
               <div className="instagram-media-grid">
 
-                {media.length === 0 ? (
+                {media.length ===
+                0 ? (
 
                   <div className="instagram-empty">
 
@@ -2058,11 +2229,8 @@ export default function AdminInstagram() {
                     </h3>
 
                     <p>
-                      Your Instagram connection
-                      is working. Click Create Post
-                      above to publish your first
-                      Instagram post directly from
-                      SignaVi Admin.
+                      Published Instagram posts
+                      will appear here automatically.
                     </p>
 
                   </div>
@@ -2073,90 +2241,102 @@ export default function AdminInstagram() {
                     (item) => {
 
                       const preview =
-                        item.thumbnail_url ||
-                        item.media_url
+                        item
+                          .thumbnail_url ||
+                        item
+                          .media_url
 
                       const isVideo =
-                        item.media_type ===
+                        item
+                          .media_type ===
                           "VIDEO" ||
-                        item.media_type ===
+                        item
+                          .media_type ===
                           "REELS"
 
                       return (
+
                         <article
                           className="instagram-media-card"
-
                           key={
                             item.id
                           }
                         >
 
                           {preview && (
+
                             isVideo ? (
+
                               <video
                                 className="instagram-media-video"
-
                                 src={
                                   preview
                                 }
-
                                 controls
-
                                 preload="metadata"
                               />
+
                             ) : (
+
                               <img
                                 className="instagram-media-preview"
-
                                 src={
                                   preview
                                 }
-
                                 alt={
-                                  item.caption ||
-                                  "Instagram media"
+                                  item
+                                    .caption ||
+                                  "Instagram post"
                                 }
                               />
+
                             )
+
                           )}
 
                           <div className="instagram-media-body">
 
                             <div className="instagram-media-type">
-                              {item.media_type ||
+                              {item
+                                .media_type ||
                                 "POST"}
                             </div>
 
                             <div className="instagram-media-caption">
-                              {item.caption ||
+                              {item
+                                .caption ||
                                 "No caption"}
                             </div>
 
                             <div className="instagram-media-meta">
                               {formatDate(
-                                item.timestamp
+                                item
+                                  .timestamp
                               )}
                             </div>
 
-                            {item.permalink && (
-                              <a
-                                className="instagram-media-link"
+                            {item
+                              .permalink &&
+                              (
 
-                                href={
-                                  item.permalink
-                                }
+                                <a
+                                  className="instagram-media-link"
+                                  href={
+                                    item
+                                      .permalink
+                                  }
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  View on Instagram ↗
+                                </a>
 
-                                target="_blank"
-
-                                rel="noreferrer"
-                              >
-                                View on Instagram ↗
-                              </a>
-                            )}
+                              )}
 
                           </div>
 
                         </article>
+
                       )
                     }
                   )
@@ -2167,79 +2347,8 @@ export default function AdminInstagram() {
 
             </section>
 
-            {/* ================= TOOLS ================= */}
-
-            <div className="instagram-tools">
-
-              <article className="instagram-tool-card">
-
-                <div>
-                  ✍️
-                </div>
-
-                <h3>
-                  Create Post
-                </h3>
-
-                <p>
-                  Upload an image, write your
-                  caption, and publish directly
-                  to Instagram.
-                </p>
-
-                <span className="instagram-tool-status available">
-                  Available
-                </span>
-
-              </article>
-
-              <article className="instagram-tool-card">
-
-                <div>
-                  💬
-                </div>
-
-                <h3>
-                  Messages
-                </h3>
-
-                <p>
-                  Bring Instagram customer
-                  conversations into your
-                  Communications workspace.
-                </p>
-
-                <span className="instagram-tool-status">
-                  Webhook setup needed
-                </span>
-
-              </article>
-
-              <article className="instagram-tool-card">
-
-                <div>
-                  ❤️
-                </div>
-
-                <h3>
-                  Comments
-                </h3>
-
-                <p>
-                  Review and manage comments
-                  from your Instagram Business
-                  account.
-                </p>
-
-                <span className="instagram-tool-status">
-                  Webhook setup needed
-                </span>
-
-              </article>
-
-            </div>
-
           </>
+
         )}
 
       </section>
@@ -2248,7 +2357,7 @@ export default function AdminInstagram() {
 }
 
 /* =========================================================
-   DATE FORMAT
+   DATE FORMATTER
 ========================================================= */
 
 function formatDate(
@@ -2259,7 +2368,9 @@ function formatDate(
   }
 
   const date =
-    new Date(value)
+    new Date(
+      value
+    )
 
   if (
     Number.isNaN(
@@ -2269,23 +2380,24 @@ function formatDate(
     return value
   }
 
-  return date.toLocaleString(
-    undefined,
-    {
-      year:
-        "numeric",
+  return date
+    .toLocaleString(
+      undefined,
+      {
+        year:
+          "numeric",
 
-      month:
-        "short",
+        month:
+          "short",
 
-      day:
-        "numeric",
+        day:
+          "numeric",
 
-      hour:
-        "numeric",
+        hour:
+          "numeric",
 
-      minute:
-        "2-digit"
-    }
-  )
+        minute:
+          "2-digit"
+      }
+    )
 }
