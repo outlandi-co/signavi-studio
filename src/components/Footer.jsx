@@ -13,42 +13,59 @@ import { Link } from "react-router-dom"
 export default function Footer() {
   return (
     <footer className="border-t border-slate-800 bg-[#020617] text-white">
+
       <div className="mx-auto max-w-7xl px-6 py-14">
+
         <div className="grid gap-12 lg:grid-cols-4">
-          {/* BRAND */}
+
+          {/* =====================================================
+              BRAND
+          ===================================================== */}
+
           <div className="lg:col-span-2">
+
             <div className="mb-5 flex items-center gap-4">
+
               <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-cyan-400/30 bg-slate-950 shadow-lg shadow-cyan-500/20">
-  <img
-    src={logo}
-    alt="SignaVi Studio"
-    className="h-full w-full object-contain"
-  />
-</div>
+
+                <img
+                  src={logo}
+                  alt="SignaVi Studio"
+                  className="h-full w-full object-contain"
+                />
+
+              </div>
 
               <div>
+
                 <h3 className="text-2xl font-bold">
                   SignaVi Studio
                 </h3>
 
-              
               </div>
+
             </div>
 
             <p className="max-w-xl leading-relaxed text-slate-400">
               From iteration to creation, SignaVi Studio transforms ideas
-              into custom apparel, laser engraving, signs, photography,
-              graphic design, branding, and promotional products crafted
-              with precision and purpose.
+              into custom apparel, laser engraving, canopy designs,
+              table cover designs, graphic design, branding, digital
+              services, and promotional products crafted with precision
+              and purpose.
             </p>
 
+            {/* =====================================================
+                SERVICE BADGES
+            ===================================================== */}
+
             <div className="mt-6 flex flex-wrap gap-3">
+
               <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-300">
-              Canopy Designs
+                Canopy Designs
               </span>
 
               <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-300">
-              Table Cloth Designs
+                Table Cover Designs
               </span>
 
               <span className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300">
@@ -58,9 +75,23 @@ export default function Footer() {
               <span className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300">
                 Laser Engraving
               </span>
+
+              <span className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300">
+                Graphic Design
+              </span>
+
+              <span className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300">
+                Web Design
+              </span>
+
             </div>
 
+            {/* =====================================================
+                SOCIAL MEDIA
+            ===================================================== */}
+
             <div className="mt-8 flex gap-5 text-2xl">
+
               <a
                 href="https://www.facebook.com/signavi"
                 target="_blank"
@@ -90,58 +121,104 @@ export default function Footer() {
               >
                 <FaTiktok />
               </a>
+
             </div>
+
           </div>
 
-          {/* QUICK LINKS */}
+          {/* =====================================================
+              QUICK LINKS
+          ===================================================== */}
+
           <div>
+
             <h4 className="mb-5 text-lg font-bold">
               Quick Links
             </h4>
 
             <div className="flex flex-col gap-3 text-slate-400">
-              <Link className="hover:text-cyan-300" to="/">
+
+              <Link
+                className="hover:text-cyan-300"
+                to="/"
+              >
                 Home
               </Link>
 
-              <Link className="hover:text-cyan-300" to="/store">
+              <Link
+                className="hover:text-cyan-300"
+                to="/store"
+              >
                 Store
               </Link>
 
-              <Link className="hover:text-cyan-300" to="/services">
+              <Link
+                className="hover:text-cyan-300"
+                to="/services"
+              >
                 Services
               </Link>
 
-              <Link className="hover:text-cyan-300" to="/gallery">
+              <Link
+                className="hover:text-cyan-300"
+                to="/gallery"
+              >
                 Gallery
               </Link>
 
-              <Link className="hover:text-cyan-300" to="/quote">
+              <Link
+                className="hover:text-cyan-300"
+                to="/quote"
+              >
                 Start Your Project
               </Link>
 
-              <Link className="hover:text-cyan-300" to="/support">
+              <Link
+                className="hover:text-cyan-300"
+                to="/support"
+              >
                 Support
               </Link>
+
             </div>
+
           </div>
 
-          {/* CONTACT */}
+          {/* =====================================================
+              CONTACT
+          ===================================================== */}
+
           <div>
+
             <h4 className="mb-5 text-lg font-bold">
               Contact
             </h4>
 
             <div className="flex flex-col gap-4 text-slate-400">
+
               <div className="flex items-center gap-3">
+
                 <FaLocationDot className="text-cyan-400" />
-                <span>Merced, California</span>
+
+                <span>
+                  Merced, California
+                </span>
+
               </div>
 
               <div className="flex items-center gap-3">
+
                 <FaEnvelope className="text-cyan-400" />
-                <span>support@signavistudio.store</span>
+
+                <a
+                  href="mailto:info@signavistudio.store"
+                  className="transition hover:text-cyan-300"
+                >
+                  info@signavistudio.store
+                </a>
+
               </div>
+
             </div>
 
             <Link
@@ -150,22 +227,60 @@ export default function Footer() {
             >
               Request Quote
             </Link>
+
           </div>
+
         </div>
+
       </div>
 
+      {/* =====================================================
+          BOTTOM FOOTER
+      ===================================================== */}
+
       <div className="border-t border-slate-800">
+
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-5 text-sm text-slate-500 md:flex-row">
+
           <p>
             © {new Date().getFullYear()} SignaVi Studio.
             All rights reserved.
           </p>
 
+          {/* =================================================
+              LEGAL LINKS
+          ================================================= */}
+
+          <div className="flex flex-wrap items-center justify-center gap-4">
+
+            <Link
+              to="/terms"
+              className="transition hover:text-cyan-300"
+            >
+              Terms of Service
+            </Link>
+
+            <span className="hidden text-slate-700 sm:inline">
+              •
+            </span>
+
+            <Link
+              to="/privacy"
+              className="transition hover:text-cyan-300"
+            >
+              Privacy Policy
+            </Link>
+
+          </div>
+
           <p>
             Signature Vision • Crafted With Purpose
           </p>
+
         </div>
+
       </div>
+
     </footer>
   )
 }
