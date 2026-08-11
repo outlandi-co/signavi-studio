@@ -389,7 +389,9 @@ export default function AdminInstagram() {
   const unavailable =
     platform === "tiktok"
       ? !platformStatus?.connected
-      : !platformStatus?.configured
+      : platform === "instagram"
+        ? !(connected || platformStatus?.configured)
+        : !platformStatus?.configured
 
   if (unavailable) {
     return
@@ -1865,9 +1867,12 @@ export default function AdminInstagram() {
                         ? "selected"
                         : "",
 
-                      !platforms
-                        ?.instagram
-                        ?.configured
+                      !(
+                        connected ||
+                        platforms
+                          ?.instagram
+                          ?.configured
+                      )
                         ? "disabled"
                         : ""
                     ].join(" ")}
@@ -1889,15 +1894,12 @@ export default function AdminInstagram() {
                       </strong>
 
                       <span>
-                        {platforms
-  ?.tiktok
-  ?.connected
+                        {connected ||
+platforms
+  ?.instagram
+  ?.configured
   ? "SignaVi Studio • Connected"
-  : platforms
-      ?.tiktok
-      ?.configured
-    ? "Authorization required"
-    : "Setup required"}
+  : "Authorization required"}
                       </span>
 
                     </div>
@@ -2001,9 +2003,13 @@ export default function AdminInstagram() {
                       <span>
                         {platforms
                           ?.tiktok
-                          ?.configured
+                          ?.connected
                           ? "Connected"
-                          : "Setup required"}
+                          : platforms
+                              ?.tiktok
+                              ?.configured
+                            ? "Authorization required"
+                            : "Setup required"}
                       </span>
 
                     </div>
