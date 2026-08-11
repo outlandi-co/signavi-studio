@@ -192,61 +192,104 @@ export default function AdminInstagram() {
   ========================================================= */
 
   const loadSocialStatus =
-    useCallback(
-      async () => {
-        try {
-          const response =
-            await api.get(
-              "/social/status"
+  useCallback(
+    async () => {
+      try {
+        const [
+          socialResponse,
+          tiktokResponse
+        ] = await Promise.all([
+          api.get("/social/status"),
+          api.get("/tiktok/status")
+        ])
+
+        const socialPlatforms =
+          socialResponse?.data?.platforms || {}
+
+        const tiktokStatus =
+          tiktokResponse?.data || {}
+
+        const nextPlatforms = {
+          instagram: {
+            ...socialPlatforms.instagram,
+            configured: Boolean(
+              socialPlatforms
+                ?.instagram
+                ?.configured
             )
+          },
 
-          const nextPlatforms =
-            response
-              ?.data
-              ?.platforms
-
-          if (nextPlatforms) {
-            setPlatforms(
-              nextPlatforms
+          facebook: {
+            ...socialPlatforms.facebook,
+            configured: Boolean(
+              socialPlatforms
+                ?.facebook
+                ?.configured
             )
+          },
 
-            setSelectedPlatforms(
-              (current) => ({
-                instagram:
-                  Boolean(
-                    nextPlatforms
-                      ?.instagram
-                      ?.configured
-                  ) &&
-                  current.instagram,
+          tiktok: {
+            ...socialPlatforms.tiktok,
 
-                facebook:
-                  Boolean(
-                    nextPlatforms
-                      ?.facebook
-                      ?.configured
-                  ) &&
-                  current.facebook,
+            configured: Boolean(
+              tiktokStatus.configured
+            ),
 
-                tiktok:
-                  Boolean(
-                    nextPlatforms
-                      ?.tiktok
-                      ?.configured
-                  ) &&
-                  current.tiktok
-              })
-            )
+            connected: Boolean(
+              tiktokStatus.connected
+            ),
+
+            openId:
+              tiktokStatus.openId ||
+              null,
+
+            scopes:
+              tiktokStatus.scopes ||
+              []
           }
-        } catch (err) {
-          console.error(
-            "❌ SOCIAL STATUS ERROR:",
-            err
-          )
         }
-      },
-      []
-    )
+
+        console.log(
+          "🌐 SOCIAL PLATFORM STATUS:",
+          nextPlatforms
+        )
+
+        setPlatforms(nextPlatforms)
+
+        setSelectedPlatforms(
+          (current) => ({
+            instagram:
+              nextPlatforms
+                .instagram
+                .configured &&
+              current.instagram,
+
+            facebook:
+              nextPlatforms
+                .facebook
+                .configured &&
+              current.facebook,
+
+            tiktok:
+              nextPlatforms
+                .tiktok
+                .configured &&
+              nextPlatforms
+                .tiktok
+                .connected
+                ? current.tiktok
+                : false
+          })
+        )
+      } catch (err) {
+        console.error(
+          "❌ SOCIAL STATUS ERROR:",
+          err
+        )
+      }
+    },
+    []
+  )
 
   /* =========================================================
      INITIAL LOAD
@@ -338,27 +381,28 @@ export default function AdminInstagram() {
   ========================================================= */
 
   const togglePlatform = (
-    platform
-  ) => {
-    if (
-      !platforms
-        ?.[platform]
-        ?.configured
-    ) {
-      return
-    }
+  platform
+) => {
+  const platformStatus =
+    platforms?.[platform]
 
-    setSelectedPlatforms(
-      (current) => ({
-        ...current,
+  const unavailable =
+    platform === "tiktok"
+      ? !platformStatus?.connected
+      : !platformStatus?.configured
 
-        [platform]:
-          !current[
-            platform
-          ]
-      })
-    )
+  if (unavailable) {
+    return
   }
+
+  setSelectedPlatforms(
+    (current) => ({
+      ...current,
+      [platform]:
+        !current[platform]
+    })
+  )
+}
 
   /* =========================================================
      IMAGE PICKER
@@ -1846,10 +1890,14 @@ export default function AdminInstagram() {
 
                       <span>
                         {platforms
-                          ?.instagram
-                          ?.configured
-                          ? "@signavistudio • Connected"
-                          : "Setup required"}
+  ?.tiktok
+  ?.connected
+  ? "SignaVi Studio • Connected"
+  : platforms
+      ?.tiktok
+      ?.configured
+    ? "Authorization required"
+    : "Setup required"}
                       </span>
 
                     </div>
@@ -1928,10 +1976,10 @@ export default function AdminInstagram() {
                         : "",
 
                       !platforms
-                        ?.tiktok
-                        ?.configured
-                        ? "disabled"
-                        : ""
+  ?.tiktok
+  ?.connected
+  ? "disabled"
+  : ""
                     ].join(" ")}
                     onClick={() =>
                       togglePlatform(
