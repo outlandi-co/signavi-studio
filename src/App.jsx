@@ -53,6 +53,8 @@ import ProofApprovalPage from "./pages/ProofApprovalPage"
 import Gallery from "./pages/Gallery"
 import Services from "./pages/Services"
 import Account from "./pages/Account"
+import Terms from "./pages/Terms"
+import Privacy from "./pages/Privacy"
 
 import CustomerLogin from "./pages/customer/CustomerLogin"
 import CustomerRegister from "./pages/CustomerRegister"
@@ -255,6 +257,8 @@ function AppContent() {
         <Route path="/store" element={<Store />} />
         <Route path="/gallery" element={<Gallery />} />
         <Route path="/services" element={<Services />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
         <Route path="/product/:id" element={<ProductDetail />} />
 
         <Route path="/login" element={<Login />} />
