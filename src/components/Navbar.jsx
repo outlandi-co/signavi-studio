@@ -8,7 +8,7 @@ import {
   useState
 } from "react"
 
-import logo from "../assets/SignaVi_Logo.jpg"
+import logo from "../assets/SignaVi_Studio_Logo.png"
 
 import {
   useCartContext
