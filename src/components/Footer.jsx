@@ -6,7 +6,7 @@ import {
   FaLocationDot
 } from "react-icons/fa6"
 
-import logo from "../assets/SignaVi_Logo.jpg"
+import logo from "../assets/SignaVi_Studio_Logo.png"
 
 import { Link } from "react-router-dom"
 
