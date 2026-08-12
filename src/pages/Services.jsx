@@ -3,11 +3,14 @@ import { Link } from "react-router-dom"
 import ProcessSection from "../components/ProcessSection"
 import FAQSection from "../components/FAQSection"
 
+
 const services = [
   {
     title: "Screen Printing",
     icon: "🖨️",
     startingAt: "$12",
+    disabled: true,
+    status: "Coming Soon",
     description:
       "Professional screen printing for shirts, hoodies, uniforms, schools, events, teams, and businesses.",
     features: [
@@ -17,17 +20,19 @@ const services = [
     ]
   },
   {
-    title: "DTF Transfers",
-    icon: "🎽",
-    startingAt: "$5",
-    description:
-      "High-quality full-color DTF transfers ready to press onto apparel, merch, uniforms, and custom orders.",
-    features: [
-      "Gang sheets",
-      "Full color graphics",
-      "Fast turnaround"
-    ]
-  },
+  title: "DTF Transfers",
+  icon: "🎽",
+  startingAt: "$5",
+  disabled: true,
+  status: "Coming Soon",
+  description:
+    "High-quality full-color DTF transfers ready to press onto apparel, merch, uniforms, and custom orders.",
+  features: [
+    "Gang sheets",
+    "Full color graphics",
+    "Fast turnaround"
+  ]
+},
   {
     title: "Laser Engraving",
     icon: "🔥",
@@ -126,6 +131,7 @@ const services = [
   }
 ]
 
+
 const stats = [
   "Veteran Owned",
   "Fast Turnaround",
@@ -133,10 +139,13 @@ const stats = [
   "Local & Nationwide"
 ]
 
+
 export default function Services() {
   return (
     <main className="min-h-screen bg-[#020617] px-6 py-16 text-white">
       <section className="mx-auto max-w-7xl">
+
+        {/* HERO */}
         <div className="mb-16 text-center">
           <p className="mb-3 font-semibold uppercase tracking-[0.25em] text-cyan-400">
             SignaVi Studio Services
@@ -168,6 +177,8 @@ export default function Services() {
           </div>
         </div>
 
+
+        {/* CATEGORIES */}
         <div className="mb-12 flex flex-wrap justify-center gap-3">
           {[
             "Printing",
@@ -186,43 +197,88 @@ export default function Services() {
           ))}
         </div>
 
+
+        {/* SERVICES */}
         <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
           {services.map((service) => (
             <article
               key={service.title}
-              className="group rounded-3xl border border-slate-800 bg-slate-950/80 p-8 shadow-xl shadow-black/20 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500"
+              aria-disabled={service.disabled || undefined}
+              className={`relative rounded-3xl border p-8 shadow-xl shadow-black/20 transition-all duration-300 ${
+                service.disabled
+                  ? "cursor-not-allowed border-slate-800 bg-slate-950/60 opacity-50 grayscale"
+                  : "group border-slate-800 bg-slate-950/80 hover:-translate-y-1 hover:border-cyan-500"
+              }`}
             >
+
+              {/* COMING SOON BADGE */}
+              {service.disabled && (
+                <div className="absolute right-5 top-5 rounded-full border border-slate-600 bg-slate-900 px-3 py-1 text-xs font-bold uppercase tracking-[0.15em] text-slate-300">
+                  {service.status || "Unavailable"}
+                </div>
+              )}
+
+
+              {/* ICON + PRICE */}
               <div className="mb-5 flex items-center justify-between gap-4">
+
                 <div className="text-5xl">
                   {service.icon}
                 </div>
 
-                <div className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-3 text-right">
+                <div
+                  className={`rounded-2xl border px-4 py-3 text-right ${
+                    service.disabled
+                      ? "border-slate-700 bg-slate-800/40"
+                      : "border-cyan-400/30 bg-cyan-400/10"
+                  }`}
+                >
                   <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
-                    Starting At
+                    {service.disabled ? "Status" : "Starting At"}
                   </p>
 
-                  <p className="text-2xl font-bold text-cyan-300">
-                    {service.startingAt}
+                  <p
+                    className={`font-bold ${
+                      service.disabled
+                        ? "text-lg text-slate-400"
+                        : "text-2xl text-cyan-300"
+                    }`}
+                  >
+                    {service.disabled
+                      ? service.status || "Unavailable"
+                      : service.startingAt}
                   </p>
                 </div>
+
               </div>
 
+
+              {/* TITLE */}
               <h2 className="mb-4 text-2xl font-bold">
                 {service.title}
               </h2>
 
+
+              {/* DESCRIPTION */}
               <p className="mb-6 leading-relaxed text-slate-400">
                 {service.description}
               </p>
 
+
+              {/* FEATURES */}
               <div className="mb-7 space-y-3">
                 {service.features.map((feature) => (
                   <div
                     key={feature}
                     className="flex items-center gap-3 text-sm text-slate-300"
                   >
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-400/10 text-xs text-cyan-300">
+                    <span
+                      className={`flex h-5 w-5 items-center justify-center rounded-full text-xs ${
+                        service.disabled
+                          ? "bg-slate-800 text-slate-500"
+                          : "bg-cyan-400/10 text-cyan-300"
+                      }`}
+                    >
                       ✓
                     </span>
 
@@ -231,26 +287,57 @@ export default function Services() {
                 ))}
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Link
-                  to={`/quote?service=${encodeURIComponent(service.title)}`}
-                  className="inline-flex justify-center rounded-full bg-gradient-to-r from-cyan-400 to-blue-600 px-5 py-3 font-bold text-white shadow-lg shadow-cyan-500/20 transition hover:scale-105"
-                >
-                  Request Quote
-                </Link>
 
-                <Link
-                  to="/gallery"
-                  className="inline-flex justify-center rounded-full border border-slate-700 px-5 py-3 font-bold text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300"
-                >
-                  View Work
-                </Link>
+              {/* BUTTONS */}
+              <div className="grid gap-3 sm:grid-cols-2">
+
+                {service.disabled ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled
+                      className="cursor-not-allowed rounded-full bg-slate-800 px-5 py-3 font-bold text-slate-500"
+                    >
+                      Coming Soon
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled
+                      className="cursor-not-allowed rounded-full border border-slate-800 px-5 py-3 font-bold text-slate-600"
+                    >
+                      View Work
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      to={`/quote?service=${encodeURIComponent(
+                        service.title
+                      )}`}
+                      className="inline-flex justify-center rounded-full bg-gradient-to-r from-cyan-400 to-blue-600 px-5 py-3 font-bold text-white shadow-lg shadow-cyan-500/20 transition hover:scale-105"
+                    >
+                      Request Quote
+                    </Link>
+
+                    <Link
+                      to="/gallery"
+                      className="inline-flex justify-center rounded-full border border-slate-700 px-5 py-3 font-bold text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300"
+                    >
+                      View Work
+                    </Link>
+                  </>
+                )}
+
               </div>
             </article>
           ))}
         </div>
 
+
+        {/* CUSTOM PROJECT CTA */}
         <div className="mt-20 rounded-3xl border border-cyan-500/20 bg-cyan-500/10 p-10 text-center shadow-xl shadow-black/20">
+
           <p className="mb-3 text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300">
             Custom Projects Welcome
           </p>
@@ -271,7 +358,9 @@ export default function Services() {
           >
             Start Your Project
           </Link>
+
         </div>
+
       </section>
 
       <ProcessSection />
