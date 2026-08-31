@@ -7,8 +7,8 @@ const pricing = {
   laser: {
     label: "Laser Engraving",
     base: 15,
-    setup: 10,
-    minimum: 25,
+    setup: 0,
+    minimum: 15,
     description:
       "Tumblers, keychains, leather patches, wood, acrylic, awards, and custom gifts."
   },
@@ -16,31 +16,31 @@ const pricing = {
     label: "Vinyl Printing",
     base: 5,
     setup: 0,
-    minimum: 25,
+    minimum: 5,
     description:
       "Decals, stickers, simple apparel graphics, names, numbers, and small runs."
   },
   digital: {
     label: "Digital Services",
-    base: 75,
+    base: 50,
     setup: 0,
-    minimum: 75,
+    minimum: 50,
     description:
       "Graphic design, branding, logo cleanup, layout design, and digital mockups."
   },
   apparel: {
     label: "Custom Apparel",
-    base: 18,
-    setup: 15,
-    minimum: 45,
+    base: 25,
+    setup: 0,
+    minimum: 25,
     description:
       "Shirts, hoodies, hats, uniforms, event merch, and branded apparel."
   },
   signs: {
     label: "Signs & Banners",
     base: 45,
-    setup: 15,
-    minimum: 60,
+    setup: 0,
+    minimum: 45,
     description:
       "Business signs, event banners, decals, promotional displays, and graphics."
   },
@@ -482,15 +482,19 @@ export default function CustomQuote() {
                 <strong>{qty}</strong>
               </div>
 
-              <div className="flex justify-between border-b border-slate-800 pb-3">
-                <span>Setup</span>
-                <strong>${selectedService.setup.toFixed(2)}</strong>
-              </div>
+              {selectedService.setup > 0 && (
+                <div className="flex justify-between border-b border-slate-800 pb-3">
+                  <span>Setup</span>
+                  <strong>${selectedService.setup.toFixed(2)}</strong>
+                </div>
+              )}
 
-              <div className="flex justify-between border-b border-slate-800 pb-3">
-                <span>Minimum</span>
-                <strong>${selectedService.minimum.toFixed(2)}</strong>
-              </div>
+              {selectedService.minimum > selectedService.base && (
+                <div className="flex justify-between border-b border-slate-800 pb-3">
+                  <span>Minimum</span>
+                  <strong>${selectedService.minimum.toFixed(2)}</strong>
+                </div>
+              )}
 
               {form.turnaround === "rush" && (
                 <div className="flex justify-between border-b border-slate-800 pb-3">
