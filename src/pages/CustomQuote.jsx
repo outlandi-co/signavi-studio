@@ -482,19 +482,14 @@ export default function CustomQuote() {
                 <strong>{qty}</strong>
               </div>
 
-              {selectedService.setup > 0 && (
-                <div className="flex justify-between border-b border-slate-800 pb-3">
-                  <span>Setup</span>
-                  <strong>${selectedService.setup.toFixed(2)}</strong>
-                </div>
-              )}
-
-              {selectedService.minimum > selectedService.base && (
-                <div className="flex justify-between border-b border-slate-800 pb-3">
-                  <span>Minimum</span>
-                  <strong>${selectedService.minimum.toFixed(2)}</strong>
-                </div>
-              )}
+              <div className="rounded-2xl border border-slate-800 bg-[#020617] p-4">
+                <p className="text-sm font-semibold text-slate-300">
+                  Final setup and pricing
+                </p>
+                <p className="mt-1 text-sm text-cyan-300">
+                  TBD after review
+                </p>
+              </div>
 
               {form.turnaround === "rush" && (
                 <div className="flex justify-between border-b border-slate-800 pb-3">
