@@ -6,9 +6,9 @@ import toast from "react-hot-toast"
 const pricing = {
   laser: {
     label: "Laser Engraving",
-    base: 25,
+    base: 15,
     setup: 0,
-    minimum: 25,
+    minimum: 15,
     description:
       "Tumblers, keychains, leather patches, wood, acrylic, awards, and custom gifts."
   },
