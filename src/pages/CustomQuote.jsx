@@ -12,6 +12,7 @@ const pricing = {
     description:
       "Tumblers, keychains, leather patches, wood, acrylic, awards, and custom gifts."
   },
+
   vinyl: {
     label: "Vinyl Printing",
     base: 5,
@@ -20,6 +21,7 @@ const pricing = {
     description:
       "Decals, stickers, simple apparel graphics, names, numbers, and small runs."
   },
+
   digital: {
     label: "Digital Services",
     base: 50,
@@ -28,6 +30,7 @@ const pricing = {
     description:
       "Graphic design, branding, logo cleanup, layout design, and digital mockups."
   },
+
   apparel: {
     label: "Custom Apparel",
     base: 25,
@@ -36,6 +39,7 @@ const pricing = {
     description:
       "Shirts, hoodies, hats, uniforms, event merch, and branded apparel."
   },
+
   signs: {
     label: "Signs & Banners",
     base: 45,
@@ -44,22 +48,25 @@ const pricing = {
     description:
       "Business signs, event banners, decals, promotional displays, and graphics."
   },
+
   photography: {
     label: "Photography",
-    base: 150,
+    base: 250,
     setup: 0,
-    minimum: 150,
+    minimum: 250,
     description:
       "Portraits, products, events, branding, real estate, and commercial photography."
   },
+
   video: {
     label: "Videography",
-    base: 300,
+    base: 500,
     setup: 0,
-    minimum: 300,
+    minimum: 500,
     description:
       "Commercial video production, social media content, interviews, reels, and events."
   },
+
   web: {
     label: "Website Design",
     base: 500,
@@ -149,10 +156,7 @@ export default function CustomQuote() {
 
     setForm((prev) => ({
       ...prev,
-      [name]:
-        name === "quantity"
-          ? Number(value)
-          : value
+      [name]: name === "quantity" ? Number(value) : value
     }))
   }
 
@@ -258,6 +262,7 @@ export default function CustomQuote() {
   return (
     <main className="min-h-screen bg-[#020617] px-6 py-16 text-white">
       <section className="mx-auto max-w-7xl">
+
         <div className="mb-12 text-center">
           <p className="mb-3 text-sm font-semibold uppercase tracking-[0.25em] text-cyan-400">
             Custom Quote
@@ -276,6 +281,7 @@ export default function CustomQuote() {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[1.1fr_.9fr]">
+
           <form
             onSubmit={handleSubmit}
             className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6 shadow-xl shadow-black/20 backdrop-blur md:p-8"
@@ -308,6 +314,7 @@ export default function CustomQuote() {
             </div>
 
             <div className="grid gap-5 md:grid-cols-2">
+
               <label className="flex flex-col gap-2">
                 <span className="text-sm font-semibold text-slate-300">
                   Name
@@ -420,6 +427,7 @@ export default function CustomQuote() {
                 </span>
 
                 <div className="rounded-2xl border border-dashed border-slate-700 bg-[#020617] p-5">
+
                   <input
                     type="file"
                     onChange={handleFile}
@@ -440,8 +448,10 @@ export default function CustomQuote() {
                       className="mt-4 max-h-56 rounded-xl border border-slate-800 object-contain"
                     />
                   )}
+
                 </div>
               </label>
+
             </div>
 
             <button
@@ -451,9 +461,11 @@ export default function CustomQuote() {
             >
               {loading ? "Submitting..." : "Submit Quote Request"}
             </button>
+
           </form>
 
           <aside className="h-fit rounded-3xl border border-slate-800 bg-slate-950/80 p-6 shadow-xl shadow-black/20 backdrop-blur md:p-8">
+
             <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-cyan-400">
               Estimate Preview
             </p>
@@ -463,6 +475,7 @@ export default function CustomQuote() {
             </h2>
 
             <div className="mb-6 rounded-3xl border border-cyan-400/30 bg-cyan-400/10 p-6">
+
               <p className="text-sm text-slate-400">
                 Starting Estimate
               </p>
@@ -474,27 +487,25 @@ export default function CustomQuote() {
               <p className="mt-2 text-sm text-slate-400">
                 About ${perItemEstimate.toFixed(2)} per item
               </p>
+
             </div>
 
             <div className="space-y-4 text-slate-300">
+
               <div className="flex justify-between border-b border-slate-800 pb-3">
                 <span>Quantity</span>
                 <strong>{qty}</strong>
               </div>
 
-              {selectedService.setup > 0 && (
-                <div className="flex justify-between border-b border-slate-800 pb-3">
-                  <span>Setup</span>
-                  <strong>${selectedService.setup.toFixed(2)}</strong>
-                </div>
-              )}
+              <div className="rounded-2xl border border-slate-800 bg-[#020617] p-4">
+                <p className="text-sm font-semibold text-slate-300">
+                  Final setup and pricing
+                </p>
 
-              {selectedService.minimum > selectedService.base && (
-                <div className="flex justify-between border-b border-slate-800 pb-3">
-                  <span>Minimum</span>
-                  <strong>${selectedService.minimum.toFixed(2)}</strong>
-                </div>
-              )}
+                <p className="mt-1 text-sm text-cyan-300">
+                  TBD after review
+                </p>
+              </div>
 
               {form.turnaround === "rush" && (
                 <div className="flex justify-between border-b border-slate-800 pb-3">
@@ -506,6 +517,7 @@ export default function CustomQuote() {
               <div className="rounded-2xl border border-slate-800 bg-[#020617] p-4 text-sm text-cyan-300">
                 {discountMsg}
               </div>
+
             </div>
 
             <p className="mt-6 text-sm leading-relaxed text-slate-500">
@@ -513,7 +525,9 @@ export default function CustomQuote() {
               turnaround time, product availability, setup, shipping, and
               production requirements.
             </p>
+
           </aside>
+
         </div>
       </section>
     </main>
