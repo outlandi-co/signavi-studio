@@ -288,47 +288,48 @@ export default function Services() {
 
 
               {/* BUTTONS */}
-              <div className="grid gap-3 sm:grid-cols-2">
+<div className="grid gap-3 sm:grid-cols-2">
 
-                {service.disabled ? (
-                  <>
-                    <button
-                      type="button"
-                      disabled
-                      className="cursor-not-allowed rounded-full bg-slate-800 px-5 py-3 font-bold text-slate-500"
-                    >
-                      Coming Soon
-                    </button>
+  {service.disabled ? (
+    <>
+      <button
+        type="button"
+        disabled
+        className="cursor-not-allowed rounded-full bg-slate-800 px-5 py-3 font-bold text-slate-500"
+      >
+        Coming Soon
+      </button>
 
-                    <button
-                      type="button"
-                      disabled
-                      className="cursor-not-allowed rounded-full border border-slate-800 px-5 py-3 font-bold text-slate-600"
-                    >
-                      View Work
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <Link
-                      to={`/quote?service=${encodeURIComponent(
-                        service.title
-                      )}`}
-                      className="inline-flex justify-center rounded-full bg-gradient-to-r from-cyan-400 to-blue-600 px-5 py-3 font-bold text-white shadow-lg shadow-cyan-500/20 transition hover:scale-105"
-                    >
-                      Request Quote
-                    </Link>
+      <button
+        type="button"
+        disabled
+        className="cursor-not-allowed rounded-full border border-slate-800 px-5 py-3 font-bold text-slate-600"
+      >
+        View Work
+      </button>
+    </>
+  ) : (
+    <>
+      <Link
+        to={`/quote?service=${encodeURIComponent(
+          service.title
+        )}`}
+        className="inline-flex justify-center rounded-full bg-gradient-to-r from-cyan-400 to-blue-600 px-5 py-3 font-bold text-white shadow-lg shadow-cyan-500/20 transition hover:scale-105"
+      >
+        Request Quote
+      </Link>
 
-                    <Link
-                      to="/gallery"
-                      className="inline-flex justify-center rounded-full border border-slate-700 px-5 py-3 font-bold text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300"
-                    >
-                      View Work
-                    </Link>
-                  </>
-                )}
+      <button
+        type="button"
+        disabled
+        className="cursor-not-allowed rounded-full border border-slate-800 px-5 py-3 font-bold text-slate-500"
+      >
+        View Work
+      </button>
+    </>
+  )}
 
-              </div>
+</div>
             </article>
           ))}
         </div>
