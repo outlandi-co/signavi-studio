@@ -1,6 +1,8 @@
 export default function MessageBubble({
   message = {},
-  isAdmin = false
+  isAdmin = false,
+  onDelete = null,
+  deleting = false
 }) {
   const sender =
     message.sender ||
@@ -105,6 +107,7 @@ export default function MessageBubble({
       }
 
       const blob = await response.blob()
+
       const blobUrl =
         window.URL.createObjectURL(blob)
 
@@ -112,11 +115,14 @@ export default function MessageBubble({
         document.createElement("a")
 
       link.href = blobUrl
+
       link.download =
         fileName || "attachment"
 
       document.body.appendChild(link)
+
       link.click()
+
       link.remove()
 
       window.URL.revokeObjectURL(blobUrl)
@@ -130,6 +136,23 @@ export default function MessageBubble({
         "The attachment could not be downloaded directly."
       )
     }
+  }
+
+  const handleDelete = () => {
+    if (!onDelete) {
+      return
+    }
+
+    const confirmed =
+      window.confirm(
+        "Delete this message? This cannot be undone."
+      )
+
+    if (!confirmed) {
+      return
+    }
+
+    onDelete(message)
   }
 
   const messageText =
@@ -159,12 +182,34 @@ export default function MessageBubble({
           overflow: "hidden"
         }}
       >
-        <p className="mb-2 text-xs font-black uppercase tracking-wide opacity-70">
-          {isAdminMessage
-            ? "Admin"
-            : "Customer"}
-        </p>
+        {/* HEADER */}
+        <div className="mb-2 flex items-start justify-between gap-4">
+          <p className="text-xs font-black uppercase tracking-wide opacity-70">
+            {isAdminMessage
+              ? "Admin"
+              : "Customer"}
+          </p>
 
+          {onDelete && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              title="Delete message"
+              className={
+                isAdminMessage
+                  ? "shrink-0 rounded-lg border border-red-800/30 bg-red-950/20 px-2 py-1 text-xs font-black text-red-950 transition hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  : "shrink-0 rounded-lg border border-red-900 bg-red-950/40 px-2 py-1 text-xs font-black text-red-300 transition hover:border-red-500 hover:bg-red-900 hover:text-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+              }
+            >
+              {deleting
+                ? "Deleting..."
+                : "🗑 Delete"}
+            </button>
+          )}
+        </div>
+
+        {/* MESSAGE TEXT */}
         <div
           className="w-full min-w-0 whitespace-pre-wrap break-words text-sm leading-relaxed"
           style={{
@@ -175,6 +220,7 @@ export default function MessageBubble({
           {messageText}
         </div>
 
+        {/* ATTACHMENTS */}
         {attachments.length > 0 && (
           <div className="mt-4 w-full min-w-0 space-y-3">
             <p className="text-xs font-bold uppercase tracking-wide opacity-70">
@@ -287,6 +333,7 @@ export default function MessageBubble({
           </div>
         )}
 
+        {/* DATE */}
         {createdAt && (
           <p className="mt-3 text-[11px] opacity-60">
             {new Date(
