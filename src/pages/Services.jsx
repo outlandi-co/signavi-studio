@@ -82,28 +82,28 @@ const services = [
   },
   {
     title: "Photography",
-    icon: "📸",
-    startingAt: "$150",
-    description:
-      "Portraits, products, events, branding, real estate, and commercial photography.",
-    features: [
-      "Product photos",
-      "Brand portraits",
-      "Event coverage"
-    ]
-  },
-  {
-    title: "Real Estate Media",
-    icon: "🏡",
-    startingAt: "$199",
-    description:
-      "Photography, video walkthroughs, and marketing media for real estate listings and property promotion.",
-    features: [
-      "MLS photos",
-      "Video walkthroughs",
-      "Social media content"
-    ]
-  },
+  icon: "📸",
+  startingAt: "$250",
+  description:
+    "Portraits, products, events, branding, real estate, and commercial photography.",
+  features: [
+    "Product photos",
+    "Brand portraits",
+    "Event coverage"
+  ]
+},
+{
+  title: "Videography",
+  icon: "🎥",
+  startingAt: "$500",
+  description:
+    "Professional video production for events, businesses, products, promotional content, and special projects.",
+  features: [
+    "Event videography",
+    "Promotional videos",
+    "Professional editing"
+  ]
+},
   {
     title: "Web Design & Development",
     icon: "💻",
