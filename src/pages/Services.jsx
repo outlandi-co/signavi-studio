@@ -19,12 +19,11 @@ const services = [
       "Business apparel"
     ]
   },
-  {
+  
+ {
   title: "DTF Transfers",
   icon: "🎽",
   startingAt: "$5",
-  disabled: true,
-  status: "Coming Soon",
   description:
     "High-quality full-color DTF transfers ready to press onto apparel, merch, uniforms, and custom orders.",
   features: [
