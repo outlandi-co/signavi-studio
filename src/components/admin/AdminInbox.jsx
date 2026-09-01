@@ -38,6 +38,44 @@ const FOLDERS = [
   }
 ]
 
+const WORKFLOW_STEPS = [
+  {
+    number: 1,
+    key: "quotes",
+    label: "Request Quote",
+    description:
+      "Customer submitted project details and artwork."
+  },
+  {
+    number: 2,
+    key: "review_mockup",
+    label: "Review & Mockup",
+    description:
+      "Review details, answer questions, and prepare mockups when needed."
+  },
+  {
+    number: 3,
+    key: "approval_payment",
+    label: "Approval & Payment",
+    description:
+      "Confirm final project details, customer approval, and payment."
+  },
+  {
+    number: 4,
+    key: "production",
+    label: "Production",
+    description:
+      "Produce the order after approval and payment."
+  },
+  {
+    number: 5,
+    key: "pickup_shipping",
+    label: "Pickup or Shipping",
+    description:
+      "Prepare the completed order for local pickup or shipment."
+  }
+]
+
 export default function AdminInbox() {
   const [activeFolder, setActiveFolder] = useState("info")
   const [threads, setThreads] = useState([])
@@ -46,6 +84,8 @@ export default function AdminInbox() {
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [deletingMessageId, setDeletingMessageId] = useState(null)
+  const [updatingQuote, setUpdatingQuote] = useState(false)
+  const [quotePrice, setQuotePrice] = useState("")
 
   const [isMobile, setIsMobile] = useState(
     () => window.innerWidth <= 900
@@ -94,6 +134,231 @@ export default function AdminInbox() {
     }
   }, [])
 
+  useEffect(() => {
+    if (selectedThread?.isQuoteRecord) {
+      setQuotePrice(
+        String(
+          selectedThread.finalPrice ??
+            selectedThread.price ??
+            ""
+        )
+      )
+    }
+  }, [selectedThread])
+
+  /* ======================================================
+     QUOTE HELPERS
+     ====================================================== */
+
+  const getWorkflowIndex = (quote) => {
+    const status = String(quote?.status || "quotes")
+      .trim()
+      .toLowerCase()
+
+    if (
+      status === "completed" ||
+      status === "pickup_shipping" ||
+      status === "pickup" ||
+      status === "shipping" ||
+      status === "ready_for_pickup" ||
+      status === "shipped"
+    ) {
+      return 4
+    }
+
+    if (
+      status === "production" ||
+      status === "in_production"
+    ) {
+      return 3
+    }
+
+    if (
+      status === "approval_payment" ||
+      status === "approval" ||
+      status === "payment" ||
+      status === "payment_required"
+    ) {
+      return 2
+    }
+
+    if (
+      status === "review_mockup" ||
+      status === "review" ||
+      status === "mockup"
+    ) {
+      return 1
+    }
+
+    return 0
+  }
+
+  const updateQuote = async (patch) => {
+    if (!selectedThread?.isQuoteRecord) {
+      return null
+    }
+
+    try {
+      setUpdatingQuote(true)
+
+      const res = await api.patch(
+        `/quotes/${selectedThread._id}`,
+        patch,
+        authHeaders
+      )
+
+      const updated =
+        res.data?.data ||
+        res.data?.quote ||
+        res.data
+
+      const merged = {
+        ...selectedThread,
+        ...(updated && typeof updated === "object"
+          ? updated
+          : patch),
+        isQuoteRecord: true,
+        channel: "quotes"
+      }
+
+      setSelectedThread(merged)
+
+      setThreads((current) =>
+        current.map((thread) =>
+          thread._id === merged._id
+            ? {
+                ...thread,
+                ...merged,
+                customerEmail:
+                  merged.email ||
+                  merged.customerEmail ||
+                  "",
+                subject:
+                  merged.serviceLabel ||
+                  merged.serviceType ||
+                  merged.printType ||
+                  "Quote Request",
+                lastMessage:
+                  merged.notes ||
+                  "Quote request submitted"
+              }
+            : thread
+        )
+      )
+
+      return merged
+    } catch (error) {
+      console.error(
+        "UPDATE QUOTE ERROR:",
+        error
+      )
+
+      alert(
+        error?.response?.data?.message ||
+          "The quote could not be updated."
+      )
+
+      return null
+    } finally {
+      setUpdatingQuote(false)
+    }
+  }
+
+  const moveQuoteToStep = async (status) => {
+    await updateQuote({ status })
+  }
+
+  const saveQuotePrice = async () => {
+    const numericPrice = Number(quotePrice)
+
+    if (
+      Number.isNaN(numericPrice) ||
+      numericPrice < 0
+    ) {
+      alert("Enter a valid quote price.")
+      return
+    }
+
+    await updateQuote({
+      price: numericPrice,
+      finalPrice: numericPrice
+    })
+  }
+
+  const approveQuote = async () => {
+    await updateQuote({
+      approvalStatus: "approved",
+      status: "approval_payment"
+    })
+  }
+
+  const downloadArtwork = async (quote) => {
+    const artworkUrl =
+      quote?.artwork ||
+      quote?.artworkUrl
+
+    if (!artworkUrl) {
+      return
+    }
+
+    try {
+      const response = await fetch(artworkUrl)
+
+      if (!response.ok) {
+        throw new Error(
+          "Artwork download failed"
+        )
+      }
+
+      const blob = await response.blob()
+      const blobUrl =
+        window.URL.createObjectURL(blob)
+
+      const urlWithoutQuery =
+        artworkUrl.split("?")[0]
+
+      const extensionMatch =
+        urlWithoutQuery.match(
+          /\.([a-zA-Z0-9]+)$/
+        )
+
+      const extension =
+        extensionMatch?.[1] || "png"
+
+      const preferredName =
+        quote?.artworkName?.trim()
+
+      const filename =
+        preferredName ||
+        `quote-${quote._id}-artwork.${extension}`
+
+      const anchor =
+        document.createElement("a")
+
+      anchor.href = blobUrl
+      anchor.download = filename
+
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+
+      window.URL.revokeObjectURL(
+        blobUrl
+      )
+    } catch (error) {
+      console.error(
+        "DOWNLOAD ARTWORK ERROR:",
+        error
+      )
+
+      window.open(
+        artworkUrl,
+        "_blank",
+        "noopener,noreferrer"
+      )
+    }
+  }
+
   /* ======================================================
      LOAD COMMUNICATIONS
      ====================================================== */
@@ -102,10 +367,6 @@ export default function AdminInbox() {
     try {
       setLoading(true)
 
-      /*
-        QUOTES ARE REAL QUOTE DATABASE RECORDS,
-        NOT ADMIN EMAIL THREADS.
-      */
       if (activeFolder === "quotes") {
         const res = await api.get(
           "/quotes",
@@ -118,9 +379,7 @@ export default function AdminInbox() {
 
         const normalizedQuotes = quoteData.map((quote) => ({
           ...quote,
-
           isQuoteRecord: true,
-
           channel: "quotes",
 
           customerEmail:
@@ -149,14 +408,9 @@ export default function AdminInbox() {
         }))
 
         setThreads(normalizedQuotes)
-
         return
       }
 
-      /*
-        INFORMATION / SUPPORT / ARCHIVE
-        CONTINUE USING EMAIL THREADS.
-      */
       let endpoint = "/admin-email-threads"
 
       if (activeFolder === "archive") {
@@ -194,13 +448,6 @@ export default function AdminInbox() {
      ====================================================== */
 
   const loadMessages = async (thread) => {
-    /*
-      A QUOTE IS NOT AN EMAIL THREAD.
-
-      Selecting a quote displays the quote information
-      directly instead of requesting:
-      /admin-email-threads/:id/messages
-    */
     if (thread?.isQuoteRecord) {
       setSelectedThread(thread)
       setMessages([])
@@ -530,10 +777,6 @@ export default function AdminInbox() {
     return date.toLocaleString()
   }
 
-  /* ======================================================
-     LOADING
-     ====================================================== */
-
   if (loading) {
     return (
       <main
@@ -547,6 +790,11 @@ export default function AdminInbox() {
     )
   }
 
+  const workflowIndex =
+    selectedThread?.isQuoteRecord
+      ? getWorkflowIndex(selectedThread)
+      : 0
+
   return (
     <main
       style={{
@@ -554,8 +802,6 @@ export default function AdminInbox() {
         padding: isMobile ? 0 : 30
       }}
     >
-      {/* ================= HEADER ================= */}
-
       {(!isMobile || !selectedThread) && (
         <>
           <div
@@ -591,8 +837,6 @@ export default function AdminInbox() {
             </div>
           </div>
 
-          {/* ================= FOLDERS ================= */}
-
           <div
             style={{
               ...folderBar,
@@ -613,19 +857,15 @@ export default function AdminInbox() {
                   }
                   style={{
                     ...folderButton,
-
                     background: isActive
                       ? "#22d3ee"
                       : "#111827",
-
                     color: isActive
                       ? "#020617"
                       : "#e5e7eb",
-
                     flex: isMobile
                       ? "1 1 calc(50% - 8px)"
                       : "0 0 auto",
-
                     justifyContent: "center"
                   }}
                 >
@@ -645,42 +885,30 @@ export default function AdminInbox() {
         </>
       )}
 
-      {/* ================= MAIN LAYOUT ================= */}
-
       <div
         style={{
           ...layout,
-
           gridTemplateColumns: isMobile
             ? "minmax(0, 1fr)"
             : "340px minmax(0, 1fr)",
-
           gap: isMobile ? 0 : 24,
-
           width: "100%",
           minWidth: 0
         }}
       >
-        {/* ================= THREAD LIST ================= */}
-
         {(!isMobile || !selectedThread) && (
           <aside
             style={{
               ...threadList,
-
               width: "100%",
               minWidth: 0,
-
               height: isMobile
                 ? "auto"
                 : "78vh",
-
               maxHeight: isMobile
                 ? "none"
                 : "78vh",
-
               padding: isMobile ? 10 : 16,
-
               borderRadius: isMobile
                 ? 14
                 : 18
@@ -698,7 +926,6 @@ export default function AdminInbox() {
                   {activeFolder === "quotes"
                     ? "quote request"
                     : "conversation"}
-
                   {threads.length === 1
                     ? ""
                     : "s"}
@@ -733,15 +960,12 @@ export default function AdminInbox() {
                     }
                     style={{
                       ...threadButton,
-
                       border: active
                         ? "1px solid #22d3ee"
                         : "1px solid #1e293b",
-
                       background: active
                         ? "#082f49"
                         : "#020617",
-
                       padding: isMobile
                         ? 12
                         : 14
@@ -789,11 +1013,17 @@ export default function AdminInbox() {
                       </span>
 
                       {thread.isQuoteRecord && (
-                        <span style={quoteStatusBadge}>
-                          {thread.approvalStatus ||
-                            thread.status ||
-                            "pending"}
-                        </span>
+                        <>
+                          <span style={quoteStatusBadge}>
+                            {thread.approvalStatus ||
+                              "pending"}
+                          </span>
+
+                          <span style={workflowSmallBadge}>
+                            Step{" "}
+                            {getWorkflowIndex(thread) + 1}
+                          </span>
+                        </>
                       )}
 
                       {thread.unread &&
@@ -810,28 +1040,21 @@ export default function AdminInbox() {
           </aside>
         )}
 
-        {/* ================= DETAILS / CONVERSATION ================= */}
-
         {(!isMobile || selectedThread) && (
           <section
             style={{
               ...conversation,
-
               width: "100%",
               minWidth: 0,
-
               minHeight: isMobile
                 ? "auto"
                 : "78vh",
-
               padding: isMobile
                 ? 8
                 : 22,
-
               borderRadius: isMobile
                 ? 12
                 : 18,
-
               border: isMobile
                 ? "1px solid #172033"
                 : conversation.border
@@ -863,23 +1086,16 @@ export default function AdminInbox() {
                 </p>
               </div>
             ) : selectedThread.isQuoteRecord ? (
-              /* ==================================================
-                 REAL QUOTE DETAILS
-                 ================================================== */
-
               <>
                 <div
                   style={{
                     ...conversationHeader,
-
                     flexDirection: isMobile
                       ? "column"
                       : "row",
-
                     alignItems: isMobile
                       ? "stretch"
                       : "flex-start",
-
                     gap: isMobile
                       ? 10
                       : 16
@@ -898,13 +1114,10 @@ export default function AdminInbox() {
                     <h2
                       style={{
                         ...conversationTitle,
-
                         fontSize: isMobile
                           ? 20
                           : undefined,
-
                         lineHeight: 1.25,
-
                         overflowWrap:
                           "anywhere"
                       }}
@@ -941,7 +1154,200 @@ export default function AdminInbox() {
                   </span>
                 </div>
 
-                {/* ================= QUOTE SUMMARY ================= */}
+                <div style={workflowPanel}>
+                  <div style={workflowHeader}>
+                    <div>
+                      <p style={quoteSectionTitle}>
+                        Project Workflow
+                      </p>
+
+                      <h3 style={workflowTitle}>
+                        From Idea To Finished Product
+                      </h3>
+                    </div>
+
+                    <span style={workflowCurrentBadge}>
+                      Step {workflowIndex + 1} of 5
+                    </span>
+                  </div>
+
+                  <div style={workflowGrid}>
+                    {WORKFLOW_STEPS.map(
+                      (step, index) => {
+                        const complete =
+                          index < workflowIndex
+                        const current =
+                          index === workflowIndex
+
+                        return (
+                          <div
+                            key={step.key}
+                            style={{
+                              ...workflowCard,
+                              border: current
+                                ? "1px solid #22d3ee"
+                                : complete
+                                  ? "1px solid rgba(34,197,94,.45)"
+                                  : "1px solid #1e293b",
+                              background: current
+                                ? "rgba(34,211,238,.08)"
+                                : complete
+                                  ? "rgba(34,197,94,.06)"
+                                  : "#020617"
+                            }}
+                          >
+                            <div
+                              style={{
+                                ...workflowNumber,
+                                background: complete
+                                  ? "#22c55e"
+                                  : current
+                                    ? "#22d3ee"
+                                    : "#1e293b",
+                                color:
+                                  complete ||
+                                  current
+                                    ? "#020617"
+                                    : "#94a3b8"
+                              }}
+                            >
+                              {complete
+                                ? "✓"
+                                : step.number}
+                            </div>
+
+                            <strong
+                              style={workflowStepLabel}
+                            >
+                              {step.label}
+                            </strong>
+
+                            <p
+                              style={workflowDescription}
+                            >
+                              {step.description}
+                            </p>
+
+                            {current && (
+                              <span style={currentStepPill}>
+                                Current
+                              </span>
+                            )}
+                          </div>
+                        )
+                      }
+                    )}
+                  </div>
+
+                  <div style={workflowActions}>
+                    {workflowIndex === 0 && (
+                      <button
+                        type="button"
+                        disabled={updatingQuote}
+                        onClick={() =>
+                          moveQuoteToStep(
+                            "review_mockup"
+                          )
+                        }
+                        style={primaryAction}
+                      >
+                        {updatingQuote
+                          ? "Updating..."
+                          : "Begin Review & Mockup"}
+                      </button>
+                    )}
+
+                    {workflowIndex === 1 && (
+                      <button
+                        type="button"
+                        disabled={updatingQuote}
+                        onClick={() =>
+                          moveQuoteToStep(
+                            "approval_payment"
+                          )
+                        }
+                        style={primaryAction}
+                      >
+                        {updatingQuote
+                          ? "Updating..."
+                          : "Move to Approval & Payment"}
+                      </button>
+                    )}
+
+                    {workflowIndex === 2 && (
+                      <>
+                        {selectedThread.approvalStatus !==
+                          "approved" && (
+                          <button
+                            type="button"
+                            disabled={updatingQuote}
+                            onClick={approveQuote}
+                            style={approveButton}
+                          >
+                            {updatingQuote
+                              ? "Updating..."
+                              : "Approve Quote"}
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          disabled={updatingQuote}
+                          onClick={() =>
+                            moveQuoteToStep(
+                              "production"
+                            )
+                          }
+                          style={primaryAction}
+                        >
+                          {updatingQuote
+                            ? "Updating..."
+                            : "Move to Production"}
+                        </button>
+                      </>
+                    )}
+
+                    {workflowIndex === 3 && (
+                      <button
+                        type="button"
+                        disabled={updatingQuote}
+                        onClick={() =>
+                          moveQuoteToStep(
+                            "pickup_shipping"
+                          )
+                        }
+                        style={primaryAction}
+                      >
+                        {updatingQuote
+                          ? "Updating..."
+                          : "Move to Pickup or Shipping"}
+                      </button>
+                    )}
+
+                    {workflowIndex === 4 && (
+                      <button
+                        type="button"
+                        disabled={updatingQuote}
+                        onClick={() =>
+                          moveQuoteToStep(
+                            "completed"
+                          )
+                        }
+                        style={completeButton}
+                      >
+                        {updatingQuote
+                          ? "Updating..."
+                          : "Mark Project Complete"}
+                      </button>
+                    )}
+                  </div>
+
+                  {workflowIndex === 2 && (
+                    <p style={workflowHint}>
+                      Move to Production after customer approval and payment are confirmed.
+                    </p>
+                  )}
+                </div>
 
                 <div style={quoteGrid}>
                   <div style={quoteStat}>
@@ -996,7 +1402,47 @@ export default function AdminInbox() {
                   </div>
                 </div>
 
-                {/* ================= SERVICE ================= */}
+                <div style={quoteSection}>
+                  <p style={quoteSectionTitle}>
+                    Final Quote Price
+                  </p>
+
+                  <div style={priceRow}>
+                    <div style={priceInputWrap}>
+                      <span style={currencyPrefix}>
+                        $
+                      </span>
+
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={quotePrice}
+                        onChange={(event) =>
+                          setQuotePrice(
+                            event.target.value
+                          )
+                        }
+                        style={priceInput}
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={updatingQuote}
+                      onClick={saveQuotePrice}
+                      style={secondaryAction}
+                    >
+                      {updatingQuote
+                        ? "Saving..."
+                        : "Save Price"}
+                    </button>
+                  </div>
+
+                  <p style={priceHint}>
+                    Set or adjust the final project price before customer approval and payment.
+                  </p>
+                </div>
 
                 {(selectedThread.serviceLabel ||
                   selectedThread.serviceType ||
@@ -1014,8 +1460,6 @@ export default function AdminInbox() {
                   </div>
                 )}
 
-                {/* ================= NOTES ================= */}
-
                 <div style={quoteSection}>
                   <p style={quoteSectionTitle}>
                     Project Description
@@ -1027,8 +1471,6 @@ export default function AdminInbox() {
                   </p>
                 </div>
 
-                {/* ================= ARTWORK ================= */}
-
                 {(selectedThread.artwork ||
                   selectedThread.artworkUrl) && (
                   <div style={quoteSection}>
@@ -1036,32 +1478,42 @@ export default function AdminInbox() {
                       Artwork / Reference
                     </p>
 
-                    <a
-                      href={
+                    <img
+                      src={
                         selectedThread.artwork ||
                         selectedThread.artworkUrl
                       }
-                      target="_blank"
-                      rel="noreferrer"
-                      style={artworkLink}
-                    >
-                      <img
-                        src={
+                      alt="Customer quote artwork"
+                      style={artworkImage}
+                    />
+
+                    <div style={artworkButtonRow}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          downloadArtwork(
+                            selectedThread
+                          )
+                        }
+                        style={downloadButton}
+                      >
+                        ⬇ Download Artwork
+                      </button>
+
+                      <a
+                        href={
                           selectedThread.artwork ||
                           selectedThread.artworkUrl
                         }
-                        alt="Customer quote artwork"
-                        style={artworkImage}
-                      />
-
-                      <span>
-                        Open full artwork
-                      </span>
-                    </a>
+                        target="_blank"
+                        rel="noreferrer"
+                        style={openArtworkButton}
+                      >
+                        ↗ Open Full Artwork
+                      </a>
+                    </div>
                   </div>
                 )}
-
-                {/* ================= QUOTE ID ================= */}
 
                 <div style={quoteSection}>
                   <p style={quoteSectionTitle}>
@@ -1072,39 +1524,24 @@ export default function AdminInbox() {
                     {selectedThread._id}
                   </code>
                 </div>
-
-                <div style={quoteNotice}>
-                  This is a website quote request stored
-                  in the Quotes database. It is not an
-                  email thread.
-                </div>
               </>
             ) : (
-              /* ==================================================
-                 NORMAL EMAIL CONVERSATION
-                 ================================================== */
-
               <>
                 <div
                   style={{
                     ...conversationHeader,
-
                     flexDirection: isMobile
                       ? "column"
                       : "row",
-
                     alignItems: isMobile
                       ? "stretch"
                       : "flex-start",
-
                     gap: isMobile
                       ? 10
                       : 16,
-
                     paddingBottom: isMobile
                       ? 12
                       : 16,
-
                     marginBottom: isMobile
                       ? 12
                       : 16
@@ -1135,16 +1572,12 @@ export default function AdminInbox() {
                     <h2
                       style={{
                         ...conversationTitle,
-
                         fontSize: isMobile
                           ? 20
                           : undefined,
-
                         lineHeight: 1.25,
-
                         overflowWrap:
                           "anywhere",
-
                         wordBreak:
                           "break-word"
                       }}
@@ -1156,17 +1589,13 @@ export default function AdminInbox() {
                     <p
                       style={{
                         ...muted,
-
                         marginTop: 0,
                         marginBottom: 6,
-
                         fontSize: isMobile
                           ? 13
                           : undefined,
-
                         overflowWrap:
                           "anywhere",
-
                         wordBreak:
                           "break-word"
                       }}
@@ -1181,12 +1610,9 @@ export default function AdminInbox() {
                       <p
                         style={{
                           ...fromLine,
-
                           marginBottom: 0,
-
                           overflowWrap:
                             "anywhere",
-
                           wordBreak:
                             "break-word"
                         }}
@@ -1207,7 +1633,6 @@ export default function AdminInbox() {
                       onClick={archiveThread}
                       style={{
                         ...archiveButton,
-
                         width: isMobile
                           ? "100%"
                           : "auto"
@@ -1221,7 +1646,6 @@ export default function AdminInbox() {
                       onClick={restoreThread}
                       style={{
                         ...restoreButton,
-
                         width: isMobile
                           ? "100%"
                           : "auto"
@@ -1232,23 +1656,17 @@ export default function AdminInbox() {
                   )}
                 </div>
 
-                {/* ================= MESSAGES ================= */}
-
                 <div
                   style={{
                     ...messageList,
-
                     width: "100%",
                     minWidth: 0,
-
                     overflowX:
                       "hidden",
-
                     paddingRight:
                       isMobile
                         ? 0
                         : 8,
-
                     gap: isMobile
                       ? 10
                       : 14
@@ -1271,19 +1689,15 @@ export default function AdminInbox() {
                         <MessageBubble
                           message={{
                             _id: msg._id,
-
                             sender:
                               msg.direction ===
                               "outbound"
                                 ? "admin"
                                 : "customer",
-
                             message:
                               msg.message,
-
                             createdAt:
                               msg.createdAt,
-
                             attachments:
                               Array.isArray(
                                 msg.attachments
@@ -1304,14 +1718,11 @@ export default function AdminInbox() {
                   )}
                 </div>
 
-                {/* ================= REPLY ================= */}
-
                 {activeFolder !== "archive" && (
                   <div
                     style={{
                       width: "100%",
                       minWidth: 0,
-
                       marginTop: isMobile
                         ? 12
                         : 18
@@ -1563,6 +1974,18 @@ const quoteStatusBadge = {
   textTransform: "capitalize"
 }
 
+const workflowSmallBadge = {
+  color: "#67e8f9",
+  background:
+    "rgba(34,211,238,.08)",
+  border:
+    "1px solid rgba(34,211,238,.22)",
+  borderRadius: 999,
+  padding: "4px 8px",
+  fontSize: 11,
+  fontWeight: 900
+}
+
 const infoBadgeLarge = {
   ...infoBadge,
   display: "inline-block",
@@ -1757,25 +2180,45 @@ const quoteText = {
   overflowWrap: "anywhere"
 }
 
-const artworkLink = {
-  display: "grid",
-  gap: 10,
-  color: "#22d3ee",
-  textDecoration: "none",
-  width: "fit-content",
-  maxWidth: "100%",
-  fontWeight: 800
-}
-
 const artworkImage = {
   display: "block",
   width: "100%",
-  maxWidth: 420,
-  maxHeight: 360,
+  maxWidth: 520,
+  maxHeight: 420,
   objectFit: "contain",
   background: "#ffffff",
   borderRadius: 12,
   border: "1px solid #334155"
+}
+
+const artworkButtonRow = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 10,
+  marginTop: 12
+}
+
+const downloadButton = {
+  background: "#22d3ee",
+  color: "#020617",
+  border: "none",
+  borderRadius: 10,
+  padding: "10px 14px",
+  fontWeight: 900,
+  cursor: "pointer"
+}
+
+const openArtworkButton = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "#111827",
+  color: "#e5e7eb",
+  border: "1px solid #334155",
+  borderRadius: 10,
+  padding: "10px 14px",
+  fontWeight: 900,
+  textDecoration: "none"
 }
 
 const quoteId = {
@@ -1784,15 +2227,193 @@ const quoteId = {
   wordBreak: "break-all"
 }
 
-const quoteNotice = {
-  marginTop: 4,
-  padding: 12,
-  borderRadius: 12,
+/* ======================================================
+   WORKFLOW STYLES
+   ====================================================== */
+
+const workflowPanel = {
   background:
-    "rgba(34,211,238,.06)",
+    "linear-gradient(180deg, rgba(15,23,42,.96), rgba(2,6,23,.96))",
+  border: "1px solid #1e293b",
+  borderRadius: 16,
+  padding: 16,
+  marginBottom: 18
+}
+
+const workflowHeader = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: 12,
+  flexWrap: "wrap",
+  marginBottom: 14
+}
+
+const workflowTitle = {
+  margin: 0,
+  color: "#f8fafc",
+  fontSize: 20
+}
+
+const workflowCurrentBadge = {
+  display: "inline-flex",
+  alignItems: "center",
+  background:
+    "rgba(34,211,238,.08)",
   border:
-    "1px solid rgba(34,211,238,.18)",
+    "1px solid rgba(34,211,238,.24)",
+  color: "#67e8f9",
+  padding: "7px 10px",
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 900
+}
+
+const workflowGrid = {
+  display: "grid",
+  gridTemplateColumns:
+    "repeat(auto-fit, minmax(145px, 1fr))",
+  gap: 10
+}
+
+const workflowCard = {
+  position: "relative",
+  minWidth: 0,
+  borderRadius: 14,
+  padding: 13,
+  minHeight: 150
+}
+
+const workflowNumber = {
+  width: 34,
+  height: 34,
+  borderRadius: "50%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontWeight: 900,
+  marginBottom: 10
+}
+
+const workflowStepLabel = {
+  display: "block",
+  color: "#f8fafc",
+  lineHeight: 1.35
+}
+
+const workflowDescription = {
   color: "#94a3b8",
   fontSize: 12,
+  lineHeight: 1.5,
+  marginBottom: 0
+}
+
+const currentStepPill = {
+  display: "inline-block",
+  marginTop: 10,
+  color: "#020617",
+  background: "#22d3ee",
+  padding: "4px 8px",
+  borderRadius: 999,
+  fontSize: 10,
+  fontWeight: 900
+}
+
+const workflowActions = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 10,
+  marginTop: 14
+}
+
+const workflowHint = {
+  color: "#94a3b8",
+  fontSize: 12,
+  marginBottom: 0
+}
+
+/* ======================================================
+   PRICE / ACTION STYLES
+   ====================================================== */
+
+const priceRow = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 10,
+  alignItems: "center"
+}
+
+const priceInputWrap = {
+  position: "relative",
+  minWidth: 190,
+  flex: "1 1 220px"
+}
+
+const currencyPrefix = {
+  position: "absolute",
+  left: 12,
+  top: "50%",
+  transform: "translateY(-50%)",
+  color: "#94a3b8",
+  fontWeight: 900,
+  pointerEvents: "none"
+}
+
+const priceInput = {
+  width: "100%",
+  boxSizing: "border-box",
+  background: "#0f172a",
+  border: "1px solid #334155",
+  color: "#f8fafc",
+  borderRadius: 10,
+  padding: "11px 12px 11px 28px",
+  outline: "none",
+  fontWeight: 800
+}
+
+const priceHint = {
+  marginBottom: 0,
+  color: "#64748b",
+  fontSize: 12,
   lineHeight: 1.5
+}
+
+const primaryAction = {
+  background: "#22d3ee",
+  color: "#020617",
+  border: "none",
+  borderRadius: 10,
+  padding: "10px 14px",
+  fontWeight: 900,
+  cursor: "pointer"
+}
+
+const secondaryAction = {
+  background: "#1e293b",
+  color: "#e5e7eb",
+  border: "1px solid #334155",
+  borderRadius: 10,
+  padding: "10px 14px",
+  fontWeight: 900,
+  cursor: "pointer"
+}
+
+const approveButton = {
+  background: "#22c55e",
+  color: "#020617",
+  border: "none",
+  borderRadius: 10,
+  padding: "10px 14px",
+  fontWeight: 900,
+  cursor: "pointer"
+}
+
+const completeButton = {
+  background: "#a78bfa",
+  color: "#020617",
+  border: "none",
+  borderRadius: 10,
+  padding: "10px 14px",
+  fontWeight: 900,
+  cursor: "pointer"
 }
