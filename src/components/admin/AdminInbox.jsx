@@ -1447,7 +1447,8 @@ export default function AdminInbox() {
                       </button>
                     )}
 
-                    {workflowIndex === 1 && (
+                    {(workflowIndex === 1 ||
+                      workflowIndex === 2) && (
                       <button
                         type="button"
                         disabled={
@@ -1459,7 +1460,9 @@ export default function AdminInbox() {
                       >
                         {uploadingMockup
                           ? "Sending Mockup..."
-                          : "Send Mockup & Quote to Customer"}
+                          : workflowIndex === 2
+                            ? "Resend Mockup & Quote to Customer"
+                            : "Send Mockup & Quote to Customer"}
                       </button>
                     )}
 
@@ -1820,7 +1823,8 @@ export default function AdminInbox() {
                       </div>
                     </div>
 
-                    {workflowIndex === 1 && (
+                    {(workflowIndex === 1 ||
+                      workflowIndex === 2) && (
                       <button
                         type="button"
                         onClick={sendMockupAndQuote}
@@ -1836,7 +1840,9 @@ export default function AdminInbox() {
                       >
                         {uploadingMockup
                           ? "Sending Mockup..."
-                          : "Send Mockup & Quote to Customer"}
+                          : workflowIndex === 2
+                            ? "Resend Mockup & Quote to Customer"
+                            : "Send Mockup & Quote to Customer"}
                       </button>
                     )}
 
