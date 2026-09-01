@@ -20,7 +20,7 @@ const services = [
     ]
   },
   
- {
+  {
   title: "DTF Transfers",
   icon: "🎽",
   startingAt: "$5",
