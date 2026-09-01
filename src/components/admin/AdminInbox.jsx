@@ -45,6 +45,7 @@ export default function AdminInbox() {
   const [selectedThread, setSelectedThread] = useState(null)
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
+  const [deletingMessageId, setDeletingMessageId] = useState(null)
   const [isMobile, setIsMobile] = useState(
   () => window.innerWidth <= 900
 )
@@ -177,6 +178,54 @@ useEffect(() => {
     }
   }
 
+  const deleteMessage = async (message) => {
+    if (
+      !selectedThread ||
+      !message?._id
+    ) {
+      return
+    }
+
+    const confirmed = window.confirm(
+      "Delete this message? This cannot be undone."
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      setDeletingMessageId(
+        message._id
+      )
+
+      await api.delete(
+        `/admin-email-threads/${selectedThread._id}/messages/${message._id}`,
+        authHeaders
+      )
+
+      setMessages((current) =>
+        current.filter(
+          (item) =>
+            item._id !== message._id
+        )
+      )
+
+      await loadThreads()
+    } catch (error) {
+      console.error(
+        "DELETE MESSAGE ERROR:",
+        error
+      )
+
+      alert(
+        "The message could not be deleted."
+      )
+    } finally {
+      setDeletingMessageId(null)
+    }
+  }
+
   const archiveThread = async () => {
     if (!selectedThread) {
       return
@@ -260,6 +309,11 @@ useEffect(() => {
       refreshThreads
     )
 
+    socket.on(
+      "adminEmailMessageDeleted",
+      refreshThreads
+    )
+
     return () => {
       socket.off(
         "customerEmailReply",
@@ -278,6 +332,11 @@ useEffect(() => {
 
       socket.off(
         "adminNotification",
+        refreshThreads
+      )
+
+      socket.off(
+        "adminEmailMessageDeleted",
         refreshThreads
       )
 
@@ -652,6 +711,8 @@ useEffect(() => {
               <MessageBubble
                 key={msg._id}
                 message={{
+                  _id: msg._id,
+
                   sender:
                     msg.direction === "outbound"
                       ? "admin"
@@ -666,6 +727,11 @@ useEffect(() => {
                       ? msg.attachments
                       : []
                 }}
+                onDelete={deleteMessage}
+                deleting={
+                  deletingMessageId ===
+                  msg._id
+                }
               />
             ))
           )}

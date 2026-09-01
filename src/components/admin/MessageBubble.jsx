@@ -44,16 +44,22 @@ export default function MessageBubble({
     ).toFixed(1)} MB`
   }
 
-  const isImageAttachment = (attachment = {}) => {
+  const isImageAttachment = (
+    attachment = {}
+  ) => {
     const mimeType =
       String(
         attachment.mimeType || ""
       ).toLowerCase()
 
-    return mimeType.startsWith("image/")
+    return mimeType.startsWith(
+      "image/"
+    )
   }
 
-  const getFileIcon = (attachment = {}) => {
+  const getFileIcon = (
+    attachment = {}
+  ) => {
     const mimeType =
       String(
         attachment.mimeType || ""
@@ -98,7 +104,8 @@ export default function MessageBubble({
     }
 
     try {
-      const response = await fetch(url)
+      const response =
+        await fetch(url)
 
       if (!response.ok) {
         throw new Error(
@@ -106,26 +113,35 @@ export default function MessageBubble({
         )
       }
 
-      const blob = await response.blob()
+      const blob =
+        await response.blob()
 
       const blobUrl =
-        window.URL.createObjectURL(blob)
+        window.URL.createObjectURL(
+          blob
+        )
 
       const link =
         document.createElement("a")
 
-      link.href = blobUrl
+      link.href =
+        blobUrl
 
       link.download =
-        fileName || "attachment"
+        fileName ||
+        "attachment"
 
-      document.body.appendChild(link)
+      document.body.appendChild(
+        link
+      )
 
       link.click()
 
       link.remove()
 
-      window.URL.revokeObjectURL(blobUrl)
+      window.URL.revokeObjectURL(
+        blobUrl
+      )
     } catch (error) {
       console.error(
         "ATTACHMENT DOWNLOAD ERROR:",
@@ -139,16 +155,11 @@ export default function MessageBubble({
   }
 
   const handleDelete = () => {
-    if (!onDelete) {
-      return
-    }
-
-    const confirmed =
-      window.confirm(
-        "Delete this message? This cannot be undone."
-      )
-
-    if (!confirmed) {
+    if (
+      !onDelete ||
+      deleting ||
+      !message?._id
+    ) {
       return
     }
 
@@ -178,63 +189,83 @@ export default function MessageBubble({
             : "w-full min-w-0 rounded-2xl rounded-tl-sm border border-slate-800 bg-slate-950 px-4 py-3 text-white sm:w-auto sm:max-w-[85%]"
         }
         style={{
-          boxSizing: "border-box",
-          overflow: "hidden"
+          boxSizing:
+            "border-box",
+
+          overflow:
+            "hidden"
         }}
       >
-        {/* HEADER */}
+        {/* ================= HEADER ================= */}
+
         <div className="mb-2 flex items-start justify-between gap-4">
-          <p className="text-xs font-black uppercase tracking-wide opacity-70">
+          <p className="m-0 text-xs font-black uppercase tracking-wide opacity-70">
             {isAdminMessage
               ? "Admin"
               : "Customer"}
           </p>
 
-          {onDelete && (
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={deleting}
-              title="Delete message"
-              className={
-                isAdminMessage
-                  ? "shrink-0 rounded-lg border border-red-800/30 bg-red-950/20 px-2 py-1 text-xs font-black text-red-950 transition hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-                  : "shrink-0 rounded-lg border border-red-900 bg-red-950/40 px-2 py-1 text-xs font-black text-red-300 transition hover:border-red-500 hover:bg-red-900 hover:text-red-100 disabled:cursor-not-allowed disabled:opacity-50"
-              }
-            >
-              {deleting
-                ? "Deleting..."
-                : "🗑 Delete"}
-            </button>
-          )}
+          {onDelete &&
+            message?._id && (
+              <button
+                type="button"
+                onClick={
+                  handleDelete
+                }
+                disabled={
+                  deleting
+                }
+                title="Delete message"
+                aria-label="Delete message"
+                className={
+                  isAdminMessage
+                    ? "shrink-0 rounded-lg border border-red-900/20 bg-red-950/20 px-2 py-1 text-xs font-black text-red-950 transition hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    : "shrink-0 rounded-lg border border-red-900 bg-red-950/40 px-2 py-1 text-xs font-black text-red-300 transition hover:border-red-500 hover:bg-red-900 hover:text-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                }
+              >
+                {deleting
+                  ? "Deleting..."
+                  : "🗑 Delete"}
+              </button>
+            )}
         </div>
 
-        {/* MESSAGE TEXT */}
+        {/* ================= MESSAGE TEXT ================= */}
+
         <div
           className="w-full min-w-0 whitespace-pre-wrap break-words text-sm leading-relaxed"
           style={{
-            overflowWrap: "anywhere",
-            wordBreak: "break-word"
+            overflowWrap:
+              "anywhere",
+
+            wordBreak:
+              "break-word"
           }}
         >
           {messageText}
         </div>
 
-        {/* ATTACHMENTS */}
+        {/* ================= ATTACHMENTS ================= */}
+
         {attachments.length > 0 && (
           <div className="mt-4 w-full min-w-0 space-y-3">
             <p className="text-xs font-bold uppercase tracking-wide opacity-70">
-              📎 Attachments ({attachments.length})
+              📎 Attachments (
+              {attachments.length})
             </p>
 
             {attachments.map(
-              (attachment, index) => {
+              (
+                attachment,
+                index
+              ) => {
                 const fileName =
                   attachment.fileName ||
                   `attachment-${index + 1}`
 
                 const url =
-                  attachment.url || ""
+                  attachment.url ||
+                  ""
 
                 const fileSize =
                   formatFileSize(
@@ -255,39 +286,53 @@ export default function MessageBubble({
                         : "w-full min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-3"
                     }
                   >
-                    {isImage && url && (
-                      <a
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block w-full"
-                      >
-                        <img
-                          src={url}
-                          alt={fileName}
-                          className="mb-3 h-auto max-h-64 w-auto max-w-full rounded-lg object-contain"
-                        />
-                      </a>
-                    )}
+                    {isImage &&
+                      url && (
+                        <a
+                          href={
+                            url
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block w-full"
+                        >
+                          <img
+                            src={
+                              url
+                            }
+                            alt={
+                              fileName
+                            }
+                            className="mb-3 h-auto max-h-64 w-auto max-w-full rounded-lg object-contain"
+                          />
+                        </a>
+                      )}
 
                     <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0 flex-1">
                         <p
                           className="break-words text-sm font-bold"
                           style={{
-                            overflowWrap: "anywhere",
-                            wordBreak: "break-word"
+                            overflowWrap:
+                              "anywhere",
+
+                            wordBreak:
+                              "break-word"
                           }}
                         >
                           {getFileIcon(
                             attachment
                           )}{" "}
-                          {fileName}
+                          {
+                            fileName
+                          }
                         </p>
 
                         {fileSize && (
                           <p className="mt-1 text-[11px] opacity-60">
-                            {fileSize}
+                            {
+                              fileSize
+                            }
                           </p>
                         )}
                       </div>
@@ -295,7 +340,9 @@ export default function MessageBubble({
                       {url && (
                         <div className="flex flex-wrap gap-2">
                           <a
-                            href={url}
+                            href={
+                              url
+                            }
                             target="_blank"
                             rel="noopener noreferrer"
                             className={
@@ -333,7 +380,8 @@ export default function MessageBubble({
           </div>
         )}
 
-        {/* DATE */}
+        {/* ================= DATE ================= */}
+
         {createdAt && (
           <p className="mt-3 text-[11px] opacity-60">
             {new Date(
