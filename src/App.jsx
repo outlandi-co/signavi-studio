@@ -71,7 +71,7 @@ import Orders from "./pages/admin/Orders"
 import AdminOrderDetail from "./pages/admin/AdminOrderDetail"
 import AdminCustomers from "./pages/admin/AdminCustomers"
 import AdminCustomerDetail from "./pages/admin/AdminCustomerDetail"
-import AdminEmails from "./pages/admin/AdminEmails"
+
 import AdminInbox from "./components/admin/AdminInbox"
 import AdminSupport from "./pages/admin/AdminSupport"
 import AdminRevenue from "./pages/admin/AdminRevenue"
@@ -321,7 +321,7 @@ function AppContent() {
             <Route path="customers" element={<AdminCustomers />} />
             <Route path="customers/:id" element={<AdminCustomerDetail />} />
 
-            <Route path="emails" element={<AdminEmails />} />
+            <Route path="emails" element={<AdminInbox />} />
             <Route path="inbox" element={<AdminInbox />} />
             <Route path="support" element={<AdminSupport />} />
             <Route path="revenue" element={<AdminRevenue />} />
