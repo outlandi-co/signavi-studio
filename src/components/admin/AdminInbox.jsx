@@ -46,25 +46,12 @@ export default function AdminInbox() {
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [deletingMessageId, setDeletingMessageId] = useState(null)
+
   const [isMobile, setIsMobile] = useState(
-  () => window.innerWidth <= 900
-)
+    () => window.innerWidth <= 900
+  )
 
   const token = localStorage.getItem("adminToken")
-  
-useEffect(() => {
-  const handleResize = () => {
-    setIsMobile(window.innerWidth <= 900)
-  }
-
-  handleResize()
-
-  window.addEventListener("resize", handleResize)
-
-  return () => {
-    window.removeEventListener("resize", handleResize)
-  }
-}, [])
 
   const authHeaders = useMemo(
     () => ({
@@ -82,17 +69,94 @@ useEffect(() => {
   }, [activeFolder])
 
   const unreadCount = useMemo(() => {
+    if (activeFolder === "quotes") {
+      return 0
+    }
+
     return threads.filter(
       (thread) =>
         thread.unread &&
         !thread.archived
     ).length
-  }, [threads])
+  }, [threads, activeFolder])
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 900)
+    }
+
+    handleResize()
+
+    window.addEventListener("resize", handleResize)
+
+    return () => {
+      window.removeEventListener("resize", handleResize)
+    }
+  }, [])
+
+  /* ======================================================
+     LOAD COMMUNICATIONS
+     ====================================================== */
 
   const loadThreads = useCallback(async () => {
     try {
       setLoading(true)
 
+      /*
+        QUOTES ARE REAL QUOTE DATABASE RECORDS,
+        NOT ADMIN EMAIL THREADS.
+      */
+      if (activeFolder === "quotes") {
+        const res = await api.get(
+          "/quotes",
+          authHeaders
+        )
+
+        const quoteData = Array.isArray(res.data?.data)
+          ? res.data.data
+          : []
+
+        const normalizedQuotes = quoteData.map((quote) => ({
+          ...quote,
+
+          isQuoteRecord: true,
+
+          channel: "quotes",
+
+          customerEmail:
+            quote.email ||
+            quote.customerEmail ||
+            "",
+
+          customerName:
+            quote.customerName ||
+            quote.name ||
+            quote.email ||
+            "Quote Customer",
+
+          subject:
+            quote.serviceLabel ||
+            quote.serviceType ||
+            quote.printType ||
+            "Quote Request",
+
+          lastMessage:
+            quote.notes ||
+            "Quote request submitted",
+
+          unread: false,
+          archived: false
+        }))
+
+        setThreads(normalizedQuotes)
+
+        return
+      }
+
+      /*
+        INFORMATION / SUPPORT / ARCHIVE
+        CONTINUE USING EMAIL THREADS.
+      */
       let endpoint = "/admin-email-threads"
 
       if (activeFolder === "archive") {
@@ -115,7 +179,7 @@ useEffect(() => {
       )
     } catch (error) {
       console.error(
-        "LOAD THREADS ERROR:",
+        "LOAD COMMUNICATIONS ERROR:",
         error
       )
 
@@ -125,7 +189,24 @@ useEffect(() => {
     }
   }, [activeFolder, authHeaders])
 
+  /* ======================================================
+     OPEN THREAD / QUOTE
+     ====================================================== */
+
   const loadMessages = async (thread) => {
+    /*
+      A QUOTE IS NOT AN EMAIL THREAD.
+
+      Selecting a quote displays the quote information
+      directly instead of requesting:
+      /admin-email-threads/:id/messages
+    */
+    if (thread?.isQuoteRecord) {
+      setSelectedThread(thread)
+      setMessages([])
+      return
+    }
+
     try {
       setSelectedThread(thread)
 
@@ -149,8 +230,16 @@ useEffect(() => {
     }
   }
 
+  /* ======================================================
+     SEND EMAIL REPLY
+     ====================================================== */
+
   const sendReply = async (message) => {
-    if (!message.trim() || !selectedThread) {
+    if (
+      !message.trim() ||
+      !selectedThread ||
+      selectedThread?.isQuoteRecord
+    ) {
       return
     }
 
@@ -178,9 +267,14 @@ useEffect(() => {
     }
   }
 
+  /* ======================================================
+     DELETE EMAIL MESSAGE
+     ====================================================== */
+
   const deleteMessage = async (message) => {
     if (
       !selectedThread ||
+      selectedThread?.isQuoteRecord ||
       !message?._id
     ) {
       return
@@ -226,8 +320,15 @@ useEffect(() => {
     }
   }
 
+  /* ======================================================
+     ARCHIVE EMAIL THREAD
+     ====================================================== */
+
   const archiveThread = async () => {
-    if (!selectedThread) {
+    if (
+      !selectedThread ||
+      selectedThread?.isQuoteRecord
+    ) {
       return
     }
 
@@ -250,8 +351,15 @@ useEffect(() => {
     }
   }
 
+  /* ======================================================
+     RESTORE EMAIL THREAD
+     ====================================================== */
+
   const restoreThread = async () => {
-    if (!selectedThread) {
+    if (
+      !selectedThread ||
+      selectedThread?.isQuoteRecord
+    ) {
       return
     }
 
@@ -274,6 +382,10 @@ useEffect(() => {
     }
   }
 
+  /* ======================================================
+     INITIAL LOAD / FOLDER CHANGE
+     ====================================================== */
+
   useEffect(() => {
     const timer = setTimeout(() => {
       loadThreads()
@@ -281,6 +393,10 @@ useEffect(() => {
 
     return () => clearTimeout(timer)
   }, [loadThreads])
+
+  /* ======================================================
+     SOCKET
+     ====================================================== */
 
   useEffect(() => {
     const socket = io(SOCKET_URL)
@@ -344,6 +460,10 @@ useEffect(() => {
     }
   }, [loadThreads])
 
+  /* ======================================================
+     FOLDER / BACK
+     ====================================================== */
+
   const handleFolderClick = (folderId) => {
     setActiveFolder(folderId)
     setSelectedThread(null)
@@ -351,432 +471,883 @@ useEffect(() => {
     setLoading(true)
   }
 
+  const handleBackToInbox = () => {
+    setSelectedThread(null)
+    setMessages([])
+  }
+
+  /* ======================================================
+     LABEL HELPERS
+     ====================================================== */
+
   const getChannelLabel = (thread) => {
-  if (thread?.channel === "quotes") {
-    return "Quote"
-  }
+    if (thread?.channel === "quotes") {
+      return "Quote"
+    }
 
-  if (thread?.channel === "support") {
-    return "Support"
-  }
+    if (thread?.channel === "support") {
+      return "Support"
+    }
 
-  return "Information"
-}
+    return "Information"
+  }
 
   const getSenderEmail = (thread) => {
-  if (thread?.channel === "quotes") {
-    return "quote@signavistudio.store"
+    if (thread?.channel === "quotes") {
+      return "quote@signavistudio.store"
+    }
+
+    if (thread?.channel === "support") {
+      return "support@signavistudio.store"
+    }
+
+    return "info@signavistudio.store"
   }
 
-  if (thread?.channel === "support") {
-    return "support@signavistudio.store"
+  const formatMoney = (value) => {
+    const number = Number(value || 0)
+
+    return number.toLocaleString(
+      "en-US",
+      {
+        style: "currency",
+        currency: "USD"
+      }
+    )
   }
 
-  return "info@signavistudio.store"
-}
+  const formatDate = (value) => {
+    if (!value) {
+      return "Not available"
+    }
+
+    const date = new Date(value)
+
+    if (Number.isNaN(date.getTime())) {
+      return "Not available"
+    }
+
+    return date.toLocaleString()
+  }
+
+  /* ======================================================
+     LOADING
+     ====================================================== */
 
   if (loading) {
     return (
-      <main style={page}>
+      <main
+        style={{
+          ...page,
+          padding: isMobile ? 0 : 30
+        }}
+      >
         Loading communications...
       </main>
     )
   }
 
   return (
-    <main style={page}>
-      <div style={pageHeader}>
-        <div>
-          <p style={eyebrow}>
-            SignaVi Studio
-          </p>
+    <main
+      style={{
+        ...page,
+        padding: isMobile ? 0 : 30
+      }}
+    >
+      {/* ================= HEADER ================= */}
 
-          <h1 style={heading}>
-            💬 Communications
-          </h1>
-
-          <p style={subheading}>
-  Customer information, quote, and support
-  conversations in one place.
-</p>
-        </div>
-      </div>
-
-      <div style={folderBar}>
-        {FOLDERS.map((folder) => {
-          const isActive =
-            activeFolder === folder.id
-
-          return (
-            <button
-              key={folder.id}
-              type="button"
-              onClick={() =>
-                handleFolderClick(folder.id)
-              }
-              style={{
-                ...folderButton,
-                background: isActive
-                  ? "#22d3ee"
-                  : "#111827",
-                color: isActive
-                  ? "#020617"
-                  : "#e5e7eb"
-              }}
-            >
-              {folder.label}
-
-              {folder.id !== "archive" &&
-                isActive &&
-                unreadCount > 0 && (
-                  <span style={folderBadge}>
-                    {unreadCount}
-                  </span>
-                )}
-            </button>
-          )
-        })}
-      </div>
-
-      <div
-  style={{
-    ...layout,
-    gridTemplateColumns: isMobile
-      ? "minmax(0, 1fr)"
-      : "340px minmax(0, 1fr)",
-    gap: isMobile ? 14 : 24,
-    width: "100%",
-    minWidth: 0
-  }}
->
-        {(!isMobile || !selectedThread) && (
-  <aside
-    style={{
-      ...threadList,
-      width: "100%",
-      height: isMobile ? "auto" : "78vh"
-    }}
-  >
-          <div style={threadListHeader}>
+      {(!isMobile || !selectedThread) && (
+        <>
+          <div
+            style={{
+              ...pageHeader,
+              marginBottom: isMobile ? 16 : 24,
+              padding: isMobile ? "4px 0 0" : 0
+            }}
+          >
             <div>
-              <p style={threadListLabel}>
-                {currentFolder?.label ||
-                  "Communications"}
+              <p style={eyebrow}>
+                SignaVi Studio
               </p>
 
-              <p style={threadCount}>
-                {threads.length} conversation
-                {threads.length === 1
-                  ? ""
-                  : "s"}
+              <h1
+                style={{
+                  ...heading,
+                  fontSize: isMobile ? 30 : 34
+                }}
+              >
+                💬 Communications
+              </h1>
+
+              <p
+                style={{
+                  ...subheading,
+                  fontSize: isMobile ? 14 : undefined
+                }}
+              >
+                Customer information, quote, and support
+                conversations in one place.
               </p>
             </div>
           </div>
 
-          {threads.length === 0 ? (
-            <div style={noThreads}>
-              <p style={muted}>
-                {activeFolder === "archive"
-  ? "No archived conversations yet."
-  : activeFolder === "quotes"
-    ? "No quote emails yet."
-    : activeFolder === "support"
-      ? "No support emails yet."
-      : "No information emails yet."}
-              </p>
-            </div>
-          ) : (
-            threads.map((thread) => {
-              const active =
-                selectedThread?._id ===
-                thread._id
+          {/* ================= FOLDERS ================= */}
+
+          <div
+            style={{
+              ...folderBar,
+              gap: isMobile ? 8 : 12,
+              marginBottom: isMobile ? 14 : 20
+            }}
+          >
+            {FOLDERS.map((folder) => {
+              const isActive =
+                activeFolder === folder.id
 
               return (
                 <button
-                  key={thread._id}
+                  key={folder.id}
                   type="button"
                   onClick={() =>
-                    loadMessages(thread)
+                    handleFolderClick(folder.id)
                   }
                   style={{
-                    ...threadButton,
-                    border: active
-                      ? "1px solid #22d3ee"
-                      : "1px solid #1e293b",
-                    background: active
-                      ? "#082f49"
-                      : "#020617"
+                    ...folderButton,
+
+                    background: isActive
+                      ? "#22d3ee"
+                      : "#111827",
+
+                    color: isActive
+                      ? "#020617"
+                      : "#e5e7eb",
+
+                    flex: isMobile
+                      ? "1 1 calc(50% - 8px)"
+                      : "0 0 auto",
+
+                    justifyContent: "center"
                   }}
                 >
-                  <div style={threadTopRow}>
-                    <strong>
-                      {thread.customerName ||
-                        thread.customerEmail}
-                    </strong>
+                  {folder.label}
 
-                    {thread.unread &&
-                      activeFolder !==
-                        "archive" && (
-                        <span
-                          style={unreadDot}
-                        />
-                      )}
-                  </div>
-
-                  <span style={subject}>
-                    {thread.subject ||
-                      "(No Subject)"}
-                  </span>
-
-                  <span style={preview}>
-                    {thread.lastMessage ||
-                      "No message preview"}
-                  </span>
-
-                  <div style={threadMeta}>
-                    <span
-                      style={
-  thread.channel === "quotes"
-    ? quoteBadge
-    : thread.channel === "support"
-      ? supportBadge
-      : infoBadge
-}
-                    >
-                      {getChannelLabel(thread)}
-                    </span>
-
-                    {thread.unread &&
-                      activeFolder !==
-                        "archive" && (
-                        <span style={unread}>
-                          Unread
-                        </span>
-                      )}
-                  </div>
+                  {folder.id !== "archive" &&
+                    isActive &&
+                    unreadCount > 0 && (
+                      <span style={folderBadge}>
+                        {unreadCount}
+                      </span>
+                    )}
                 </button>
               )
-            })
-          )}
-        </aside>
-        )}
+            })}
+          </div>
+        </>
+      )}
 
-        {(!isMobile || selectedThread) && (
-  <section
-    style={{
-      ...conversation,
-      width: "100%",
-      minWidth: 0,
-      minHeight: isMobile ? "auto" : "78vh",
-      padding: isMobile ? 8 : 22
-    }}
-  >
-    {isMobile && selectedThread && (
-      <button
-        type="button"
-        onClick={() => {
-          setSelectedThread(null)
-          setMessages([])
-        }}
+      {/* ================= MAIN LAYOUT ================= */}
+
+      <div
         style={{
-          width: "fit-content",
-          marginBottom: 12,
-          background: "#1e293b",
-          color: "#e5e7eb",
-          border: "1px solid #334155",
-          borderRadius: 12,
-          padding: "10px 14px",
-          fontWeight: 800,
-          cursor: "pointer"
+          ...layout,
+
+          gridTemplateColumns: isMobile
+            ? "minmax(0, 1fr)"
+            : "340px minmax(0, 1fr)",
+
+          gap: isMobile ? 0 : 24,
+
+          width: "100%",
+          minWidth: 0
         }}
       >
-        ← Back to Inbox
-      </button>
-    )}
+        {/* ================= THREAD LIST ================= */}
 
-    {!selectedThread ? (
-      <div style={empty}>
-        <h2>
-          Select a conversation
-        </h2>
-
-        <p>
-          Customer messages will appear here.
-        </p>
-      </div>
-    ) : (
-      <>
-        <div
-          style={{
-            ...conversationHeader,
-            flexDirection: isMobile
-              ? "column"
-              : "row"
-          }}
-        >
-          <div
+        {(!isMobile || !selectedThread) && (
+          <aside
             style={{
-              width: "100%",
-              minWidth: 0
-            }}
-          >
-            <div
-              style={
-                selectedThread.channel === "quotes"
-                  ? quoteBadgeLarge
-                  : selectedThread.channel === "support"
-                    ? supportBadgeLarge
-                    : infoBadgeLarge
-              }
-            >
-              {getChannelLabel(selectedThread)}
-            </div>
+              ...threadList,
 
-            <h2
-              style={{
-                ...conversationTitle,
-                overflowWrap: "anywhere",
-                wordBreak: "break-word"
-              }}
-            >
-              {selectedThread.subject || "(No Subject)"}
-            </h2>
-
-            <p
-              style={{
-                ...muted,
-                overflowWrap: "anywhere",
-                wordBreak: "break-word"
-              }}
-            >
-              Customer: {selectedThread.customerEmail}
-            </p>
-
-            {activeFolder !== "archive" && (
-              <p
-                style={{
-                  ...fromLine,
-                  overflowWrap: "anywhere",
-                  wordBreak: "break-word"
-                }}
-              >
-                Replies send from:{" "}
-                <strong>
-                  {getSenderEmail(selectedThread)}
-                </strong>
-              </p>
-            )}
-          </div>
-
-          {activeFolder !== "archive" ? (
-            <button
-              type="button"
-              onClick={archiveThread}
-              style={{
-                ...archiveButton,
-                width: isMobile ? "100%" : "auto"
-              }}
-            >
-              Archive
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={restoreThread}
-              style={{
-                ...restoreButton,
-                width: isMobile ? "100%" : "auto"
-              }}
-            >
-              Restore
-            </button>
-          )}
-        </div>
-
-        <div
-          style={{
-            ...messageList,
-            width: "100%",
-            minWidth: 0,
-            overflowX: "hidden",
-            paddingRight: isMobile ? 0 : 8
-          }}
-        >
-          {messages.length === 0 ? (
-            <p style={muted}>
-              No messages in this conversation.
-            </p>
-          ) : (
-            messages.map((msg) => (
-              <MessageBubble
-                key={msg._id}
-                message={{
-                  _id: msg._id,
-
-                  sender:
-                    msg.direction === "outbound"
-                      ? "admin"
-                      : "customer",
-
-                  message: msg.message,
-
-                  createdAt: msg.createdAt,
-
-                  attachments:
-                    Array.isArray(msg.attachments)
-                      ? msg.attachments
-                      : []
-                }}
-                onDelete={deleteMessage}
-                deleting={
-                  deletingMessageId ===
-                  msg._id
-                }
-              />
-            ))
-          )}
-        </div>
-
-        {activeFolder !== "archive" && (
-          <div
-            style={{
               width: "100%",
               minWidth: 0,
-              marginTop: 18
+
+              height: isMobile
+                ? "auto"
+                : "78vh",
+
+              maxHeight: isMobile
+                ? "none"
+                : "78vh",
+
+              padding: isMobile ? 10 : 16,
+
+              borderRadius: isMobile
+                ? 14
+                : 18
             }}
           >
-            <ReplyBox
-              loading={sending}
-              onSend={sendReply}
-              placeholder={
-                selectedThread.channel === "quotes"
-                  ? "Reply to this quote inquiry..."
-                  : "Reply to this customer..."
-              }
-              buttonText={
-                selectedThread.channel === "quotes"
-                  ? "Send Quote Reply"
-                  : "Send Reply"
-              }
-            />
-          </div>
+            <div style={threadListHeader}>
+              <div>
+                <p style={threadListLabel}>
+                  {currentFolder?.label ||
+                    "Communications"}
+                </p>
+
+                <p style={threadCount}>
+                  {threads.length}{" "}
+                  {activeFolder === "quotes"
+                    ? "quote request"
+                    : "conversation"}
+
+                  {threads.length === 1
+                    ? ""
+                    : "s"}
+                </p>
+              </div>
+            </div>
+
+            {threads.length === 0 ? (
+              <div style={noThreads}>
+                <p style={muted}>
+                  {activeFolder === "archive"
+                    ? "No archived conversations yet."
+                    : activeFolder === "quotes"
+                      ? "No quote requests yet."
+                      : activeFolder === "support"
+                        ? "No support emails yet."
+                        : "No information emails yet."}
+                </p>
+              </div>
+            ) : (
+              threads.map((thread) => {
+                const active =
+                  selectedThread?._id ===
+                  thread._id
+
+                return (
+                  <button
+                    key={thread._id}
+                    type="button"
+                    onClick={() =>
+                      loadMessages(thread)
+                    }
+                    style={{
+                      ...threadButton,
+
+                      border: active
+                        ? "1px solid #22d3ee"
+                        : "1px solid #1e293b",
+
+                      background: active
+                        ? "#082f49"
+                        : "#020617",
+
+                      padding: isMobile
+                        ? 12
+                        : 14
+                    }}
+                  >
+                    <div style={threadTopRow}>
+                      <strong
+                        style={{
+                          overflowWrap: "anywhere",
+                          wordBreak: "break-word"
+                        }}
+                      >
+                        {thread.customerName ||
+                          thread.customerEmail ||
+                          "Customer"}
+                      </strong>
+
+                      {thread.unread &&
+                        activeFolder !== "archive" && (
+                          <span style={unreadDot} />
+                        )}
+                    </div>
+
+                    <span style={subject}>
+                      {thread.subject ||
+                        "(No Subject)"}
+                    </span>
+
+                    <span style={preview}>
+                      {thread.lastMessage ||
+                        "No message preview"}
+                    </span>
+
+                    <div style={threadMeta}>
+                      <span
+                        style={
+                          thread.channel === "quotes"
+                            ? quoteBadge
+                            : thread.channel === "support"
+                              ? supportBadge
+                              : infoBadge
+                        }
+                      >
+                        {getChannelLabel(thread)}
+                      </span>
+
+                      {thread.isQuoteRecord && (
+                        <span style={quoteStatusBadge}>
+                          {thread.approvalStatus ||
+                            thread.status ||
+                            "pending"}
+                        </span>
+                      )}
+
+                      {thread.unread &&
+                        activeFolder !== "archive" && (
+                          <span style={unread}>
+                            Unread
+                          </span>
+                        )}
+                    </div>
+                  </button>
+                )
+              })
+            )}
+          </aside>
         )}
-      </>
-    )}
-    </section>
-)}
+
+        {/* ================= DETAILS / CONVERSATION ================= */}
+
+        {(!isMobile || selectedThread) && (
+          <section
+            style={{
+              ...conversation,
+
+              width: "100%",
+              minWidth: 0,
+
+              minHeight: isMobile
+                ? "auto"
+                : "78vh",
+
+              padding: isMobile
+                ? 8
+                : 22,
+
+              borderRadius: isMobile
+                ? 12
+                : 18,
+
+              border: isMobile
+                ? "1px solid #172033"
+                : conversation.border
+            }}
+          >
+            {isMobile && selectedThread && (
+              <button
+                type="button"
+                onClick={handleBackToInbox}
+                style={{
+                  ...backButton,
+                  marginBottom: 12
+                }}
+              >
+                ← Back to Inbox
+              </button>
+            )}
+
+            {!selectedThread ? (
+              <div style={empty}>
+                <h2>
+                  Select a conversation
+                </h2>
+
+                <p>
+                  {activeFolder === "quotes"
+                    ? "Customer quote requests will appear here."
+                    : "Customer messages will appear here."}
+                </p>
+              </div>
+            ) : selectedThread.isQuoteRecord ? (
+              /* ==================================================
+                 REAL QUOTE DETAILS
+                 ================================================== */
+
+              <>
+                <div
+                  style={{
+                    ...conversationHeader,
+
+                    flexDirection: isMobile
+                      ? "column"
+                      : "row",
+
+                    alignItems: isMobile
+                      ? "stretch"
+                      : "flex-start",
+
+                    gap: isMobile
+                      ? 10
+                      : 16
+                  }}
+                >
+                  <div
+                    style={{
+                      minWidth: 0,
+                      width: "100%"
+                    }}
+                  >
+                    <div style={quoteBadgeLarge}>
+                      Quote Request
+                    </div>
+
+                    <h2
+                      style={{
+                        ...conversationTitle,
+
+                        fontSize: isMobile
+                          ? 20
+                          : undefined,
+
+                        lineHeight: 1.25,
+
+                        overflowWrap:
+                          "anywhere"
+                      }}
+                    >
+                      {selectedThread.serviceLabel ||
+                        selectedThread.serviceType ||
+                        selectedThread.printType ||
+                        "Custom Quote"}
+                    </h2>
+
+                    <p style={customerLine}>
+                      <strong>
+                        {selectedThread.customerName ||
+                          "Customer"}
+                      </strong>
+                    </p>
+
+                    <p style={muted}>
+                      {selectedThread.email ||
+                        selectedThread.customerEmail ||
+                        "No email provided"}
+                    </p>
+
+                    {selectedThread.phone && (
+                      <p style={muted}>
+                        {selectedThread.phone}
+                      </p>
+                    )}
+                  </div>
+
+                  <span style={quotePendingLarge}>
+                    {selectedThread.approvalStatus ||
+                      "pending"}
+                  </span>
+                </div>
+
+                {/* ================= QUOTE SUMMARY ================= */}
+
+                <div style={quoteGrid}>
+                  <div style={quoteStat}>
+                    <span style={quoteStatLabel}>
+                      Quantity
+                    </span>
+
+                    <strong style={quoteStatValue}>
+                      {selectedThread.quantity || 1}
+                    </strong>
+                  </div>
+
+                  <div style={quoteStat}>
+                    <span style={quoteStatLabel}>
+                      Estimate
+                    </span>
+
+                    <strong style={quoteStatValue}>
+                      {formatMoney(
+                        selectedThread.finalPrice ??
+                          selectedThread.price
+                      )}
+                    </strong>
+                  </div>
+
+                  <div style={quoteStat}>
+                    <span style={quoteStatLabel}>
+                      Turnaround
+                    </span>
+
+                    <strong style={quoteStatValue}>
+                      {selectedThread.turnaround ||
+                        "Standard"}
+                    </strong>
+                  </div>
+
+                  <div style={quoteStat}>
+                    <span style={quoteStatLabel}>
+                      Submitted
+                    </span>
+
+                    <strong
+                      style={{
+                        ...quoteStatValue,
+                        fontSize: 13
+                      }}
+                    >
+                      {formatDate(
+                        selectedThread.createdAt
+                      )}
+                    </strong>
+                  </div>
+                </div>
+
+                {/* ================= SERVICE ================= */}
+
+                {(selectedThread.serviceLabel ||
+                  selectedThread.serviceType ||
+                  selectedThread.printType) && (
+                  <div style={quoteSection}>
+                    <p style={quoteSectionTitle}>
+                      Service
+                    </p>
+
+                    <p style={quoteText}>
+                      {selectedThread.serviceLabel ||
+                        selectedThread.serviceType ||
+                        selectedThread.printType}
+                    </p>
+                  </div>
+                )}
+
+                {/* ================= NOTES ================= */}
+
+                <div style={quoteSection}>
+                  <p style={quoteSectionTitle}>
+                    Project Description
+                  </p>
+
+                  <p style={quoteText}>
+                    {selectedThread.notes ||
+                      "No project description provided."}
+                  </p>
+                </div>
+
+                {/* ================= ARTWORK ================= */}
+
+                {(selectedThread.artwork ||
+                  selectedThread.artworkUrl) && (
+                  <div style={quoteSection}>
+                    <p style={quoteSectionTitle}>
+                      Artwork / Reference
+                    </p>
+
+                    <a
+                      href={
+                        selectedThread.artwork ||
+                        selectedThread.artworkUrl
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      style={artworkLink}
+                    >
+                      <img
+                        src={
+                          selectedThread.artwork ||
+                          selectedThread.artworkUrl
+                        }
+                        alt="Customer quote artwork"
+                        style={artworkImage}
+                      />
+
+                      <span>
+                        Open full artwork
+                      </span>
+                    </a>
+                  </div>
+                )}
+
+                {/* ================= QUOTE ID ================= */}
+
+                <div style={quoteSection}>
+                  <p style={quoteSectionTitle}>
+                    Quote ID
+                  </p>
+
+                  <code style={quoteId}>
+                    {selectedThread._id}
+                  </code>
+                </div>
+
+                <div style={quoteNotice}>
+                  This is a website quote request stored
+                  in the Quotes database. It is not an
+                  email thread.
+                </div>
+              </>
+            ) : (
+              /* ==================================================
+                 NORMAL EMAIL CONVERSATION
+                 ================================================== */
+
+              <>
+                <div
+                  style={{
+                    ...conversationHeader,
+
+                    flexDirection: isMobile
+                      ? "column"
+                      : "row",
+
+                    alignItems: isMobile
+                      ? "stretch"
+                      : "flex-start",
+
+                    gap: isMobile
+                      ? 10
+                      : 16,
+
+                    paddingBottom: isMobile
+                      ? 12
+                      : 16,
+
+                    marginBottom: isMobile
+                      ? 12
+                      : 16
+                  }}
+                >
+                  <div
+                    style={{
+                      minWidth: 0,
+                      width: "100%"
+                    }}
+                  >
+                    <div
+                      style={
+                        selectedThread.channel ===
+                        "quotes"
+                          ? quoteBadgeLarge
+                          : selectedThread.channel ===
+                              "support"
+                            ? supportBadgeLarge
+                            : infoBadgeLarge
+                      }
+                    >
+                      {getChannelLabel(
+                        selectedThread
+                      )}
+                    </div>
+
+                    <h2
+                      style={{
+                        ...conversationTitle,
+
+                        fontSize: isMobile
+                          ? 20
+                          : undefined,
+
+                        lineHeight: 1.25,
+
+                        overflowWrap:
+                          "anywhere",
+
+                        wordBreak:
+                          "break-word"
+                      }}
+                    >
+                      {selectedThread.subject ||
+                        "(No Subject)"}
+                    </h2>
+
+                    <p
+                      style={{
+                        ...muted,
+
+                        marginTop: 0,
+                        marginBottom: 6,
+
+                        fontSize: isMobile
+                          ? 13
+                          : undefined,
+
+                        overflowWrap:
+                          "anywhere",
+
+                        wordBreak:
+                          "break-word"
+                      }}
+                    >
+                      Customer:{" "}
+                      {
+                        selectedThread.customerEmail
+                      }
+                    </p>
+
+                    {activeFolder !== "archive" && (
+                      <p
+                        style={{
+                          ...fromLine,
+
+                          marginBottom: 0,
+
+                          overflowWrap:
+                            "anywhere",
+
+                          wordBreak:
+                            "break-word"
+                        }}
+                      >
+                        Replies send from:{" "}
+                        <strong>
+                          {getSenderEmail(
+                            selectedThread
+                          )}
+                        </strong>
+                      </p>
+                    )}
+                  </div>
+
+                  {activeFolder !== "archive" ? (
+                    <button
+                      type="button"
+                      onClick={archiveThread}
+                      style={{
+                        ...archiveButton,
+
+                        width: isMobile
+                          ? "100%"
+                          : "auto"
+                      }}
+                    >
+                      Archive
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={restoreThread}
+                      style={{
+                        ...restoreButton,
+
+                        width: isMobile
+                          ? "100%"
+                          : "auto"
+                      }}
+                    >
+                      Restore
+                    </button>
+                  )}
+                </div>
+
+                {/* ================= MESSAGES ================= */}
+
+                <div
+                  style={{
+                    ...messageList,
+
+                    width: "100%",
+                    minWidth: 0,
+
+                    overflowX:
+                      "hidden",
+
+                    paddingRight:
+                      isMobile
+                        ? 0
+                        : 8,
+
+                    gap: isMobile
+                      ? 10
+                      : 14
+                  }}
+                >
+                  {messages.length === 0 ? (
+                    <p style={muted}>
+                      No messages in this
+                      conversation.
+                    </p>
+                  ) : (
+                    messages.map((msg) => (
+                      <div
+                        key={msg._id}
+                        style={{
+                          width: "100%",
+                          minWidth: 0
+                        }}
+                      >
+                        <MessageBubble
+                          message={{
+                            _id: msg._id,
+
+                            sender:
+                              msg.direction ===
+                              "outbound"
+                                ? "admin"
+                                : "customer",
+
+                            message:
+                              msg.message,
+
+                            createdAt:
+                              msg.createdAt,
+
+                            attachments:
+                              Array.isArray(
+                                msg.attachments
+                              )
+                                ? msg.attachments
+                                : []
+                          }}
+                          onDelete={() =>
+                            deleteMessage(msg)
+                          }
+                          deleting={
+                            deletingMessageId ===
+                            msg._id
+                          }
+                        />
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* ================= REPLY ================= */}
+
+                {activeFolder !== "archive" && (
+                  <div
+                    style={{
+                      width: "100%",
+                      minWidth: 0,
+
+                      marginTop: isMobile
+                        ? 12
+                        : 18
+                    }}
+                  >
+                    <ReplyBox
+                      loading={sending}
+                      onSend={sendReply}
+                      placeholder="Reply to this customer..."
+                      buttonText="Send Reply"
+                    />
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        )}
       </div>
     </main>
   )
 }
 
-/* ================= STYLES ================= */
+/* ======================================================
+   STYLES
+   ====================================================== */
 
 const page = {
+  width: "100%",
+  maxWidth: "100%",
+  minWidth: 0,
   padding: 30,
   background: "#020617",
   minHeight: "100vh",
-  color: "#e5e7eb"
+  color: "#e5e7eb",
+  boxSizing: "border-box",
+  overflowX: "hidden"
 }
 
 const pageHeader = {
@@ -795,19 +1366,22 @@ const eyebrow = {
 
 const heading = {
   margin: 0,
-  fontSize: 34
+  fontSize: 34,
+  lineHeight: 1.1
 }
 
 const subheading = {
   marginTop: 8,
-  color: "#94a3b8"
+  color: "#94a3b8",
+  lineHeight: 1.45
 }
 
 const folderBar = {
   display: "flex",
   gap: 12,
   marginBottom: 20,
-  flexWrap: "wrap"
+  flexWrap: "wrap",
+  width: "100%"
 }
 
 const folderButton = {
@@ -818,7 +1392,8 @@ const folderButton = {
   cursor: "pointer",
   display: "flex",
   alignItems: "center",
-  gap: 8
+  gap: 8,
+  minWidth: 0
 }
 
 const folderBadge = {
@@ -834,7 +1409,9 @@ const layout = {
   display: "grid",
   gridTemplateColumns:
     "340px minmax(0, 1fr)",
-  gap: 24
+  gap: 24,
+  width: "100%",
+  minWidth: 0
 }
 
 const threadList = {
@@ -843,7 +1420,10 @@ const threadList = {
   borderRadius: 18,
   padding: 16,
   height: "78vh",
-  overflowY: "auto"
+  overflowY: "auto",
+  overflowX: "hidden",
+  boxSizing: "border-box",
+  minWidth: 0
 }
 
 const threadListHeader = {
@@ -872,6 +1452,7 @@ const noThreads = {
 
 const threadButton = {
   width: "100%",
+  minWidth: 0,
   display: "grid",
   gap: 6,
   padding: 14,
@@ -879,14 +1460,16 @@ const threadButton = {
   borderRadius: 14,
   color: "#e5e7eb",
   textAlign: "left",
-  cursor: "pointer"
+  cursor: "pointer",
+  boxSizing: "border-box"
 }
 
 const threadTopRow = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  gap: 10
+  gap: 10,
+  minWidth: 0
 }
 
 const unreadDot = {
@@ -900,7 +1483,8 @@ const unreadDot = {
 const subject = {
   color: "#22d3ee",
   fontSize: 13,
-  fontWeight: 800
+  fontWeight: 800,
+  overflowWrap: "anywhere"
 }
 
 const preview = {
@@ -908,7 +1492,8 @@ const preview = {
   fontSize: 13,
   overflow: "hidden",
   textOverflow: "ellipsis",
-  whiteSpace: "nowrap"
+  whiteSpace: "nowrap",
+  minWidth: 0
 }
 
 const threadMeta = {
@@ -932,7 +1517,8 @@ const unread = {
 const infoBadge = {
   color: "#67e8f9",
   background: "#164e63",
-  border: "1px solid rgba(34,211,238,.35)",
+  border:
+    "1px solid rgba(34,211,238,.35)",
   padding: "4px 8px",
   borderRadius: 999,
   fontSize: 11,
@@ -943,7 +1529,8 @@ const infoBadge = {
 const quoteBadge = {
   color: "#fde68a",
   background: "#713f12",
-  border: "1px solid rgba(245,158,11,.4)",
+  border:
+    "1px solid rgba(245,158,11,.4)",
   padding: "4px 8px",
   borderRadius: 999,
   fontSize: 11,
@@ -954,12 +1541,26 @@ const quoteBadge = {
 const supportBadge = {
   color: "#bbf7d0",
   background: "#14532d",
-  border: "1px solid rgba(34,197,94,.4)",
+  border:
+    "1px solid rgba(34,197,94,.4)",
   padding: "4px 8px",
   borderRadius: 999,
   fontSize: 11,
   fontWeight: 900,
   width: "fit-content"
+}
+
+const quoteStatusBadge = {
+  color: "#fde68a",
+  background:
+    "rgba(245,158,11,.12)",
+  border:
+    "1px solid rgba(245,158,11,.25)",
+  borderRadius: 999,
+  padding: "4px 8px",
+  fontSize: 11,
+  fontWeight: 900,
+  textTransform: "capitalize"
 }
 
 const infoBadgeLarge = {
@@ -988,7 +1589,9 @@ const conversation = {
   minHeight: "78vh",
   display: "flex",
   flexDirection: "column",
-  minWidth: 0
+  minWidth: 0,
+  boxSizing: "border-box",
+  overflowX: "hidden"
 }
 
 const conversationHeader = {
@@ -1028,7 +1631,9 @@ const messageList = {
   gap: 14,
   flex: 1,
   overflowY: "auto",
-  paddingRight: 8
+  overflowX: "hidden",
+  paddingRight: 8,
+  minWidth: 0
 }
 
 const archiveButton = {
@@ -1051,4 +1656,143 @@ const restoreButton = {
   fontWeight: 900,
   cursor: "pointer",
   height: "fit-content"
+}
+
+const backButton = {
+  width: "fit-content",
+  background: "#1e293b",
+  color: "#e5e7eb",
+  border: "1px solid #334155",
+  borderRadius: 12,
+  padding: "10px 14px",
+  fontWeight: 800,
+  cursor: "pointer"
+}
+
+/* ======================================================
+   QUOTE DETAIL STYLES
+   ====================================================== */
+
+const customerLine = {
+  marginTop: 0,
+  marginBottom: 4,
+  color: "#f8fafc",
+  fontSize: 15
+}
+
+const quotePendingLarge = {
+  background:
+    "rgba(245,158,11,.12)",
+  border:
+    "1px solid rgba(245,158,11,.35)",
+  color: "#fde68a",
+  borderRadius: 999,
+  padding: "8px 12px",
+  fontSize: 12,
+  fontWeight: 900,
+  textTransform: "capitalize",
+  height: "fit-content",
+  width: "fit-content"
+}
+
+const quoteGrid = {
+  display: "grid",
+  gridTemplateColumns:
+    "repeat(auto-fit, minmax(130px, 1fr))",
+  gap: 12,
+  width: "100%",
+  marginBottom: 18
+}
+
+const quoteStat = {
+  background: "#020617",
+  border: "1px solid #1e293b",
+  borderRadius: 14,
+  padding: 14,
+  minWidth: 0
+}
+
+const quoteStatLabel = {
+  display: "block",
+  color: "#64748b",
+  fontSize: 11,
+  fontWeight: 900,
+  textTransform: "uppercase",
+  letterSpacing: ".08em",
+  marginBottom: 6
+}
+
+const quoteStatValue = {
+  display: "block",
+  color: "#f8fafc",
+  fontSize: 18,
+  overflowWrap: "anywhere"
+}
+
+const quoteSection = {
+  background: "#020617",
+  border: "1px solid #1e293b",
+  borderRadius: 14,
+  padding: 16,
+  marginBottom: 14,
+  minWidth: 0
+}
+
+const quoteSectionTitle = {
+  marginTop: 0,
+  marginBottom: 8,
+  color: "#22d3ee",
+  fontSize: 12,
+  fontWeight: 900,
+  textTransform: "uppercase",
+  letterSpacing: ".08em"
+}
+
+const quoteText = {
+  margin: 0,
+  color: "#e2e8f0",
+  fontSize: 14,
+  lineHeight: 1.6,
+  whiteSpace: "pre-wrap",
+  overflowWrap: "anywhere"
+}
+
+const artworkLink = {
+  display: "grid",
+  gap: 10,
+  color: "#22d3ee",
+  textDecoration: "none",
+  width: "fit-content",
+  maxWidth: "100%",
+  fontWeight: 800
+}
+
+const artworkImage = {
+  display: "block",
+  width: "100%",
+  maxWidth: 420,
+  maxHeight: 360,
+  objectFit: "contain",
+  background: "#ffffff",
+  borderRadius: 12,
+  border: "1px solid #334155"
+}
+
+const quoteId = {
+  color: "#94a3b8",
+  overflowWrap: "anywhere",
+  wordBreak: "break-all"
+}
+
+const quoteNotice = {
+  marginTop: 4,
+  padding: 12,
+  borderRadius: 12,
+  background:
+    "rgba(34,211,238,.06)",
+  border:
+    "1px solid rgba(34,211,238,.18)",
+  color: "#94a3b8",
+  fontSize: 12,
+  lineHeight: 1.5
 }
