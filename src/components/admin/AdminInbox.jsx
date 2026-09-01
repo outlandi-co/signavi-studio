@@ -87,6 +87,13 @@ export default function AdminInbox() {
   const [updatingQuote, setUpdatingQuote] = useState(false)
   const [quotePrice, setQuotePrice] = useState("")
 
+  const [mockupFile, setMockupFile] = useState(null)
+  const [mockupPreview, setMockupPreview] = useState("")
+  const [mockupMessage, setMockupMessage] = useState(
+    "Here is your digital mockup. Please review the design, placement, colors, and project details before approval."
+  )
+  const [uploadingMockup, setUploadingMockup] = useState(false)
+
   const [isMobile, setIsMobile] = useState(
     () => window.innerWidth <= 900
   )
@@ -143,6 +150,21 @@ export default function AdminInbox() {
             ""
         )
       )
+
+      setMockupFile(null)
+      setMockupPreview(
+        selectedThread.mockupUrl ||
+          selectedThread.mockup ||
+          ""
+      )
+
+      setMockupMessage(
+        selectedThread.mockupMessage ||
+          "Here is your digital mockup. Please review the design, placement, colors, and project details before approval."
+      )
+    } else {
+      setMockupFile(null)
+      setMockupPreview("")
     }
   }, [selectedThread])
 
@@ -290,6 +312,174 @@ export default function AdminInbox() {
       approvalStatus: "approved",
       status: "approval_payment"
     })
+  }
+
+  const handleMockupFile = (event) => {
+    const file = event.target.files?.[0]
+
+    if (!file) {
+      return
+    }
+
+    const allowedTypes = [
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "application/pdf"
+    ]
+
+    if (!allowedTypes.includes(file.type)) {
+      alert("Use a PNG, JPG, WEBP, or PDF mockup file.")
+      event.target.value = ""
+      return
+    }
+
+    const maxSize = 15 * 1024 * 1024
+
+    if (file.size > maxSize) {
+      alert("Mockup files must be 15 MB or smaller.")
+      event.target.value = ""
+      return
+    }
+
+    if (mockupPreview?.startsWith("blob:")) {
+      window.URL.revokeObjectURL(mockupPreview)
+    }
+
+    setMockupFile(file)
+    setMockupPreview(window.URL.createObjectURL(file))
+  }
+
+  const removeMockupFile = () => {
+    if (mockupPreview?.startsWith("blob:")) {
+      window.URL.revokeObjectURL(mockupPreview)
+    }
+
+    setMockupFile(null)
+    setMockupPreview(
+      selectedThread?.mockupUrl ||
+        selectedThread?.mockup ||
+        ""
+    )
+  }
+
+  const sendMockupAndQuote = async () => {
+    if (!selectedThread?.isQuoteRecord) {
+      return
+    }
+
+    const numericPrice = Number(quotePrice)
+
+    if (
+      Number.isNaN(numericPrice) ||
+      numericPrice <= 0
+    ) {
+      alert("Enter a valid final quote price before sending.")
+      return
+    }
+
+    if (
+      !mockupFile &&
+      !selectedThread.mockupUrl &&
+      !selectedThread.mockup
+    ) {
+      alert("Choose a digital mockup or proof to send to the customer.")
+      return
+    }
+
+    if (!mockupMessage.trim()) {
+      alert("Add a short message for the customer.")
+      return
+    }
+
+    try {
+      setUploadingMockup(true)
+
+      const formData = new FormData()
+
+      if (mockupFile) {
+        formData.append("mockup", mockupFile)
+      }
+
+      formData.append("mockupMessage", mockupMessage.trim())
+      formData.append("price", String(numericPrice))
+      formData.append("finalPrice", String(numericPrice))
+      formData.append("status", "approval_payment")
+
+      const res = await api.patch(
+        `/quotes/${selectedThread._id}/mockup`,
+        formData,
+        authHeaders
+      )
+
+      const updated =
+        res.data?.data ||
+        res.data?.quote ||
+        res.data
+
+      const merged = {
+        ...selectedThread,
+        ...(updated && typeof updated === "object"
+          ? updated
+          : {
+              price: numericPrice,
+              finalPrice: numericPrice,
+              mockupMessage: mockupMessage.trim(),
+              status: "approval_payment"
+            }),
+        isQuoteRecord: true,
+        channel: "quotes"
+      }
+
+      setSelectedThread(merged)
+      setQuotePrice(String(numericPrice))
+      setMockupFile(null)
+
+      if (merged.mockupUrl || merged.mockup) {
+        setMockupPreview(
+          merged.mockupUrl ||
+            merged.mockup
+        )
+      }
+
+      setThreads((current) =>
+        current.map((thread) =>
+          thread._id === merged._id
+            ? {
+                ...thread,
+                ...merged,
+                customerEmail:
+                  merged.email ||
+                  merged.customerEmail ||
+                  "",
+                subject:
+                  merged.serviceLabel ||
+                  merged.serviceType ||
+                  merged.printType ||
+                  "Quote Request",
+                lastMessage:
+                  merged.mockupMessage ||
+                  merged.notes ||
+                  "Digital mockup sent"
+              }
+            : thread
+        )
+      )
+
+      alert("Digital mockup and quote sent to the customer.")
+    } catch (error) {
+      console.error(
+        "SEND MOCKUP ERROR:",
+        error
+      )
+
+      alert(
+        error?.response?.data?.message ||
+          "The digital mockup could not be sent."
+      )
+    } finally {
+      setUploadingMockup(false)
+    }
   }
 
   const downloadArtwork = async (quote) => {
@@ -1260,17 +1450,16 @@ export default function AdminInbox() {
                     {workflowIndex === 1 && (
                       <button
                         type="button"
-                        disabled={updatingQuote}
-                        onClick={() =>
-                          moveQuoteToStep(
-                            "approval_payment"
-                          )
+                        disabled={
+                          updatingQuote ||
+                          uploadingMockup
                         }
+                        onClick={sendMockupAndQuote}
                         style={primaryAction}
                       >
-                        {updatingQuote
-                          ? "Updating..."
-                          : "Move to Approval & Payment"}
+                        {uploadingMockup
+                          ? "Sending Mockup..."
+                          : "Send Mockup & Quote to Customer"}
                       </button>
                     )}
 
@@ -1512,6 +1701,155 @@ export default function AdminInbox() {
                         ↗ Open Full Artwork
                       </a>
                     </div>
+                  </div>
+                )}
+
+                {workflowIndex >= 1 && (
+                  <div style={quoteSection}>
+                    <p style={quoteSectionTitle}>
+                      Digital Mockup / Proof
+                    </p>
+
+                    <p style={priceHint}>
+                      Upload the finished proof you want the customer to review before approval and payment.
+                    </p>
+
+                    <label style={mockupUploadBox}>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,application/pdf"
+                        onChange={handleMockupFile}
+                        style={{ display: "none" }}
+                      />
+
+                      <span style={mockupUploadIcon}>
+                        ⬆
+                      </span>
+
+                      <strong style={mockupUploadTitle}>
+                        {mockupFile
+                          ? "Replace Mockup"
+                          : selectedThread.mockupUrl ||
+                              selectedThread.mockup
+                            ? "Replace Existing Mockup"
+                            : "Choose Mockup File"}
+                      </strong>
+
+                      <span style={mockupUploadHint}>
+                        PNG, JPG, WEBP, or PDF • Maximum 15 MB
+                      </span>
+                    </label>
+
+                    {mockupPreview && (
+                      <div style={mockupPreviewWrap}>
+                        {(
+                          mockupFile?.type === "application/pdf" ||
+                          (!mockupFile &&
+                            String(mockupPreview)
+                              .toLowerCase()
+                              .includes(".pdf"))
+                        ) ? (
+                          <a
+                            href={mockupPreview}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={openArtworkButton}
+                          >
+                            ↗ Open PDF Mockup
+                          </a>
+                        ) : (
+                          <img
+                            src={mockupPreview}
+                            alt="Digital customer mockup"
+                            style={artworkImage}
+                          />
+                        )}
+
+                        {mockupFile && (
+                          <button
+                            type="button"
+                            onClick={removeMockupFile}
+                            style={removeMockupButton}
+                          >
+                            Remove Selected File
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    <label style={mockupLabel}>
+                      Message to Customer
+                    </label>
+
+                    <textarea
+                      value={mockupMessage}
+                      onChange={(event) =>
+                        setMockupMessage(event.target.value)
+                      }
+                      rows={5}
+                      placeholder="Add a message for the customer..."
+                      style={mockupTextarea}
+                    />
+
+                    <div style={mockupSummary}>
+                      <div>
+                        <span style={quoteStatLabel}>
+                          Final Quote
+                        </span>
+
+                        <strong style={quoteStatValue}>
+                          {formatMoney(
+                            Number(quotePrice || 0)
+                          )}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span style={quoteStatLabel}>
+                          Next Step
+                        </span>
+
+                        <strong
+                          style={{
+                            ...quoteStatValue,
+                            fontSize: 14
+                          }}
+                        >
+                          Customer Approval & Payment
+                        </strong>
+                      </div>
+                    </div>
+
+                    {workflowIndex === 1 && (
+                      <button
+                        type="button"
+                        onClick={sendMockupAndQuote}
+                        disabled={
+                          updatingQuote ||
+                          uploadingMockup
+                        }
+                        style={{
+                          ...primaryAction,
+                          width: "100%",
+                          marginTop: 14
+                        }}
+                      >
+                        {uploadingMockup
+                          ? "Sending Mockup..."
+                          : "Send Mockup & Quote to Customer"}
+                      </button>
+                    )}
+
+                    {(selectedThread.mockupUrl ||
+                      selectedThread.mockup) &&
+                      selectedThread.mockupSentAt && (
+                        <p style={mockupSentText}>
+                          Last sent:{" "}
+                          {formatDate(
+                            selectedThread.mockupSentAt
+                          )}
+                        </p>
+                      )}
                   </div>
                 )}
 
@@ -2225,6 +2563,108 @@ const quoteId = {
   color: "#94a3b8",
   overflowWrap: "anywhere",
   wordBreak: "break-all"
+}
+
+const mockupUploadBox = {
+  width: "100%",
+  minHeight: 130,
+  border: "1px dashed #22d3ee",
+  borderRadius: 14,
+  background: "rgba(34,211,238,.05)",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  padding: 18,
+  boxSizing: "border-box",
+  cursor: "pointer",
+  marginTop: 12,
+  marginBottom: 14,
+  textAlign: "center"
+}
+
+const mockupUploadIcon = {
+  width: 38,
+  height: 38,
+  borderRadius: 999,
+  background: "#22d3ee",
+  color: "#020617",
+  display: "grid",
+  placeItems: "center",
+  fontWeight: 900,
+  fontSize: 20
+}
+
+const mockupUploadTitle = {
+  color: "#f8fafc",
+  fontSize: 14
+}
+
+const mockupUploadHint = {
+  color: "#64748b",
+  fontSize: 12
+}
+
+const mockupPreviewWrap = {
+  display: "grid",
+  gap: 10,
+  marginBottom: 14
+}
+
+const removeMockupButton = {
+  width: "fit-content",
+  background: "rgba(239,68,68,.1)",
+  color: "#fca5a5",
+  border: "1px solid rgba(239,68,68,.35)",
+  borderRadius: 10,
+  padding: "9px 12px",
+  fontWeight: 800,
+  cursor: "pointer"
+}
+
+const mockupLabel = {
+  display: "block",
+  color: "#94a3b8",
+  fontSize: 12,
+  fontWeight: 900,
+  textTransform: "uppercase",
+  letterSpacing: ".08em",
+  marginBottom: 8
+}
+
+const mockupTextarea = {
+  width: "100%",
+  minHeight: 120,
+  resize: "vertical",
+  boxSizing: "border-box",
+  background: "#0f172a",
+  color: "#f8fafc",
+  border: "1px solid #334155",
+  borderRadius: 12,
+  padding: 12,
+  outline: "none",
+  lineHeight: 1.55,
+  fontFamily: "inherit"
+}
+
+const mockupSummary = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: 12,
+  background: "#0f172a",
+  border: "1px solid #1e293b",
+  borderRadius: 12,
+  padding: 14,
+  marginTop: 14
+}
+
+const mockupSentText = {
+  marginTop: 10,
+  marginBottom: 0,
+  color: "#86efac",
+  fontSize: 12,
+  fontWeight: 800
 }
 
 /* ======================================================
