@@ -87,7 +87,6 @@ const services = [
     ]
   },
   {
-    {
   title: "Photography",
   icon: "📸",
   startingAt: "$250",
@@ -102,7 +101,7 @@ const services = [
 {
   title: "Videography",
   icon: "🎥",
-  startingAt: "$500",
+  startingAt: "$350",
   description:
     "Professional video production for events, businesses, products, promotional content, and special projects.",
   features: [
