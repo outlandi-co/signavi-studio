@@ -9,7 +9,6 @@ const services = [
     title: "Screen Printing",
     icon: "🖨️",
     startingAt: "$12",
-    portfolioReady: false,
     disabled: true,
     status: "Coming Soon",
     description:
@@ -25,7 +24,6 @@ const services = [
   title: "DTF Transfers",
   icon: "🎽",
   startingAt: "$5",
-    portfolioReady: false,
   description:
     "High-quality full-color DTF transfers ready to press onto apparel, merch, uniforms, and custom orders.",
   features: [
@@ -38,7 +36,6 @@ const services = [
     title: "Laser Engraving",
     icon: "🔥",
     startingAt: "$15",
-    portfolioReady: false,
     description:
       "Custom engraving for leather, wood, acrylic, tumblers, awards, gifts, and promotional products.",
     features: [
@@ -51,7 +48,6 @@ const services = [
     title: "Custom Apparel Printing",
     icon: "👕",
     startingAt: "$12",
-    portfolioReady: false,
     description:
       "Shirts, hoodies, hats, uniforms, team apparel, and branded merchandise for businesses and events.",
     features: [
@@ -64,7 +60,6 @@ const services = [
     title: "Graphic Design & Branding",
     icon: "🎨",
     startingAt: "$75",
-    portfolioReady: false,
     description:
       "Logos, brand identity, marketing graphics, mockups, layouts, and promotional materials.",
     features: [
@@ -77,7 +72,6 @@ const services = [
     title: "Signs & Banners",
     icon: "🪧",
     startingAt: "$35",
-    portfolioReady: false,
     description:
       "Business signage, event banners, decals, stickers, promotional displays, and graphics.",
     features: [
@@ -90,7 +84,6 @@ const services = [
     title: "Photography",
     icon: "📸",
     startingAt: "$150",
-    portfolioReady: false,
     description:
       "Portraits, products, events, branding, real estate, and commercial photography.",
     features: [
@@ -103,7 +96,6 @@ const services = [
     title: "Real Estate Media",
     icon: "🏡",
     startingAt: "$199",
-    portfolioReady: false,
     description:
       "Photography, video walkthroughs, and marketing media for real estate listings and property promotion.",
     features: [
@@ -116,7 +108,6 @@ const services = [
     title: "Web Design & Development",
     icon: "💻",
     startingAt: "$500",
-    portfolioReady: false,
     description:
       "Custom websites, e-commerce stores, UX/UI design, frontend builds, and web applications.",
     features: [
@@ -129,7 +120,6 @@ const services = [
     title: "Promotional Products",
     icon: "🎁",
     startingAt: "$15",
-    portfolioReady: false,
     description:
       "Branded giveaways, event products, engraved merchandise, and custom gifts for businesses and teams.",
     features: [
@@ -329,23 +319,12 @@ export default function Services() {
                       Request Quote
                     </Link>
 
-                    {service.portfolioReady ? (
-                      <Link
-                        to="/gallery"
-                        className="inline-flex justify-center rounded-full border border-slate-700 px-5 py-3 font-bold text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300"
-                      >
-                        View Work
-                      </Link>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled
-                        title={`${service.title} portfolio coming soon`}
-                        className="cursor-not-allowed rounded-full border border-slate-800 bg-slate-900/40 px-5 py-3 font-bold text-slate-500"
-                      >
-                        Portfolio Coming Soon
-                      </button>
-                    )}
+                    <Link
+                      to="/gallery"
+                      className="inline-flex justify-center rounded-full border border-slate-700 px-5 py-3 font-bold text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300"
+                    >
+                      View Work
+                    </Link>
                   </>
                 )}
 
