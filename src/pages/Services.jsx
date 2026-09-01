@@ -340,10 +340,10 @@ export default function Services() {
                       <button
                         type="button"
                         disabled
-                        title={`${service.title} portfolio coming soon`}
+                        title={`${service.title} View Button`}
                         className="cursor-not-allowed rounded-full border border-slate-800 bg-slate-900/40 px-5 py-3 font-bold text-slate-500"
                       >
-                        Portfolio Coming Soon
+                        View Button
                       </button>
                     )}
                   </>
