@@ -1,5 +1,6 @@
 import { useState } from "react"
 import api from "../services/api"
+import toast from "react-hot-toast"
 
 const money = (value = 0) => {
   return Number(value || 0).toLocaleString("en-US", {
@@ -50,7 +51,7 @@ const isOverdue = (dueDate) => {
   return due < today
 }
 
-const getCustomerName = (job) => {
+const getCustomerName = (job = {}) => {
   return (
     job.customerName ||
     job.name ||
@@ -59,14 +60,13 @@ const getCustomerName = (job) => {
   )
 }
 
-const getTotal = (job, price) => {
-  return (
-    job.finalPrice ||
-    job.total ||
-    job.totalPrice ||
-    job.price ||
-    price ||
-    0
+const getInitialPrice = (job = {}) => {
+  return Number(
+    job.finalPrice ??
+      job.total ??
+      job.totalPrice ??
+      job.price ??
+      0
   )
 }
 
@@ -77,21 +77,43 @@ export default function JobCard({
   isQuoteCard = false
 }) {
   const [price, setPrice] = useState(
-    job.finalPrice ||
-      job.price ||
-      job.total ||
-      0
+    getInitialPrice(job)
   )
 
-  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [approving, setApproving] = useState(false)
+  const [denying, setDenying] = useState(false)
 
   const customerName = getCustomerName(job)
-  const status = formatStatus(job.status)
-  const total = getTotal(job, price)
 
-  const email = job.email || job.customerEmail || job.customer?.email || ""
-  const phone = job.phone || job.customerPhone || job.customer?.phone || ""
-  const quantity = job.quantity || job.items?.[0]?.quantity || 1
+  const status = formatStatus(
+    job.status
+  )
+
+  const numericPrice = Number(price || 0)
+
+  const displayedTotal = isQuoteCard
+    ? numericPrice
+    : getInitialPrice(job)
+
+  const email =
+    job.email ||
+    job.customerEmail ||
+    job.customer?.email ||
+    ""
+
+  const phone =
+    job.phone ||
+    job.customerPhone ||
+    job.customer?.phone ||
+    ""
+
+  const quantity =
+    Number(
+      job.quantity ||
+        job.items?.[0]?.quantity ||
+        1
+    )
 
   const service =
     job.serviceLabel ||
@@ -100,58 +122,170 @@ export default function JobCard({
     job.type ||
     "Project"
 
-  const priority = job.priority || "medium"
-  const dueDate = job.dueDate || ""
-  const overdue = isOverdue(dueDate)
-  const adminNotes = job.adminNotes || ""
+  const priority =
+    job.priority || "medium"
+
+  const dueDate =
+    job.dueDate || ""
+
+  const overdue =
+    isOverdue(dueDate)
+
+  const adminNotes =
+    job.adminNotes || ""
+
+  const customerNotes =
+    job.notes || ""
+
+  const artworkUrl =
+    job.artworkUrl ||
+    job.artwork ||
+    ""
+
+  const turnaround =
+    job.turnaround || ""
 
   const handleSave = async () => {
+    if (
+      !Number.isFinite(numericPrice) ||
+      numericPrice <= 0
+    ) {
+      toast.error(
+        "Enter a valid quote price"
+      )
+
+      return
+    }
+
     try {
-      setLoading(true)
+      setSaving(true)
 
-      await api.patch(`/quotes/${job._id}`, {
-        finalPrice: Number(price)
-      })
+      await api.patch(
+        `/quotes/${job._id}`,
+        {
+          finalPrice: numericPrice,
+          price: numericPrice
+        }
+      )
 
-      console.log("💾 Price saved")
+      toast.success(
+        "Quote price saved"
+      )
     } catch (err) {
-      console.error("❌ SAVE ERROR:", err)
+      console.error(
+        "❌ SAVE ERROR:",
+        err.response?.data ||
+          err
+      )
+
+      toast.error(
+        err.response?.data
+          ?.message ||
+          "Could not save quote price"
+      )
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
 
+  const handleApprove = async () => {
+    if (
+      !Number.isFinite(numericPrice) ||
+      numericPrice <= 0
+    ) {
+      toast.error(
+        "Enter a valid final price before approving"
+      )
+
+      return
+    }
+
+    try {
+      setApproving(true)
+
+      /*
+       * Pass the CURRENT edited
+       * price to ProductionBoard.
+       *
+       * This prevents approval from
+       * using the old job.finalPrice.
+       */
+      await onApprove?.({
+        ...job,
+        price: numericPrice,
+        finalPrice: numericPrice
+      })
+    } finally {
+      setApproving(false)
+    }
+  }
+
+  const handleDeny = async () => {
+    try {
+      setDenying(true)
+
+      await onDeny?.(job)
+    } finally {
+      setDenying(false)
+    }
+  }
+
+  const busy =
+    saving ||
+    approving ||
+    denying
+
   return (
     <article className="mb-4 rounded-2xl border border-slate-800 bg-[#020617] p-4 text-white shadow-lg shadow-black/20 transition hover:border-cyan-500/70">
+
+      {/* HEADER */}
+
       <div className="mb-3 flex items-start justify-between gap-3">
+
         <div>
           <h4 className="text-lg font-bold leading-tight">
             {customerName}
           </h4>
 
           <p className="mt-1 text-xs text-slate-500">
-            #{String(job._id || "").slice(-6).toUpperCase()}
+            #
+            {String(
+              job._id || ""
+            )
+              .slice(-6)
+              .toUpperCase()}
           </p>
         </div>
 
         <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-300">
-          {status}
+          {isQuoteCard
+            ? "Quote"
+            : status}
         </span>
+
       </div>
+
+      {/* PRIORITY / DUE DATE */}
 
       {!isQuoteCard && (
         <div className="mb-4 flex flex-wrap gap-2">
+
           <span
             className={`rounded-full border px-3 py-1 text-xs font-bold ${getPriorityColor(
               priority
             )}`}
           >
-            {getPriorityLabel(priority)}
+            {getPriorityLabel(
+              priority
+            )}
           </span>
 
           {dueDate && (
             <span className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300">
-              📅 {new Date(dueDate).toLocaleDateString()}
+              📅{" "}
+              {new Date(
+                dueDate
+              ).toLocaleDateString()}
             </span>
           )}
 
@@ -160,13 +294,23 @@ export default function JobCard({
               ⚠️ OVERDUE
             </span>
           )}
+
         </div>
       )}
 
+      {/* TOTAL + QUANTITY */}
+
       <div className="mb-4 grid grid-cols-2 gap-3">
+
         <InfoBox
-          label="Total"
-          value={money(total)}
+          label={
+            isQuoteCard
+              ? "Quote"
+              : "Total"
+          }
+          value={money(
+            displayedTotal
+          )}
           color="text-emerald-300"
         />
 
@@ -175,32 +319,105 @@ export default function JobCard({
           value={quantity}
           color="text-cyan-300"
         />
+
       </div>
 
+      {/* SERVICE */}
+
       <div className="mb-4 rounded-xl border border-slate-800 bg-slate-950/80 p-3">
+
         <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
           Service
         </p>
 
         <p className="mt-1 text-sm font-semibold text-slate-200">
-          {formatStatus(service)}
+          {formatStatus(
+            service
+          )}
         </p>
+
       </div>
 
-      {adminNotes && !isQuoteCard && (
-        <div className="mb-4 rounded-xl border border-slate-800 bg-slate-950/80 p-3">
-          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-            Admin Notes
-          </p>
+      {/* TURNAROUND */}
 
-          <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm text-slate-300">
-            {adminNotes}
-          </p>
-        </div>
-      )}
+      {isQuoteCard &&
+        turnaround && (
+          <div className="mb-4 rounded-xl border border-slate-800 bg-slate-950/80 p-3">
+
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+              Turnaround
+            </p>
+
+            <p className="mt-1 text-sm font-semibold text-slate-200">
+              {formatStatus(
+                turnaround
+              )}
+            </p>
+
+          </div>
+        )}
+
+      {/* CUSTOMER PROJECT DESCRIPTION */}
+
+      {isQuoteCard &&
+        customerNotes && (
+          <div className="mb-4 rounded-xl border border-slate-800 bg-slate-950/80 p-3">
+
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+              Project Description
+            </p>
+
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-300">
+              {customerNotes}
+            </p>
+
+          </div>
+        )}
+
+      {/* ARTWORK */}
+
+      {isQuoteCard &&
+        artworkUrl && (
+          <div className="mb-4 rounded-xl border border-slate-800 bg-slate-950/80 p-3">
+
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+              Customer Artwork
+            </p>
+
+            <a
+              href={artworkUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-bold text-cyan-300 transition hover:bg-cyan-400/20"
+            >
+              View Artwork
+            </a>
+
+          </div>
+        )}
+
+      {/* ADMIN NOTES */}
+
+      {adminNotes &&
+        !isQuoteCard && (
+          <div className="mb-4 rounded-xl border border-slate-800 bg-slate-950/80 p-3">
+
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+              Admin Notes
+            </p>
+
+            <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm text-slate-300">
+              {adminNotes}
+            </p>
+
+          </div>
+        )}
+
+      {/* CONTACT */}
 
       {(email || phone) && (
         <div className="mb-4 flex flex-wrap gap-2">
+
           {email && (
             <a
               href={`mailto:${email}`}
@@ -218,50 +435,90 @@ export default function JobCard({
               Call
             </a>
           )}
+
         </div>
       )}
 
+      {/* QUOTE ADMIN CONTROLS */}
+
       {isQuoteCard && (
         <div className="mt-4 border-t border-slate-800 pt-4">
+
           <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Quote Price
+            Final Quote Price
           </label>
 
-          <input
-            type="number"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-cyan-400"
-          />
+          <div className="relative">
+
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-500">
+              $
+            </span>
+
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={price}
+              onChange={(event) =>
+                setPrice(
+                  event.target.value
+                )
+              }
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-8 pr-4 text-white outline-none transition focus:border-cyan-400"
+            />
+
+          </div>
+
+          <p className="mt-2 text-xs leading-relaxed text-slate-500">
+            Review the customer&apos;s
+            request and adjust the final
+            amount before approval.
+          </p>
 
           <button
             type="button"
             onClick={handleSave}
-            disabled={loading}
+            disabled={busy}
             className="mt-3 w-full rounded-xl bg-blue-600 px-4 py-3 font-bold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? "Saving..." : "Save Price"}
+            {saving
+              ? "Saving..."
+              : "Save Price"}
           </button>
 
           <div className="mt-3 grid grid-cols-2 gap-3">
+
             <button
               type="button"
-              onClick={() => onApprove?.(job)}
-              className="rounded-xl bg-emerald-600 px-4 py-3 font-bold text-white transition hover:bg-emerald-500"
+              onClick={
+                handleApprove
+              }
+              disabled={busy}
+              className="rounded-xl bg-emerald-600 px-4 py-3 font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Approve
+              {approving
+                ? "Approving..."
+                : "Approve"}
             </button>
 
             <button
               type="button"
-              onClick={() => onDeny?.(job)}
-              className="rounded-xl bg-red-600 px-4 py-3 font-bold text-white transition hover:bg-red-500"
+              onClick={
+                handleDeny
+              }
+              disabled={busy}
+              className="rounded-xl bg-red-600 px-4 py-3 font-bold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Deny
+              {denying
+                ? "Denying..."
+                : "Deny"}
             </button>
+
           </div>
+
         </div>
       )}
+
     </article>
   )
 }
@@ -273,13 +530,17 @@ function InfoBox({
 }) {
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-3">
+
       <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
         {label}
       </p>
 
-      <p className={`mt-1 text-lg font-bold ${color}`}>
+      <p
+        className={`mt-1 text-lg font-bold ${color}`}
+      >
         {value}
       </p>
+
     </div>
   )
 }
