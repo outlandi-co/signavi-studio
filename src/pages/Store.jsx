@@ -113,11 +113,11 @@ export default function Store() {
     const timer = setTimeout(async () => {
       try {
         const res = await api.get("/products", {
-          params: {
-            storefrontVisible: true,
-            storefront: "signavi"
-          }
-        })
+  params: {
+    storefrontVisible: true,
+    storefront: "signavi_store"
+  }
+})
 
         const productData = Array.isArray(res.data)
           ? res.data
