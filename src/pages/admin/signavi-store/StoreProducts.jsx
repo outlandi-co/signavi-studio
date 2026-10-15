@@ -114,7 +114,7 @@ export default function StoreProducts() {
       const res = await api.get("/products", {
         params: {
           storefrontVisible: true,
-          storefront: "signavi"
+          storefront: "signavi_store"
         }
       })
 
