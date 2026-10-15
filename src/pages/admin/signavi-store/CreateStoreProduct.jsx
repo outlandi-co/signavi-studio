@@ -145,7 +145,7 @@ export default function CreateStoreProduct() {
       formData.append("quantity", totalStock)
 
       formData.append("storefrontVisible", "true")
-      formData.append("storefront", "signavi")
+      formData.append("storefront", "signavi_store")
       formData.append("salesChannel", "signavi_store")
       formData.append("active", "true")
 
@@ -511,7 +511,7 @@ export default function CreateStoreProduct() {
 
           <ul>
             <li>storefrontVisible: true</li>
-            <li>storefront: signavi</li>
+            <li>storefront: signavi_store</li>
             <li>salesChannel: signavi_store</li>
           </ul>
         </section>
