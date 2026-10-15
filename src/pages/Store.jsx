@@ -28,6 +28,30 @@ const getNumber = (...values) => {
   return 0
 }
 
+// Products with color/size variants must be configured on the detail page.
+const hasPhysicalVariants = (product = {}) =>
+  safeText(product.productType, "physical").toLowerCase() === "physical" &&
+  Array.isArray(product.variants) &&
+  product.variants.length > 0
+
+const getAvailableStock = (product = {}) => {
+  const validStock = (value) => {
+    const amount = Number(value)
+    return Number.isFinite(amount) && amount > 0 ? Math.floor(amount) : 0
+  }
+
+  // Count independent color/size inventories instead of using parent stock.
+  if (hasPhysicalVariants(product)) {
+    return product.variants.reduce(
+      (total, variant) =>
+        total + validStock(variant.stock ?? variant.quantity ?? 0),
+      0
+    )
+  }
+
+  return validStock(product.stock ?? product.quantity ?? 0)
+}
+
 const getCustomerUser = () => {
   try {
     return JSON.parse(localStorage.getItem("customerUser") || "null")
@@ -164,8 +188,11 @@ export default function Store() {
   }
 
   const updateQty = (productId, nextQty, stock) => {
-    const cleanQty = Math.max(1, Number(nextQty || 1))
-    const maxQty = stock > 0 ? Math.min(cleanQty, stock) : cleanQty
+    const parsedQty = Number(nextQty)
+    const cleanQty = Number.isFinite(parsedQty)
+      ? Math.max(1, Math.floor(parsedQty))
+      : 1
+    const maxQty = stock > 0 ? Math.min(cleanQty, stock) : 1
 
     setQuantity((prev) => ({
       ...prev,
@@ -206,6 +233,12 @@ export default function Store() {
       return
     }
 
+    if (hasPhysicalVariants(product)) {
+      navigate(`/product/${productId}`)
+      toast("Select a color and size first")
+      return
+    }
+
     if (qty > stock) {
       toast.error(`Only ${stock} available`)
       return
@@ -237,10 +270,17 @@ export default function Store() {
       discountLabel: product.discountLabel || "",
 
       productType,
+      stock: productType === "physical" ? stock : undefined,
       selectedVariant: null
     }
 
-    addToCart(cartItem)
+    const added = addToCart(cartItem)
+
+    if (!added) {
+      toast.error("Unable to add item. Check available inventory.")
+      return
+    }
+
     addRecent(product)
     toast.success("Added to cart")
   }
@@ -259,6 +299,13 @@ export default function Store() {
 
       if (stock <= 0) {
         toast.error("This item is out of stock")
+        return
+      }
+
+      // Never create an order without the customer's exact color/size.
+      if (hasPhysicalVariants(product)) {
+        navigate(`/product/${productId}`)
+        toast("Select a color and size first")
         return
       }
 
@@ -417,7 +464,8 @@ export default function Store() {
               const images = getProductImages(product)
               const mainImage = resolve(images[0])
 
-              const stock = Number(product.stock ?? product.quantity ?? 0)
+              const hasVariants = hasPhysicalVariants(product)
+              const stock = getAvailableStock(product)
               const qty = quantity[productId] || 1
 
               const pricing = getDisplayPricing(product, qty)
@@ -504,40 +552,49 @@ export default function Store() {
                       </div>
                     </div>
 
-                    <div className="mb-3">
-                      <p className="mb-1 text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                        Quantity
+                    {hasVariants ? (
+                      <p className="mb-3 text-xs text-slate-400">
+                        Choose a color and size on the product page.
                       </p>
+                    ) : (
+                      <div className="mb-3">
+                        <p className="mb-1 text-[11px] uppercase tracking-[0.18em] text-slate-500">
+                          Quantity
+                        </p>
 
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => updateQty(productId, qty - 1, stock)}
-                          className="rounded-lg border border-slate-700 px-2.5 py-1 text-sm"
-                        >
-                          -
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => updateQty(productId, qty - 1, stock)}
+                            disabled={stock <= 0 || qty <= 1}
+                            className="rounded-lg border border-slate-700 px-2.5 py-1 text-sm disabled:opacity-40"
+                          >
+                            -
+                          </button>
 
-                        <input
-                          type="number"
-                          min="1"
-                          max={stock > 0 ? stock : undefined}
-                          value={qty}
-                          onChange={(event) =>
-                            updateQty(productId, event.target.value, stock)
-                          }
-                          className="w-full rounded-lg border border-slate-700 bg-[#020617] px-2 py-1 text-center text-sm"
-                        />
+                          <input
+                            type="number"
+                            min="1"
+                            max={stock > 0 ? stock : undefined}
+                            value={qty}
+                            disabled={stock <= 0}
+                            onChange={(event) =>
+                              updateQty(productId, event.target.value, stock)
+                            }
+                            className="w-full rounded-lg border border-slate-700 bg-[#020617] px-2 py-1 text-center text-sm disabled:opacity-40"
+                          />
 
-                        <button
-                          type="button"
-                          onClick={() => updateQty(productId, qty + 1, stock)}
-                          className="rounded-lg border border-slate-700 px-2.5 py-1 text-sm"
-                        >
-                          +
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => updateQty(productId, qty + 1, stock)}
+                            disabled={stock <= 0 || qty >= stock}
+                            className="rounded-lg border border-slate-700 px-2.5 py-1 text-sm disabled:opacity-40"
+                          >
+                            +
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     <PricingNotice product={product} qty={qty} />
 
@@ -568,9 +625,11 @@ export default function Store() {
                         >
                           {stock <= 0
                             ? "Out of stock"
-                            : stock <= 3
-                              ? `Only ${stock} left`
-                              : `In Stock: ${stock}`}
+                            : hasVariants
+                              ? `${stock} total available across options`
+                              : stock <= 3
+                                ? `Only ${stock} left`
+                                : `In Stock: ${stock}`}
                         </p>
                       </div>
 
@@ -594,7 +653,7 @@ export default function Store() {
                               : "rounded-lg bg-cyan-500 px-3 py-2 text-xs font-bold text-black transition hover:bg-cyan-400"
                           }
                         >
-                          Add Cart
+                          {hasVariants ? "Choose Options" : "Add Cart"}
                         </button>
 
                         <button
@@ -616,7 +675,7 @@ export default function Store() {
                               : "rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-black transition hover:bg-emerald-400"
                           }
                         >
-                          Buy Now
+                          {hasVariants ? "Choose Size" : "Buy Now"}
                         </button>
                       </div>
                     </div>
