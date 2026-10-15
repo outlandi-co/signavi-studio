@@ -180,12 +180,20 @@ export default function Store() {
   }, [products, query, category, sort])
 
   const toggleWishlist = (productId) => {
-    setWishlist((prev) =>
-      prev.includes(productId)
-        ? prev.filter((id) => id !== productId)
-        : [...prev, productId]
-    )
+  const isFavorite = wishlist.includes(productId)
+
+  setWishlist((prev) =>
+    prev.includes(productId)
+      ? prev.filter((id) => id !== productId)
+      : [...prev, productId]
+  )
+
+  if (isFavorite) {
+    toast.success("Removed from Favorites")
+  } else {
+    toast.success("Added to Favorites!")
   }
+}
 
   const updateQty = (productId, nextQty, stock) => {
     const parsedQty = Number(nextQty)

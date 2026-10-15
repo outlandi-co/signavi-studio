@@ -179,9 +179,10 @@ export default function EditStoreProduct() {
         ).values()
       ]
 
-      const totalStock = validVariants.reduce((sum, variant) => {
-        return sum + Number(variant.stock || 0)
-      }, 0)
+      const totalStock = validVariants.reduce(
+  (total, variant) => total + Math.max(0, Number(variant.stock) || 0),
+  0
+)
 
       const formData = new FormData()
 
