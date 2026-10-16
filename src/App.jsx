@@ -89,6 +89,8 @@ import StoreProducts from "./pages/admin/signavi-store/StoreProducts"
 import CreateStoreProduct from "./pages/admin/signavi-store/CreateStoreProduct"
 import EditStoreProduct from "./pages/admin/signavi-store/EditStoreProduct"
 import Discounts from "./pages/admin/signavi-store/Discounts"
+import ShippingCalculator from "./pages/admin/signavi-store/ShippingCalculator"
+import AdminShipping from "./components/admin/AdminShipping"
 
 
 
@@ -393,6 +395,17 @@ function AppContent() {
             <Route
               path="signavi-store/discounts"
               element={<Discounts />}
+            />
+
+            {/* ================= SHIPPING & FULFILLMENT ================= */}
+            <Route
+              path="signavi-store/shipping"
+              element={<AdminShipping />}
+            />
+
+            <Route
+              path="signavi-store/shipping/calculator"
+              element={<ShippingCalculator />}
             />
           </Route>
         </Route>

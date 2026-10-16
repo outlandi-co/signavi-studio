@@ -544,6 +544,10 @@ useEffect(() => {
             💸 Store Discounts
           </SideLink>
 
+          <SideLink to="/admin/signavi-store/shipping">
+            🚚 Shipping &amp; Fulfillment
+          </SideLink>
+
           <SideLink to="/admin/materials">
             🧵 Materials Catalog
           </SideLink>
