@@ -1504,9 +1504,7 @@ export default function AdminInbox() {
                         type="button"
                         disabled={updatingQuote}
                         onClick={() =>
-                          moveQuoteToStep(
-                            "pickup_shipping"
-                          )
+                          moveQuoteToStep("pickup_shipping")
                         }
                         style={primaryAction}
                       >
@@ -1516,14 +1514,15 @@ export default function AdminInbox() {
                       </button>
                     )}
 
-                    {workflowIndex === 4 && (
+                    {workflowIndex === 4 &&
+                      String(selectedThread?.status || "")
+                        .trim()
+                        .toLowerCase() !== "completed" && (
                       <button
                         type="button"
                         disabled={updatingQuote}
                         onClick={() =>
-                          moveQuoteToStep(
-                            "completed"
-                          )
+                          moveQuoteToStep("completed")
                         }
                         style={completeButton}
                       >
@@ -1531,6 +1530,14 @@ export default function AdminInbox() {
                           ? "Updating..."
                           : "Mark Project Complete"}
                       </button>
+                    )}
+
+                    {String(selectedThread?.status || "")
+                      .trim()
+                      .toLowerCase() === "completed" && (
+                      <p style={workflowHint} role="status">
+                        Project Completed - All workflow stages finished.
+                      </p>
                     )}
                   </div>
 
