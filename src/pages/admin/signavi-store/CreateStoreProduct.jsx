@@ -1,8 +1,9 @@
+
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import api from "../../../services/api"
 
-const blankVariant = {
+const blankVariant = () => ({
   color: "",
   size: "",
   stock: "",
@@ -10,6 +11,15 @@ const blankVariant = {
   basePrice: "",
   listPrice: "",
   images: []
+})
+
+const blankShipping = {
+  weightOz: "",
+  lengthIn: "",
+  widthIn: "",
+  heightIn: "",
+  packagingType: "unassigned",
+  shipSeparately: false
 }
 
 const money = (value = 0) =>
@@ -17,6 +27,18 @@ const money = (value = 0) =>
     style: "currency",
     currency: "USD"
   })
+
+const box =
+  "rounded-2xl border border-slate-800 bg-slate-900 p-5 md:p-6"
+
+const field =
+  "w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-cyan-400"
+
+const label =
+  "grid gap-2 text-sm font-bold text-slate-300"
+
+const hint =
+  "text-sm leading-relaxed text-slate-400"
 
 export default function CreateStoreProduct() {
   const navigate = useNavigate()
@@ -28,31 +50,37 @@ export default function CreateStoreProduct() {
     productType: "physical"
   })
 
-  const [variants, setVariants] = useState([{ ...blankVariant }])
+  const [shipping, setShipping] = useState(blankShipping)
+  const [variants, setVariants] = useState([blankVariant()])
   const [saving, setSaving] = useState(false)
 
-  const updateForm = (field, value) => {
+  const updateForm = (fieldName, value) =>
     setForm((prev) => ({
       ...prev,
-      [field]: value
+      [fieldName]: value
     }))
-  }
 
-  const updateVariant = (index, field, value) => {
+  const updateShipping = (fieldName, value) =>
+    setShipping((prev) => ({
+      ...prev,
+      [fieldName]: value
+    }))
+
+  const updateVariant = (index, fieldName, value) => {
     setVariants((prev) =>
       prev.map((variant, i) =>
-        i === index ? { ...variant, [field]: value } : variant
+        i === index
+          ? { ...variant, [fieldName]: value }
+          : variant
       )
     )
   }
 
   const updateVariantImages = (index, files) => {
-    setVariants((prev) =>
-      prev.map((variant, i) =>
-        i === index
-          ? { ...variant, images: Array.from(files || []) }
-          : variant
-      )
+    updateVariant(
+      index,
+      "images",
+      Array.from(files || [])
     )
   }
 
@@ -63,123 +91,229 @@ export default function CreateStoreProduct() {
 
         const cost = Number(variant.basePrice || 0)
 
-        if (!cost || cost <= 0) {
+        if (!(cost > 0)) {
           alert("Enter Base Price / Cost first.")
           return variant
         }
 
-        const sellingPrice = cost * (1 + markupPercent / 100)
+        const price = (
+          cost * (1 + markupPercent / 100)
+        ).toFixed(2)
 
         return {
           ...variant,
-          price: sellingPrice.toFixed(2),
-          listPrice: sellingPrice.toFixed(2)
+          price,
+          listPrice: price
         }
       })
     )
   }
 
-  const addVariant = () => {
-    setVariants((prev) => [...prev, { ...blankVariant }])
-  }
-
-  const removeVariant = (index) => {
-    setVariants((prev) => prev.filter((_, i) => i !== index))
-  }
-
   const createProduct = async (event) => {
     event.preventDefault()
 
-    try {
-      setSaving(true)
+    if (saving) return
 
-      const validVariants = variants.filter(
-        (variant) => variant.color.trim() && variant.size.trim()
-      )
+    const validVariants = variants.filter(
+      (variant) =>
+        variant.color.trim() &&
+        variant.size.trim()
+    )
 
-      if (validVariants.length === 0) {
-        alert("Add at least one color/size variant.")
+    if (validVariants.length === 0) {
+      alert("Add at least one color/size variant.")
+      return
+    }
+
+    let productShipping = null
+
+    if (form.productType === "physical") {
+      const keys = [
+        "weightOz",
+        "lengthIn",
+        "widthIn",
+        "heightIn"
+      ]
+
+      const measurementsValid = keys.every((key) => {
+        const raw = String(shipping[key]).trim()
+
+        return (
+          raw !== "" &&
+          Number.isFinite(Number(raw)) &&
+          Number(raw) > 0
+        )
+      })
+
+      if (
+        !measurementsValid ||
+        shipping.packagingType === "unassigned"
+      ) {
+        alert(
+          "For a physical product, enter all four positive shipping measurements and choose a packaging type."
+        )
         return
       }
 
-      const firstVariant = validVariants[0]
+      productShipping = {
+        weightOz: Number(shipping.weightOz),
+        lengthIn: Number(shipping.lengthIn),
+        widthIn: Number(shipping.widthIn),
+        heightIn: Number(shipping.heightIn),
+        packagingType: shipping.packagingType,
+        shipSeparately: Boolean(
+          shipping.shipSeparately
+        )
+      }
+    }
 
-      const uniqueSizes = [
-        ...new Set(validVariants.map((variant) => variant.size.trim()))
-      ]
+    const firstVariant = validVariants[0]
 
-      const uniqueColors = [
-        ...new Map(
-          validVariants.map((variant) => [
-            variant.color.trim(),
-            { name: variant.color.trim() }
-          ])
-        ).values()
-      ]
-
-      const totalStock = validVariants.reduce((sum, variant) => {
-        return sum + Number(variant.stock || 0)
-      }, 0)
-
-      const formData = new FormData()
-
-      formData.append("name", form.name)
-      formData.append("description", form.description)
-      formData.append("category", form.category)
-      formData.append("productType", form.productType)
-
-      formData.append("price", firstVariant.price || 0)
-      formData.append(
-        "basePrice",
-        firstVariant.basePrice || firstVariant.price || 0
+    const uniqueSizes = [
+      ...new Set(
+        validVariants.map((variant) =>
+          variant.size.trim()
+        )
       )
+    ]
+
+    const uniqueColors = [
+      ...new Map(
+        validVariants.map((variant) => [
+          variant.color.trim(),
+          { name: variant.color.trim() }
+        ])
+      ).values()
+    ]
+
+    const totalStock = validVariants.reduce(
+      (sum, variant) =>
+        sum + Number(variant.stock || 0),
+      0
+    )
+
+    const formData = new FormData()
+
+    formData.append("name", form.name)
+    formData.append("description", form.description)
+    formData.append("category", form.category)
+    formData.append("productType", form.productType)
+
+    formData.append(
+      "price",
+      firstVariant.price || 0
+    )
+
+    formData.append(
+      "basePrice",
+      firstVariant.basePrice ||
+        firstVariant.price ||
+        0
+    )
+
+    formData.append(
+      "listPrice",
+      firstVariant.listPrice ||
+        firstVariant.price ||
+        0
+    )
+
+    formData.append(
+      "cost",
+      firstVariant.basePrice || 0
+    )
+
+    formData.append(
+      "unitCost",
+      firstVariant.basePrice || 0
+    )
+
+    formData.append("stock", totalStock)
+    formData.append("quantity", totalStock)
+
+    formData.append("storefrontVisible", "true")
+    formData.append("storefront", "signavi_store")
+    formData.append("salesChannel", "signavi_store")
+    formData.append("active", "true")
+
+    formData.append(
+      "sizes",
+      JSON.stringify(uniqueSizes)
+    )
+
+    formData.append(
+      "colors",
+      JSON.stringify(uniqueColors)
+    )
+
+    // Backend route must parse this JSON field.
+    if (productShipping) {
       formData.append(
-        "listPrice",
-        firstVariant.listPrice || firstVariant.price || 0
+        "shipping",
+        JSON.stringify(productShipping)
       )
+    }
 
-      formData.append("cost", firstVariant.basePrice || 0)
-      formData.append("unitCost", firstVariant.basePrice || 0)
-
-      formData.append("stock", totalStock)
-      formData.append("quantity", totalStock)
-
-      formData.append("storefrontVisible", "true")
-      formData.append("storefront", "signavi_store")
-      formData.append("salesChannel", "signavi_store")
-      formData.append("active", "true")
-
-      formData.append("sizes", JSON.stringify(uniqueSizes))
-      formData.append("colors", JSON.stringify(uniqueColors))
-
-      const cleanVariants = validVariants.map((variant) => ({
+    const cleanVariants = validVariants.map(
+      (variant) => ({
         color: variant.color.trim(),
         size: variant.size.trim(),
         stock: Number(variant.stock || 0),
         quantity: Number(variant.stock || 0),
-        price: Number(variant.price || firstVariant.price || 0),
+
+        price: Number(
+          variant.price ||
+          firstVariant.price ||
+          0
+        ),
+
         basePrice: Number(
-          variant.basePrice || variant.price || firstVariant.price || 0
+          variant.basePrice ||
+          variant.price ||
+          firstVariant.price ||
+          0
         ),
+
         listPrice: Number(
-          variant.listPrice || variant.price || firstVariant.price || 0
+          variant.listPrice ||
+          variant.price ||
+          firstVariant.price ||
+          0
         ),
+
         cost: Number(
-          variant.basePrice || variant.price || firstVariant.price || 0
+          variant.basePrice ||
+          variant.price ||
+          firstVariant.price ||
+          0
         ),
+
         unitCost: Number(
-          variant.basePrice || variant.price || firstVariant.price || 0
+          variant.basePrice ||
+          variant.price ||
+          firstVariant.price ||
+          0
         )
-      }))
-
-      formData.append("variants", JSON.stringify(cleanVariants))
-
-      validVariants.forEach((variant) => {
-        variant.images.forEach((file) => {
-          formData.append("images", file)
-          formData.append("imageColors", variant.color.trim())
-        })
       })
+    )
+
+    formData.append(
+      "variants",
+      JSON.stringify(cleanVariants)
+    )
+
+    validVariants.forEach((variant) => {
+      variant.images.forEach((file) => {
+        formData.append("images", file)
+        formData.append(
+          "imageColors",
+          variant.color.trim()
+        )
+      })
+    })
+
+    try {
+      setSaving(true)
 
       await api.post("/products", formData, {
         headers: {
@@ -189,11 +323,14 @@ export default function CreateStoreProduct() {
 
       navigate("/admin/signavi-store/products")
     } catch (err) {
-      console.error("❌ CREATE STORE PRODUCT ERROR:", err)
+      console.error(
+        "CREATE STORE PRODUCT ERROR:",
+        err
+      )
 
       alert(
         err?.response?.data?.message ||
-          "Failed to create store product"
+        "Failed to create store product"
       )
     } finally {
       setSaving(false)
@@ -201,541 +338,521 @@ export default function CreateStoreProduct() {
   }
 
   return (
-    <div style={page}>
-      <div style={header}>
-        <div>
-          <h1 style={title}>➕ Create Store Product</h1>
-          <p style={subtitle}>
-            Add products for signavi.store with stock per size/color.
-          </p>
-        </div>
+    <main className="min-h-screen bg-[#020617] px-4 py-6 text-white md:px-8">
+      <div className="mx-auto max-w-5xl">
 
-        <button
-          type="button"
-          onClick={() => navigate("/admin/signavi-store/products")}
-          style={backButton}
-        >
-          ← Back
-        </button>
-      </div>
+        <header className="mb-7 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-extrabold">
+              Create Store Product
+            </h1>
 
-      <form onSubmit={createProduct} style={formStyle}>
-        <section style={section}>
-          <h2 style={sectionTitle}>Product Info</h2>
-
-          <label style={label}>
-            Product Name
-            <input
-              required
-              value={form.name}
-              onChange={(event) =>
-                updateForm("name", event.target.value)
-              }
-              style={input}
-              placeholder="Example: Signavi Hoodie"
-            />
-          </label>
-
-          <label style={label}>
-            Description
-            <textarea
-              value={form.description}
-              onChange={(event) =>
-                updateForm("description", event.target.value)
-              }
-              style={textarea}
-              placeholder="Describe the product..."
-            />
-          </label>
-
-          <label style={label}>
-            Category
-            <input
-              required
-              value={form.category}
-              onChange={(event) =>
-                updateForm("category", event.target.value)
-              }
-              style={input}
-              placeholder="Apparel, Accessories, Digital, etc."
-            />
-          </label>
-
-          <label style={label}>
-            Product Type
-            <select
-              value={form.productType}
-              onChange={(event) =>
-                updateForm("productType", event.target.value)
-              }
-              style={input}
-            >
-              <option value="physical">Physical</option>
-              <option value="digital">Digital</option>
-              <option value="service">Service</option>
-            </select>
-          </label>
-        </section>
-
-        <section style={section}>
-          <div style={variantHeader}>
-            <div>
-              <h2 style={sectionTitle}>Variants</h2>
-              <p style={helper}>
-                Add stock, base cost, markup adjustment, and images by color/size.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={addVariant}
-              style={smallButton}
-            >
-              + Add Variant
-            </button>
+            <p className="mt-2 text-slate-400">
+              Add a product to signavi.store with
+              variants, inventory, and shipping settings.
+            </p>
           </div>
 
-          {variants.map((variant, index) => {
-            const basePrice = Number(variant.basePrice || 0)
-            const listPrice = Number(variant.listPrice || variant.price || 0)
-            const profit = listPrice - basePrice
-            const markup =
-              basePrice > 0 ? (profit / basePrice) * 100 : 0
-            const margin =
-              listPrice > 0 ? (profit / listPrice) * 100 : 0
+          <button
+            type="button"
+            onClick={() =>
+              navigate("/admin/signavi-store/products")
+            }
+            className="rounded-xl border border-cyan-400 px-4 py-3 font-bold text-cyan-300"
+          >
+            ← Back
+          </button>
+        </header>
 
-            return (
-              <div key={index} style={variantBox}>
-                <div style={variantTop}>
-                  <h3 style={variantTitle}>
-                    Variant #{index + 1}
-                  </h3>
+        <form
+          onSubmit={createProduct}
+          className="space-y-6"
+        >
 
-                  {variants.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeVariant(index)}
-                      style={dangerSmallButton}
-                    >
-                      Remove
-                    </button>
-                  )}
-                </div>
+          {/* PRODUCT INFORMATION */}
 
-                <div style={grid2}>
-                  <label style={label}>
-                    Color
-                    <input
-                      required
-                      value={variant.color}
-                      onChange={(event) =>
-                        updateVariant(index, "color", event.target.value)
-                      }
-                      style={input}
-                      placeholder="Black"
-                    />
-                  </label>
+          <section className={box}>
+            <h2 className="mb-5 text-xl font-bold">
+              Product Info
+            </h2>
 
-                  <label style={label}>
-                    Size
-                    <input
-                      required
-                      value={variant.size}
-                      onChange={(event) =>
-                        updateVariant(index, "size", event.target.value)
-                      }
-                      style={input}
-                      placeholder="M"
-                    />
-                  </label>
+            <div className="grid gap-5">
 
-                  <label style={label}>
-                    Quantity In Stock
+              <label className={label}>
+                Product Name
+                <input
+                  required
+                  className={field}
+                  value={form.name}
+                  onChange={(e) =>
+                    updateForm("name", e.target.value)
+                  }
+                  placeholder="Example: Signavi Hoodie"
+                />
+              </label>
+
+              <label className={label}>
+                Description
+                <textarea
+                  className={`${field} min-h-28`}
+                  value={form.description}
+                  onChange={(e) =>
+                    updateForm(
+                      "description",
+                      e.target.value
+                    )
+                  }
+                  placeholder="Describe the product..."
+                />
+              </label>
+
+              <label className={label}>
+                Category
+                <input
+                  required
+                  className={field}
+                  value={form.category}
+                  onChange={(e) =>
+                    updateForm(
+                      "category",
+                      e.target.value
+                    )
+                  }
+                  placeholder="Apparel, Accessories, Digital, etc."
+                />
+              </label>
+
+              <label className={label}>
+                Product Type
+                <select
+                  className={field}
+                  value={form.productType}
+                  onChange={(e) =>
+                    updateForm(
+                      "productType",
+                      e.target.value
+                    )
+                  }
+                >
+                  <option value="physical">
+                    Physical
+                  </option>
+                  <option value="digital">
+                    Digital
+                  </option>
+                  <option value="service">
+                    Service
+                  </option>
+                </select>
+              </label>
+
+            </div>
+          </section>
+
+          {/* SHIPPING INFORMATION */}
+
+          {form.productType === "physical" && (
+            <section className={box}>
+              <h2 className="text-xl font-bold">
+                Shipping Information
+              </h2>
+
+              <p className={`${hint} mb-5 mt-2`}>
+                Measurements are for ONE item before
+                packaging. Enter actual item weight and
+                dimensions. A future packaging calculator
+                will determine cartons for quantities
+                such as 30 shirts. Do not enter a
+                made-up shipping cost.
+              </p>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+
+                {[
+                  ["weightOz", "Item Weight (oz)"],
+                  ["lengthIn", "Item Length (in)"],
+                  ["widthIn", "Item Width (in)"],
+                  ["heightIn", "Item Height (in)"]
+                ].map(([key, title]) => (
+                  <label
+                    key={key}
+                    className={label}
+                  >
+                    {title}
+
                     <input
                       required
                       type="number"
-                      min="0"
-                      value={variant.stock}
-                      onChange={(event) =>
-                        updateVariant(index, "stock", event.target.value)
+                      min="0.01"
+                      step="any"
+                      className={field}
+                      value={shipping[key]}
+                      onChange={(e) =>
+                        updateShipping(
+                          key,
+                          e.target.value
+                        )
                       }
-                      style={input}
+                      placeholder="Enter measurement"
                     />
                   </label>
+                ))}
 
-                  <label style={label}>
-                    Base Price / Cost
-                    <input
-                      required
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={variant.basePrice}
-                      onChange={(event) =>
-                        updateVariant(index, "basePrice", event.target.value)
-                      }
-                      style={input}
-                      placeholder="Example: 20.00"
-                    />
-                  </label>
+                <label className={label}>
+                  Packaging Category
 
-                  <label style={label}>
-                    Selling Price
-                    <input
-                      required
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={variant.price}
-                      onChange={(event) => {
-                        updateVariant(index, "price", event.target.value)
-                        updateVariant(index, "listPrice", event.target.value)
-                      }}
-                      style={input}
-                      placeholder="Example: 30.00"
-                    />
-                  </label>
-
-                  <label style={label}>
-                    List Price
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={variant.listPrice}
-                      onChange={(event) =>
-                        updateVariant(index, "listPrice", event.target.value)
-                      }
-                      style={input}
-                      placeholder="Optional"
-                    />
-                  </label>
-                </div>
-
-                <div style={pricingBox}>
-                  <div>
-                    <h4 style={pricingTitle}>Markup Adjustment</h4>
-                    <p style={helper}>
-                      Choose a markup percentage. The button updates Selling Price and List Price from Base Price / Cost.
-                    </p>
-                  </div>
-
-                  <div style={buttonRow}>
-                    <button
-                      type="button"
-                      onClick={() => applyMarkup(index, 40)}
-                      style={pricingButton}
-                    >
-                      40% Markup
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => applyMarkup(index, 50)}
-                      style={pricingButton}
-                    >
-                      50% Markup
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => applyMarkup(index, 60)}
-                      style={pricingButton}
-                    >
-                      60% Markup
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => applyMarkup(index, 80)}
-                      style={pricingButton}
-                    >
-                      80% Markup
-                    </button>
-                  </div>
-
-                  <div style={pricingStats}>
-                    <div style={statBox}>
-                      <span style={statLabel}>Cost</span>
-                      <strong>{money(basePrice)}</strong>
-                    </div>
-
-                    <div style={statBox}>
-                      <span style={statLabel}>Sell</span>
-                      <strong>{money(listPrice)}</strong>
-                    </div>
-
-                    <div style={statBox}>
-                      <span style={statLabel}>Profit</span>
-                      <strong>{money(profit)}</strong>
-                    </div>
-
-                    <div style={statBox}>
-                      <span style={statLabel}>Markup</span>
-                      <strong>{markup.toFixed(1)}%</strong>
-                    </div>
-
-                    <div style={statBox}>
-                      <span style={statLabel}>Margin</span>
-                      <strong>{margin.toFixed(1)}%</strong>
-                    </div>
-                  </div>
-                </div>
-
-                <label style={label}>
-                  Images for this color
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={(event) =>
-                      updateVariantImages(index, event.target.files)
+                  <select
+                    required
+                    className={field}
+                    value={shipping.packagingType}
+                    onChange={(e) =>
+                      updateShipping(
+                        "packagingType",
+                        e.target.value
+                      )
                     }
-                    style={fileInput}
-                  />
+                  >
+                    <option value="unassigned">
+                      Choose packaging type
+                    </option>
+
+                    <option value="mailer">
+                      Mailer
+                    </option>
+
+                    <option value="box">
+                      Box
+                    </option>
+
+                    <option value="fragile">
+                      Fragile / Protective Packaging
+                    </option>
+
+                    <option value="oversized">
+                      Oversized
+                    </option>
+
+                    <option value="custom">
+                      Custom
+                    </option>
+                  </select>
                 </label>
 
-                {variant.images.length > 0 && (
-                  <p style={helper}>
-                    {variant.images.length} image(s) selected for{" "}
-                    {variant.color || "this variant"}
-                  </p>
-                )}
+                <label className="flex items-center gap-3 rounded-xl border border-slate-700 p-4 text-sm font-semibold text-slate-200">
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 accent-cyan-400"
+                    checked={shipping.shipSeparately}
+                    onChange={(e) =>
+                      updateShipping(
+                        "shipSeparately",
+                        e.target.checked
+                      )
+                    }
+                  />
+
+                  Ship this item separately
+                </label>
               </div>
-            )
-          })}
-        </section>
 
-        <section style={lockedBox}>
-          <h2 style={sectionTitle}>Storefront Defaults</h2>
+              <p className={`${hint} mt-4`}>
+                Settings apply to this product and
+                its variants. Variant-specific weight
+                overrides are not supported yet.
+                Digital products and services do
+                not require carrier shipping.
+              </p>
+            </section>
+          )}
 
-          <ul>
-            <li>storefrontVisible: true</li>
-            <li>storefront: signavi_store</li>
-            <li>salesChannel: signavi_store</li>
-          </ul>
-        </section>
+          {/* PRODUCT VARIANTS */}
 
-        <button
-          type="submit"
-          disabled={saving}
-          style={{
-            ...submitButton,
-            opacity: saving ? 0.6 : 1
-          }}
-        >
-          {saving ? "Creating..." : "Create Store Product"}
-        </button>
-      </form>
-    </div>
+          <section className={box}>
+
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-bold">
+                  Variants
+                </h2>
+
+                <p className={`${hint} mt-2`}>
+                  Add stock, base cost, markup
+                  adjustments, and images by color/size.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setVariants((prev) => [
+                    ...prev,
+                    blankVariant()
+                  ])
+                }
+                className="rounded-xl bg-emerald-500 px-4 py-3 font-bold text-black"
+              >
+                + Add Variant
+              </button>
+            </div>
+
+            <div className="space-y-5">
+
+              {variants.map((variant, index) => {
+                const cost = Number(
+                  variant.basePrice || 0
+                )
+
+                const sell = Number(
+                  variant.listPrice ||
+                  variant.price ||
+                  0
+                )
+
+                const profit = sell - cost
+
+                const markup =
+                  cost > 0
+                    ? (profit / cost) * 100
+                    : 0
+
+                const margin =
+                  sell > 0
+                    ? (profit / sell) * 100
+                    : 0
+
+                return (
+                  <div
+                    key={index}
+                    className="space-y-5 rounded-2xl border border-slate-700 bg-slate-950 p-5"
+                  >
+
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="font-bold text-cyan-300">
+                        Variant #{index + 1}
+                      </h3>
+
+                      {variants.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setVariants((prev) =>
+                              prev.filter(
+                                (_, i) => i !== index
+                              )
+                            )
+                          }
+                          className="rounded-lg bg-red-600 px-3 py-2 text-sm font-bold"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+
+                      {[
+                        ["color", "Color", "text", "Black"],
+                        ["size", "Size", "text", "M"],
+                        [
+                          "stock",
+                          "Quantity In Stock",
+                          "number",
+                          "0"
+                        ],
+                        [
+                          "basePrice",
+                          "Base Price / Cost",
+                          "number",
+                          "20.00"
+                        ],
+                        [
+                          "price",
+                          "Selling Price",
+                          "number",
+                          "30.00"
+                        ],
+                        [
+                          "listPrice",
+                          "List Price",
+                          "number",
+                          "Optional"
+                        ]
+                      ].map(
+                        ([
+                          key,
+                          title,
+                          type,
+                          placeholder
+                        ]) => (
+                          <label
+                            key={key}
+                            className={label}
+                          >
+                            {title}
+
+                            <input
+                              className={field}
+                              type={type}
+                              required={
+                                key !== "listPrice"
+                              }
+                              min={
+                                type === "number"
+                                  ? "0"
+                                  : undefined
+                              }
+                              step={
+                                type === "number"
+                                  ? key === "stock"
+                                    ? "1"
+                                    : "0.01"
+                                  : undefined
+                              }
+                              placeholder={placeholder}
+                              value={variant[key]}
+                              onChange={(e) => {
+                                updateVariant(
+                                  index,
+                                  key,
+                                  e.target.value
+                                )
+
+                                if (key === "price") {
+                                  updateVariant(
+                                    index,
+                                    "listPrice",
+                                    e.target.value
+                                  )
+                                }
+                              }}
+                            />
+                          </label>
+                        )
+                      )}
+                    </div>
+
+                    {/* PRICING & MARKUP */}
+
+                    <div className="rounded-xl border border-slate-700 bg-slate-900 p-4">
+                      <h4 className="font-bold">
+                        Markup Adjustment
+                      </h4>
+
+                      <p className={`${hint} my-2`}>
+                        Markup buttons update Selling
+                        Price and List Price from
+                        Base Price / Cost.
+                      </p>
+
+                      <div className="mb-4 flex flex-wrap gap-2">
+                        {[40, 50, 60, 80].map(
+                          (percent) => (
+                            <button
+                              key={percent}
+                              type="button"
+                              onClick={() =>
+                                applyMarkup(
+                                  index,
+                                  percent
+                                )
+                              }
+                              className="rounded-lg bg-cyan-500 px-3 py-2 font-bold text-black"
+                            >
+                              {percent}% Markup
+                            </button>
+                          )
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-5">
+                        {[
+                          ["Cost", money(cost)],
+                          ["Sell", money(sell)],
+                          ["Profit", money(profit)],
+                          [
+                            "Markup",
+                            `${markup.toFixed(1)}%`
+                          ],
+                          [
+                            "Margin",
+                            `${margin.toFixed(1)}%`
+                          ]
+                        ].map(([title, value]) => (
+                          <div
+                            key={title}
+                            className="rounded-lg border border-slate-800 bg-slate-950 p-3"
+                          >
+                            <div className="text-xs uppercase text-slate-400">
+                              {title}
+                            </div>
+
+                            <strong>{value}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* VARIANT IMAGES */}
+
+                    <label className={label}>
+                      Images for this color
+
+                      <input
+                        className="text-slate-200"
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={(e) =>
+                          updateVariantImages(
+                            index,
+                            e.target.files
+                          )
+                        }
+                      />
+
+                      {variant.images.length > 0 && (
+                        <span className={hint}>
+                          {variant.images.length}
+                          {" "}image(s) selected for{" "}
+                          {variant.color ||
+                            "this variant"}
+                        </span>
+                      )}
+                    </label>
+
+                  </div>
+                )
+              })}
+
+            </div>
+          </section>
+
+          {/* STOREFRONT DEFAULTS */}
+
+          <section className="rounded-2xl border border-sky-500 bg-sky-950 p-5 text-sky-100">
+            <h2 className="mb-3 text-xl font-bold">
+              Storefront Defaults
+            </h2>
+
+            <ul className="list-inside list-disc space-y-1">
+              <li>storefrontVisible: true</li>
+              <li>storefront: signavi_store</li>
+              <li>salesChannel: signavi_store</li>
+            </ul>
+          </section>
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full rounded-xl bg-cyan-400 px-5 py-4 text-lg font-bold text-slate-950 hover:bg-cyan-300 disabled:cursor-wait disabled:opacity-50"
+          >
+            {saving
+              ? "Creating..."
+              : "Create Store Product"}
+          </button>
+
+        </form>
+      </div>
+    </main>
   )
-}
-
-const page = {
-  color: "white",
-  padding: 30
-}
-
-const header = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 20,
-  marginBottom: 30
-}
-
-const title = {
-  fontSize: 32,
-  margin: 0
-}
-
-const subtitle = {
-  color: "#94a3b8",
-  marginTop: 8
-}
-
-const formStyle = {
-  display: "grid",
-  gap: 20,
-  maxWidth: 1000
-}
-
-const section = {
-  background: "#0f172a",
-  border: "1px solid #1e293b",
-  borderRadius: 18,
-  padding: 24,
-  display: "grid",
-  gap: 16
-}
-
-const lockedBox = {
-  background: "#082f49",
-  border: "1px solid #38bdf8",
-  borderRadius: 18,
-  padding: 24,
-  color: "#e0f2fe"
-}
-
-const sectionTitle = {
-  margin: 0,
-  fontSize: 22
-}
-
-const label = {
-  display: "grid",
-  gap: 8,
-  color: "#cbd5e1",
-  fontWeight: "bold"
-}
-
-const input = {
-  width: "100%",
-  padding: "12px 14px",
-  borderRadius: 12,
-  border: "1px solid #334155",
-  background: "#020617",
-  color: "white"
-}
-
-const textarea = {
-  ...input,
-  minHeight: 120,
-  resize: "vertical"
-}
-
-const fileInput = {
-  color: "#cbd5e1"
-}
-
-const grid2 = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-  gap: 16
-}
-
-const helper = {
-  color: "#94a3b8",
-  margin: 0
-}
-
-const submitButton = {
-  background: "#22d3ee",
-  color: "#020617",
-  border: "none",
-  padding: "14px 20px",
-  borderRadius: 14,
-  fontWeight: "bold",
-  cursor: "pointer",
-  fontSize: 16
-}
-
-const backButton = {
-  background: "transparent",
-  color: "#22d3ee",
-  border: "1px solid #22d3ee",
-  padding: "10px 14px",
-  borderRadius: 12,
-  fontWeight: "bold",
-  cursor: "pointer"
-}
-
-const variantHeader = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 16
-}
-
-const variantBox = {
-  background: "#020617",
-  border: "1px solid #334155",
-  borderRadius: 16,
-  padding: 18,
-  display: "grid",
-  gap: 16
-}
-
-const variantTop = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center"
-}
-
-const variantTitle = {
-  margin: 0,
-  color: "#e2e8f0"
-}
-
-const pricingBox = {
-  background: "#0f172a",
-  border: "1px solid #334155",
-  borderRadius: 14,
-  padding: 16,
-  display: "grid",
-  gap: 14
-}
-
-const pricingTitle = {
-  margin: 0,
-  color: "#e2e8f0",
-  fontSize: 18
-}
-
-const buttonRow = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: 10
-}
-
-const pricingButton = {
-  background: "#22d3ee",
-  color: "#020617",
-  border: "none",
-  padding: "9px 12px",
-  borderRadius: 10,
-  fontWeight: "bold",
-  cursor: "pointer"
-}
-
-const pricingStats = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-  gap: 10
-}
-
-const statBox = {
-  background: "#020617",
-  border: "1px solid #1e293b",
-  borderRadius: 12,
-  padding: 12,
-  display: "grid",
-  gap: 4
-}
-
-const statLabel = {
-  color: "#94a3b8",
-  fontSize: 12,
-  textTransform: "uppercase",
-  letterSpacing: "0.08em"
-}
-
-const smallButton = {
-  background: "#22c55e",
-  color: "#020617",
-  border: "none",
-  padding: "10px 14px",
-  borderRadius: 10,
-  fontWeight: "bold",
-  cursor: "pointer"
-}
-
-const dangerSmallButton = {
-  background: "#ef4444",
-  color: "white",
-  border: "none",
-  padding: "8px 12px",
-  borderRadius: 10,
-  fontWeight: "bold",
-  cursor: "pointer"
 }

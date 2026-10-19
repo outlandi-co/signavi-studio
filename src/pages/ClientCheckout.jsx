@@ -59,19 +59,30 @@ export default function ClientCheckout() {
     return Boolean(selectedRate && rates.length && id)
   }, [selectedRate, rates.length, id])
 
-  const handleChange = (event) => {
-    const { name, value } = event.target
 
-    setForm((prev) => ({
-      ...prev,
-      [name]:
-        name === "state"
+const handleChange = (event) => {
+  const { name, value } = event.target
+
+  setForm((prev) => ({
+    ...prev,
+    [name]:
+      name === "state"
+        ? value.toUpperCase().slice(0, 2)
+        : name === "country"
           ? value.toUpperCase().slice(0, 2)
-          : name === "country"
-            ? value.toUpperCase().slice(0, 2)
-            : value
-    }))
+          : value
+  }))
+
+  // Address changes require fresh Shippo rates.
+  if (
+    ["street1", "city", "state", "zip", "country"]
+      .includes(name)
+  ) {
+    setRates([])
+    setSelectedRate(null)
   }
+}
+
 
   const validateForm = () => {
     const required = [
@@ -116,6 +127,21 @@ export default function ClientCheckout() {
       setRates([])
       setError("")
 
+
+      // Retrieve the products saved by Cart or Buy Now.
+      const checkoutItems = JSON.parse(
+        sessionStorage.getItem("signaviCheckoutItems") || "[]"
+      )
+
+      if (
+        !Array.isArray(checkoutItems) ||
+        checkoutItems.length === 0
+      ) {
+        throw new Error(
+          "No checkout items found. Return to your cart."
+        )
+      }
+
       const res = await api.post("/shipping/get-rates", {
         address_to: {
           name: form.name.trim(),
@@ -124,8 +150,11 @@ export default function ClientCheckout() {
           state: form.state.trim(),
           zip: form.zip.trim(),
           country: form.country.trim()
-        }
+        },
+
+        items: checkoutItems
       })
+
 
       const incomingRates =
         res.data?.rates ||
@@ -175,43 +204,63 @@ export default function ClientCheckout() {
 
       const shippingCost = Number(selectedRate.amount || 0)
 
-      const payload = {
-        shippingAddress: {
-          name: form.name.trim(),
-          street1: form.street1.trim(),
-          city: form.city.trim(),
-          state: form.state.trim(),
-          zip: form.zip.trim(),
-          country: form.country.trim()
-        },
-        address: {
-          street: form.street1.trim(),
-          city: form.city.trim(),
-          state: form.state.trim(),
-          zip: form.zip.trim(),
-          country: form.country.trim()
-        },
-        shippingCost,
-        shipping: shippingCost,
-        shippingRateId:
-          selectedRate.object_id ||
-          selectedRate.objectId ||
-          selectedRate.id,
-        carrier:
-          selectedRate.provider ||
-          selectedRate.carrier ||
-          "Carrier",
-        serviceLevel:
-          selectedRate.servicelevel?.name ||
-          selectedRate.serviceLevel?.name ||
-          selectedRate.service ||
-          "Shipping"
-      }
 
-      const res = await api.patch(
-        `/orders/${id}/checkout`,
-        payload
-      )
+const payload = {
+  shippingAddress: {
+    name: form.name.trim(),
+    street1: form.street1.trim(),
+    city: form.city.trim(),
+    state: form.state.trim(),
+    zip: form.zip.trim(),
+    country: form.country.trim()
+  },
+  address: {
+    street: form.street1.trim(),
+    city: form.city.trim(),
+    state: form.state.trim(),
+    zip: form.zip.trim(),
+    country: form.country.trim()
+  },
+  shippingCost,
+  shipping: shippingCost,
+  shippingQuote: selectedRate.shippingQuote,
+  shippingRateId:
+    selectedRate.object_id ||
+    selectedRate.objectId ||
+    selectedRate.id,
+  carrier:
+    selectedRate.provider ||
+    selectedRate.carrier ||
+    "Carrier",
+  serviceLevel:
+    selectedRate.servicelevel?.name ||
+    selectedRate.serviceLevel?.name ||
+    selectedRate.service ||
+    "Shipping"
+}
+
+
+
+const checkoutToken = sessionStorage.getItem(
+  `signaviCheckoutToken:${id}`
+)
+
+if (!checkoutToken) {
+  throw new Error(
+    "Checkout session missing. Please restart checkout from the store."
+  )
+}
+
+const res = await api.patch(
+  `/orders/${id}/checkout`,
+  payload,
+  {
+    headers: {
+      "x-signavi-guest-checkout-token": checkoutToken
+    }
+  }
+)
+
 
       console.log("🧾 CHECKOUT RESPONSE:", res.data)
 

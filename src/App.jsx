@@ -90,7 +90,7 @@ import CreateStoreProduct from "./pages/admin/signavi-store/CreateStoreProduct"
 import EditStoreProduct from "./pages/admin/signavi-store/EditStoreProduct"
 import Discounts from "./pages/admin/signavi-store/Discounts"
 import ShippingCalculator from "./pages/admin/signavi-store/ShippingCalculator"
-import AdminShipping from "./components/admin/AdminShipping"
+import AdminShipping from "./pages/admin/AdminShipping"
 
 
 
@@ -165,7 +165,24 @@ function AppContent() {
         throw new Error("Missing order ID")
       }
 
+
+      // Save the private guest checkout token for this order.
+      const checkoutToken = orderRes.data?.checkoutToken
+
+      if (!checkoutToken) {
+        throw new Error("Guest checkout token was not returned.")
+      }
+
+      sessionStorage.setItem(
+        `signaviCheckoutToken:${orderId}`,
+        checkoutToken
+      )
+
       localStorage.setItem("lastOrderId", orderId)
+
+      // Continue to shipping verification.
+      return window.location.assign(`/client-checkout/${orderId}`)
+
 
       const squareRes = await api.post(`/square/create-payment/${orderId}`)
 

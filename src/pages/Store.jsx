@@ -368,9 +368,33 @@ export default function Store() {
 
       if (!order?._id) throw new Error("No order ID returned")
 
+
+const checkoutToken = res.data?.checkoutToken
+
+if (!checkoutToken) {
+  throw new Error("Guest checkout token was not returned.")
+}
+
+sessionStorage.setItem(
+  `signaviCheckoutToken:${order._id}`,
+  checkoutToken
+)
+
+
       localStorage.setItem("lastOrderId", order._id)
-      addRecent(product)
-      navigate(`/client-checkout/${order._id}`)
+addRecent(product)
+
+sessionStorage.setItem(
+  "signaviCheckoutItems",
+  JSON.stringify([
+    {
+      productId: String(productId),
+      quantity: Number(qty)
+    }
+  ])
+)
+
+navigate(`/client-checkout/${order._id}`)
     } catch (err) {
       console.error("❌ BUY NOW ERROR:", err.response?.data || err)
       toast.error(err.response?.data?.message || "Buy now failed")

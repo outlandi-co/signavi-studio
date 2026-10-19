@@ -140,7 +140,7 @@ export default function Orders() {
     try {
       setUpdating(true)
 
-      const res = await api.patch(`/orders/${id}/status`, {
+      const res = await api.patch(`/orders/${id}`, {
         status
       })
 
@@ -180,7 +180,7 @@ export default function Orders() {
 
       await Promise.all(
         selected.map((id) =>
-          api.patch(`/orders/${id}/status`, {
+          api.patch(`/orders/${id}`, {
             status
           })
         )
@@ -230,12 +230,45 @@ export default function Orders() {
     )
   }
 
-  const printReceipt = (id) => {
-    window.open(
-      `https://signavi-backend.onrender.com/api/orders/${id}/receipt`,
-      "_blank"
-    )
+  const printReceipt = async (id) => {
+  const receiptTab = window.open("", "_blank")
+
+  if (!receiptTab) {
+    alert("Please allow pop-ups to view receipts.")
+    return
   }
+
+  try {
+    const response = await api.get(
+      `/orders/${id}/receipt`,
+      {
+        responseType: "blob"
+      }
+    )
+
+    const receiptBlob = new Blob(
+      [response.data],
+      {
+        type: "text/html;charset=utf-8"
+      }
+    )
+
+    const receiptUrl = URL.createObjectURL(receiptBlob)
+
+    receiptTab.location.href = receiptUrl
+
+    setTimeout(() => {
+      URL.revokeObjectURL(receiptUrl)
+    }, 60000)
+
+  } catch (error) {
+    receiptTab.close()
+
+    console.error("Failed to open receipt:", error)
+
+    alert("Unable to open receipt. Please check your admin login.")
+  }
+}
 
   const toggleSelected = (id) => {
     setSelected((prev) =>

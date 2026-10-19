@@ -148,7 +148,7 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
     return ""
   }
 
-  const handleGetShippingRates = async () => {
+    const handleGetShippingRates = async () => {
     const error = validateShippingAddress()
 
     if (error) {
@@ -162,16 +162,21 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
       setShippingRates([])
       setSelectedShippingRate(null)
 
-     const res = await api.post("/shipping/get-rates", {
-  address_to: {
-    name: customerInfo.customerName.trim() || "Customer",
-    street1: customerInfo.street.trim(),
-    city: customerInfo.city.trim(),
-    state: customerInfo.state.trim(),
-    zip: customerInfo.zip.trim(),
-    country: customerInfo.country.trim() || "US"
-  }
-})
+      const res = await api.post("/shipping/get-rates", {
+        address_to: {
+          name: customerInfo.customerName.trim() || "Customer",
+          street1: customerInfo.street.trim(),
+          city: customerInfo.city.trim(),
+          state: customerInfo.state.trim(),
+          zip: customerInfo.zip.trim(),
+          country: customerInfo.country.trim() || "US"
+        },
+
+        items: cart.map((item) => ({
+          productId: item.productId,
+          quantity: Number(item.quantity || 1)
+        }))
+      })
 
       const rawRates =
         res.data?.rates ||
@@ -181,22 +186,32 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
         []
 
       const normalizedRates = Array.isArray(rawRates)
-        ? rawRates.map(normalizeRate).filter((rate) => rate.amount > 0)
+        ? rawRates
+            .map(normalizeRate)
+            .filter((rate) => rate.amount > 0)
         : []
 
       if (normalizedRates.length === 0) {
-        setFormError("No shipping rates were returned. Check the address and try again.")
+        setFormError(
+          "No shipping rates were returned. Check the address and try again."
+        )
         return
       }
 
       setShippingRates(normalizedRates)
       setSelectedShippingRate(normalizedRates[0])
+
     } catch (err) {
-      console.error("❌ SHIPPO RATE ERROR:", err.response?.data || err)
+      console.error(
+        "❌ SHIPPO RATE ERROR:",
+        err.response?.data || err
+      )
+
       setFormError(
         err.response?.data?.message ||
-          "Could not get shipping rates. Please check the address."
+        "Could not get shipping rates. Please check the address."
       )
+
     } finally {
       setShippingLoading(false)
     }
@@ -209,6 +224,16 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
       setFormError(error)
       return
     }
+
+    sessionStorage.setItem(
+  "signaviCheckoutItems",
+  JSON.stringify(
+    cart.map((item) => ({
+      productId: String(item.productId || item._id || item.id),
+      quantity: Number(item.quantity || 1)
+    }))
+  )
+)
 
     setFormError("")
 

@@ -61,7 +61,11 @@ export default function ProductDetail() {
         setImageIndex(0)
 
         if (loadedProduct?.variants?.length) {
-          const firstVariant = loadedProduct.variants[0]
+          // Select an actually available option on first load.
+          const firstAvailable = loadedProduct.variants.find((option) =>
+            Number(option.stock ?? option.quantity ?? 0) > 0
+          )
+          const firstVariant = firstAvailable || loadedProduct.variants[0]
 
           setSelectedColor(safeText(firstVariant.color, ""))
           setSelectedSize(safeText(firstVariant.size, ""))
@@ -161,7 +165,8 @@ export default function ProductDetail() {
     )
   ].filter(Boolean)
 
-  const activeSize = selectedSize || sizes[0] || ""
+  // Never silently switch the chosen size to another variant.
+  const activeSize = selectedSize || ""
 
   const variant =
     variants.length > 0
@@ -169,7 +174,7 @@ export default function ProductDetail() {
           (item) =>
             safeText(item.color, "") === activeColor &&
             safeText(item.size, "") === activeSize
-        ) || colorVariants[0]
+        ) || null
       : null
 
   const images = [
@@ -215,13 +220,19 @@ export default function ProductDetail() {
       0
   )
 
-  const stock = Number(
-    variant?.stock ??
-      variant?.quantity ??
-      product.stock ??
-      product.quantity ??
-      0
-  )
+  const productType = safeText(product.productType, "physical").toLowerCase()
+  const isPhysical = productType === "physical"
+
+  // A variant's inventory must NEVER fall back to parent product stock.
+  const rawStock = variants.length > 0
+    ? variant?.stock ?? variant?.quantity ?? 0
+    : product.stock ?? product.quantity ?? 0
+
+  const parsedStock = Number(rawStock)
+  const stock = Number.isFinite(parsedStock) && parsedStock > 0
+    ? Math.floor(parsedStock)
+    : 0
+  const isUnavailable = isPhysical && (stock <= 0 || (variants.length > 0 && !variant))
 
   const category = safeText(product.category, "Custom Product")
   const sku = safeText(variant?.sku || product.sku, "N/A")
@@ -232,12 +243,12 @@ export default function ProductDetail() {
       return
     }
 
-    if (variants.length > 0 && !variant) {
-      toast.error("Select color and size")
+    if (isPhysical && variants.length > 0 && !variant) {
+      toast.error("Select an available color and size")
       return
     }
 
-    if (stock <= 0) {
+    if (isUnavailable) {
       toast.error("This option is out of stock")
       return
     }
@@ -247,8 +258,10 @@ export default function ProductDetail() {
       name: productName,
       image: mainImage,
       quantity: 1,
+      stock: isPhysical ? stock : undefined,
+      variants: isPhysical ? variants : [],
       price,
-      productType: safeText(product.productType, "physical"),
+      productType,
       selectedVariant: variant
         ? {
             ...variant,
@@ -327,7 +340,7 @@ export default function ProductDetail() {
 
             <div className="mb-6 flex flex-wrap items-center gap-3">
               <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-bold text-cyan-300">
-                {stock > 0 ? `${stock} Available` : "Out Of Stock"}
+                {!isPhysical ? "Available" : stock > 0 ? `${stock} Available` : "Out Of Stock"}
               </span>
 
               {product.featured && (
@@ -365,13 +378,15 @@ export default function ProductDetail() {
                       key={color}
                       type="button"
                       onClick={() => {
-                        const firstSize = variants.find(
+                        const firstAvailable = variants.find(
                           (item) =>
-                            safeText(item.color, "") === color
-                        )?.size
+                            safeText(item.color, "") === color &&
+                            Number(item.stock ?? item.quantity ?? 0) > 0
+                        )
 
                         setSelectedColor(color)
-                        setSelectedSize(safeText(firstSize, ""))
+                        // No available size in this color means no valid selection.
+                        setSelectedSize(safeText(firstAvailable?.size, ""))
                         setImageIndex(0)
                       }}
                       className={
@@ -431,10 +446,10 @@ export default function ProductDetail() {
             <button
               type="button"
               onClick={handleAddToCart}
-              disabled={stock <= 0}
+              disabled={isUnavailable}
               className="w-full rounded-2xl bg-cyan-500 px-6 py-4 text-lg font-bold text-black transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {stock > 0 ? "Add To Cart" : "Out Of Stock"}
+              {isUnavailable ? "Out Of Stock" : "Add To Cart"}
             </button>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
