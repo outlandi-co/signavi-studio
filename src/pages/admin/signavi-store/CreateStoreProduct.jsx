@@ -2,6 +2,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import api from "../../../services/api"
+import MaterialUsageEditor, { useMaterialsCatalog, serializeMaterialUsage } from "./MaterialUsageEditor"
 
 const blankVariant = () => ({
   color: "",
@@ -10,7 +11,8 @@ const blankVariant = () => ({
   price: "",
   basePrice: "",
   listPrice: "",
-  images: []
+  images: [],
+  materialUsage: []
 })
 
 const blankShipping = {
@@ -53,6 +55,8 @@ export default function CreateStoreProduct() {
   const [shipping, setShipping] = useState(blankShipping)
   const [variants, setVariants] = useState([blankVariant()])
   const [saving, setSaving] = useState(false)
+  const [materialUsage, setMaterialUsage] = useState([])
+  const { materials, loading: materialsLoading, error: materialsError } = useMaterialsCatalog()
 
   const updateForm = (fieldName, value) =>
     setForm((prev) => ({
@@ -245,6 +249,7 @@ export default function CreateStoreProduct() {
       "colors",
       JSON.stringify(uniqueColors)
     )
+    formData.append("materialUsage", JSON.stringify(serializeMaterialUsage(materialUsage)))
 
     // Backend route must parse this JSON field.
     if (productShipping) {
@@ -293,7 +298,8 @@ export default function CreateStoreProduct() {
           variant.price ||
           firstVariant.price ||
           0
-        )
+        ),
+        materialUsage: serializeMaterialUsage(variant.materialUsage || [])
       })
     )
 
@@ -565,6 +571,18 @@ export default function CreateStoreProduct() {
             </section>
           )}
 
+          {/* PRODUCT MATERIALS */}
+          <section className={box}>
+            <MaterialUsageEditor
+              title="Shared Materials (all variants)"
+              value={materialUsage}
+              onChange={setMaterialUsage}
+              materials={materials}
+              loading={materialsLoading}
+              error={materialsError}
+            />
+          </section>
+
           {/* PRODUCT VARIANTS */}
 
           <section className={box}>
@@ -791,6 +809,15 @@ export default function CreateStoreProduct() {
                         ))}
                       </div>
                     </div>
+
+                    <MaterialUsageEditor
+                      title="Materials for this variant"
+                      value={variant.materialUsage || []}
+                      onChange={(next) => updateVariant(index, "materialUsage", next)}
+                      materials={materials}
+                      loading={materialsLoading}
+                      error={materialsError}
+                    />
 
                     {/* VARIANT IMAGES */}
 
