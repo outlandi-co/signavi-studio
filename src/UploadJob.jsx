@@ -12,7 +12,7 @@ function UploadJob() {
     formData.append("artwork", file)
 
     const res = await axios.post(
-      "https://signavi-backend.onrender.com/api/upload",
+      "https://signavi-backend-v2.onrender.com/api/upload",
       formData
     )
 

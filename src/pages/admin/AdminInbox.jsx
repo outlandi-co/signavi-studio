@@ -1,3 +1,4 @@
+import { SIGNAVI_V2_API_ORIGIN } from "../../config/v2Api.js";
 ChatGPT Plus
 
 
@@ -35,14 +36,14 @@ clearEmailUnread
 
 const downloadOrdersCSV = () => {
 window.open(
-"https://signavi-backend.onrender.com/api/orders/export",
+"https://signavi-backend-v2.onrender.com/api/orders/export",
 "_blank"
 )
 }
 
 const downloadTaxCSV = () => {
 window.open(
-"https://signavi-backend.onrender.com/api/export-taxes",
+"https://signavi-backend-v2.onrender.com/api/export-taxes",
 "_blank"
 )
 }
@@ -688,7 +689,7 @@ import MessageBubble from "../../components/admin/MessageBubble"
 import ReplyBox from "../../components/admin/ReplyBox"
 
 const SOCKET_URL =
-  import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "") ||
+  SIGNAVI_V2_API_ORIGIN?.replace(/\/api\/?$/, "") ||
   "http://localhost:5050"
 
 const FOLDERS = [

@@ -1,3 +1,4 @@
+import { SIGNAVI_V2_API_ORIGIN } from "../config/v2Api.js";
 
 import { useEffect, useState } from "react"
 import {
@@ -9,8 +10,7 @@ import toast from "react-hot-toast"
 import api from "../services/api"
 
 const API_BASE =
-  import.meta.env.VITE_API_URL ||
-  "https://signavi-backend.onrender.com/api"
+  `${SIGNAVI_V2_API_ORIGIN}/api`
 
 const BACKEND_BASE =
   API_BASE.replace(/\/api\/?$/, "")

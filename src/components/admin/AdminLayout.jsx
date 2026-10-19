@@ -90,14 +90,14 @@ useEffect(() => {
 
   const downloadOrdersCSV = () => {
     window.open(
-      "https://signavi-backend.onrender.com/api/orders/export",
+      "https://signavi-backend-v2.onrender.com/api/orders/export",
       "_blank"
     )
   }
 
   const downloadTaxCSV = () => {
     window.open(
-      "https://signavi-backend.onrender.com/api/export-taxes",
+      "https://signavi-backend-v2.onrender.com/api/export-taxes",
       "_blank"
     )
   }

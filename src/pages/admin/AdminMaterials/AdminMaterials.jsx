@@ -122,7 +122,7 @@ export default function AdminMaterials() {
 
   const handleDownloadCSV = () => {
     window.open(
-      "https://signavi-backend.onrender.com/api/materials/export",
+      "https://signavi-backend-v2.onrender.com/api/materials/export",
       "_blank"
     )
   }

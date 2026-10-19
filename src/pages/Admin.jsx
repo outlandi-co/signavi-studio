@@ -1,3 +1,4 @@
+import { SIGNAVI_V2_API_ORIGIN } from "../config/v2Api.js";
 import {
   useCallback,
   useEffect,
@@ -15,8 +16,8 @@ import { io } from "socket.io-client"
 import api from "../services/api"
 
 const SOCKET_URL =
-  import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "") ||
-  "https://signavi-backend.onrender.com"
+  SIGNAVI_V2_API_ORIGIN?.replace(/\/api\/?$/, "") ||
+  "https://signavi-backend-v2.onrender.com"
 
 const columns = [
   {

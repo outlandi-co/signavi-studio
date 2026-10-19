@@ -1,9 +1,9 @@
+import { SIGNAVI_V2_API_ORIGIN } from "../../config/v2Api.js";
 import { useEffect, useMemo, useState } from "react"
 import api from "../../services/api"
 
 const API_BASE =
-  import.meta.env.VITE_API_URL ||
-  "https://signavi-backend.onrender.com/api"
+  `${SIGNAVI_V2_API_ORIGIN}/api`
 
 const money = (value = 0) => {
   return Number(value || 0).toLocaleString("en-US", {

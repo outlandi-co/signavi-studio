@@ -1,3 +1,4 @@
+import { SIGNAVI_V2_API_ORIGIN } from "../config/v2Api.js";
 import {
   useCallback,
   useEffect,
@@ -20,8 +21,7 @@ import RevenueChart from "../components/charts/RevenueChart"
 import ProductChart from "../components/charts/ProductChart"
 
 const API_URL =
-  import.meta.env.VITE_API_URL ||
-  "https://signavi-backend.onrender.com/api"
+  `${SIGNAVI_V2_API_ORIGIN}/api`
 
 const SOCKET_URL = API_URL.replace(/\/api\/?$/, "")
 
@@ -77,7 +77,7 @@ function CSVButtons() {
         type="button"
         onClick={() =>
           window.open(
-            "https://signavi-backend.onrender.com/api/orders/export",
+            "https://signavi-backend-v2.onrender.com/api/orders/export",
             "_blank"
           )
         }
@@ -90,7 +90,7 @@ function CSVButtons() {
         type="button"
         onClick={() =>
           window.open(
-            "https://signavi-backend.onrender.com/api/export-taxes",
+            "https://signavi-backend-v2.onrender.com/api/export-taxes",
             "_blank"
           )
         }

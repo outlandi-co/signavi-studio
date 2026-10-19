@@ -1,11 +1,10 @@
+import { SIGNAVI_V2_API_ORIGIN } from "../config/v2Api.js";
 import axios from "axios"
 
 /* =========================================================
    🌐 BASE URL
 ========================================================= */
-const BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  "https://signavi-backend.onrender.com/api"
+const BASE_URL = `${SIGNAVI_V2_API_ORIGIN}/api`
 
 const api = axios.create({
   baseURL: BASE_URL.replace(/\/$/, "")
