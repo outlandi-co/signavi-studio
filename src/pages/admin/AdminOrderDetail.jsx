@@ -1,10 +1,11 @@
+import { SIGNAVI_V2_API_ORIGIN } from "../../config/v2Api.js";
 import { useCallback, useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import api from "../../services/api"
 
 const BACKEND_BASE =
-  (import.meta.env.VITE_API_URL ||
-    "https://signavi-backend.onrender.com/api").replace(/\/api\/?$/, "")
+  (SIGNAVI_V2_API_ORIGIN ||
+    "https://signavi-backend-v2.onrender.com/api").replace(/\/api\/?$/, "")
 
 const statusOptions = [
   "payment_required",

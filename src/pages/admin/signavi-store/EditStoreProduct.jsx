@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import api from "../../../services/api"
+import MaterialUsageEditor, { useMaterialsCatalog, serializeMaterialUsage } from "./MaterialUsageEditor"
 
 const blankVariant = {
   color: "",
@@ -10,7 +11,8 @@ const blankVariant = {
   basePrice: "",
   listPrice: "",
   images: [],
-  newImages: []
+  newImages: [],
+  materialUsage: []
 }
 
 /* Shipping measurements for ONE item, before packing. */
@@ -49,6 +51,8 @@ export default function EditStoreProduct() {
   const [variants, setVariants] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [materialUsage, setMaterialUsage] = useState([])
+  const { materials, loading: materialsLoading, error: materialsError } = useMaterialsCatalog()
 
   useEffect(() => {
     let ignore = false
@@ -70,6 +74,7 @@ export default function EditStoreProduct() {
           active: product.active ?? true
         })
 
+        setMaterialUsage(Array.isArray(product.materialUsage) ? product.materialUsage : [])
         const savedShipping = product.shipping || {}
         setShipping({
           weightOz: savedShipping.weightOz == null ? "" : String(savedShipping.weightOz),
@@ -90,6 +95,7 @@ export default function EditStoreProduct() {
               basePrice: String(variant.basePrice ?? product.basePrice ?? variant.price ?? 0),
               listPrice: String(variant.listPrice ?? product.listPrice ?? variant.price ?? 0),
               images: Array.isArray(variant.images) ? variant.images : [],
+              materialUsage: Array.isArray(variant.materialUsage) ? variant.materialUsage : [],
               newImages: []
             }))
           : [
@@ -102,6 +108,7 @@ export default function EditStoreProduct() {
                 basePrice: String(product.basePrice ?? product.price ?? 0),
                 listPrice: String(product.listPrice ?? product.price ?? 0),
                 images: product.images || [],
+                materialUsage: [],
                 newImages: []
               }
             ]
@@ -265,6 +272,7 @@ export default function EditStoreProduct() {
 
       formData.append("sizes", JSON.stringify(uniqueSizes))
       formData.append("colors", JSON.stringify(uniqueColors))
+      formData.append("materialUsage", JSON.stringify(serializeMaterialUsage(materialUsage)))
 
       if (shippingPayload) {
         // Multipart form field: the backend route must JSON.parse this.
@@ -279,7 +287,8 @@ export default function EditStoreProduct() {
         price: Number(variant.price || firstVariant.price || 0),
         basePrice: Number(variant.basePrice || variant.price || firstVariant.price || 0),
         listPrice: Number(variant.listPrice || variant.price || firstVariant.price || 0),
-        images: Array.isArray(variant.images) ? variant.images : []
+        images: Array.isArray(variant.images) ? variant.images : [],
+        materialUsage: serializeMaterialUsage(variant.materialUsage || [])
       }))
 
       formData.append("variants", JSON.stringify(cleanVariants))
@@ -468,6 +477,15 @@ export default function EditStoreProduct() {
           </section>
         )}
 
+        <MaterialUsageEditor
+  title="Shared Materials (all variants)"
+  value={materialUsage}
+  onChange={setMaterialUsage}
+  materials={materials}
+  loading={materialsLoading}
+  error={materialsError}
+/>
+
         <section style={section}>
           <div style={variantHeader}>
             <div>
@@ -587,6 +605,14 @@ export default function EditStoreProduct() {
                 </label>
               </div>
 
+              <MaterialUsageEditor
+                title="Materials for this variant"
+                value={variant.materialUsage || []}
+                onChange={(next) => updateVariant(index, "materialUsage", next)}
+                materials={materials}
+                loading={materialsLoading}
+                error={materialsError}
+              />
               {variant.images.length > 0 && (
                 <div style={imageGrid}>
                   {variant.images.map((image, imageIndex) => (

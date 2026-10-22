@@ -1,3 +1,4 @@
+import { SIGNAVI_V2_API_ORIGIN } from "../config/v2Api.js";
 import { useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import api from "../services/api"
@@ -28,8 +29,8 @@ export default function ProductDetail() {
   const [imageIndex, setImageIndex] = useState(0)
 
   const BASE_URL =
-    import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "") ||
-    "https://signavi-backend.onrender.com"
+    SIGNAVI_V2_API_ORIGIN?.replace(/\/api\/?$/, "") ||
+    "https://signavi-backend-v2.onrender.com"
 
   const resolve = (img) => {
     if (!img || typeof img !== "string") {
