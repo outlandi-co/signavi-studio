@@ -1,3 +1,4 @@
+import { SIGNAVI_V2_API_ORIGIN } from "../../config/v2Api.js";
 import { useEffect, useMemo, useState } from "react"
 import api from "../../services/api"
 import toast from "react-hot-toast"
@@ -40,8 +41,8 @@ const CATEGORY_VARIANTS = {
 }
 
 const API_IMAGE_BASE =
-  import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "") ||
-  "https://signavi-backend.onrender.com"
+  SIGNAVI_V2_API_ORIGIN?.replace(/\/api\/?$/, "") ||
+  "https://signavi-backend-v2.onrender.com"
 
 const defaultForm = {
   name: "",

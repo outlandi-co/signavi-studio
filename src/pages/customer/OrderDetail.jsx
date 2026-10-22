@@ -1,3 +1,4 @@
+import { SIGNAVI_V2_API_ORIGIN } from "../../config/v2Api.js";
 import { useEffect, useRef, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { io } from "socket.io-client"
@@ -6,8 +7,7 @@ import html2canvas from "html2canvas"
 import api from "../../services/api"
 
 const API_URL =
-  import.meta.env.VITE_API_URL ||
-  "https://signavi-backend.onrender.com/api"
+  `${SIGNAVI_V2_API_ORIGIN}/api`
 
 const SOCKET_URL = API_URL.replace(/\/api\/?$/, "")
 

@@ -225,7 +225,7 @@ export default function Orders() {
 
   const printInvoice = (id) => {
     window.open(
-      `https://signavi-backend.onrender.com/api/orders/${id}/invoice`,
+      `https://signavi-backend-v2.onrender.com/api/orders/${id}/invoice`,
       "_blank"
     )
   }

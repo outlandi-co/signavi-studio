@@ -12,10 +12,6 @@ export default function CustomerRoute() {
 
   const customerToken = localStorage.getItem("customerToken")
 
-  console.log("👤 CustomerRoute Check:", {
-    customerUser,
-    customerToken
-  })
 
   if (!customerUser || !customerToken) {
     console.warn("🚫 Customer blocked → redirecting to login")

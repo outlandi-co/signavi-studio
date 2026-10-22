@@ -1,3 +1,4 @@
+import { SIGNAVI_V2_API_ORIGIN } from "../config/v2Api.js";
 import { useEffect, useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import api from "../services/api"
@@ -91,8 +92,8 @@ export default function Store() {
   const [sizeChartOpen, setSizeChartOpen] = useState(false)
 
   const BASE_URL =
-    import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "") ||
-    "https://signavi-backend.onrender.com"
+    SIGNAVI_V2_API_ORIGIN?.replace(/\/api\/?$/, "") ||
+    "https://signavi-backend-v2.onrender.com"
 
   const resolve = (img) => {
     if (!img || typeof img !== "string") {

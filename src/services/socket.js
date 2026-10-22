@@ -1,3 +1,4 @@
+import { SIGNAVI_V2_API_ORIGIN } from "../config/v2Api.js";
 import { io } from "socket.io-client"
 
 let socket = null
@@ -8,8 +9,8 @@ export const getSocket = () => {
   }
 
   const URL = (
-    import.meta.env.VITE_API_URL ||
-    "https://signavi-backend.onrender.com/api"
+    SIGNAVI_V2_API_ORIGIN ||
+    "https://signavi-backend-v2.onrender.com/api"
   ).replace("/api", "")
 
   console.log("🌐 SOCKET URL:", URL)

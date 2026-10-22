@@ -93,8 +93,6 @@ export default function CustomerProfile() {
           email
         })
 
-        console.log("📧 PROFILE FETCH EMAIL:", email)
-
         const res = await api.get(
           `/orders/my-orders?email=${encodeURIComponent(email)}`
         )

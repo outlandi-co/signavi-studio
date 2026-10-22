@@ -1,3 +1,4 @@
+import { SIGNAVI_V2_API_ORIGIN } from "../../config/v2Api.js";
 import { useEffect, useRef, useState } from "react"
 import { useLocation } from "react-router-dom"
 import html2canvas from "html2canvas"
@@ -7,8 +8,8 @@ const productImage =
   "https://www.bellacanvas.com/wp-content/uploads/2018/10/3001_white.jpg"
 
 const API_URL =
-  (import.meta.env.VITE_API_URL ||
-    "https://signavi-backend.onrender.com/api").replace(/\/api\/?$/, "")
+  (SIGNAVI_V2_API_ORIGIN ||
+    "https://signavi-backend-v2.onrender.com/api").replace(/\/api\/?$/, "")
 
 const resolveArtworkUrl = (artwork = "") => {
   if (!artwork) return null
