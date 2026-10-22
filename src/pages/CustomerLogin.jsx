@@ -65,7 +65,6 @@ export default function CustomerLogin() {
       localStorage.setItem("customerUser", JSON.stringify(cleanUser))
       localStorage.setItem("customerEmail", user.email)
 
-      console.log("✅ CUSTOMER LOGGED IN:", cleanUser)
 
       toast.success("Welcome back")
 
