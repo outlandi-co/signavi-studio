@@ -116,7 +116,6 @@ export default function CustomerRegister() {
       setLoading(true)
       setError("")
 
-      console.log("🔥 CUSTOMER REGISTER REQUEST")
 
       const res = await api.post("/auth/register", {
         name: form.name.trim(),
@@ -125,7 +124,6 @@ export default function CustomerRegister() {
         role: "customer"
       })
 
-      console.log("✅ REGISTER RESPONSE:", res.data)
 
       const token =
         res.data?.token ||
@@ -153,7 +151,6 @@ export default function CustomerRegister() {
       localStorage.removeItem("adminToken")
       localStorage.removeItem("adminUser")
 
-      console.log("✅ CUSTOMER STORED:", cleanUser)
 
       toast.success("Account created")
 

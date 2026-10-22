@@ -58,7 +58,6 @@ api.interceptors.request.use((config) => {
     }
   }
 
-  console.log("🔥 REQUEST:", config.baseURL + config.url, config.data)
 
   return config
 })
@@ -69,7 +68,6 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => {
     if (stopLoading) stopLoading()
-    console.log("✅ RESPONSE:", res.config.url, res.data)
     return res
   },
 

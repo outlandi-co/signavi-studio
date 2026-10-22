@@ -1,8 +1,15 @@
-const isProduction = import.meta.env.VERCEL_ENV === "production" ||
-  import.meta.env.VITE_VERCEL_ENV === "production";
+﻿const origin = String(import.meta.env.VITE_API_ORIGIN || "")
+  .trim()
+  .replace(/\/+$/, "")
 
-export const SIGNAVI_V2_API_ORIGIN =
-  import.meta.env.VITE_API_ORIGIN ||
-  (isProduction
-    ? "https://signavi-backend.onrender.com"
-    : "https://signavi-backend-v2.onrender.com");
+if (!origin) {
+  throw new Error(
+    "VITE_API_ORIGIN is required for this deployment."
+  )
+}
+
+if (!/^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(origin)) {
+  throw new Error("VITE_API_ORIGIN must be a valid HTTPS origin.")
+}
+
+export const SIGNAVI_V2_API_ORIGIN = origin
