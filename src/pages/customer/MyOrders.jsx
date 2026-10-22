@@ -98,13 +98,9 @@ export default function MyOrders() {
           return
         }
 
-        console.log("📧 USING EMAIL:", email)
-
         const res = await api.get(
           `/orders/my-orders?email=${encodeURIComponent(email)}`
         )
-
-        console.log("📦 ORDERS:", res.data)
 
         if (!mounted) return
 

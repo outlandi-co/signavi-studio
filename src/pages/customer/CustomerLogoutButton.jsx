@@ -19,8 +19,6 @@ export default function CustomerLogoutButton({
       localStorage.removeItem("cart")
       localStorage.removeItem("wishlist")
 
-      console.log("👋 CUSTOMER LOGGED OUT")
-
       toast.success("Logged out successfully")
 
       navigate("/", {
