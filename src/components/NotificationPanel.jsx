@@ -1,3 +1,4 @@
+import { SIGNAVI_V2_API_ORIGIN } from "../config/v2Api.js";
 import {
   useEffect,
   useRef,
@@ -7,8 +8,8 @@ import {
 import { io } from "socket.io-client"
 
 const SOCKET_URL =
-  import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "") ||
-  "https://signavi-backend.onrender.com"
+  SIGNAVI_V2_API_ORIGIN?.replace(/\/api\/?$/, "") ||
+  "https://signavi-backend-v2.onrender.com"
 
 export default function NotificationPanel({
   onSelectJob

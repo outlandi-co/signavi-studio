@@ -149,6 +149,19 @@ export default function AdminShipping() {
             Search an order, add carrier details, enter tracking, and mark the
             order as shipped.
           </p>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => navigate("/admin/signavi-store/shipping/calculator")}
+              className="rounded-xl bg-cyan-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-300"
+            >
+              📦 Open Shipping Calculator (TEST)
+            </button>
+            <span className="self-center text-xs text-slate-400">
+              Compare packed parcel rates; no postage is purchased.
+            </span>
+          </div>
         </div>
 
         <section className="mb-8 rounded-3xl border border-slate-800 bg-slate-950/80 p-6 shadow-xl shadow-black/20">

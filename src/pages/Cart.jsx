@@ -153,15 +153,20 @@ export default function Cart() {
       setSelectedRate(null)
 
       const res = await api.post("/shipping/get-rates", {
-        address_to: {
-          name: customerInfo.customerName.trim() || "Customer",
-          street1: customerInfo.street.trim(),
-          city: customerInfo.city.trim(),
-          state: customerInfo.state.trim(),
-          zip: customerInfo.zip.trim(),
-          country: customerInfo.country.trim() || "US"
-        }
-      })
+  address_to: {
+    name: customerInfo.customerName.trim() || "Customer",
+    street1: customerInfo.street.trim(),
+    city: customerInfo.city.trim(),
+    state: customerInfo.state.trim(),
+    zip: customerInfo.zip.trim(),
+    country: customerInfo.country.trim() || "US"
+  },
+
+  items: cart.map((item) => ({
+    productId: item.productId,
+    quantity: Number(item.quantity || 1)
+  }))
+})
 
       const rawRates =
         res.data?.rates ||

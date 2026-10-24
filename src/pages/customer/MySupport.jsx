@@ -106,19 +106,11 @@ export default function MySupport() {
           return
         }
 
-        console.log(
-          "📧 CUSTOMER SUPPORT EMAIL:",
-          email
-        )
 
         const res = await api.get(
           `/support?email=${encodeURIComponent(email)}`
         )
 
-        console.log(
-          "🛟 CUSTOMER TICKETS:",
-          res.data
-        )
 
         if (!mounted) return
 

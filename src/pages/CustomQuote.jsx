@@ -1,3 +1,4 @@
+import { SIGNAVI_V2_API_ORIGIN } from "../config/v2Api.js";
 import {
   useEffect,
   useState
@@ -502,10 +503,7 @@ export default function CustomQuote() {
       try {
         setLoading(true)
 
-        const API =
-          import.meta.env
-            .VITE_API_URL ||
-          "https://signavi-backend.onrender.com/api"
+        const API = `${SIGNAVI_V2_API_ORIGIN}/api`
 
         const formData =
           new FormData()

@@ -1,3 +1,4 @@
+import { SIGNAVI_V2_API_ORIGIN } from "../config/v2Api.js";
 import { useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import api from "../services/api"
@@ -29,8 +30,8 @@ export default function ProductDetail() {
   const [cartAdded, setCartAdded] = useState(false)
 
   const BASE_URL =
-    import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "") ||
-    "https://signavi-backend.onrender.com"
+    SIGNAVI_V2_API_ORIGIN?.replace(/\/api\/?$/, "") ||
+    "https://signavi-backend-v2.onrender.com"
 
   const resolve = (img) => {
     if (!img || typeof img !== "string") {
@@ -62,7 +63,11 @@ export default function ProductDetail() {
         setImageIndex(0)
 
         if (loadedProduct?.variants?.length) {
-          const firstVariant = loadedProduct.variants[0]
+          // Select an actually available option on first load.
+          const firstAvailable = loadedProduct.variants.find((option) =>
+            Number(option.stock ?? option.quantity ?? 0) > 0
+          )
+          const firstVariant = firstAvailable || loadedProduct.variants[0]
 
           setSelectedColor(safeText(firstVariant.color, ""))
           setSelectedSize(safeText(firstVariant.size, ""))
@@ -74,7 +79,7 @@ export default function ProductDetail() {
         if (!isMounted) return
 
         console.error(
-          "❌ PRODUCT DETAIL ERROR:",
+          "Γ¥î PRODUCT DETAIL ERROR:",
           err.response?.data || err
         )
 
@@ -162,7 +167,8 @@ export default function ProductDetail() {
     )
   ].filter(Boolean)
 
-  const activeSize = selectedSize || sizes[0] || ""
+  // Never silently switch the chosen size to another variant.
+  const activeSize = selectedSize || ""
 
   const variant =
     variants.length > 0
@@ -170,7 +176,7 @@ export default function ProductDetail() {
           (item) =>
             safeText(item.color, "") === activeColor &&
             safeText(item.size, "") === activeSize
-        ) || colorVariants[0]
+        ) || null
       : null
 
   const images = [
@@ -216,13 +222,19 @@ export default function ProductDetail() {
       0
   )
 
-  const stock = Number(
-    variant?.stock ??
-      variant?.quantity ??
-      product.stock ??
-      product.quantity ??
-      0
-  )
+  const productType = safeText(product.productType, "physical").toLowerCase()
+  const isPhysical = productType === "physical"
+
+  // A variant's inventory must NEVER fall back to parent product stock.
+  const rawStock = variants.length > 0
+    ? variant?.stock ?? variant?.quantity ?? 0
+    : product.stock ?? product.quantity ?? 0
+
+  const parsedStock = Number(rawStock)
+  const stock = Number.isFinite(parsedStock) && parsedStock > 0
+    ? Math.floor(parsedStock)
+    : 0
+  const isUnavailable = isPhysical && (stock <= 0 || (variants.length > 0 && !variant))
 
   const category = safeText(product.category, "Custom Product")
   const sku = safeText(variant?.sku || product.sku, "N/A")
@@ -233,12 +245,12 @@ export default function ProductDetail() {
       return
     }
 
-    if (variants.length > 0 && !variant) {
-      toast.error("Select color and size")
+    if (isPhysical && variants.length > 0 && !variant) {
+      toast.error("Select an available color and size")
       return
     }
 
-    if (stock <= 0) {
+    if (isUnavailable) {
       toast.error("This option is out of stock")
       return
     }
@@ -248,8 +260,10 @@ export default function ProductDetail() {
       name: productName,
       image: mainImage,
       quantity: 1,
+      stock: isPhysical ? stock : undefined,
+      variants: isPhysical ? variants : [],
       price,
-      productType: safeText(product.productType, "physical"),
+      productType,
       selectedVariant: variant
         ? {
             ...variant,
@@ -274,7 +288,7 @@ export default function ProductDetail() {
           to="/store"
           className="mb-8 inline-flex text-sm font-semibold text-cyan-300 transition hover:text-cyan-200"
         >
-          ← Back To Store
+          ΓåÉ Back To Store
         </Link>
 
         <div className="grid gap-10 lg:grid-cols-2">
@@ -330,7 +344,7 @@ export default function ProductDetail() {
 
             <div className="mb-6 flex flex-wrap items-center gap-3">
               <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-bold text-cyan-300">
-                {stock > 0 ? `${stock} Available` : "Out Of Stock"}
+                {!isPhysical ? "Available" : stock > 0 ? `${stock} Available` : "Out Of Stock"}
               </span>
 
               {product.featured && (
@@ -368,13 +382,15 @@ export default function ProductDetail() {
                       key={color}
                       type="button"
                       onClick={() => {
-                        const firstSize = variants.find(
+                        const firstAvailable = variants.find(
                           (item) =>
-                            safeText(item.color, "") === color
-                        )?.size
+                            safeText(item.color, "") === color &&
+                            Number(item.stock ?? item.quantity ?? 0) > 0
+                        )
 
                         setSelectedColor(color)
-                        setSelectedSize(safeText(firstSize, ""))
+                        // No available size in this color means no valid selection.
+                        setSelectedSize(safeText(firstAvailable?.size, ""))
                         setImageIndex(0)
                       }}
                       className={
@@ -434,10 +450,10 @@ export default function ProductDetail() {
             <button
               type="button"
               onClick={handleAddToCart}
-              disabled={stock <= 0}
+              disabled={isUnavailable}
               className={`w-full rounded-2xl px-6 py-4 text-lg font-bold text-black transition-all duration-200 enabled:cursor-pointer motion-safe:enabled:hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300 disabled:cursor-not-allowed disabled:opacity-50 ${cartAdded ? "bg-emerald-400 hover:bg-emerald-300" : "bg-cyan-500 hover:bg-cyan-300 hover:shadow-lg hover:shadow-cyan-500/25"}`}
             >
-              {stock <= 0 ? "Out Of Stock" : cartAdded ? "Added to Cart ✓" : "Add To Cart"}
+              {isUnavailable ? "Out Of Stock" : cartAdded ? "Added to Cart Γ£ô" : "Add To Cart"}
             </button>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
@@ -488,7 +504,7 @@ export default function ProductDetail() {
 
           <p className="mx-auto mb-8 max-w-2xl text-slate-300">
             Want this product with your logo, artwork, business name, or
-            custom design? Request a quote and we’ll review the details.
+            custom design? Request a quote and weΓÇÖll review the details.
           </p>
 
           <Link
@@ -522,7 +538,7 @@ function InfoPanel({ title, items }) {
         {items.map((item) => (
           <li key={item} className="flex gap-3">
             <span className="text-cyan-300">
-              ✓
+              Γ£ô
             </span>
 
             <span>{item}</span>

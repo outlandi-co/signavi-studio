@@ -1,9 +1,10 @@
+import { SIGNAVI_V2_API_ORIGIN } from "../config/v2Api.js";
 import { useDraggable } from "@dnd-kit/core"
 import api from "../services/api"
 
 const API_BASE =
-  import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "") ||
-  "https://signavi-backend.onrender.com"
+  SIGNAVI_V2_API_ORIGIN?.replace(/\/api\/?$/, "") ||
+  "https://signavi-backend-v2.onrender.com"
 
 const money = (value = 0) => {
   return Number(value || 0).toLocaleString("en-US", {

@@ -1,11 +1,16 @@
+import { SIGNAVI_V2_API_ORIGIN } from "../config/v2Api.js";
+
 import { useEffect, useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import {
+  Link,
+  useParams,
+  useSearchParams
+} from "react-router-dom"
 import toast from "react-hot-toast"
 import api from "../services/api"
 
 const API_BASE =
-  import.meta.env.VITE_API_URL ||
-  "https://signavi-backend.onrender.com/api"
+  `${SIGNAVI_V2_API_ORIGIN}/api`
 
 const BACKEND_BASE =
   API_BASE.replace(/\/api\/?$/, "")
@@ -13,7 +18,7 @@ const BACKEND_BASE =
 const resolveFileUrl = (url = "") => {
   if (!url) return ""
 
-  if (url.startsWith("http")) {
+  if (/^https?:\/\//i.test(url)) {
     return url
   }
 
@@ -28,48 +33,104 @@ const resolveFileUrl = (url = "") => {
   return `${BACKEND_BASE}/uploads/proofs/${url}`
 }
 
+const formatDate = (value) => {
+  if (!value) return "Not yet approved"
+
+  const date = new Date(value)
+
+  return Number.isNaN(date.getTime())
+    ? "Date unavailable"
+    : date.toLocaleString()
+}
+
 export default function ProofApprovalPage() {
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
+
+  // Matches the approval link issued by invoiceController.js
+  const approvalToken =
+    searchParams.get("approvalToken") || ""
 
   const [invoice, setInvoice] = useState(null)
   const [loading, setLoading] = useState(true)
   const [approving, setApproving] = useState(false)
   const [error, setError] = useState("")
 
+  const [approvalName, setApprovalName] = useState("")
+  const [termsAccepted, setTermsAccepted] = useState(false)
+
+  // =====================================================
+  // LOAD CUSTOMER PROOF USING PRIVATE APPROVAL TOKEN
+  // =====================================================
+
   useEffect(() => {
     let mounted = true
 
-    const timer = setTimeout(async () => {
+    const loadProof = async () => {
       try {
         setLoading(true)
         setError("")
+        setInvoice(null)
 
-        const res = await api.get(`/invoices/${id}`)
-
-        if (mounted) {
-          setInvoice(res.data?.data || res.data?.invoice || res.data)
-        }
-      } catch (err) {
-        console.error("LOAD PROOF ERROR:", err.response?.data || err)
-
-        if (mounted) {
-          setError(
-            err?.response?.data?.message ||
-              "Failed to load proof"
+        if (!approvalToken) {
+          throw new Error(
+            "This approval link is missing its security token. " +
+            "Please use the link in your Signavi Studio email."
           )
         }
+
+        const res = await api.get(
+          `/invoices/${id}/proof-access`,
+          {
+            headers: {
+              "x-signavi-invoice-approval-token":
+                approvalToken
+            }
+          }
+        )
+
+        if (!mounted) return
+
+        const data =
+          res.data?.data ||
+          res.data?.invoice ||
+          res.data
+
+        setInvoice(data)
+
+        // Require the customer to type their own name.
+        setApprovalName("")
+        setTermsAccepted(false)
+      } catch (err) {
+        if (!mounted) return
+
+        console.error(
+          "LOAD PROOF ERROR:",
+          err?.response?.status || err?.message
+        )
+
+        setError(
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to load your final proof."
+        )
       } finally {
         if (mounted) {
           setLoading(false)
         }
       }
-    }, 0)
+    }
+
+    loadProof()
 
     return () => {
       mounted = false
-      clearTimeout(timer)
     }
-  }, [id])
+  }, [id, approvalToken])
+
+  // =====================================================
+  // GET PROOF FILES
+  // =====================================================
 
   const getProofFiles = () => {
     const files = invoice?.finalProof?.files || []
@@ -84,7 +145,9 @@ export default function ProofApprovalPage() {
     if (invoice?.finalProof?.imageUrl) {
       return [
         {
-          url: resolveFileUrl(invoice.finalProof.imageUrl),
+          url: resolveFileUrl(
+            invoice.finalProof.imageUrl
+          ),
           fileName:
             invoice.finalProof.fileName ||
             "Final Proof",
@@ -101,61 +164,134 @@ export default function ProofApprovalPage() {
     return []
   }
 
+  // =====================================================
+  // CUSTOMER APPROVES FINAL PROOF
+  // =====================================================
+
   const approveProof = async () => {
     if (approving) return
 
-    if (!invoice?.customerName || !invoice?.customerEmail) {
-      toast.error("Customer information is missing from this invoice.")
+    const name = approvalName.trim()
+
+    if (name.length < 2 || name.length > 150) {
+      toast.error(
+        "Please enter your full name."
+      )
+      return
+    }
+
+    if (!termsAccepted) {
+      toast.error(
+        "You must accept the final proof terms."
+      )
+      return
+    }
+
+    const termsVersion =
+      invoice?.agreement?.version
+
+    const termsText =
+      invoice?.agreement?.text
+
+    if (!termsVersion || !termsText) {
+      toast.error(
+        "Approval terms are unavailable. Please contact Signavi Studio."
+      )
+      return
+    }
+
+    if (!approvalToken) {
+      toast.error(
+        "Your approval link is missing its security token."
+      )
       return
     }
 
     try {
       setApproving(true)
+      setError("")
 
       const res = await api.patch(
         `/invoices/${id}/approve-proof`,
         {
-          approvalName: invoice.customerName,
-          approvalEmail: invoice.customerEmail
+          approvalName: name,
+          termsAccepted: true,
+          termsVersion
+        },
+        {
+          headers: {
+            "x-signavi-invoice-approval-token":
+              approvalToken
+          }
         }
       )
 
-      setInvoice(res.data?.data || res.data?.invoice || res.data)
+      const data =
+        res.data?.data ||
+        res.data?.invoice ||
+        res.data
 
-      toast.success("Proof approved successfully")
-    } catch (err) {
-      console.error("APPROVE PROOF ERROR:", err.response?.data || err)
+      setInvoice(data)
 
-      toast.error(
-        err?.response?.data?.message ||
-          "Proof could not be approved."
+      toast.success(
+        "Final proof approved successfully."
       )
+
+      if (res.data?.paymentWarning) {
+        toast.error(
+          res.data.paymentWarning
+        )
+      }
+    } catch (err) {
+      console.error(
+        "APPROVE PROOF ERROR:",
+        err?.response?.status || err?.message
+      )
+
+      const message =
+        err?.response?.data?.message ||
+        "Proof could not be approved."
+
+      setError(message)
+      toast.error(message)
     } finally {
       setApproving(false)
     }
   }
 
+  // =====================================================
+  // LOADING / ERROR
+  // =====================================================
+
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#020617] text-white">
-        Loading proof...
+      <main className="flex min-h-screen items-center justify-center bg-[#020617] p-6 text-white">
+        Loading your final proof...
       </main>
     )
   }
 
-  if (error) {
+  if (error && !invoice) {
     return (
       <main className="min-h-screen bg-[#020617] px-6 py-16 text-white">
-        <section className="mx-auto max-w-3xl rounded-3xl border border-red-500/40 bg-red-950/40 p-8 text-center text-red-300">
-          <h1 className="mb-3 text-3xl font-bold">
-            ⚠️ Error
+        <section className="mx-auto max-w-3xl rounded-3xl border border-red-500/40 bg-red-950/30 p-8 text-center">
+          <h1 className="text-3xl font-bold text-red-300">
+            Approval Link Unavailable
           </h1>
 
-          <p>{error}</p>
+          <p className="mt-4 text-slate-300">
+            {error}
+          </p>
+
+          <p className="mt-4 text-sm text-slate-400">
+            If your approval link has expired,
+            please contact Signavi Studio for
+            a new one.
+          </p>
 
           <Link
             to="/"
-            className="mt-6 inline-flex rounded-full bg-cyan-500 px-6 py-3 font-bold text-black transition hover:bg-cyan-400"
+            className="mt-6 inline-flex rounded-full bg-cyan-500 px-6 py-3 font-bold text-black"
           >
             Return Home
           </Link>
@@ -166,20 +302,30 @@ export default function ProofApprovalPage() {
 
   if (!invoice) {
     return (
-      <main className="min-h-screen bg-[#020617] px-6 py-16 text-white">
-        <section className="mx-auto max-w-3xl rounded-3xl border border-slate-800 bg-slate-950/80 p-8 text-center">
-          Invoice not found.
-        </section>
+      <main className="flex min-h-screen items-center justify-center bg-[#020617] text-white">
+        Invoice not found.
       </main>
     )
   }
 
   const proofFiles = getProofFiles()
-  const approved = Boolean(invoice.finalProof?.approved)
+  const approved =
+    invoice.finalProof?.approved === true
+
+  const agreementText =
+    invoice.agreement?.text || ""
+
+  const agreementVersion =
+    invoice.agreement?.version || ""
+
+  // =====================================================
+  // CUSTOMER APPROVAL PAGE
+  // =====================================================
 
   return (
     <main className="min-h-screen bg-[#020617] px-6 py-16 text-white">
       <section className="mx-auto max-w-6xl">
+
         <div className="mb-10 text-center">
           <p className="mb-3 text-sm font-bold uppercase tracking-[0.25em] text-cyan-400">
             SignaVi Studio
@@ -190,11 +336,14 @@ export default function ProofApprovalPage() {
           </h1>
 
           <p className="mx-auto mt-3 max-w-2xl text-slate-400">
-            Review your final design proof carefully before approving production.
+            Review your final artwork and order
+            specifications before approving
+            production.
           </p>
         </div>
 
-        <section className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6 shadow-xl shadow-black/20 md:p-8">
+        <section className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6 md:p-8">
+
           <div className="mb-8 grid gap-4 md:grid-cols-3">
             <InfoBox
               label="Invoice"
@@ -212,38 +361,77 @@ export default function ProofApprovalPage() {
             />
           </div>
 
+          <div className="mb-8 rounded-2xl border border-slate-800 bg-[#020617] p-5">
+            <h2 className="text-xl font-bold">
+              Order Specifications
+            </h2>
+
+            <div className="mt-4 space-y-3">
+              {(invoice.items || []).map(
+                (item, index) => (
+                  <div
+                    key={index}
+                    className="flex justify-between gap-4 border-b border-slate-800 pb-3 text-sm"
+                  >
+                    <span>
+                      {item.name}
+                    </span>
+
+                    <span className="text-slate-300">
+                      Qty: {item.quantity}
+                    </span>
+                  </div>
+                )
+              )}
+            </div>
+
+            {invoice.notes && (
+              <p className="mt-4 whitespace-pre-wrap text-sm text-slate-300">
+                {invoice.notes}
+              </p>
+            )}
+
+            <p className="mt-5 text-right text-xl font-black text-cyan-300">
+              Total: $
+              {Number(
+                invoice.total || 0
+              ).toFixed(2)}
+            </p>
+          </div>
+
+          <h2 className="mb-5 text-2xl font-bold">
+            Final Artwork
+          </h2>
+
           {proofFiles.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-700 bg-[#020617] p-10 text-center text-slate-500">
-              No proof has been uploaded yet.
+              No final proof has been uploaded yet.
             </div>
           ) : (
             <div className="grid gap-6">
               {proofFiles.map((proof, index) => {
                 const isPdf =
                   proof.mimeType?.includes("pdf") ||
-                  proof.url?.toLowerCase().endsWith(".pdf")
+                  proof.url
+                    ?.toLowerCase()
+                    .endsWith(".pdf")
 
                 return (
                   <div
                     key={proof.url || index}
                     className="rounded-3xl border border-slate-800 bg-[#020617] p-5"
                   >
-                    <div className="mb-4 flex flex-col justify-between gap-3 md:flex-row md:items-center">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                          Proof {index + 1}
-                        </p>
-
-                        <h2 className="text-xl font-bold">
-                          {proof.fileName || "Final Proof"}
-                        </h2>
-                      </div>
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                      <h3 className="text-xl font-bold">
+                        {proof.fileName ||
+                          `Proof ${index + 1}`}
+                      </h3>
 
                       <a
                         href={proof.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded-full border border-slate-700 px-4 py-2 text-sm font-bold text-cyan-300 transition hover:border-cyan-400"
+                        className="rounded-full border border-slate-700 px-4 py-2 text-sm font-bold text-cyan-300"
                       >
                         Open in New Tab
                       </a>
@@ -258,7 +446,10 @@ export default function ProofApprovalPage() {
                     ) : (
                       <img
                         src={proof.url}
-                        alt={proof.fileName || `Proof ${index + 1}`}
+                        alt={
+                          proof.fileName ||
+                          `Proof ${index + 1}`
+                        }
                         className="max-h-[700px] w-full rounded-2xl border border-slate-800 bg-white object-contain"
                       />
                     )}
@@ -270,49 +461,162 @@ export default function ProofApprovalPage() {
 
           {approved ? (
             <div className="mt-8 rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-6 text-center">
+
               <h2 className="text-2xl font-bold text-emerald-300">
-                ✅ Proof Approved
+                Final Proof Approved
               </h2>
 
               <p className="mt-3 text-slate-300">
                 Approved by{" "}
                 <strong>
                   {invoice.finalProof?.approvalName ||
-                    invoice.customerName ||
-                    "Customer"}
+                    invoice.customerName}
                 </strong>
               </p>
 
-              {invoice.paymentUrl && (
+              <p className="mt-2 text-sm text-slate-400">
+                {formatDate(
+                  invoice.finalProof?.approvedAt
+                )}
+              </p>
+
+              {invoice.finalProof?.termsAccepted && (
+                <p className="mt-3 text-sm text-emerald-200">
+                  Custom-order terms accepted.
+                </p>
+              )}
+
+              {invoice.paymentStatus === "paid" ? (
+                <p className="mt-6 font-bold text-emerald-300">
+                  Payment recorded.
+                </p>
+              ) : invoice.paymentUrl ? (
                 <a
                   href={invoice.paymentUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-6 inline-flex rounded-full bg-emerald-500 px-6 py-3 font-bold text-black transition hover:bg-emerald-400"
+                  className="mt-6 inline-flex rounded-full bg-emerald-500 px-6 py-3 font-bold text-black"
                 >
-                  💳 Pay Invoice
+                  Pay Approved Invoice
                 </a>
+              ) : (
+                <p className="mt-5 text-sm text-slate-300">
+                  Approval was recorded.
+                  Please contact Signavi Studio
+                  if your payment link is unavailable.
+                </p>
               )}
             </div>
           ) : (
-            <div className="mt-8 rounded-3xl border border-cyan-500/20 bg-cyan-500/10 p-6 text-center">
+            <div className="mt-8 rounded-3xl border border-cyan-500/20 bg-cyan-500/10 p-6">
+
               <h2 className="text-2xl font-bold">
-                Approve Final Proofs
+                Customer Approval and Agreement
               </h2>
 
-              <p className="mx-auto mt-3 max-w-2xl leading-7 text-slate-300">
-                By clicking approve, you confirm these final proofs are approved
-                for production under the customer name and email on this invoice.
+              <p className="mt-3 leading-7 text-slate-300">
+                Please examine every proof and
+                verify your order details before
+                approving.
               </p>
+
+              <div className="mt-6">
+                <label
+                  htmlFor="approvalName"
+                  className="mb-2 block text-sm font-bold"
+                >
+                  Full Name
+                </label>
+
+                <input
+                  id="approvalName"
+                  type="text"
+                  autoComplete="name"
+                  maxLength={150}
+                  value={approvalName}
+                  onChange={(event) =>
+                    setApprovalName(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Type your full name"
+                  className="w-full rounded-xl border border-slate-700 bg-[#020617] p-3 text-white focus:border-cyan-400 focus:outline-none"
+                />
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-slate-700 bg-[#020617] p-5">
+
+                <h3 className="text-lg font-bold">
+                  Final Proof and Custom-Order Terms
+                </h3>
+
+                <p className="mt-3 whitespace-pre-wrap leading-7 text-slate-300">
+                  {agreementText ||
+                    "Approval terms are unavailable."}
+                </p>
+
+                {agreementVersion && (
+                  <p className="mt-4 text-xs text-slate-500">
+                    Agreement version:{" "}
+                    {agreementVersion}
+                  </p>
+                )}
+
+                <label className="mt-6 flex cursor-pointer items-start gap-3">
+
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(event) =>
+                      setTermsAccepted(
+                        event.target.checked
+                      )
+                    }
+                    disabled={!agreementText}
+                    className="mt-1 h-5 w-5 accent-cyan-400"
+                  />
+
+                  <span className="text-sm leading-6 text-slate-200">
+                    I have reviewed the final
+                    artwork and order specifications,
+                    and I agree to the custom-order
+                    terms displayed above.
+                  </span>
+
+                </label>
+              </div>
+
+              {error && (
+                <p className="mt-5 text-sm text-red-300">
+                  {error}
+                </p>
+              )}
 
               <button
                 type="button"
                 onClick={approveProof}
-                disabled={approving || proofFiles.length === 0}
+                disabled={
+                  approving ||
+                  proofFiles.length === 0 ||
+                  !termsAccepted ||
+                  !approvalName.trim() ||
+                  !agreementText ||
+                  !agreementVersion
+                }
                 className="mt-6 rounded-2xl bg-cyan-500 px-8 py-4 font-black text-black transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {approving ? "Approving..." : "Approve Final Proofs"}
+                {approving
+                  ? "Approving..."
+                  : "Approve Final Proofs"}
               </button>
+
+              <p className="mt-4 text-sm text-slate-400">
+                If anything is incorrect,
+                do not approve.
+                Contact Signavi Studio to
+                request a revised proof.
+              </p>
+
             </div>
           )}
 
@@ -324,23 +628,21 @@ export default function ProofApprovalPage() {
               Return Home
             </Link>
           </div>
+
         </section>
       </section>
     </main>
   )
 }
 
-function InfoBox({
-  label,
-  value
-}) {
+function InfoBox({ label, value }) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-[#020617] p-4">
       <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
         {label}
       </p>
 
-      <p className="mt-1 font-bold text-white">
+      <p className="mt-1 break-words font-bold text-white">
         {value}
       </p>
     </div>

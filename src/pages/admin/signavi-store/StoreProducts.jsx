@@ -1,10 +1,11 @@
+import { SIGNAVI_V2_API_ORIGIN } from "../../../config/v2Api.js";
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import api from "../../../services/api"
 
 const API_IMAGE_BASE =
-  import.meta.env.VITE_API_URL?.replace("/api", "") ||
-  "https://signavi-backend.onrender.com"
+  SIGNAVI_V2_API_ORIGIN?.replace("/api", "") ||
+  "https://signavi-backend-v2.onrender.com"
 
 const money = (value = 0) =>
   Number(value || 0).toLocaleString("en-US", {
@@ -106,6 +107,7 @@ export default function StoreProducts() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
+  const [busyProductId, setBusyProductId] = useState(null)
 
   const loadProducts = async () => {
     try {
@@ -113,8 +115,7 @@ export default function StoreProducts() {
 
       const res = await api.get("/products", {
         params: {
-          storefrontVisible: true,
-          storefront: "signavi"
+          storefront: "signavi_store"
         }
       })
 
@@ -184,24 +185,64 @@ export default function StoreProducts() {
     0
   )
 
-  const hideProduct = async (id) => {
-    const confirmHide = window.confirm(
-      "Hide this product from signavi.store?"
-    )
+  const toggleProductVisibility = async (product) => {
+    const nextVisible = product.storefrontVisible !== true
+    const action = nextVisible ? "show" : "hide"
 
-    if (!confirmHide) return
+    if (!window.confirm(`Do you want to ${action} "${product.name}" on signavi.store?`)) {
+      return
+    }
 
     try {
-      await api.patch(`/products/${id}`, {
-        storefrontVisible: false
+      setBusyProductId(product._id)
+      const response = await api.patch(`/products/${product._id}`, {
+        storefrontVisible: nextVisible
       })
 
-      setProducts((prev) =>
-        prev.filter((product) => product._id !== id)
+      if (response.data?.success === false) {
+        throw new Error(response.data.message || "Visibility update failed")
+      }
+
+      setProducts((previous) =>
+        previous.map((item) =>
+          item._id === product._id
+            ? { ...item, storefrontVisible: nextVisible }
+            : item
+        )
       )
-    } catch (err) {
-      console.error("❌ HIDE PRODUCT ERROR:", err)
-      alert("Failed to hide product")
+    } catch (error) {
+      console.error("STORE PRODUCT VISIBILITY ERROR:", error)
+      alert(error.response?.data?.message || error.message || "Failed to update product visibility")
+    } finally {
+      setBusyProductId(null)
+    }
+  }
+
+  const deleteProduct = async (product) => {
+    if (!window.confirm(
+      `PERMANENTLY DELETE "${product.name}"?\n\n` +
+      "This removes the product record and cannot be undone. " +
+      "Choose Cancel and use Hide if you may sell it again."
+    )) {
+      return
+    }
+
+    try {
+      setBusyProductId(product._id)
+      const response = await api.delete(`/products/${product._id}`)
+
+      if (response.data?.success === false) {
+        throw new Error(response.data.message || "Delete failed")
+      }
+
+      setProducts((previous) =>
+        previous.filter((item) => item._id !== product._id)
+      )
+    } catch (error) {
+      console.error("DELETE STORE PRODUCT ERROR:", error)
+      alert(error.response?.data?.message || error.message || "Failed to delete product")
+    } finally {
+      setBusyProductId(null)
     }
   }
 
@@ -227,7 +268,7 @@ export default function StoreProducts() {
 </h1>
 
             <p className="mt-3 max-w-2xl text-slate-400">
-              Manage products currently visible on signavi.store.
+              Manage all signavi.store products, including hidden products.
             </p>
           </div>
 
@@ -326,8 +367,14 @@ export default function StoreProducts() {
                       {displayText(product.productType, "physical")}
                     </span>
 
-                    <span className="absolute right-4 top-4 rounded-full border border-emerald-400/30 bg-black/70 px-3 py-1 text-xs font-bold text-emerald-300">
-                      Visible
+                    <span
+                      className={`absolute right-4 top-4 rounded-full border bg-black/70 px-3 py-1 text-xs font-bold ${
+                        product.storefrontVisible === true
+                          ? "border-emerald-400/30 text-emerald-300"
+                          : "border-amber-400/30 text-amber-300"
+                      }`}
+                    >
+                      {product.storefrontVisible === true ? "Visible" : "Hidden"}
                     </span>
                   </div>
 
@@ -380,23 +427,38 @@ export default function StoreProducts() {
                       </span>
                     </div>
 
-                    <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                    <div className="mt-6 grid grid-cols-3 gap-2">
                       <button
                         type="button"
+                        disabled={busyProductId === product._id}
                         onClick={() =>
                           navigate(`/admin/signavi-store/edit/${product._id}`)
                         }
-                        className="rounded-xl bg-cyan-500 px-4 py-3 font-bold text-black transition hover:bg-cyan-400"
+                        className="rounded-xl bg-cyan-500 px-3 py-3 font-bold text-black transition hover:bg-cyan-400 disabled:opacity-50"
                       >
                         Edit
                       </button>
 
                       <button
                         type="button"
-                        onClick={() => hideProduct(product._id)}
-                        className="rounded-xl bg-red-500 px-4 py-3 font-bold text-white transition hover:bg-red-400"
+                        disabled={busyProductId === product._id}
+                        onClick={() => toggleProductVisibility(product)}
+                        className={`rounded-xl px-3 py-3 font-bold text-black transition disabled:opacity-50 ${
+                          product.storefrontVisible === true
+                            ? "bg-amber-400 hover:bg-amber-300"
+                            : "bg-emerald-400 hover:bg-emerald-300"
+                        }`}
                       >
-                        Hide
+                        {product.storefrontVisible === true ? "Hide" : "Show"}
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={busyProductId === product._id}
+                        onClick={() => deleteProduct(product)}
+                        className="rounded-xl bg-red-500 px-3 py-3 font-bold text-white transition hover:bg-red-400 disabled:opacity-50"
+                      >
+                        Delete
                       </button>
                     </div>
                   </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import api from "../../../services/api"
+import MaterialUsageEditor, { useMaterialsCatalog, serializeMaterialUsage } from "./MaterialUsageEditor"
 
 const blankVariant = {
   color: "",
@@ -10,8 +11,26 @@ const blankVariant = {
   basePrice: "",
   listPrice: "",
   images: [],
-  newImages: []
+  newImages: [],
+  materialUsage: []
 }
+
+/* Shipping measurements for ONE item, before packing. */
+const blankShipping = {
+  weightOz: "",
+  lengthIn: "",
+  widthIn: "",
+  heightIn: "",
+  packagingType: "unassigned",
+  shipSeparately: false
+}
+
+const shippingMeasurements = [
+  ["weightOz", "Item Weight (oz)"],
+  ["lengthIn", "Item Length (in)"],
+  ["widthIn", "Item Width (in)"],
+  ["heightIn", "Item Height (in)"]
+]
 
 export default function EditStoreProduct() {
   const navigate = useNavigate()
@@ -23,13 +42,17 @@ export default function EditStoreProduct() {
     category: "",
     productType: "physical",
     storefrontVisible: true,
-    storefront: "signavi",
+    storefront: "signavi_store",
     active: true
   })
 
+  const [shipping, setShipping] = useState({ ...blankShipping })
+  const [shippingEdited, setShippingEdited] = useState(false)
   const [variants, setVariants] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [materialUsage, setMaterialUsage] = useState([])
+  const { materials, loading: materialsLoading, error: materialsError } = useMaterialsCatalog()
 
   useEffect(() => {
     let ignore = false
@@ -47,9 +70,21 @@ export default function EditStoreProduct() {
           category: product.category || "",
           productType: product.productType || "physical",
           storefrontVisible: product.storefrontVisible ?? true,
-          storefront: product.storefront || "signavi",
+          storefront: product.storefront || "signavi_store",
           active: product.active ?? true
         })
+
+        setMaterialUsage(Array.isArray(product.materialUsage) ? product.materialUsage : [])
+        const savedShipping = product.shipping || {}
+        setShipping({
+          weightOz: savedShipping.weightOz == null ? "" : String(savedShipping.weightOz),
+          lengthIn: savedShipping.lengthIn == null ? "" : String(savedShipping.lengthIn),
+          widthIn: savedShipping.widthIn == null ? "" : String(savedShipping.widthIn),
+          heightIn: savedShipping.heightIn == null ? "" : String(savedShipping.heightIn),
+          packagingType: savedShipping.packagingType || "unassigned",
+          shipSeparately: Boolean(savedShipping.shipSeparately)
+        })
+        setShippingEdited(false)
 
         const loadedVariants = Array.isArray(product.variants) && product.variants.length > 0
           ? product.variants.map(variant => ({
@@ -60,6 +95,7 @@ export default function EditStoreProduct() {
               basePrice: String(variant.basePrice ?? product.basePrice ?? variant.price ?? 0),
               listPrice: String(variant.listPrice ?? product.listPrice ?? variant.price ?? 0),
               images: Array.isArray(variant.images) ? variant.images : [],
+              materialUsage: Array.isArray(variant.materialUsage) ? variant.materialUsage : [],
               newImages: []
             }))
           : [
@@ -72,6 +108,7 @@ export default function EditStoreProduct() {
                 basePrice: String(product.basePrice ?? product.price ?? 0),
                 listPrice: String(product.listPrice ?? product.price ?? 0),
                 images: product.images || [],
+                materialUsage: [],
                 newImages: []
               }
             ]
@@ -79,7 +116,7 @@ export default function EditStoreProduct() {
         setVariants(loadedVariants)
 
       } catch (err) {
-        console.error("❌ LOAD STORE PRODUCT ERROR:", err)
+        console.error("Γ¥î LOAD STORE PRODUCT ERROR:", err)
         alert("Failed to load product")
       } finally {
         if (!ignore) {
@@ -100,6 +137,11 @@ export default function EditStoreProduct() {
       ...prev,
       [field]: value
     }))
+  }
+
+  const updateShipping = (field, value) => {
+    setShipping((prev) => ({ ...prev, [field]: value }))
+    setShippingEdited(true)
   }
 
   const updateVariant = (index, field, value) => {
@@ -187,6 +229,30 @@ export default function EditStoreProduct() {
         return
       }
 
+      // Leave legacy products untouched unless the shipping form is edited.
+      // Incomplete measurements must never be converted to zero.
+      let shippingPayload = null
+      if (form.productType === "physical" && shippingEdited) {
+        const validMeasurements = shippingMeasurements.every(([field]) => {
+          const value = String(shipping[field]).trim()
+          return value !== "" && Number.isFinite(Number(value)) && Number(value) > 0
+        })
+
+        if (!validMeasurements || shipping.packagingType === "unassigned") {
+          alert("Enter all four positive shipping measurements and a packaging type.")
+          return
+        }
+
+        shippingPayload = {
+          weightOz: Number(shipping.weightOz),
+          lengthIn: Number(shipping.lengthIn),
+          widthIn: Number(shipping.widthIn),
+          heightIn: Number(shipping.heightIn),
+          packagingType: shipping.packagingType,
+          shipSeparately: Boolean(shipping.shipSeparately)
+        }
+      }
+
       const firstVariant = validVariants[0]
 
       const uniqueSizes = [
@@ -202,9 +268,10 @@ export default function EditStoreProduct() {
         ).values()
       ]
 
-      const totalStock = validVariants.reduce((sum, variant) => {
-        return sum + Number(variant.stock || 0)
-      }, 0)
+      const totalStock = validVariants.reduce(
+  (total, variant) => total + Math.max(0, Number(variant.stock) || 0),
+  0
+)
 
       const formData = new FormData()
 
@@ -221,12 +288,19 @@ export default function EditStoreProduct() {
       formData.append("quantity", totalStock)
 
       formData.append("storefrontVisible", String(form.storefrontVisible))
-      formData.append("storefront", form.storefront || "signavi")
+      // This editor belongs to Signavi Store. Keep both channel fields in sync.
+      formData.append("storefront", "signavi_store")
       formData.append("salesChannel", "signavi_store")
       formData.append("active", String(form.active))
 
       formData.append("sizes", JSON.stringify(uniqueSizes))
       formData.append("colors", JSON.stringify(uniqueColors))
+      formData.append("materialUsage", JSON.stringify(serializeMaterialUsage(materialUsage)))
+
+      if (shippingPayload) {
+        // Multipart form field: the backend route must JSON.parse this.
+        formData.append("shipping", JSON.stringify(shippingPayload))
+      }
 
       const cleanVariants = validVariants.map(variant => ({
         color: variant.color.trim(),
@@ -236,7 +310,8 @@ export default function EditStoreProduct() {
         price: Number(variant.price || firstVariant.price || 0),
         basePrice: Number(variant.basePrice || variant.price || firstVariant.price || 0),
         listPrice: Number(variant.listPrice || variant.price || firstVariant.price || 0),
-        images: Array.isArray(variant.images) ? variant.images : []
+        images: Array.isArray(variant.images) ? variant.images : [],
+        materialUsage: serializeMaterialUsage(variant.materialUsage || [])
       }))
 
       formData.append("variants", JSON.stringify(cleanVariants))
@@ -263,7 +338,7 @@ export default function EditStoreProduct() {
       navigate("/admin/signavi-store/products")
 
     } catch (err) {
-      console.error("❌ UPDATE STORE PRODUCT ERROR:", err)
+      console.error("Γ¥î UPDATE STORE PRODUCT ERROR:", err)
 
       alert(
         err?.response?.data?.message ||
@@ -287,7 +362,7 @@ export default function EditStoreProduct() {
     <div style={page}>
       <div style={header}>
         <div>
-          <h1 style={title}>✏️ Edit Store Product</h1>
+          <h1 style={title}>Γ£Å∩╕Å Edit Store Product</h1>
           <p style={subtitle}>
             Update signavi.store product variants, images, pricing, and stock.
           </p>
@@ -298,7 +373,7 @@ export default function EditStoreProduct() {
           onClick={() => navigate("/admin/signavi-store/products")}
           style={backButton}
         >
-          ← Back
+          ΓåÉ Back
         </button>
       </div>
 
@@ -368,6 +443,71 @@ export default function EditStoreProduct() {
             </label>
           </div>
         </section>
+
+        {/* SHIPPING INFORMATION */}
+        {form.productType === "physical" && (
+          <section style={section}>
+            <h2 style={sectionTitle}>Shipping Information</h2>
+            <p style={helper}>
+              Enter measurements for ONE item before packaging, not the entire order.
+              Missing measurements are left unset on existing products until you edit this section.
+              Your packaging calculator will handle bulk quantities later.
+            </p>
+
+            <div style={grid2}>
+              {shippingMeasurements.map(([key, name]) => (
+                <label key={key} style={label}>
+                  {name}
+                  <input
+                    style={input}
+                    type="number"
+                    min="0.01"
+                    step="any"
+                    value={shipping[key]}
+                    onChange={(event) => updateShipping(key, event.target.value)}
+                    placeholder="Not set"
+                  />
+                </label>
+              ))}
+              <label style={label}>
+                Packaging Category
+                <select
+                  style={input}
+                  value={shipping.packagingType}
+                  onChange={(event) => updateShipping("packagingType", event.target.value)}
+                >
+                  <option value="unassigned">Not assigned</option>
+                  <option value="mailer">Mailer</option>
+                  <option value="box">Box</option>
+                  <option value="fragile">Fragile / Protective Packaging</option>
+                  <option value="oversized">Oversized</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+              <label style={checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={shipping.shipSeparately}
+                  onChange={(event) => updateShipping("shipSeparately", event.target.checked)}
+                />
+                Ship this item separately
+              </label>
+            </div>
+            <p style={helper}>
+              The same measurements apply to all color and size variants for now.
+              Digital products and services do not need carrier shipping.
+            </p>
+          </section>
+        )}
+
+        <MaterialUsageEditor
+  title="Shared Materials (all variants)"
+  value={materialUsage}
+  onChange={setMaterialUsage}
+  materials={materials}
+  loading={materialsLoading}
+  error={materialsError}
+/>
 
         <section style={section}>
           <div style={variantHeader}>
@@ -524,6 +664,14 @@ export default function EditStoreProduct() {
                   })}
                 </div>
               </div>
+              <MaterialUsageEditor
+                title="Materials for this variant"
+                value={variant.materialUsage || []}
+                onChange={(next) => updateVariant(index, "materialUsage", next)}
+                materials={materials}
+                loading={materialsLoading}
+                error={materialsError}
+              />
               {variant.images.length > 0 && (
                 <div style={imageGrid}>
                   {variant.images.map((image, imageIndex) => (
@@ -572,7 +720,7 @@ export default function EditStoreProduct() {
           <h2 style={sectionTitle}>Storefront Defaults</h2>
 
           <ul>
-            <li>storefront: signavi</li>
+            <li>storefront: signavi_store</li>
             <li>salesChannel: signavi_store</li>
             <li>Editable visibility: {String(form.storefrontVisible)}</li>
           </ul>
