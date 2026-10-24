@@ -116,7 +116,7 @@ export default function EditStoreProduct() {
         setVariants(loadedVariants)
 
       } catch (err) {
-        console.error("❌ LOAD STORE PRODUCT ERROR:", err)
+        console.error("Γ¥î LOAD STORE PRODUCT ERROR:", err)
         alert("Failed to load product")
       } finally {
         if (!ignore) {
@@ -154,6 +154,29 @@ export default function EditStoreProduct() {
     )
   }
 
+  const applyMarkup = (index, percent) => {
+    setVariants(prev =>
+      prev.map((variant, i) => {
+        if (i !== index) return variant
+
+        const rawCost = String(variant.basePrice ?? "").trim()
+        const cost = Number(rawCost)
+
+        if (!rawCost || !Number.isFinite(cost) || cost <= 0) {
+          alert("Enter a valid Base Price / Cost first.")
+          return variant
+        }
+
+        const sellingPrice = (Math.round((cost * (1 + percent / 100) + Number.EPSILON) * 100) / 100).toFixed(2)
+
+        return {
+          ...variant,
+          price: sellingPrice,
+          listPrice: sellingPrice
+        }
+      })
+    )
+  }
   const updateVariantImages = (index, files) => {
     setVariants(prev =>
       prev.map((variant, i) =>
@@ -315,7 +338,7 @@ export default function EditStoreProduct() {
       navigate("/admin/signavi-store/products")
 
     } catch (err) {
-      console.error("❌ UPDATE STORE PRODUCT ERROR:", err)
+      console.error("Γ¥î UPDATE STORE PRODUCT ERROR:", err)
 
       alert(
         err?.response?.data?.message ||
@@ -339,7 +362,7 @@ export default function EditStoreProduct() {
     <div style={page}>
       <div style={header}>
         <div>
-          <h1 style={title}>✏️ Edit Store Product</h1>
+          <h1 style={title}>Γ£Å∩╕Å Edit Store Product</h1>
           <p style={subtitle}>
             Update signavi.store product variants, images, pricing, and stock.
           </p>
@@ -350,7 +373,7 @@ export default function EditStoreProduct() {
           onClick={() => navigate("/admin/signavi-store/products")}
           style={backButton}
         >
-          ← Back
+          ΓåÉ Back
         </button>
       </div>
 
@@ -605,6 +628,42 @@ export default function EditStoreProduct() {
                 </label>
               </div>
 
+              {/* SignaVi markup presets */}
+              <div className="mb-5 mt-4 rounded-xl border border-slate-700 bg-slate-900/70 p-4">
+                <div className="mb-3 text-sm font-bold text-white">
+                  Markup Adjustment
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  {[40, 50, 60, 80].map(percent => {
+                    const cost = Number(variant.basePrice)
+                    const price = Number(variant.price)
+                    const calculated = cost > 0
+                      ? Math.round((cost * (1 + percent / 100) + Number.EPSILON) * 100) / 100
+                      : null
+
+                    const selected =
+                      calculated !== null &&
+                      Math.abs(price - calculated) < 0.005
+
+                    return (
+                      <button
+                        key={percent}
+                        type="button"
+                        onClick={() => applyMarkup(index, percent)}
+                        aria-pressed={selected}
+                        className={`cursor-pointer rounded-xl border px-5 py-3 text-sm font-bold transition-all duration-200 hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-400/20 hover:text-cyan-200 hover:shadow-lg hover:shadow-cyan-500/20 ${
+                          selected
+                            ? "border-cyan-400 bg-cyan-400 text-slate-950"
+                            : "border-slate-600 bg-slate-800 text-white"
+                        }`}
+                      >
+                        {percent}% Markup
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
               <MaterialUsageEditor
                 title="Materials for this variant"
                 value={variant.materialUsage || []}

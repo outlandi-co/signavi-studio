@@ -126,7 +126,7 @@ export default function Store() {
 
         if (isMounted) setProducts(productData)
       } catch (err) {
-        console.error("❌ STORE PRODUCTS ERROR:", err.response?.data || err)
+        console.error("Γ¥î STORE PRODUCTS ERROR:", err.response?.data || err)
         if (isMounted) setProducts([])
       } finally {
         if (isMounted) setLoading(false)
@@ -397,7 +397,7 @@ sessionStorage.setItem(
 
 navigate(`/client-checkout/${order._id}`)
     } catch (err) {
-      console.error("❌ BUY NOW ERROR:", err.response?.data || err)
+      console.error("Γ¥î BUY NOW ERROR:", err.response?.data || err)
       toast.error(err.response?.data?.message || "Buy now failed")
     }
   }
@@ -548,7 +548,7 @@ navigate(`/client-checkout/${order._id}`)
                       onClick={() => toggleWishlist(productId)}
                       className="absolute bottom-3 right-3 rounded-full bg-black/70 px-2.5 py-1.5 text-base"
                     >
-                      {wishlist.includes(productId) ? "❤️" : "🤍"}
+                      {wishlist.includes(productId) ? "Γ¥ñ∩╕Å" : "≡ƒñì"}
                     </button>
                   </div>
 
@@ -563,7 +563,7 @@ navigate(`/client-checkout/${order._id}`)
 
                     <div className="mb-3 flex items-center justify-between gap-2 text-xs">
                       <span className="text-yellow-300">
-                        ⭐ {avgRating ? avgRating.toFixed(1) : "New"}
+                        Γ¡É {avgRating ? avgRating.toFixed(1) : "New"}
                       </span>
 
                       <div className="flex items-center gap-2">
