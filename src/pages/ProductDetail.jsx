@@ -27,6 +27,7 @@ export default function ProductDetail() {
   const [selectedColor, setSelectedColor] = useState(null)
   const [selectedSize, setSelectedSize] = useState(null)
   const [imageIndex, setImageIndex] = useState(0)
+  const [cartAdded, setCartAdded] = useState(false)
 
   const BASE_URL =
     SIGNAVI_V2_API_ORIGIN?.replace(/\/api\/?$/, "") ||
@@ -78,7 +79,7 @@ export default function ProductDetail() {
         if (!isMounted) return
 
         console.error(
-          "❌ PRODUCT DETAIL ERROR:",
+          "Γ¥î PRODUCT DETAIL ERROR:",
           err.response?.data || err
         )
 
@@ -272,6 +273,8 @@ export default function ProductDetail() {
     })
 
     if (added) {
+      setCartAdded(true)
+      window.setTimeout(() => setCartAdded(false), 2000)
       toast.success("Added to cart")
     } else {
       toast.error("Could not add item to cart")
@@ -285,7 +288,7 @@ export default function ProductDetail() {
           to="/store"
           className="mb-8 inline-flex text-sm font-semibold text-cyan-300 transition hover:text-cyan-200"
         >
-          ← Back To Store
+          ΓåÉ Back To Store
         </Link>
 
         <div className="grid gap-10 lg:grid-cols-2">
@@ -392,8 +395,8 @@ export default function ProductDetail() {
                       }}
                       className={
                         activeColor === color
-                          ? "rounded-full border border-cyan-400 bg-cyan-400 px-4 py-2 text-sm font-bold text-black"
-                          : "rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-cyan-400 hover:text-cyan-300"
+                          ? "rounded-full border border-cyan-200 bg-cyan-400 px-4 py-2 text-sm font-bold text-black shadow-md shadow-cyan-500/20 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+                          : "cursor-pointer rounded-full border border-slate-600 px-4 py-2 text-sm text-slate-300 transition-colors hover:border-cyan-300 hover:bg-cyan-400/15 hover:text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
                       }
                     >
                       {color}
@@ -432,8 +435,8 @@ export default function ProductDetail() {
                         onClick={() => setSelectedSize(size)}
                         className={
                           activeSize === size
-                            ? "rounded-full border border-cyan-400 bg-cyan-400 px-4 py-2 text-sm font-bold text-black"
-                            : "rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-cyan-400 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-30"
+                            ? "rounded-full border border-cyan-200 bg-cyan-400 px-4 py-2 text-sm font-bold text-black shadow-md shadow-cyan-500/20 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+                            : "cursor-pointer rounded-full border border-slate-600 px-4 py-2 text-sm text-slate-300 transition-colors hover:border-cyan-300 hover:bg-cyan-400/15 hover:text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
                         }
                       >
                         {size}
@@ -448,9 +451,9 @@ export default function ProductDetail() {
               type="button"
               onClick={handleAddToCart}
               disabled={isUnavailable}
-              className="w-full rounded-2xl bg-cyan-500 px-6 py-4 text-lg font-bold text-black transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+              className={`w-full rounded-2xl px-6 py-4 text-lg font-bold text-black transition-all duration-200 enabled:cursor-pointer motion-safe:enabled:hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300 disabled:cursor-not-allowed disabled:opacity-50 ${cartAdded ? "bg-emerald-400 hover:bg-emerald-300" : "bg-cyan-500 hover:bg-cyan-300 hover:shadow-lg hover:shadow-cyan-500/25"}`}
             >
-              {isUnavailable ? "Out Of Stock" : "Add To Cart"}
+              {isUnavailable ? "Out Of Stock" : cartAdded ? "Added to Cart Γ£ô" : "Add To Cart"}
             </button>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
@@ -501,7 +504,7 @@ export default function ProductDetail() {
 
           <p className="mx-auto mb-8 max-w-2xl text-slate-300">
             Want this product with your logo, artwork, business name, or
-            custom design? Request a quote and we’ll review the details.
+            custom design? Request a quote and weΓÇÖll review the details.
           </p>
 
           <Link
@@ -535,7 +538,7 @@ function InfoPanel({ title, items }) {
         {items.map((item) => (
           <li key={item} className="flex gap-3">
             <span className="text-cyan-300">
-              ✓
+              Γ£ô
             </span>
 
             <span>{item}</span>
