@@ -26,6 +26,7 @@ export default function ProductDetail() {
   const [selectedColor, setSelectedColor] = useState(null)
   const [selectedSize, setSelectedSize] = useState(null)
   const [imageIndex, setImageIndex] = useState(0)
+  const [cartAdded, setCartAdded] = useState(false)
 
   const BASE_URL =
     import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "") ||
@@ -258,6 +259,8 @@ export default function ProductDetail() {
     })
 
     if (added) {
+      setCartAdded(true)
+      window.setTimeout(() => setCartAdded(false), 2000)
       toast.success("Added to cart")
     } else {
       toast.error("Could not add item to cart")
@@ -376,8 +379,8 @@ export default function ProductDetail() {
                       }}
                       className={
                         activeColor === color
-                          ? "rounded-full border border-cyan-400 bg-cyan-400 px-4 py-2 text-sm font-bold text-black"
-                          : "rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-cyan-400 hover:text-cyan-300"
+                          ? "rounded-full border border-cyan-200 bg-cyan-400 px-4 py-2 text-sm font-bold text-black shadow-md shadow-cyan-500/20 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+                          : "cursor-pointer rounded-full border border-slate-600 px-4 py-2 text-sm text-slate-300 transition-colors hover:border-cyan-300 hover:bg-cyan-400/15 hover:text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
                       }
                     >
                       {color}
@@ -416,8 +419,8 @@ export default function ProductDetail() {
                         onClick={() => setSelectedSize(size)}
                         className={
                           activeSize === size
-                            ? "rounded-full border border-cyan-400 bg-cyan-400 px-4 py-2 text-sm font-bold text-black"
-                            : "rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-cyan-400 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-30"
+                            ? "rounded-full border border-cyan-200 bg-cyan-400 px-4 py-2 text-sm font-bold text-black shadow-md shadow-cyan-500/20 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+                            : "cursor-pointer rounded-full border border-slate-600 px-4 py-2 text-sm text-slate-300 transition-colors hover:border-cyan-300 hover:bg-cyan-400/15 hover:text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
                         }
                       >
                         {size}
@@ -432,9 +435,9 @@ export default function ProductDetail() {
               type="button"
               onClick={handleAddToCart}
               disabled={stock <= 0}
-              className="w-full rounded-2xl bg-cyan-500 px-6 py-4 text-lg font-bold text-black transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+              className={`w-full rounded-2xl px-6 py-4 text-lg font-bold text-black transition-all duration-200 enabled:cursor-pointer motion-safe:enabled:hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300 disabled:cursor-not-allowed disabled:opacity-50 ${cartAdded ? "bg-emerald-400 hover:bg-emerald-300" : "bg-cyan-500 hover:bg-cyan-300 hover:shadow-lg hover:shadow-cyan-500/25"}`}
             >
-              {stock > 0 ? "Add To Cart" : "Out Of Stock"}
+              {stock <= 0 ? "Out Of Stock" : cartAdded ? "Added to Cart ✓" : "Add To Cart"}
             </button>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
