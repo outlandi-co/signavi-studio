@@ -123,7 +123,7 @@ export default function ShippingCalculator() {
             <p className="mt-2 text-sm text-slate-300">Compare Shippo carrier rates for the packages you actually packed.</p>
           </div>
           <span className="rounded-full border border-cyan-500/50 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-300">
-            TEST MODE — NO CHARGES
+            LIVE MODE — NO CHARGES
           </span>
         </header>
 
