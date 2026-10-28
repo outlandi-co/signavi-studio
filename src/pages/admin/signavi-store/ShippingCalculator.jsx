@@ -89,8 +89,8 @@ export default function ShippingCalculator() {
         }))
       }
       const response = await api.post("/shipping/admin/compare", payload)
-      if (!response.data?.testMode) {
-        throw new Error("The server did not confirm Shippo test mode.")
+      if (response.data?.testMode !== false) {
+        throw new Error("The server did not confirm Shippo LIVE mode.")
       }
       setResult(response.data)
     } catch (err) {
@@ -232,7 +232,7 @@ export default function ShippingCalculator() {
 
           <button type="submit" disabled={loading}
             className="w-full rounded-xl bg-cyan-400 px-5 py-3 font-bold text-slate-950 hover:bg-cyan-300 disabled:opacity-60">
-            {loading ? "Checking Shippo test rates…" : "Compare shipping rates (TEST)"}
+            {loading ? "Checking live shipping rates..." : "Compare shipping rates"}
           </button>
         </form>
 
@@ -240,7 +240,7 @@ export default function ShippingCalculator() {
 
         {result && (
           <section className={panelClass} aria-live="polite">
-            <h2 className="text-lg font-semibold">3. Shippo test-rate comparison</h2>
+            <h2 className="text-lg font-semibold">3. Live shipping-rate comparison</h2>
             <p className="my-2 text-sm text-slate-300">
               {result.parcelCount} packed parcel(s) · {result.rates?.length || 0} service options
             </p>
