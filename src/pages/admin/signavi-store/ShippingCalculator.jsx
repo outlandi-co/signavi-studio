@@ -256,7 +256,7 @@ export default function ShippingCalculator() {
                     </div>
                     <div className="text-right">
                       <p className="text-lg font-bold text-cyan-300">{money(rate.amount, rate.currency)}</p>
-                      <p className="text-xs text-amber-300">TEST RATE ONLY</p>
+                      <p className="text-xs text-amber-300">LIVE RATE QUOTE</p>
                     </div>
                   </div>
                 ))}
