@@ -147,6 +147,7 @@ function AppContent() {
         items: cart,
         shipping: Number(customerInfo?.shippingCost || 0),
         shippingRate: customerInfo?.shippingRate || null,
+        shippingQuote: customerInfo?.shippingQuote || null,
         shippingProvider: customerInfo?.shippingProvider || "",
         shippingService: customerInfo?.shippingService || "",
         subtotal: Number(customerInfo?.subtotal || 0),
@@ -178,31 +179,62 @@ function AppContent() {
         checkoutToken
       )
 
+      sessionStorage.setItem(
+        `signaviCheckoutQuote:${orderId}`,
+        JSON.stringify({
+          shippingQuote: customerInfo?.shippingQuote || null,
+          shippingAddress: customerInfo?.address || null,
+          shippingRate: customerInfo?.shippingRate || null
+        })
+      )
+
       localStorage.setItem("lastOrderId", orderId)
 
-      // Continue to shipping verification.
-      return window.location.assign(`/client-checkout/${orderId}`)
+      // Use the shipping selection already collected in the cart.
+      // The server verifies the signed quote and order ownership.
+      if (
+        !customerInfo?.address ||
+        typeof customerInfo?.shippingQuote !== "string" ||
+        !customerInfo.shippingQuote.trim() ||
+        !customerInfo?.shippingRate
+      ) {
+        throw new Error(
+          "Shipping selection is missing. Return to your cart."
+        )
+      }
 
+      const checkoutRes = await api.patch(
+        `/orders/${orderId}/checkout`,
+        {
+          shippingAddress: customerInfo.address,
+          shippingQuote: customerInfo.shippingQuote
+        },
+        {
+          headers: {
+            "x-signavi-guest-checkout-token": checkoutToken
+          }
+        }
+      )
 
-      const squareRes = await api.post(`/square/create-payment/${orderId}`)
+      const checkoutData = checkoutRes.data || {}
 
       const paymentUrl =
-        squareRes.data?.paymentUrl ||
-        squareRes.data?.url ||
-        squareRes.data?.checkoutUrl ||
-        squareRes.data?.squarePaymentUrl ||
-        squareRes.data?.data?.paymentUrl ||
-        squareRes.data?.data?.url ||
-        squareRes.data?.data?.checkoutUrl ||
-        squareRes.data?.data?.squarePaymentUrl
+        checkoutData.paymentUrl ||
+        checkoutData.url ||
+        checkoutData.checkoutUrl ||
+        checkoutData.squarePaymentUrl ||
+        checkoutData.data?.paymentUrl ||
+        checkoutData.data?.url ||
+        checkoutData.data?.checkoutUrl ||
+        checkoutData.data?.squarePaymentUrl
 
-      if (!paymentUrl) {
-        throw new Error("Missing Square payment URL")
+      if (!paymentUrl || !/^https:\/\//i.test(paymentUrl)) {
+        throw new Error("Secure Square payment URL was not returned.")
       }
 
       window.location.assign(paymentUrl)
     } catch (err) {
-      console.error("❌ CHECKOUT ERROR:", err)
+      console.error("âŒ CHECKOUT ERROR:", err)
 
       addToast(
         err?.response?.data?.message || "Checkout failed",
@@ -317,7 +349,14 @@ function AppContent() {
           </Route>
         </Route>
 
-        <Route path="/client-checkout/:id" element={<ClientCheckout />} />
+        <Route
+  path="/client-checkout/:id"
+  element={
+    <ClientCheckout
+      onChangeAddress={() => setCartOpen(true)}
+    />
+  }
+/>
         <Route path="/checkout/:id" element={<CheckoutRedirect />} />
         <Route path="/client-order/:id" element={<ClientOrder />} />
         <Route path="/success/:id" element={<Success />} />

@@ -145,6 +145,22 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
       return "Please select a shipping rate before checkout."
     }
 
+    if (
+      hasPhysicalItems &&
+      !(
+        typeof (
+          selectedShippingRate?.raw?.shippingQuote ||
+          selectedShippingRate?.raw?.quote
+        ) === "string" &&
+        (
+          selectedShippingRate?.raw?.shippingQuote ||
+          selectedShippingRate?.raw?.quote
+        ).trim()
+      )
+    ) {
+      return "Shipping verification is unavailable. Please refresh your shipping rates."
+    }
+
     return ""
   }
 
@@ -253,6 +269,8 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
       },
 
       shippingRate: selectedShippingRate,
+      shippingQuote: selectedShippingRate?.raw?.shippingQuote ||
+        selectedShippingRate?.raw?.quote || null,
       shippingCost: selectedShippingCost,
       shippingProvider: selectedShippingRate?.provider || "",
       shippingService: selectedShippingRate?.servicelevel || "",
