@@ -1,303 +1,144 @@
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import toast from "react-hot-toast"
 import api from "../services/api"
+import { redirectToCheckoutPayment, isApprovedSquareCheckoutUrl } from "../utils/checkoutNavigation"
 
-const initialForm = {
-  name: "",
-  street1: "",
-  city: "",
-  state: "",
-  zip: "",
-  country: "US"
-}
-
-const money = (value = 0) => {
-  return Number(value || 0).toLocaleString("en-US", {
+const money = (value = 0) =>
+  Number(value || 0).toLocaleString("en-US", {
     style: "currency",
     currency: "USD"
   })
+
+const getPaymentUrl = (payload = {}) =>
+  payload?.paymentUrl ||
+  payload?.url ||
+  payload?.checkoutUrl ||
+  payload?.squarePaymentUrl ||
+  payload?.data?.paymentUrl ||
+  payload?.data?.url ||
+  payload?.data?.checkoutUrl ||
+  payload?.data?.squarePaymentUrl ||
+  ""
+
+const getOrderId = (payload = {}, fallbackId = "") =>
+  payload?.orderId ||
+  payload?.id ||
+  payload?.data?.orderId ||
+  payload?.data?._id ||
+  payload?.order?._id ||
+  fallbackId
+
+const readCheckout = (id) => {
+  try {
+    const value = sessionStorage.getItem(`signaviCheckoutQuote:${id}`)
+    if (!value) return null
+    const data = JSON.parse(value)
+    if (!data || typeof data !== "object") return null
+    return data
+  } catch {
+    return null
+  }
 }
 
-const getPaymentUrl = (payload = {}) => {
-  return (
-    payload?.paymentUrl ||
-    payload?.url ||
-    payload?.checkoutUrl ||
-    payload?.squarePaymentUrl ||
-    payload?.data?.paymentUrl ||
-    payload?.data?.url ||
-    payload?.data?.checkoutUrl ||
-    payload?.data?.squarePaymentUrl ||
-    ""
-  )
+const normalizeAddress = (address) => {
+  if (!address || typeof address !== "object") return null
+  const normalized = {
+    name: String(address.name || "").trim(),
+    street1: String(address.street1 || address.street || "").trim(),
+    city: String(address.city || "").trim(),
+    state: String(address.state || "").trim().toUpperCase(),
+    zip: String(address.zip || "").trim(),
+    country: String(address.country || "US").trim().toUpperCase()
+  }
+  if (!normalized.street1 || !normalized.city || !normalized.state || !normalized.zip || !normalized.country) {
+    return null
+  }
+  return normalized
 }
 
-const getOrderId = (payload = {}, fallbackId = "") => {
-  return (
-    payload?.orderId ||
-    payload?.id ||
-    payload?.data?.orderId ||
-    payload?.data?._id ||
-    payload?.order?._id ||
-    fallbackId
-  )
-}
-
-export default function ClientCheckout() {
+export default function ClientCheckout({ onChangeAddress }) {
   const { id } = useParams()
   const navigate = useNavigate()
-
-  const [form, setForm] = useState(initialForm)
-  const [rates, setRates] = useState([])
-  const [selectedRate, setSelectedRate] = useState(null)
-  const [loadingRates, setLoadingRates] = useState(false)
+  const [checkout] = useState(() => readCheckout(id))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
 
-  const canContinue = useMemo(() => {
-    return Boolean(selectedRate && rates.length && id)
-  }, [selectedRate, rates.length, id])
+  const address = normalizeAddress(checkout?.shippingAddress)
+  const selectedRate = checkout?.shippingRate
+  const shippingQuote = checkout?.shippingQuote
+  const rate = selectedRate?.raw || selectedRate || {}
+  const carrier = selectedRate?.provider || rate.provider || rate.carrier || "Carrier"
+  const service =
+    (typeof selectedRate?.servicelevel === "string" ? selectedRate.servicelevel : selectedRate?.servicelevel?.name) ||
+    rate.servicelevel?.name || rate.service || rate.serviceName || "Shipping"
+  const shippingAmount = Number(selectedRate?.amount ?? rate.amount)
+  const isValidId = Boolean(id && id !== "null" && id !== "undefined")
+  const ready = Boolean(isValidId && address && typeof shippingQuote === "string" && shippingQuote.trim() && selectedRate && Number.isFinite(shippingAmount) && shippingAmount >= 0)
 
-
-const handleChange = (event) => {
-  const { name, value } = event.target
-
-  setForm((prev) => ({
-    ...prev,
-    [name]:
-      name === "state"
-        ? value.toUpperCase().slice(0, 2)
-        : name === "country"
-          ? value.toUpperCase().slice(0, 2)
-          : value
-  }))
-
-  // Address changes require fresh Shippo rates.
-  if (
-    ["street1", "city", "state", "zip", "country"]
-      .includes(name)
-  ) {
-    setRates([])
-    setSelectedRate(null)
-  }
-}
-
-
-  const validateForm = () => {
-    const required = [
-      "name",
-      "street1",
-      "city",
-      "state",
-      "zip",
-      "country"
-    ]
-
-    for (const field of required) {
-      if (!String(form[field] || "").trim()) {
-        setError(`Missing ${field}`)
-        toast.error(`Missing ${field}`)
-        return false
-      }
-    }
-
-    if (form.state.length !== 2) {
-      setError("State must be 2 letters, like CA")
-      toast.error("State must be 2 letters")
-      return false
-    }
-
-    if (form.country.length !== 2) {
-      setError("Country must be 2 letters, like US")
-      toast.error("Country must be 2 letters")
-      return false
-    }
-
-    setError("")
-    return true
-  }
-
-  const getRates = async () => {
-    try {
-      if (!validateForm()) return
-
-      setLoadingRates(true)
-      setSelectedRate(null)
-      setRates([])
-      setError("")
-
-
-      // Retrieve the products saved by Cart or Buy Now.
-      const checkoutItems = JSON.parse(
-        sessionStorage.getItem("signaviCheckoutItems") || "[]"
-      )
-
-      if (
-        !Array.isArray(checkoutItems) ||
-        checkoutItems.length === 0
-      ) {
-        throw new Error(
-          "No checkout items found. Return to your cart."
-        )
-      }
-
-      const res = await api.post("/shipping/get-rates", {
-        address_to: {
-          name: form.name.trim(),
-          street1: form.street1.trim(),
-          city: form.city.trim(),
-          state: form.state.trim(),
-          zip: form.zip.trim(),
-          country: form.country.trim()
-        },
-
-        items: checkoutItems
-      })
-
-
-      const incomingRates =
-        res.data?.rates ||
-        res.data?.data?.rates ||
-        res.data?.data ||
-        []
-
-      if (!Array.isArray(incomingRates) || !incomingRates.length) {
-        setRates([])
-        setError("No shipping rates found")
-        toast.error("No shipping rates found")
-        return
-      }
-
-      setRates(incomingRates)
-      toast.success("Shipping rates loaded")
-    } catch (err) {
-      console.error("❌ RATE ERROR:", err.response?.data || err.message)
-
-      setError(
-        err.response?.data?.message ||
-          "Failed to get shipping rates"
-      )
-
-      toast.error("Failed to get shipping rates")
-    } finally {
-      setLoadingRates(false)
-    }
-  }
-
-  const handleSubmit = async () => {
-    if (!id || id === "null" || id === "undefined") {
-      setError("Invalid order ID")
-      toast.error("Invalid order ID")
+  const handleConfirm = async () => {
+    if (!ready) {
+      setError("The selected shipping quote is missing. Return to your cart and select shipping again.")
       return
     }
 
-    if (!selectedRate) {
-      setError("Select a shipping option")
-      toast.error("Select a shipping option")
+    const checkoutToken = sessionStorage.getItem(`signaviCheckoutToken:${id}`)
+    if (!checkoutToken) {
+      setError("Checkout session missing or expired. Return to your cart and restart checkout.")
       return
     }
 
     try {
       setSaving(true)
       setError("")
+      // The server verifies the signed quote against this exact destination and
+      // the saved order's items. Browser-provided shipping prices are not used.
+      const res = await api.patch(
+        `/orders/${id}/checkout`,
+        {
+          shippingAddress: address,
+          shippingQuote,
+          v3ShippingQuote: shippingQuote
+        },
+        { headers: { "x-signavi-guest-checkout-token": checkoutToken } }
+      )
 
-      const shippingCost = Number(selectedRate.amount || 0)
-
-
-const payload = {
-  shippingAddress: {
-    name: form.name.trim(),
-    street1: form.street1.trim(),
-    city: form.city.trim(),
-    state: form.state.trim(),
-    zip: form.zip.trim(),
-    country: form.country.trim()
-  },
-  address: {
-    street: form.street1.trim(),
-    city: form.city.trim(),
-    state: form.state.trim(),
-    zip: form.zip.trim(),
-    country: form.country.trim()
-  },
-  shippingCost,
-  shipping: shippingCost,
-  shippingQuote: selectedRate.shippingQuote,
-  shippingRateId:
-    selectedRate.object_id ||
-    selectedRate.objectId ||
-    selectedRate.id,
-  carrier:
-    selectedRate.provider ||
-    selectedRate.carrier ||
-    "Carrier",
-  serviceLevel:
-    selectedRate.servicelevel?.name ||
-    selectedRate.serviceLevel?.name ||
-    selectedRate.service ||
-    "Shipping"
-}
-
-
-
-const checkoutToken = sessionStorage.getItem(
-  `signaviCheckoutToken:${id}`
-)
-
-if (!checkoutToken) {
-  throw new Error(
-    "Checkout session missing. Please restart checkout from the store."
-  )
-}
-
-const res = await api.patch(
-  `/orders/${id}/checkout`,
-  payload,
-  {
-    headers: {
-      "x-signavi-guest-checkout-token": checkoutToken
-    }
-  }
-)
-
-
-      console.log("🧾 CHECKOUT RESPONSE:", res.data)
+      if (
+        res.data?.code === "V3_PREVIEW_ONLY" ||
+        res.data?.code === "V3_SANDBOX_PREPARED_NO_PAYMENT"
+      ) {
+        throw new Error(
+          "Checkout is in preview mode. No payment was created."
+        )
+      }
 
       const paymentUrl = getPaymentUrl(res.data)
+      if (!isApprovedSquareCheckoutUrl(paymentUrl)) {
+        throw new Error("Secure payment URL was not returned. Please contact support if this continues.")
+      }
+
       const orderId = getOrderId(res.data, id)
-
-      if (!paymentUrl) {
-        throw new Error("Payment URL not returned")
-      }
-
-      if (!orderId) {
-        throw new Error("Order ID missing from checkout response")
-      }
-
       localStorage.setItem("lastOrderId", orderId)
-
-      localStorage.setItem(
-        "shippingRate",
-        JSON.stringify({
-          amount: shippingCost,
-          carrier: payload.carrier,
-          serviceLevel: payload.serviceLevel
-        })
-      )
-
+      localStorage.setItem("shippingRate", JSON.stringify({
+        amount: shippingAmount,
+        carrier,
+        serviceLevel: service
+      }))
       toast.success("Redirecting to secure payment")
-      window.location.href = paymentUrl
+      redirectToCheckoutPayment(paymentUrl)
     } catch (err) {
-      console.error("❌ CHECKOUT SAVE ERROR:", err.response?.data || err)
-
-      setError(
-        err.response?.data?.message ||
-          err.message ||
-          "Checkout failed. Please try again."
-      )
-
-      toast.error("Checkout failed")
+      if (
+        err?.response?.data?.code === "V3_PREVIEW_ONLY" ||
+        err?.response?.data?.code === "V3_SANDBOX_PREPARED_NO_PAYMENT"
+      ) {
+        err = new Error(
+          "Checkout is in preview mode. No payment was created."
+        )
+      }
+      console.error("Checkout confirmation error:", err.response?.data || err)
+      const message = err?.response?.data?.message || err?.message || "Checkout failed. Please try again."
+      setError(message)
+      toast.error("Could not continue to payment")
     } finally {
       setSaving(false)
     }
@@ -308,169 +149,72 @@ const res = await api.patch(
       <section className="mx-auto max-w-3xl">
         <button
           type="button"
-          onClick={() => navigate("/cart")}
+          onClick={() => onChangeAddress()}
           className="mb-8 text-sm font-semibold text-cyan-300 transition hover:text-cyan-200"
         >
-          ← Back to Cart
+          â† Back to Cart
         </button>
 
         <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-8 shadow-xl shadow-black/20">
           <div className="mb-8 text-center">
-            <p className="mb-3 text-sm font-bold uppercase tracking-[0.25em] text-cyan-400">
-              SignaVi Studio
-            </p>
-
-            <h1 className="text-4xl font-extrabold">
-              📦 Shipping Info
-            </h1>
-
-            <p className="mt-3 text-sm text-slate-400">
-              Enter your shipping address, choose a rate, then continue to secure payment.
-            </p>
-
-            <p className="mt-2 text-xs text-slate-500">
-              Order ID: {id || "Missing"}
-            </p>
+            <p className="mb-3 text-sm font-bold uppercase tracking-[0.25em] text-cyan-400">SignaVi Studio</p>
+            <h1 className="text-3xl font-extrabold sm:text-4xl">Confirm Shipping Address</h1>
+            <p className="mt-3 text-sm text-slate-400">Review the destination and selected shipping before secure payment.</p>
+            <p className="mt-2 break-all text-xs text-slate-500">Order ID: {id || "Missing"}</p>
           </div>
 
           {error && (
-            <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-semibold text-red-300">
+            <div role="alert" className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-semibold text-red-300">
               {error}
             </div>
           )}
 
-          <div className="grid gap-4">
-            <input
-              name="name"
-              placeholder="Full Name"
-              value={form.name}
-              onChange={handleChange}
-              className="rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none transition focus:border-cyan-400"
-            />
-
-            <input
-              name="street1"
-              placeholder="Street Address"
-              value={form.street1}
-              onChange={handleChange}
-              className="rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none transition focus:border-cyan-400"
-            />
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <input
-                name="city"
-                placeholder="City"
-                value={form.city}
-                onChange={handleChange}
-                className="rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none transition focus:border-cyan-400"
-              />
-
-              <input
-                name="state"
-                placeholder="State"
-                value={form.state}
-                onChange={handleChange}
-                className="rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none transition focus:border-cyan-400"
-              />
-
-              <input
-                name="zip"
-                placeholder="ZIP"
-                value={form.zip}
-                onChange={handleChange}
-                className="rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none transition focus:border-cyan-400"
-              />
+          {!ready ? (
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 text-sm text-amber-100">
+              The original shipping selection is unavailable for this checkout. Return to your cart to select shipping again. You will not be charged on this page.
             </div>
-
-            <input
-              name="country"
-              placeholder="Country"
-              value={form.country}
-              onChange={handleChange}
-              className="rounded-2xl border border-slate-700 bg-[#020617] px-5 py-4 text-white outline-none transition focus:border-cyan-400"
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={getRates}
-            disabled={loadingRates}
-            className="mt-6 w-full rounded-2xl bg-cyan-500 px-5 py-4 font-black text-black transition hover:bg-cyan-400 disabled:opacity-60"
-          >
-            {loadingRates ? "Getting Rates..." : "📦 Get Shipping Rates"}
-          </button>
-
-          {rates.length > 0 && (
-            <div className="mt-8">
-              <h2 className="mb-4 text-2xl font-bold">
-                Select Shipping
-              </h2>
-
-              <div className="space-y-3">
-                {rates.map((rate) => {
-                  const rateId =
-                    rate.object_id ||
-                    rate.objectId ||
-                    rate.id
-
-                  const selected =
-                    selectedRate &&
-                    (
-                      selectedRate.object_id ||
-                      selectedRate.objectId ||
-                      selectedRate.id
-                    ) === rateId
-
-                  return (
-                    <button
-                      key={rateId}
-                      type="button"
-                      onClick={() => setSelectedRate(rate)}
-                      className={`w-full rounded-2xl border p-4 text-left transition ${
-                        selected
-                          ? "border-cyan-400 bg-cyan-500/10"
-                          : "border-slate-800 bg-[#020617] hover:border-slate-600"
-                      }`}
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <p className="font-bold">
-                            {rate.provider ||
-                              rate.carrier ||
-                              "Carrier"}
-                          </p>
-
-                          <p className="mt-1 text-sm text-slate-500">
-                            {rate.servicelevel?.name ||
-                              rate.serviceLevel?.name ||
-                              rate.service ||
-                              "Shipping"}
-                          </p>
-                        </div>
-
-                        <span className="text-lg font-black text-emerald-300">
-                          {money(rate.amount)}
-                        </span>
-                      </div>
-                    </button>
-                  )
-                })}
+          ) : (
+            <>
+              <div className="rounded-2xl border border-slate-700 bg-[#020617] p-6">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <h2 className="text-xl font-bold">Delivery address</h2>
+                  <button
+                    type="button"
+                    onClick={() => onChangeAddress()}
+                    className="text-sm font-semibold text-cyan-300 hover:text-cyan-200"
+                  >
+                    Change address
+                  </button>
+                </div>
+                {address.name && <p className="font-semibold">{address.name}</p>}
+                <p>{address.street1}</p>
+                <p>{address.city}, {address.state} {address.zip}</p>
+                <p>{address.country}</p>
+                <p className="mt-4 text-xs text-slate-400">Changing the delivery address requires a new shipping quote in your cart.</p>
               </div>
-            </div>
+
+              <div className="mt-5 rounded-2xl border border-slate-700 bg-[#020617] p-6">
+                <h2 className="text-xl font-bold">Selected shipping</h2>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-semibold">{carrier}</p>
+                    <p className="text-sm text-slate-400">{service}</p>
+                  </div>
+                  <p className="text-lg font-black text-emerald-300">{money(shippingAmount)}</p>
+                </div>
+              </div>
+            </>
           )}
 
           <button
             type="button"
-            onClick={handleSubmit}
-            disabled={saving || !canContinue}
+            onClick={handleConfirm}
+            disabled={saving || !ready}
             className="mt-8 w-full rounded-2xl bg-emerald-500 px-5 py-4 font-black text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Continue to Payment"}
+            {saving ? "Confirming checkout..." : "Confirm Address & Continue to Payment"}
           </button>
-
-          <p className="mt-4 text-center text-sm text-slate-500">
-            Payment will be securely processed through Square.
-          </p>
+          <p className="mt-4 text-center text-sm text-slate-500">Your final shipping charge is verified by the server. Payment is securely processed through Square.</p>
         </div>
       </section>
     </main>

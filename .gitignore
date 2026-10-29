@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# STEP258_SIGNAVI_LOCAL_PROTECTION
+# Keep local configuration and development backups out of Git.
+.env
+.env.*
+!.env.example
+*.bak
+*.backup

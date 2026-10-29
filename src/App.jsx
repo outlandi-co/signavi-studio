@@ -8,6 +8,7 @@ import {
 
 import { useEffect, useState } from "react"
 import api from "./services/api"
+import { redirectToCheckoutPayment } from "./utils/checkoutNavigation"
 
 import ToastProvider from "./context/ToastProvider"
 import LoadingProvider from "./context/LoadingProvider"
@@ -207,7 +208,8 @@ function AppContent() {
         `/orders/${orderId}/checkout`,
         {
           shippingAddress: customerInfo.address,
-          shippingQuote: customerInfo.shippingQuote
+          shippingQuote: customerInfo.shippingQuote,
+          v3ShippingQuote: customerInfo.shippingQuote
         },
         {
           headers: {
@@ -217,6 +219,15 @@ function AppContent() {
       )
 
       const checkoutData = checkoutRes.data || {}
+
+      if (
+        checkoutData.code === "V3_PREVIEW_ONLY" ||
+        checkoutData.code === "V3_SANDBOX_PREPARED_NO_PAYMENT"
+      ) {
+        throw new Error(
+          "Checkout is in preview mode. No payment was created."
+        )
+      }
 
       const paymentUrl =
         checkoutData.paymentUrl ||
@@ -232,12 +243,20 @@ function AppContent() {
         throw new Error("Secure Square payment URL was not returned.")
       }
 
-      window.location.assign(paymentUrl)
+      redirectToCheckoutPayment(paymentUrl)
     } catch (err) {
+      if (
+        err?.response?.data?.code === "V3_PREVIEW_ONLY" ||
+        err?.response?.data?.code === "V3_SANDBOX_PREPARED_NO_PAYMENT"
+      ) {
+        err = new Error(
+          "Checkout is in preview mode. No payment was created."
+        )
+      }
       console.error("âŒ CHECKOUT ERROR:", err)
 
       addToast(
-        err?.response?.data?.message || "Checkout failed",
+        err?.response?.data?.message || err?.message || "Checkout failed",
         "error"
       )
 
@@ -403,15 +422,7 @@ function AppContent() {
               }
             />
 
-            <Route
-              path="products"
-              element={
-                <Navigate
-                  to="/admin/signavi-store/products"
-                  replace
-                />
-              }
-            />
+
 
             <Route
               path="products/new"
