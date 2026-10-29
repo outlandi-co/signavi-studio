@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useRef } from "react"
 import api from "../services/api"
 import { useCartContext } from "../context/useCartContext"
 
@@ -89,6 +89,7 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
   const [shippingRates, setShippingRates] = useState([])
   const [selectedShippingRate, setSelectedShippingRate] = useState(null)
   const [shippingLoading, setShippingLoading] = useState(false)
+  const shippingRequestId = useRef(0)
 
   const hasPhysicalItems = useMemo(() => {
     return cart.some(
@@ -96,6 +97,46 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
     )
   }, [cart])
 
+  // Track physical cart changes from any storefront component.
+  // Track the physical product identities and quantities used for shipping.
+  const shippingCartFingerprint = useMemo(
+    () =>
+      JSON.stringify(
+        cart
+          .filter(
+            (item) => (item.productType || "physical") === "physical"
+          )
+          .map((item) => ({
+            productId: String(item.productId || item._id || item.id || ""),
+            variantId: String(item.selectedVariant?._id || ""),
+            color: String(item.selectedVariant?.color || ""),
+            size: String(item.selectedVariant?.size || ""),
+            quantity: Number(item.quantity || 1)
+          }))
+      ),
+    [cart]
+  )
+  const previousShippingCartFingerprint = useRef(
+    shippingCartFingerprint
+  )
+
+  useEffect(() => {
+    if (
+      previousShippingCartFingerprint.current ===
+      shippingCartFingerprint
+    ) {
+      return
+    }
+
+    previousShippingCartFingerprint.current =
+      shippingCartFingerprint
+
+    shippingRequestId.current += 1
+    setShippingLoading(false)
+    setShippingRates([])
+    setSelectedShippingRate(null)
+    setFormError("")
+  }, [shippingCartFingerprint])
   const selectedShippingCost = hasPhysicalItems
     ? Number(selectedShippingRate?.amount || 0)
     : 0
@@ -105,6 +146,13 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
     Number(tax || 0) +
     selectedShippingCost
 
+  const invalidateShippingForCartChange = () => {
+    shippingRequestId.current += 1
+    setShippingLoading(false)
+    setShippingRates([])
+    setSelectedShippingRate(null)
+    setFormError("")
+  }
   const handleChange = (field, value) => {
     setCustomerInfo((prev) => ({
       ...prev,
@@ -112,6 +160,8 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
     }))
 
     if (["street", "city", "state", "zip", "country"].includes(field)) {
+      shippingRequestId.current += 1
+      setShippingLoading(false)
       setShippingRates([])
       setSelectedShippingRate(null)
     }
@@ -172,6 +222,8 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
       return
     }
 
+    const requestId = ++shippingRequestId.current
+
     try {
       setShippingLoading(true)
       setFormError("")
@@ -193,6 +245,8 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
           quantity: Number(item.quantity || 1)
         }))
       })
+
+      if (requestId !== shippingRequestId.current) return
 
       const rawRates =
         res.data?.rates ||
@@ -218,6 +272,7 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
       setSelectedShippingRate(normalizedRates[0])
 
     } catch (err) {
+      if (requestId !== shippingRequestId.current) return
       console.error(
         "❌ SHIPPO RATE ERROR:",
         err.response?.data || err
@@ -229,7 +284,7 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
       )
 
     } finally {
-      setShippingLoading(false)
+      if (requestId === shippingRequestId.current) setShippingLoading(false)
     }
   }
 
@@ -382,6 +437,8 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
                         onClick={(event) => {
                           event.stopPropagation()
 
+                          invalidateShippingForCartChange()
+
                           updateQuantity(
                             item.productId,
                             isPhysical ? item.selectedVariant : productType,
@@ -400,6 +457,8 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
                         disabled={isDigital}
                         onClick={(event) => {
                           event.stopPropagation()
+
+                          invalidateShippingForCartChange()
 
                           updateQuantity(
                             item.productId,
@@ -430,6 +489,8 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation()
+
+                          invalidateShippingForCartChange()
 
                           removeFromCart(
                             item.productId,
@@ -526,7 +587,11 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
                       cursor: shippingLoading ? "not-allowed" : "pointer"
                     }}
                   >
-                    {shippingLoading ? "Getting Rates..." : "Get Shipping Rates"}
+                    {shippingLoading
+                      ? "Getting Rates..."
+                      : selectedShippingRate
+                        ? "Refresh Shipping Rates"
+                        : "Get Shipping Rates"}
                   </button>
 
                   {shippingRates.length > 0 && (

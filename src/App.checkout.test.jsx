@@ -132,9 +132,14 @@ vi.mock("./context/ProductContext", () => ({
   default: ({ children }) => children
 }))
 
-vi.mock("./utils/checkoutNavigation", () => ({
-  redirectToCheckoutPayment: vi.fn()
-}))
+vi.mock("./utils/checkoutNavigation", async (importOriginal) => {
+  const actual = await importOriginal()
+
+  return {
+    ...actual,
+    redirectToCheckoutPayment: vi.fn()
+  }
+})
 
 const orderId = "synthetic-order-123"
 const guestToken = "synthetic-guest-token"

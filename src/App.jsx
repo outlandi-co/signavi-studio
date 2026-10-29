@@ -8,7 +8,7 @@ import {
 
 import { useEffect, useState } from "react"
 import api from "./services/api"
-import { redirectToCheckoutPayment } from "./utils/checkoutNavigation"
+import { redirectToCheckoutPayment, isApprovedSquareCheckoutUrl } from "./utils/checkoutNavigation"
 
 import ToastProvider from "./context/ToastProvider"
 import LoadingProvider from "./context/LoadingProvider"
@@ -239,7 +239,7 @@ function AppContent() {
         checkoutData.data?.checkoutUrl ||
         checkoutData.data?.squarePaymentUrl
 
-      if (!paymentUrl || !/^https:\/\//i.test(paymentUrl)) {
+      if (!isApprovedSquareCheckoutUrl(paymentUrl)) {
         throw new Error("Secure Square payment URL was not returned.")
       }
 
@@ -256,7 +256,9 @@ function AppContent() {
       console.error("âŒ CHECKOUT ERROR:", err)
 
       addToast(
-        err?.response?.data?.message || err?.message || "Checkout failed",
+        err?.response?.data?.reason === "payment_execution_not_authorized"
+          ? "Secure payment is temporarily unavailable. No payment was created."
+          : (err?.response?.data?.message || err?.message || "Checkout failed"),
         "error"
       )
 
