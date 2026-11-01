@@ -86,6 +86,28 @@ describe("ClientCheckout V3 no-payment responses", () => {
     cleanup()
   })
 
+  it("shows a safe message for HTTP 423 payment lock", async () => {
+    api.patch.mockRejectedValueOnce({
+      response: {
+        status: 423,
+        data: {
+          reason: "payment_execution_not_authorized",
+          message: "Payment execution is locked."
+        }
+      }
+    })
+
+    confirmCheckout()
+
+    const alert = await screen.findByRole("alert")
+
+    expect(alert.textContent).toContain(
+      "Secure payment is temporarily unavailable. No payment was created."
+    )
+
+    expect(redirectToCheckoutPayment).not.toHaveBeenCalled()
+    expect(toast.success).not.toHaveBeenCalled()
+  })
   it("shows a safe message for HTTP 501 preview response", async () => {
     api.patch.mockRejectedValueOnce({
       response: {
@@ -167,7 +189,8 @@ describe("ClientCheckout V3 no-payment responses", () => {
       expect.objectContaining({
         headers: {
           "x-signavi-guest-checkout-token":
-            "synthetic-test-token"
+            "synthetic-test-token",
+          "x-signavi-v3-sandbox-mode": "prepare"
         }
       })
     )

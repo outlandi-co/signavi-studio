@@ -3,12 +3,12 @@ import {
   Routes,
   Route,
   Navigate,
-  useLocation
+  useLocation, useNavigate
 } from "react-router-dom"
 
 import { useEffect, useState } from "react"
 import api from "./services/api"
-import { redirectToCheckoutPayment, isApprovedSquareCheckoutUrl } from "./utils/checkoutNavigation"
+import { navigateToCheckoutConfirmation } from "./utils/checkoutNavigation"
 
 import ToastProvider from "./context/ToastProvider"
 import LoadingProvider from "./context/LoadingProvider"
@@ -97,6 +97,7 @@ import AdminShipping from "./pages/admin/AdminShipping"
 
 function AppContent() {
   const location = useLocation()
+  const navigate = useNavigate()
   const path = location.pathname
   const { addToast } = useToast()
 
@@ -204,46 +205,7 @@ function AppContent() {
         )
       }
 
-      const checkoutRes = await api.patch(
-        `/orders/${orderId}/checkout`,
-        {
-          shippingAddress: customerInfo.address,
-          shippingQuote: customerInfo.shippingQuote,
-          v3ShippingQuote: customerInfo.shippingQuote
-        },
-        {
-          headers: {
-            "x-signavi-guest-checkout-token": checkoutToken
-          }
-        }
-      )
-
-      const checkoutData = checkoutRes.data || {}
-
-      if (
-        checkoutData.code === "V3_PREVIEW_ONLY" ||
-        checkoutData.code === "V3_SANDBOX_PREPARED_NO_PAYMENT"
-      ) {
-        throw new Error(
-          "Checkout is in preview mode. No payment was created."
-        )
-      }
-
-      const paymentUrl =
-        checkoutData.paymentUrl ||
-        checkoutData.url ||
-        checkoutData.checkoutUrl ||
-        checkoutData.squarePaymentUrl ||
-        checkoutData.data?.paymentUrl ||
-        checkoutData.data?.url ||
-        checkoutData.data?.checkoutUrl ||
-        checkoutData.data?.squarePaymentUrl
-
-      if (!isApprovedSquareCheckoutUrl(paymentUrl)) {
-        throw new Error("Secure Square payment URL was not returned.")
-      }
-
-      redirectToCheckoutPayment(paymentUrl)
+      navigateToCheckoutConfirmation(orderId, navigate)
     } catch (err) {
       if (
         err?.response?.data?.code === "V3_PREVIEW_ONLY" ||

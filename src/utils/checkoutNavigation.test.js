@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import {
   isApprovedSquareCheckoutUrl,
-  redirectToCheckoutPayment
+  redirectToCheckoutPayment,
+  navigateToCheckoutConfirmation
 } from "./checkoutNavigation"
 
 describe("Square checkout navigation security", () => {
@@ -85,5 +86,45 @@ describe("Square checkout navigation security", () => {
     ).toThrow(
       "Secure Square payment URL was not returned."
     )
+  })
+})
+describe("Checkout confirmation navigation", () => {
+  it("navigates to the correct internal route", () => {
+    const navigate = vi.fn()
+
+    const path = navigateToCheckoutConfirmation(
+      "synthetic-order-123",
+      navigate
+    )
+
+    expect(path).toBe("/client-checkout/synthetic-order-123")
+
+    expect(navigate).toHaveBeenCalledExactlyOnceWith(
+      "/client-checkout/synthetic-order-123"
+    )
+  })
+
+  it.each([
+    "",
+    "../admin",
+    "abc/checkout",
+    "abc?redirect=https://example.invalid",
+    " abc ",
+    null,
+    undefined
+  ])("rejects invalid order ID: %s", (orderId) => {
+    const navigate = vi.fn()
+
+    expect(() =>
+      navigateToCheckoutConfirmation(orderId, navigate)
+    ).toThrow("Invalid checkout order ID.")
+
+    expect(navigate).not.toHaveBeenCalled()
+  })
+
+  it("rejects missing navigation callback", () => {
+    expect(() =>
+      navigateToCheckoutConfirmation("synthetic-order-123")
+    ).toThrow("Checkout navigation is unavailable.")
   })
 })

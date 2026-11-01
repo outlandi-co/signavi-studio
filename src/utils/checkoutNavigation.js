@@ -51,3 +51,20 @@ export function redirectToCheckoutPayment(paymentUrl) {
 
   window.location.assign(paymentUrl)
 }
+
+export function navigateToCheckoutConfirmation(orderId, navigate) {
+  if (
+    typeof orderId !== "string" ||
+    !/^[a-zA-Z0-9_-]+$/.test(orderId)
+  ) {
+    throw new Error("Invalid checkout order ID.")
+  }
+
+  if (typeof navigate !== "function") {
+    throw new Error("Checkout navigation is unavailable.")
+  }
+
+  const path = `/client-checkout/${encodeURIComponent(orderId)}`
+  navigate(path)
+  return path
+}

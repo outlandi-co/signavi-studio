@@ -188,168 +188,83 @@ describe("App checkout with mocked API", () => {
     expect(api.patch).not.toHaveBeenCalled()
   })
 
-  it("blocks an HTTP 501 V3 preview response", async () => {
+  it("stores guest checkout credentials without requesting payment", async () => {
     api.post.mockResolvedValueOnce(orderResponse())
-    api.patch.mockRejectedValueOnce({
-      response: {
-        status: 501,
-        data: {
-          code: "V3_PREVIEW_ONLY"
-        }
-      }
-    })
 
     startCheckout()
 
     await waitFor(() => {
-      expect(toastSpy).toHaveBeenCalledWith(
-        "Checkout is in preview mode. No payment was created.",
-        "error"
-      )
+      expect(sessionStorage.getItem(
+        `signaviCheckoutToken:${orderId}`
+      )).toBe(guestToken)
     })
 
-    expect(api.patch).toHaveBeenCalledTimes(1)
-  })
+    expect(localStorage.getItem("lastOrderId")).toBe(orderId)
 
-  it("blocks an HTTP 202 V3 sandbox no-payment response", async () => {
-    api.post.mockResolvedValueOnce(orderResponse())
-    api.patch.mockResolvedValueOnce({
-      status: 202,
-      data: {
-        code: "V3_SANDBOX_PREPARED_NO_PAYMENT",
-        paymentCreated: false
-      }
-    })
+    const quote = JSON.parse(
+      sessionStorage.getItem(`signaviCheckoutQuote:${orderId}`)
+    )
 
-    startCheckout()
-
-    await waitFor(() => {
-      expect(toastSpy).toHaveBeenCalledWith(
-        "Checkout is in preview mode. No payment was created.",
-        "error"
-      )
-    })
-
-    expect(api.patch).toHaveBeenCalledWith(
-      `/orders/${orderId}/checkout`,
+    expect(quote.shippingQuote).toBe("synthetic-quote")
+    expect(quote.shippingRate).toEqual({ amount: 10 })
+    expect(quote.shippingAddress).toEqual(
       expect.objectContaining({
-        shippingQuote: "synthetic-quote",
-        v3ShippingQuote: "synthetic-quote"
-      }),
-      expect.objectContaining({
-        headers: {
-          "x-signavi-guest-checkout-token": guestToken
-        }
+        city: "Merced",
+        zip: "95340"
       })
     )
-  })
 
-  it("rejects a response without a secure payment URL", async () => {
-    api.post.mockResolvedValueOnce(orderResponse())
-    api.patch.mockResolvedValueOnce({
-      status: 200,
-      data: { success: true }
-    })
-
-    startCheckout()
-
-    await waitFor(() => {
-      expect(toastSpy).toHaveBeenCalledWith(
-        "Secure Square payment URL was not returned.",
-        "error"
-      )
-    })
-
-    expect(api.patch).toHaveBeenCalledTimes(1)
-  })
-
-  // STEP248_REDIRECT_TESTS
-  it("blocks a V3 preview response even when a payment URL is present", async () => {
-    api.post.mockResolvedValueOnce(orderResponse())
-    api.patch.mockResolvedValueOnce({
-      status: 202,
-      data: {
-        code: "V3_SANDBOX_PREPARED_NO_PAYMENT",
-        paymentUrl: "https://example.invalid/synthetic-checkout"
-      }
-    })
-
-    startCheckout()
+    expect(api.post).toHaveBeenCalledWith(
+      "/orders",
+      expect.objectContaining({
+        source: "cart_drawer",
+        status: "payment_required",
+        shippingQuote: "synthetic-quote"
+      })
+    )
 
     await waitFor(() => {
-      expect(toastSpy).toHaveBeenCalledWith(
-        "Checkout is in preview mode. No payment was created.",
-        "error"
+      expect(window.location.pathname).toBe(
+        `/client-checkout/${orderId}`
       )
     })
-
-    expect(api.patch).toHaveBeenCalledTimes(1)
-    expect(window.location.pathname).toBe("/")
-  })
-
-  it("rejects an insecure HTTP payment URL in the main App", async () => {
-    api.post.mockResolvedValueOnce(orderResponse())
-    api.patch.mockResolvedValueOnce({
-      status: 200,
-      data: {
-        success: true,
-        paymentUrl: "http://example.invalid/synthetic-checkout"
-      }
-    })
-
-    startCheckout()
-
-    await waitFor(() => {
-      expect(toastSpy).toHaveBeenCalledWith(
-        "Secure Square payment URL was not returned.",
-        "error"
-      )
-    })
-
-    expect(api.patch).toHaveBeenCalledTimes(1)
-    expect(window.location.pathname).toBe("/")
-  })
-
-  // STEP251_DIRECT_REDIRECT_ASSERTIONS
-  it("never requests navigation for V3 preview mode", async () => {
-    api.post.mockResolvedValueOnce(orderResponse())
-    api.patch.mockResolvedValueOnce({
-      status: 202,
-      data: {
-        code: "V3_SANDBOX_PREPARED_NO_PAYMENT",
-        paymentUrl: "https://example.invalid/blocked"
-      }
-    })
-
-    startCheckout()
-
-    await waitFor(() => {
-      expect(toastSpy).toHaveBeenCalledWith(
-        "Checkout is in preview mode. No payment was created.",
-        "error"
-      )
-    })
-
+    expect(api.patch).not.toHaveBeenCalled()
     expect(redirectToCheckoutPayment).not.toHaveBeenCalled()
   })
 
-  it("calls the navigation boundary for an HTTPS checkout response", async () => {
-    api.post.mockResolvedValueOnce(orderResponse())
-    api.patch.mockResolvedValueOnce({
-      status: 200,
-      data: {
-        paymentUrl: "https://square.link/u/synthetic-payment"
-      }
+  it("rejects an order response without an order ID", async () => {
+    api.post.mockResolvedValueOnce({
+      data: { checkoutToken: guestToken }
     })
 
     startCheckout()
 
     await waitFor(() => {
-      expect(redirectToCheckoutPayment).toHaveBeenCalledWith(
-        "https://square.link/u/synthetic-payment"
+      expect(toastSpy).toHaveBeenCalledWith(
+        "Missing order ID",
+        "error"
       )
     })
 
-    expect(redirectToCheckoutPayment).toHaveBeenCalledTimes(1)
+    expect(api.patch).not.toHaveBeenCalled()
+    expect(redirectToCheckoutPayment).not.toHaveBeenCalled()
+  })
+
+  it("does not request payment when order creation fails", async () => {
+    api.post.mockRejectedValueOnce(
+      new Error("Synthetic order creation failure")
+    )
+
+    startCheckout()
+
+    await waitFor(() => {
+      expect(toastSpy).toHaveBeenCalledWith(
+        "Synthetic order creation failure",
+        "error"
+      )
+    })
+
+    expect(api.patch).not.toHaveBeenCalled()
+    expect(redirectToCheckoutPayment).not.toHaveBeenCalled()
   })
 })

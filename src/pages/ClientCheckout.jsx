@@ -100,7 +100,14 @@ export default function ClientCheckout({ onChangeAddress }) {
           shippingQuote,
           v3ShippingQuote: shippingQuote
         },
-        { headers: { "x-signavi-guest-checkout-token": checkoutToken } }
+        {
+          headers: {
+            "x-signavi-guest-checkout-token": checkoutToken,
+            ...(import.meta.env.DEV
+              ? { "x-signavi-v3-sandbox-mode": "prepare" }
+              : {})
+          }
+        }
       )
 
       if (
@@ -136,7 +143,10 @@ export default function ClientCheckout({ onChangeAddress }) {
         )
       }
       console.error("Checkout confirmation error:", err.response?.data || err)
-      const message = err?.response?.data?.message || err?.message || "Checkout failed. Please try again."
+      const message =
+        err?.response?.data?.reason === "payment_execution_not_authorized"
+          ? "Secure payment is temporarily unavailable. No payment was created."
+          : (err?.response?.data?.message || err?.message || "Checkout failed. Please try again.")
       setError(message)
       toast.error("Could not continue to payment")
     } finally {
