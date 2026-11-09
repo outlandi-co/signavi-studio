@@ -2,22 +2,10 @@ import { useEffect, useMemo, useState } from "react"
 import { useSearchParams, useNavigate } from "react-router-dom"
 import toast from "react-hot-toast"
 import api from "../services/api"
+import { fetchStudioPaymentConfirmation } from "../utils/studioPaymentConfirmation.js"
+import { resolveStudioConfirmationAttemptKey } from "../utils/resolveStudioConfirmationAttemptKey.js"
+import { finalizeStudioPaidCheckout } from "../utils/finalizeStudioPaidCheckout.js"
 
-const money = (value = 0) => {
-  return Number(value || 0).toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD"
-  })
-}
-
-const normalizeOrder = (payload) => {
-  return (
-    payload?.data ||
-    payload?.order ||
-    payload ||
-    null
-  )
-}
 
 export default function Success() {
   const [searchParams] = useSearchParams()
@@ -51,16 +39,31 @@ export default function Success() {
           throw new Error("No order ID found")
         }
 
-        const res = await api.get(`/orders/${orderId}`)
+        // Capture the key BEFORE awaiting backend verification.
+        const confirmationAttemptKey = resolveStudioConfirmationAttemptKey({
+          storage: sessionStorage,
+          orderId
+        })
+
+        const loadedOrder = await fetchStudioPaymentConfirmation({
+          api,
+          orderId,
+          storage: sessionStorage
+        })
 
         if (!mounted) return
 
-        const loadedOrder = normalizeOrder(res.data)
-
         setOrder(loadedOrder)
+        localStorage.setItem("lastOrderId", loadedOrder.orderId)
 
-        if (loadedOrder?._id) {
-          localStorage.setItem("lastOrderId", loadedOrder._id)
+        if (loadedOrder.paymentStatus === "paid") {
+          // Fail closed: unpaid or mismatched attempts are never retired.
+          finalizeStudioPaidCheckout({
+            storage: sessionStorage,
+            confirmation: loadedOrder,
+            orderId,
+            attemptKey: confirmationAttemptKey
+          })
         }
       } catch (err) {
         if (!mounted) return
@@ -86,18 +89,18 @@ export default function Success() {
   }, [orderId])
 
   useEffect(() => {
-    if (loading || !orderId || error) return
+    if (loading || !orderId || error || order?.paymentStatus !== "paid") return
 
     const timer = setTimeout(() => {
       navigate(`/track/${orderId}`)
     }, 3500)
 
     return () => clearTimeout(timer)
-  }, [loading, orderId, error, navigate])
+  }, [loading, orderId, error, navigate, order?.paymentStatus])
 
   const handleTrackOrder = () => {
     const finalId =
-      order?._id ||
+      order?.orderId ||
       orderId ||
       localStorage.getItem("lastOrderId")
 
@@ -122,7 +125,7 @@ export default function Success() {
           </div>
         ) : (
           <>
-            <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-emerald-500/20 text-5xl">
+            <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-slate-800 text-5xl">
               🎉
             </div>
 
@@ -131,12 +134,11 @@ export default function Success() {
             </p>
 
             <h1 className="text-4xl font-extrabold md:text-5xl">
-              Payment Successful
+              {order?.paymentStatus === "paid" && !error ? "Payment Successful" : "Payment Not Confirmed"}
             </h1>
 
             <p className="mx-auto mt-4 max-w-xl leading-7 text-slate-400">
-              Your order has been received and is now being processed.
-              You’ll be redirected to tracking shortly.
+              {order?.paymentStatus === "paid" && !error ? "Your payment is recorded as paid. You will be redirected to tracking shortly." : "We cannot confirm payment for this order yet. Please check your order status before attempting another purchase."}
             </p>
 
             {error && (
@@ -149,24 +151,15 @@ export default function Success() {
               <div className="mt-8 rounded-2xl border border-slate-800 bg-[#020617] p-6 text-left">
                 <SummaryRow
                   label="Order ID"
-                  value={`#${String(order._id || orderId).slice(-6).toUpperCase()}`}
+                  value={`#${String(order.orderId || orderId).slice(-6).toUpperCase()}`}
                 />
 
                 <SummaryRow
                   label="Status"
-                  value={order.status || "Processing"}
+                  value={order.paymentStatus || "Not confirmed"}
                 />
 
-                <SummaryRow
-                  label="Customer"
-                  value={order.customerName || "Customer"}
-                />
 
-                <SummaryRow
-                  label="Total"
-                  value={money(order.finalPrice || order.total)}
-                  strong
-                />
               </div>
             )}
 

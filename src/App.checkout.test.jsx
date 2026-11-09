@@ -5,8 +5,11 @@ import api from "./services/api"
 import { redirectToCheckoutPayment } from "./utils/checkoutNavigation"
 import App from "./App"
 
-const { toastSpy } = vi.hoisted(() => ({
-  toastSpy: vi.fn()
+const { toastSpy, checkoutFixture } = vi.hoisted(() => ({
+  toastSpy: vi.fn(),
+  checkoutFixture: {
+    cart: []
+  }
 }))
 
 vi.mock("./services/api", () => ({
@@ -27,7 +30,7 @@ vi.mock("./components/CartDrawer", () => ({
       type="button"
       onClick={() =>
         onCheckout(
-          [{ productId: "synthetic-product", quantity: 1 }],
+          checkoutFixture.cart,
           {
             customerName: "Test Customer",
             email: "test@example.invalid",
@@ -141,11 +144,13 @@ vi.mock("./utils/checkoutNavigation", async (importOriginal) => {
   }
 })
 
-const orderId = "synthetic-order-123"
+const orderId = "507f1f77bcf86cd799439011"
 const guestToken = "synthetic-guest-token"
 
 const orderResponse = (token = guestToken) => ({
+  status: 201,
   data: {
+    success: true,
     data: { _id: orderId },
     ...(token ? { checkoutToken: token } : {})
   }
@@ -162,6 +167,12 @@ const startCheckout = () => {
 
 describe("App checkout with mocked API", () => {
   beforeEach(() => {
+    checkoutFixture.cart = [{
+      productId: "synthetic-product",
+      quantity: 1,
+      storefront: "signavi_studio"
+    }]
+
     vi.clearAllMocks()
     sessionStorage.clear()
     localStorage.clear()
@@ -172,6 +183,25 @@ describe("App checkout with mocked API", () => {
     cleanup()
   })
 
+  it("blocks an untagged legacy cart before creating an order", async () => {
+    checkoutFixture.cart = [{
+      productId: "synthetic-product",
+      quantity: 1
+    }]
+
+    startCheckout()
+
+    await waitFor(() => {
+      expect(toastSpy).toHaveBeenCalledWith(
+        expect.stringContaining("legacy or non-Studio"),
+        "error"
+      )
+    })
+
+    expect(api.post).not.toHaveBeenCalled()
+    expect(redirectToCheckoutPayment).not.toHaveBeenCalled()
+  })
+
   it("blocks checkout without a guest token", async () => {
     api.post.mockResolvedValueOnce(orderResponse(null))
 
@@ -179,7 +209,7 @@ describe("App checkout with mocked API", () => {
 
     await waitFor(() => {
       expect(toastSpy).toHaveBeenCalledWith(
-        "Guest checkout token was not returned.",
+        "We could not confirm whether your order was created. Do not submit checkout again. Contact support.",
         "error"
       )
     })
@@ -217,9 +247,20 @@ describe("App checkout with mocked API", () => {
     expect(api.post).toHaveBeenCalledWith(
       "/orders",
       expect.objectContaining({
+        storefront: "signavi_studio",
         source: "cart_drawer",
         status: "payment_required",
         shippingQuote: "synthetic-quote"
+      }),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "x-signavi-storefront-attempt-key":
+            expect.stringMatching(
+              /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+            ),
+          "x-signavi-storefront-recovery-secret":
+            expect.stringMatching(/^[A-Za-z0-9_-]{43}$/)
+        })
       })
     )
 
@@ -241,7 +282,7 @@ describe("App checkout with mocked API", () => {
 
     await waitFor(() => {
       expect(toastSpy).toHaveBeenCalledWith(
-        "Missing order ID",
+        "We could not confirm whether your order was created. Do not submit checkout again. Contact support.",
         "error"
       )
     })
@@ -259,7 +300,7 @@ describe("App checkout with mocked API", () => {
 
     await waitFor(() => {
       expect(toastSpy).toHaveBeenCalledWith(
-        "Synthetic order creation failure",
+        "We could not confirm whether your order was created. Do not submit checkout again. Contact support.",
         "error"
       )
     })
@@ -267,4 +308,78 @@ describe("App checkout with mocked API", () => {
     expect(api.patch).not.toHaveBeenCalled()
     expect(redirectToCheckoutPayment).not.toHaveBeenCalled()
   })
+
+  it("blocks repeat submission after an uncertain network failure", async () => {
+    api.post.mockRejectedValueOnce(
+      new Error("Simulated network disconnect")
+    )
+
+    startCheckout()
+
+    await waitFor(() => {
+      expect(toastSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Do not submit checkout again"),
+        "error"
+      )
+    })
+
+    const raw = sessionStorage.getItem(
+      "signavi:studio:checkout-attempt:v1"
+    )
+    expect(raw).not.toBeNull()
+
+    const attemptKey = JSON.parse(raw).attemptKey
+
+    expect(sessionStorage.getItem(
+      `signavi:studio:order-submission:v1:${attemptKey}`
+    )).toBe("submitted")
+
+    fireEvent.click(screen.getByRole("button", {
+      name: "Simulate cart checkout"
+    }))
+
+    await waitFor(() => {
+      expect(toastSpy).toHaveBeenCalledWith(
+        expect.stringContaining("already submitted"),
+        "error"
+      )
+    })
+
+    expect(api.post).toHaveBeenCalledTimes(1)
+    expect(sessionStorage.getItem(
+      "signavi:studio:checkout-attempt:v1"
+    )).toBe(raw)
+  })
+
+  it("does not resubmit an order after HTTP 409", async () => {
+    api.post.mockRejectedValueOnce({
+      response: { status: 409 }
+    })
+
+    startCheckout()
+
+    await waitFor(() => {
+      expect(toastSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Do not submit checkout again"),
+        "error"
+      )
+    })
+
+    fireEvent.click(screen.getByRole("button", {
+      name: "Simulate cart checkout"
+    }))
+
+    await waitFor(() => {
+      expect(toastSpy).toHaveBeenCalledWith(
+        expect.stringContaining("already submitted"),
+        "error"
+      )
+    })
+
+    expect(api.post).toHaveBeenCalledTimes(1)
+    expect(sessionStorage.getItem(
+      "signavi:studio:checkout-attempt:v1"
+    )).not.toBeNull()
+  })
+
 })

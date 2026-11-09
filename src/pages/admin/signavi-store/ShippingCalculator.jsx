@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
 import api from "../../../services/api"
+import CarrierFlatRateReferenceSelector from "../../../components/admin/CarrierFlatRateReferenceSelector"
 
 // Signavi Store Admin — Shippo TEST-mode calculator.
 // Enter measurements for each PACKED parcel. This does not auto-pack cart items,
@@ -55,6 +56,52 @@ export default function ShippingCalculator() {
     resetQuote()
   }
 
+  // STUDIO_058H44AC_REFERENCE_PREVIEW_ONLY
+  const applyCarrierReference = (item) => {
+    const dimensions = item?.dimensions?.outsideIn
+
+    if (
+      !Array.isArray(dimensions) ||
+      dimensions.length !== 3 ||
+      !dimensions.every(value => Number.isFinite(value) && value > 0)
+    ) {
+      return
+    }
+
+    setParcels(prev => prev.map((parcel, index) =>
+      index !== 0
+        ? parcel
+        : {
+            ...parcel,
+            kind: "Box",
+            length: String(dimensions[0]),
+            width: String(dimensions[1]),
+            height: String(dimensions[2]),
+            weight: "",
+            referenceId: item.id
+          }
+    ))
+
+    resetQuote()
+  }
+
+  const clearCarrierReference = () => {
+    setParcels(prev => prev.map((parcel, index) =>
+      index !== 0 || !parcel.referenceId
+        ? parcel
+        : {
+            ...parcel,
+            length: "",
+            width: "",
+            height: "",
+            weight: "",
+            referenceId: null
+          }
+    ))
+
+    resetQuote()
+  }
+
   const changeParcel = (key, field, value) => {
     setParcels((prev) => prev.map((p) => p.key === key ? { ...p, [field]: value } : p))
     resetQuote()
@@ -74,6 +121,16 @@ export default function ShippingCalculator() {
   const calculate = async (event) => {
     event.preventDefault()
     if (loading) return
+
+    if (parcels.some(parcel => parcel.referenceId)) {
+      setResult(null)
+      setError(
+        "Carrier reference selected. Clear the reference and enter " +
+        "actual packed dimensions and weight before comparing rates. " +
+        "A dimensional quote is not a USPS Flat Rate or UPS Simple Rate quote."
+      )
+      return
+    }
     setError("")
     setResult(null)
     setLoading(true)
@@ -131,6 +188,38 @@ export default function ShippingCalculator() {
           <strong>Manual parcel test:</strong> Weights and dimensions must describe each <em>packed box or mailer</em>,
           including packaging. The number of shirts inside is a note, not an automatic packing calculation.
           No checkout charges or shipping labels are created from this page.
+        </div>
+
+        <div className={panelClass}>
+          <h2 className="text-lg font-semibold">
+            Carrier packaging references
+          </h2>
+          <p className="mt-2 text-sm text-slate-300">
+            Select a published USPS or UPS package for planning.
+            References do not activate Flat Rate pricing or represent
+            a verified packed shipment.
+          </p>
+
+          <CarrierFlatRateReferenceSelector
+            onApply={applyCarrierReference}
+          />
+
+          {parcels[0]?.referenceId && (
+            <div className="mt-3 space-y-2">
+              <p role="status" className="text-sm text-amber-200">
+                Package 1 contains reference dimensions.
+                Live rate comparisons are disabled until actual
+                packed measurements are entered.
+              </p>
+              <button
+                type="button"
+                onClick={clearCarrierReference}
+                className="rounded-lg border border-cyan-500 px-3 py-2 text-sm text-cyan-300"
+              >
+                Clear reference and enter actual measurements
+              </button>
+            </div>
+          )}
         </div>
 
         <form onSubmit={calculate} className="space-y-5">

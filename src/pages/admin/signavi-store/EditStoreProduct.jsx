@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import api from "../../../services/api"
+import ShippingCompatibilityFields from "./ShippingCompatibilityFields"
 import MaterialUsageEditor, { useMaterialsCatalog, serializeMaterialUsage } from "./MaterialUsageEditor"
 
 const blankVariant = {
@@ -22,7 +23,11 @@ const blankShipping = {
   widthIn: "",
   heightIn: "",
   packagingType: "unassigned",
-  shipSeparately: false
+  shipSeparately: false,
+  compatibilityMode: "combine",
+  requiresProtection: false,
+  oversized: false,
+  maxUnitsPerPackage: ""
 }
 
 const shippingMeasurements = [
@@ -82,7 +87,18 @@ export default function EditStoreProduct() {
           widthIn: savedShipping.widthIn == null ? "" : String(savedShipping.widthIn),
           heightIn: savedShipping.heightIn == null ? "" : String(savedShipping.heightIn),
           packagingType: savedShipping.packagingType || "unassigned",
-          shipSeparately: Boolean(savedShipping.shipSeparately)
+          shipSeparately: Boolean(savedShipping.shipSeparately),
+          compatibilityMode:
+            savedShipping.compatibilityMode ||
+            (savedShipping.shipSeparately ? "separate" : "combine"),
+          requiresProtection:
+            savedShipping.compatibilityMode === "protected" ||
+            savedShipping.requiresProtection === true,
+          oversized: savedShipping.oversized === true,
+          maxUnitsPerPackage:
+            savedShipping.maxUnitsPerPackage == null
+              ? ""
+              : String(savedShipping.maxUnitsPerPackage)
         })
         setShippingEdited(false)
 
@@ -243,13 +259,31 @@ export default function EditStoreProduct() {
           return
         }
 
+        // SIGNAVI_SHIPPING_011_SAVE_VALIDATION
+        const rawCapacity = String(shipping.maxUnitsPerPackage ?? "").trim()
+        const capacity = rawCapacity === "" ? null : Number(rawCapacity)
+
+        if (
+          rawCapacity !== "" &&
+          (!Number.isSafeInteger(capacity) || capacity < 1)
+        ) {
+          alert("Maximum units per package must be a positive whole number.")
+          return
+        }
+
         shippingPayload = {
           weightOz: Number(shipping.weightOz),
           lengthIn: Number(shipping.lengthIn),
           widthIn: Number(shipping.widthIn),
           heightIn: Number(shipping.heightIn),
           packagingType: shipping.packagingType,
-          shipSeparately: Boolean(shipping.shipSeparately)
+          shipSeparately: shipping.compatibilityMode === "separate",
+          compatibilityMode: shipping.compatibilityMode,
+          requiresProtection:
+            shipping.compatibilityMode === "protected" ||
+            shipping.requiresProtection === true,
+          oversized: shipping.oversized === true,
+          maxUnitsPerPackage: capacity
         }
       }
 
@@ -484,15 +518,15 @@ export default function EditStoreProduct() {
                   <option value="custom">Custom</option>
                 </select>
               </label>
-              <label style={checkboxLabel}>
-                <input
-                  type="checkbox"
-                  checked={shipping.shipSeparately}
-                  onChange={(event) => updateShipping("shipSeparately", event.target.checked)}
-                />
-                Ship this item separately
-              </label>
+
             </div>
+            <ShippingCompatibilityFields
+              value={shipping}
+              onChange={patch => {
+                setShipping(prev => ({ ...prev, ...patch }))
+                setShippingEdited(true)
+              }}
+            />
             <p style={helper}>
               The same measurements apply to all color and size variants for now.
               Digital products and services do not need carrier shipping.

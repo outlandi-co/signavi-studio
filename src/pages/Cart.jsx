@@ -1,8 +1,11 @@
+import { getStorefrontCheckoutAttempt } from "../utils/storefrontCheckoutAttempt.js"
+import { createStudioOrderGuarded } from "../utils/createStudioOrderGuarded.js"
+import { getShippingSpeedLabel } from "../utils/shippingSpeed.js"
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import toast from "react-hot-toast"
 import api from "../services/api"
-import { useCartContext } from "../hooks/useCartContext"
+import { useCartContext } from "../context/useCartContext"
 
 const TAX_RATE = 0.0825
 
@@ -80,6 +83,10 @@ const normalizeRate = (rate) => {
       rate.estimatedDays ||
       rate.delivery_days ||
       null,
+    shippingQuote:
+      typeof rate.shippingQuote === "string"
+        ? rate.shippingQuote
+        : null,
     raw: rate
   }
 }
@@ -96,6 +103,7 @@ export default function Cart() {
   const [customerInfo, setCustomerInfo] = useState(getInitialCustomerInfo)
   const [shippingRates, setShippingRates] = useState([])
   const [selectedRate, setSelectedRate] = useState(null)
+  const [shippingQuote, setShippingQuote] = useState(null)
   const [loadingRates, setLoadingRates] = useState(false)
   const [checkingOut, setCheckingOut] = useState(false)
 
@@ -125,6 +133,7 @@ export default function Cart() {
     if (["street", "city", "state", "zip", "country"].includes(field)) {
       setShippingRates([])
       setSelectedRate(null)
+      setShippingQuote(null)
     }
   }
 
@@ -151,8 +160,10 @@ export default function Cart() {
       setLoadingRates(true)
       setShippingRates([])
       setSelectedRate(null)
+      setShippingQuote(null)
 
       const res = await api.post("/shipping/get-rates", {
+        storefront: "signavi_studio",
   address_to: {
     name: customerInfo.customerName.trim() || "Customer",
     street1: customerInfo.street.trim(),
@@ -167,6 +178,9 @@ export default function Cart() {
     quantity: Number(item.quantity || 1)
   }))
 })
+      // Signed quotes belong to individual carrier rates.
+      // Never reuse a quote from a different shipping selection.
+      setShippingQuote(null)
 
       const rawRates =
         res.data?.rates ||
@@ -185,6 +199,7 @@ export default function Cart() {
 
       setShippingRates(normalizedRates)
       setSelectedRate(normalizedRates[0])
+      setShippingQuote(normalizedRates[0].shippingQuote)
       toast.success("Shipping rates loaded")
     } catch (err) {
       console.error("❌ SHIPPING RATE ERROR:", err.response?.data || err)
@@ -210,8 +225,17 @@ export default function Cart() {
       return
     }
 
-    if (!selectedRate) {
+        if (!selectedRate) {
       toast.error("Please get and select a shipping rate first")
+      return
+    }
+
+    if (
+      typeof selectedRate.shippingQuote !== "string" ||
+      !selectedRate.shippingQuote.trim() ||
+      selectedRate.shippingQuote !== shippingQuote
+    ) {
+      toast.error("Shipping quote is missing or outdated. Select shipping again.")
       return
     }
 
@@ -224,7 +248,8 @@ export default function Cart() {
 
       localStorage.setItem("customerEmail", email)
 
-      const orderRes = await api.post("/orders", {
+      const orderPayload = {
+        storefront: "signavi_studio",
         customerName,
         email,
         phone,
@@ -239,6 +264,7 @@ export default function Cart() {
         shipping: totals.shipping,
         shippingCost: totals.shipping,
         shippingRate: selectedRate,
+        shippingQuote,
         shippingProvider: selectedRate.provider,
         shippingService: selectedRate.servicelevel,
         subtotal: totals.subtotal,
@@ -246,40 +272,84 @@ export default function Cart() {
         finalPrice: totals.finalPrice,
         source: "cart_page",
         status: "payment_required"
+      }
+      if (
+        typeof shippingQuote !== "string" ||
+        !shippingQuote.trim()
+      ) {
+        throw new Error(
+          "Signed shipping quote is missing. Select shipping again."
+        )
+      }
+
+      const checkoutAttempt = await getStorefrontCheckoutAttempt(orderPayload)
+      const creation = await createStudioOrderGuarded({
+        api,
+        orderPayload,
+        attempt: checkoutAttempt,
+        storage: sessionStorage
       })
 
-      const orderId =
-        orderRes.data?.data?._id ||
-        orderRes.data?.order?._id ||
-        orderRes.data?._id
-
-      if (!orderId) {
-        throw new Error("Missing order ID")
+      if (creation.kind === "blocked") {
+        throw new Error(
+          "This checkout attempt was already submitted or cannot be verified. " +
+          "Do not submit again. Contact support."
+        )
       }
+
+      if (creation.kind !== "created") {
+        throw new Error(
+          creation.kind === "uncertain"
+            ? "We could not confirm whether your order was created. Do not submit checkout again. Contact support."
+            : "Checkout was not accepted. Review your details or contact support."
+        )
+      }
+
+      const orderId = creation.orderId
+      const checkoutToken = creation.checkoutToken
+
+
+
+      const shippingAddress = {
+        name: customerName,
+        street1: customerInfo.street.trim(),
+        city: customerInfo.city.trim(),
+        state: customerInfo.state.trim(),
+        zip: customerInfo.zip.trim(),
+        country: customerInfo.country.trim() || "US"
+      }
+
+      sessionStorage.setItem(
+        `signaviCheckoutToken:${orderId}`,
+        checkoutToken
+      )
+
+      sessionStorage.setItem(
+        `signaviCheckoutQuote:${orderId}`,
+        JSON.stringify({
+          shippingQuote: selectedRate.shippingQuote,
+          shippingAddress,
+          shippingRate: selectedRate
+        })
+      )
 
       localStorage.setItem("lastOrderId", orderId)
-
-      const squareRes = await api.post(`/square/create-payment/${orderId}`)
-
-      const paymentUrl =
-        squareRes.data?.paymentUrl ||
-        squareRes.data?.url ||
-        squareRes.data?.checkoutUrl ||
-        squareRes.data?.squarePaymentUrl ||
-        squareRes.data?.data?.paymentUrl ||
-        squareRes.data?.data?.url ||
-        squareRes.data?.data?.checkoutUrl ||
-        squareRes.data?.data?.squarePaymentUrl
-
-      if (!paymentUrl) {
-        throw new Error("Missing Square payment URL")
-      }
-
-      window.location.assign(paymentUrl)
+      navigate(`/client-checkout/${orderId}`)
     } catch (err) {
       console.error("❌ CHECKOUT ERROR:", err.response?.data || err)
+      const safeCheckoutMessages = new Set([
+        "This checkout attempt was already submitted or cannot be verified. Do not submit again. Contact support.",
+        "We could not confirm whether your order was created. Do not submit checkout again. Contact support.",
+        "Checkout was not accepted. Review your details or contact support."
+      ])
+
+      const safeMessage = safeCheckoutMessages.has(err?.message)
+        ? err.message
+        : null
+
       toast.error(
-        err.response?.data?.message ||
+        safeMessage ||
+          err.response?.data?.message ||
           "Checkout failed"
       )
       setCheckingOut(false)
@@ -488,8 +558,11 @@ export default function Cart() {
                   {shippingRates.map((rate) => (
                     <button
                       type="button"
-                      key={`${rate.id}-${rate.provider}-${rate.servicelevel}-${rate.amount}`}
-                      onClick={() => setSelectedRate(rate)}
+                      key={`${rate.id}-${rate.provider}-${getShippingSpeedLabel(rate)} ? {rate.servicelevel}-${rate.amount}`}
+                      onClick={() => {
+                        setSelectedRate(rate)
+                        setShippingQuote(rate.shippingQuote || null)
+                      }}
                       className={
                         selectedRate?.id === rate.id
                           ? "w-full rounded-2xl border border-cyan-400 bg-cyan-500/10 p-3 text-left"

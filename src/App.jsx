@@ -1,3 +1,6 @@
+import { getStorefrontCheckoutAttempt } from "./utils/storefrontCheckoutAttempt.js"
+import { createStudioOrderGuarded } from "./utils/createStudioOrderGuarded.js"
+import { isStudioCheckoutCart } from "./utils/studioStorefrontGuard"
 import {
   BrowserRouter,
   Routes,
@@ -31,6 +34,7 @@ import CustomerLayout from "./layouts/CustomerLayout"
 
 import Home from "./pages/Home"
 import Store from "./pages/Store"
+import ProductCustomizer from "./pages/ProductCustomizer"
 import ProductDetail from "./pages/ProductDetail"
 
 import Login from "./pages/Login"
@@ -117,6 +121,15 @@ function AppContent() {
         return
       }
 
+      if (!isStudioCheckoutCart(cart)) {
+        addToast(
+          "Your cart contains legacy or non-Studio items. Please review and remove those items before checkout.",
+          "error"
+        )
+        setIsRedirecting(false)
+        return
+      }
+
       const customerName = String(customerInfo?.customerName || "").trim()
       const email = String(customerInfo?.email || "").trim().toLowerCase()
       const phone = String(customerInfo?.phone || "").trim()
@@ -133,9 +146,22 @@ function AppContent() {
         return
       }
 
+      // Require a verified shipping selection BEFORE creating the order.
+      if (
+        !customerInfo?.address ||
+        typeof customerInfo?.shippingQuote !== "string" ||
+        !customerInfo.shippingQuote.trim() ||
+        !customerInfo?.shippingRate
+      ) {
+        throw new Error(
+          "Shipping selection is missing. Return to your cart."
+        )
+      }
+
       localStorage.setItem("customerEmail", email)
 
-      const orderRes = await api.post("/orders", {
+      const orderPayload = {
+        storefront: "signavi_studio",
         customerName,
         email,
         phone,
@@ -157,24 +183,32 @@ function AppContent() {
         finalPrice: Number(customerInfo?.total || 0),
         source: "cart_drawer",
         status: "payment_required"
+      }
+      const checkoutAttempt = await getStorefrontCheckoutAttempt(orderPayload)
+      const creation = await createStudioOrderGuarded({
+        api,
+        orderPayload,
+        attempt: checkoutAttempt,
+        storage: sessionStorage
       })
 
-      const orderId =
-        orderRes.data?.data?._id ||
-        orderRes.data?.order?._id ||
-        orderRes.data?._id
-
-      if (!orderId) {
-        throw new Error("Missing order ID")
+      if (creation.kind === "blocked") {
+        throw new Error(
+          "This checkout attempt was already submitted or cannot be verified. " +
+          "Do not submit again. Contact support."
+        )
       }
 
-
-      // Save the private guest checkout token for this order.
-      const checkoutToken = orderRes.data?.checkoutToken
-
-      if (!checkoutToken) {
-        throw new Error("Guest checkout token was not returned.")
+      if (creation.kind !== "created") {
+        throw new Error(
+          creation.kind === "uncertain"
+            ? "We could not confirm whether your order was created. Do not submit checkout again. Contact support."
+            : "Checkout was not accepted. Review your details or contact support."
+        )
       }
+
+      const orderId = creation.orderId
+      const checkoutToken = creation.checkoutToken
 
       sessionStorage.setItem(
         `signaviCheckoutToken:${orderId}`,
@@ -194,16 +228,7 @@ function AppContent() {
 
       // Use the shipping selection already collected in the cart.
       // The server verifies the signed quote and order ownership.
-      if (
-        !customerInfo?.address ||
-        typeof customerInfo?.shippingQuote !== "string" ||
-        !customerInfo.shippingQuote.trim() ||
-        !customerInfo?.shippingRate
-      ) {
-        throw new Error(
-          "Shipping selection is missing. Return to your cart."
-        )
-      }
+
 
       navigateToCheckoutConfirmation(orderId, navigate)
     } catch (err) {
@@ -288,7 +313,8 @@ function AppContent() {
 
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/store" element={<Store />} />
+        <Route path="/store" element={<Store onOpenCart={() => setCartOpen(true)} />} />
+        <Route path="/customize/:id" element={<ProductCustomizer onOpenCart={() => setCartOpen(true)} />} />
         <Route path="/gallery" element={<Gallery />} />
         <Route path="/services" element={<Services />} />
         <Route path="/terms" element={<Terms />} />

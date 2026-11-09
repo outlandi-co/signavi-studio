@@ -1,4 +1,6 @@
+import { isStudioProduct } from "../utils/studioStorefrontGuard"
 import { createContext, useEffect, useMemo, useRef, useState } from "react"
+import { getCustomizationKey, matchesCustomizationSelection, totalMatchingPhysicalQuantity } from "../utils/cartCustomization"
 
 const CartContext = createContext()
 const TAX_RATE = 0.0825
@@ -82,6 +84,7 @@ const isSameCartItem = (item = {}, product = {}) => {
   const productType = getProductType(product)
 
   if (String(item.productId) !== String(productId)) return false
+  if (getCustomizationKey(item) !== getCustomizationKey(product)) return false
 
   if (productType === "digital" || productType === "service") {
     return getProductType(item) === productType
@@ -98,6 +101,7 @@ const isSameCartItem = (item = {}, product = {}) => {
 
 const isMatchingQuantityItem = (item, productId, variantOrType) => {
   if (String(item.productId) !== String(productId)) return false
+  if (!matchesCustomizationSelection(item, variantOrType)) return false
 
   const type = getProductType(item)
   if (type === "digital" || type === "service") {
@@ -137,6 +141,18 @@ export function CartProvider({ children }) {
   }, [cart])
 
   const addToCart = (product = {}) => {
+    if (!isStudioProduct(product)) {
+      console.warn("Only Signavi Studio products can enter this cart")
+      return false
+    }
+
+    if (cartRef.current.some(item => !isStudioProduct(item))) {
+      console.warn(
+        "Existing cart contains legacy or non-Studio items. Review and clear those items first."
+      )
+      return false
+    }
+
     const productId = getProductId(product)
     const productType = getProductType(product)
     const variant = normalizeVariant(product.selectedVariant || null)
@@ -202,6 +218,9 @@ export function CartProvider({ children }) {
       name: product.name || "Untitled Product",
       image: product.image || "",
       productType,
+      storefront: product.storefront,
+      customization: product.customization || null,
+      customizationKey: getCustomizationKey(product),
 
       price,
       unitPrice: price,
@@ -242,7 +261,11 @@ export function CartProvider({ children }) {
     const existingQty = existing ? safeNumber(existing.quantity, 1) : 0
     const newQty = productType === "digital" ? 1 : existingQty + requestedQty
 
-    if (productType === "physical" && newQty > stock) {
+    const totalPhysicalQty = totalMatchingPhysicalQuantity(
+      previous, productId, variant
+    )
+
+    if (productType === "physical" && totalPhysicalQty + requestedQty > stock) {
       console.warn(`Only ${stock} available; requested ${newQty}`)
       return false
     }
@@ -299,7 +322,11 @@ export function CartProvider({ children }) {
           )
 
           // Old carts may lack stock. Do not allow an unverified increase.
-          if (stock === null || stock <= 0 || nextQty > stock) {
+          const otherQty = totalMatchingPhysicalQuantity(
+            cartRef.current, productId, item.selectedVariant
+          ) - currentQty
+
+          if (stock === null || stock <= 0 || nextQty + otherQty > stock) {
             return item
           }
         }
@@ -316,6 +343,7 @@ export function CartProvider({ children }) {
   const removeFromCart = (productId, variantOrType = null) => {
     const updated = cartRef.current.filter((item) => {
       if (String(item.productId) !== String(productId)) return true
+      if (!matchesCustomizationSelection(item, variantOrType)) return true
 
       const itemType = getProductType(item)
 

@@ -240,6 +240,11 @@ export default function ProductDetail() {
   const sku = safeText(variant?.sku || product.sku, "N/A")
 
   const handleAddToCart = () => {
+    if (product?.storefront !== "signavi_studio") {
+      toast.error("This product is not available in Signavi Studio")
+      return
+    }
+
     if (typeof addToCart !== "function") {
       toast.error("Cart system unavailable")
       return
@@ -264,6 +269,7 @@ export default function ProductDetail() {
       variants: isPhysical ? variants : [],
       price,
       productType,
+      storefront: product.storefront,
       selectedVariant: variant
         ? {
             ...variant,

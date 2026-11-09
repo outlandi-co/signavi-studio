@@ -61,7 +61,7 @@ const getCustomerUser = () => {
   }
 }
 
-export default function Store() {
+export default function Store({ onOpenCart }) {
   const navigate = useNavigate()
   const { addToCart } = useCartContext()
 
@@ -116,7 +116,7 @@ export default function Store() {
         const res = await api.get("/products", {
   params: {
     storefrontVisible: true,
-    storefront: "signavi_store"
+    storefront: "signavi_studio"
   }
 })
 
@@ -124,7 +124,7 @@ export default function Store() {
           ? res.data
           : res.data?.data || []
 
-        if (isMounted) setProducts(productData)
+        if (isMounted) setProducts(productData.filter(product => product?.storefront === "signavi_studio"))
       } catch (err) {
         console.error("Γ¥î STORE PRODUCTS ERROR:", err.response?.data || err)
         if (isMounted) setProducts([])
@@ -279,6 +279,8 @@ export default function Store() {
       discountLabel: product.discountLabel || "",
 
       productType,
+
+      storefront: product.storefront,
       stock: productType === "physical" ? stock : undefined,
       selectedVariant: null
     }
@@ -323,79 +325,43 @@ export default function Store() {
         return
       }
 
-      const customerUser = getCustomerUser()
-
       const cartPrice = Number(price || 0)
       const originalPrice = Number(regularPrice || cartPrice || 0)
-      const subtotal = cartPrice * qty
-      const tax = subtotal * 0.0825
 
-      const res = await api.post("/orders", {
-        email: customerUser?.email || "guest@signavi.com",
-        customerName: customerUser?.name || "Guest Customer",
-        source: "store",
-        status: "payment_required",
-        items: [
-          {
-            productId,
-            name: safeText(product.name, "Product"),
-            quantity: qty,
+      const cartItem = {
+        productId,
+        _id: productId,
+        id: productId,
+        name: safeText(product.name, "Product"),
+        image: mainImage,
+        quantity: qty,
+        price: cartPrice,
+        unitPrice: cartPrice,
+        salePrice: cartPrice,
+        finalPrice: cartPrice,
+        originalPrice,
+        regularPrice: originalPrice,
+        listPrice: originalPrice,
+        discountActive: Boolean(product.discountActive),
+        discountType: product.discountType || "",
+        discountValue: Number(product.discountValue || 0),
+        discountLabel: product.discountLabel || "",
+        productType,
+        storefront: product.storefront,
+        stock: productType === "physical" ? stock : undefined,
+        selectedVariant: null
+      }
 
-            price: cartPrice,
-            unitPrice: cartPrice,
-            salePrice: cartPrice,
-            finalPrice: cartPrice,
+      const added = addToCart(cartItem)
 
-            originalPrice,
-            regularPrice: originalPrice,
-            listPrice: originalPrice,
+      if (!added) {
+        toast.error("Unable to add item. Check available inventory.")
+        return
+      }
 
-            discountActive: Boolean(product.discountActive),
-            discountType: product.discountType || "",
-            discountValue: Number(product.discountValue || 0),
-            discountLabel: product.discountLabel || "",
-
-            image: mainImage,
-            productType,
-            variant: null
-          }
-        ],
-        subtotal,
-        tax,
-        finalPrice: subtotal + tax
-      })
-
-      const order = res.data?.data || res.data?.order || res.data
-
-      if (!order?._id) throw new Error("No order ID returned")
-
-
-const checkoutToken = res.data?.checkoutToken
-
-if (!checkoutToken) {
-  throw new Error("Guest checkout token was not returned.")
-}
-
-sessionStorage.setItem(
-  `signaviCheckoutToken:${order._id}`,
-  checkoutToken
-)
-
-
-      localStorage.setItem("lastOrderId", order._id)
-addRecent(product)
-
-sessionStorage.setItem(
-  "signaviCheckoutItems",
-  JSON.stringify([
-    {
-      productId: String(productId),
-      quantity: Number(qty)
-    }
-  ])
-)
-
-navigate(`/client-checkout/${order._id}`)
+      addRecent(product)
+      onOpenCart?.()
+      toast.success("Added to cart. Review shipping before checkout.")
     } catch (err) {
       console.error("Γ¥î BUY NOW ERROR:", err.response?.data || err)
       toast.error(err.response?.data?.message || "Buy now failed")

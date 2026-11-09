@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import toast from "react-hot-toast"
 import api from "../services/api"
@@ -63,6 +63,10 @@ export default function ClientCheckout({ onChangeAddress }) {
   const [checkout] = useState(() => readCheckout(id))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
+  const [v3Options, setV3Options] = useState([])
+  const [selectedV3Index, setSelectedV3Index] = useState(null)
+  const [v3Loading, setV3Loading] = useState(true)
+  const [v3Error, setV3Error] = useState("")
 
   const address = normalizeAddress(checkout?.shippingAddress)
   const selectedRate = checkout?.shippingRate
@@ -75,6 +79,86 @@ export default function ClientCheckout({ onChangeAddress }) {
   const shippingAmount = Number(selectedRate?.amount ?? rate.amount)
   const isValidId = Boolean(id && id !== "null" && id !== "undefined")
   const ready = Boolean(isValidId && address && typeof shippingQuote === "string" && shippingQuote.trim() && selectedRate && Number.isFinite(shippingAmount) && shippingAmount >= 0)
+
+
+  // V3_SHIPPING_SELECTION_UI
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadVerifiedOptions() {
+      const token = sessionStorage.getItem(
+        "signaviCheckoutToken:" + id
+      )
+
+      if (!token) {
+        setV3Error("Checkout session missing. Return to your cart.")
+        setV3Loading(false)
+        return
+      }
+
+      try {
+        const response = await api.post(
+          "/v3/shipping/" + id + "/quote",
+          {},
+          {
+            headers: {
+              "x-signavi-guest-checkout-token": token
+            }
+          }
+        )
+
+        const options = response.data?.shippingOptions
+
+        if (
+          !Array.isArray(options) ||
+          options.length === 0 ||
+          options.some(option =>
+            !option ||
+            typeof option.carrier !== "string" ||
+            !option.carrier.trim() ||
+            typeof option.serviceToken !== "string" ||
+            !option.serviceToken.trim() ||
+            String(option.currency).toUpperCase() !== "USD" ||
+            !/^\d+(?:\.\d{1,2})?$/.test(String(option.amount)) ||
+            Number(option.amount) <= 0 ||
+            typeof option.signedQuote !== "string" ||
+            !option.signedQuote.trim()
+          )
+        ) {
+          throw new Error("Verified shipping options are unavailable.")
+        }
+
+        if (!cancelled) {
+          setV3Options(options)
+          setSelectedV3Index(null)
+          setV3Error("")
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setV3Options([])
+          setSelectedV3Index(null)
+          setV3Error(
+            error?.response?.data?.message ||
+            error?.message ||
+            "Unable to load shipping options."
+          )
+        }
+      } finally {
+        if (!cancelled) setV3Loading(false)
+      }
+    }
+
+    if (ready) {
+      loadVerifiedOptions()
+    } else {
+      setV3Error("Checkout details are incomplete.")
+      setV3Loading(false)
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [id, ready])
 
   const handleConfirm = async () => {
     if (!ready) {
@@ -91,14 +175,36 @@ export default function ClientCheckout({ onChangeAddress }) {
     try {
       setSaving(true)
       setError("")
-      // The server verifies the signed quote against this exact destination and
-      // the saved order's items. Browser-provided shipping prices are not used.
+      if (v3Loading || v3Error) {
+        throw new Error(
+          v3Error || "Shipping options are still loading."
+        )
+      }
+
+      const v3Option = Number.isInteger(selectedV3Index)
+        ? v3Options[selectedV3Index]
+        : null
+
+      if (
+        !v3Option ||
+        typeof v3Option.signedQuote !== "string" ||
+        !v3Option.signedQuote.trim()
+      ) {
+        throw new Error(
+          "Please select and approve your final shipping service."
+        )
+      }
+
+      // Reuse the customer-approved, server-signed shipping quote.
+      // The backend validates its signature, order binding,
+      // shipping amount, and expiration during checkout.
+      const freshOption = v3Option
       const res = await api.patch(
         `/orders/${id}/checkout`,
         {
           shippingAddress: address,
           shippingQuote,
-          v3ShippingQuote: shippingQuote
+          v3ShippingQuote: freshOption.signedQuote
         },
         {
           headers: {
@@ -127,9 +233,9 @@ export default function ClientCheckout({ onChangeAddress }) {
       const orderId = getOrderId(res.data, id)
       localStorage.setItem("lastOrderId", orderId)
       localStorage.setItem("shippingRate", JSON.stringify({
-        amount: shippingAmount,
-        carrier,
-        serviceLevel: service
+        amount: Number(v3Option.amount),
+        carrier: v3Option.carrier,
+        serviceLevel: v3Option.service
       }))
       toast.success("Redirecting to secure payment")
       redirectToCheckoutPayment(paymentUrl)
@@ -157,12 +263,67 @@ export default function ClientCheckout({ onChangeAddress }) {
   return (
     <main className="min-h-screen bg-[#020617] px-6 py-16 text-white">
       <section className="mx-auto max-w-3xl">
+          {/* V3 final shipping selection */}
+          <div className="mb-8 rounded-xl border border-cyan-700 bg-slate-900 p-5">
+            <h2 className="mb-2 text-xl font-bold">
+              Confirm your shipping service
+            </h2>
+            <p className="mb-4 text-sm text-slate-300">
+              Your cart rate was an estimate. Review and approve
+              your final shipping service and price.
+            </p>
+
+            {v3Loading && (
+              <p role="status">Loading verified shipping rates...</p>
+            )}
+
+            {v3Error && (
+              <p role="alert" className="text-red-300">
+                {v3Error}
+              </p>
+            )}
+
+            {!v3Loading && !v3Error && (
+              <div className="space-y-3" role="radiogroup"
+                aria-label="Final shipping service">
+                {v3Options.map((option, index) => (
+                  <label
+                    key={option.category + "-" + index}
+                    className="flex cursor-pointer items-center gap-4 rounded-lg border border-slate-600 p-4"
+                  >
+                    <input
+                      type="radio"
+                      name="verified-shipping"
+                      checked={selectedV3Index === index}
+                      disabled={saving}
+                      onChange={() => {
+                        setSelectedV3Index(index)
+                        setError("")
+                      }}
+                    />
+                    <span className="flex-1">
+                      <span className="block font-semibold">
+                        {option.label || option.category}
+                      </span>
+                      <span className="block text-sm text-slate-300">
+                        {option.carrier} - {option.service}
+                      </span>
+                    </span>
+                    <span className="font-bold">
+                      {money(option.amount)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
         <button
           type="button"
           onClick={() => onChangeAddress()}
           className="mb-8 text-sm font-semibold text-cyan-300 transition hover:text-cyan-200"
         >
-          â† Back to Cart
+          Ã¢â€ Â Back to Cart
         </button>
 
         <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-8 shadow-xl shadow-black/20">

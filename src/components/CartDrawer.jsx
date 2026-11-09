@@ -1,3 +1,4 @@
+import { getShippingSpeedLabel } from "../utils/shippingSpeed.js"
 import { createPortal } from "react-dom"
 import { useEffect, useMemo, useState, useRef } from "react"
 import api from "../services/api"
@@ -231,6 +232,7 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
       setSelectedShippingRate(null)
 
       const res = await api.post("/shipping/get-rates", {
+        storefront: "signavi_studio",
         address_to: {
           name: customerInfo.customerName.trim() || "Customer",
           street1: customerInfo.street.trim(),
@@ -441,7 +443,9 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
 
                           updateQuantity(
                             item.productId,
-                            isPhysical ? item.selectedVariant : productType,
+                            isPhysical && item.customizationKey
+                              ? { ...(item.selectedVariant || {}), customizationKey: item.customizationKey }
+                              : isPhysical ? item.selectedVariant : productType,
                             -1
                           )
                         }}
@@ -462,7 +466,9 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
 
                           updateQuantity(
                             item.productId,
-                            isPhysical ? item.selectedVariant : productType,
+                            isPhysical && item.customizationKey
+                              ? { ...(item.selectedVariant || {}), customizationKey: item.customizationKey }
+                              : isPhysical ? item.selectedVariant : productType,
                             1
                           )
                         }}
@@ -494,7 +500,9 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
 
                           removeFromCart(
                             item.productId,
-                            isPhysical ? item.selectedVariant : productType
+                            isPhysical && item.customizationKey
+                              ? { ...(item.selectedVariant || {}), customizationKey: item.customizationKey }
+                              : isPhysical ? item.selectedVariant : productType
                           )
                         }}
                         style={removeBtn}
@@ -603,7 +611,7 @@ export default function CartDrawer({ isOpen, onClose, onCheckout }) {
                       {shippingRates.map((rate) => (
                         <button
                           type="button"
-                          key={`${rate.id}-${rate.provider}-${rate.servicelevel}-${rate.amount}`}
+                          key={`${rate.id}-${rate.provider}-${getShippingSpeedLabel(rate)} ? {rate.servicelevel}-${rate.amount}`}
                           onClick={() => setSelectedShippingRate(rate)}
                           style={{
                             ...rateOption,

@@ -2,6 +2,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import api from "../../../services/api"
+import ShippingCompatibilityFields from "./ShippingCompatibilityFields"
 import MaterialUsageEditor, { useMaterialsCatalog, serializeMaterialUsage } from "./MaterialUsageEditor"
 
 const blankVariant = () => ({
@@ -21,7 +22,11 @@ const blankShipping = {
   widthIn: "",
   heightIn: "",
   packagingType: "unassigned",
-  shipSeparately: false
+  shipSeparately: false,
+  compatibilityMode: "combine",
+  requiresProtection: false,
+  oversized: false,
+  maxUnitsPerPackage: ""
 }
 
 const money = (value = 0) =>
@@ -159,15 +164,31 @@ export default function CreateStoreProduct() {
         return
       }
 
+      // SIGNAVI_SHIPPING_012_CAPACITY_VALIDATION
+      const rawCapacity = String(shipping.maxUnitsPerPackage ?? "").trim()
+      const capacity = rawCapacity === "" ? null : Number(rawCapacity)
+
+      if (
+        rawCapacity !== "" &&
+        (!Number.isSafeInteger(capacity) || capacity < 1)
+      ) {
+        alert("Maximum units per package must be a positive whole number.")
+        return
+      }
+
       productShipping = {
         weightOz: Number(shipping.weightOz),
         lengthIn: Number(shipping.lengthIn),
         widthIn: Number(shipping.widthIn),
         heightIn: Number(shipping.heightIn),
         packagingType: shipping.packagingType,
-        shipSeparately: Boolean(
-          shipping.shipSeparately
-        )
+        shipSeparately: shipping.compatibilityMode === "separate",
+        compatibilityMode: shipping.compatibilityMode,
+        requiresProtection:
+          shipping.compatibilityMode === "protected" ||
+          shipping.requiresProtection === true,
+        oversized: shipping.oversized === true,
+        maxUnitsPerPackage: capacity
       }
     }
 
@@ -544,21 +565,15 @@ export default function CreateStoreProduct() {
                   </select>
                 </label>
 
-                <label className="flex items-center gap-3 rounded-xl border border-slate-700 p-4 text-sm font-semibold text-slate-200">
-                  <input
-                    type="checkbox"
-                    className="h-5 w-5 accent-cyan-400"
-                    checked={shipping.shipSeparately}
-                    onChange={(e) =>
-                      updateShipping(
-                        "shipSeparately",
-                        e.target.checked
-                      )
+
+                <div className="md:col-span-2">
+                  <ShippingCompatibilityFields
+                    value={shipping}
+                    onChange={patch =>
+                      setShipping(prev => ({ ...prev, ...patch }))
                     }
                   />
-
-                  Ship this item separately
-                </label>
+                </div>
               </div>
 
               <p className={`${hint} mt-4`}>

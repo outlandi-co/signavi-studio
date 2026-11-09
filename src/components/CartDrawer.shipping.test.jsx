@@ -130,6 +130,7 @@ describe("CartDrawer shipping protection", () => {
     expect(api.post).toHaveBeenCalledWith(
       "/shipping/get-rates",
       expect.objectContaining({
+        storefront: "signavi_studio",
         items: [
           {
             productId: "synthetic-product",

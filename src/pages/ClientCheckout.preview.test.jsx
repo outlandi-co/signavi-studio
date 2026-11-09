@@ -8,6 +8,7 @@ import ClientCheckout from "./ClientCheckout"
 
 vi.mock("../services/api", () => ({
   default: {
+    post: vi.fn(),
     patch: vi.fn()
   }
 }))
@@ -62,10 +63,15 @@ const prepareCheckout = () => {
   )
 }
 
-const confirmCheckout = () => {
+const confirmCheckout = async ({ skipShipping = false } = {}) => {
   render(
     <ClientCheckout onChangeAddress={() => {}} />
   )
+
+  if (!skipShipping) {
+    const radio = await screen.findByRole("radio")
+    fireEvent.click(radio)
+  }
 
   fireEvent.click(
     screen.getByRole("button", {
@@ -77,6 +83,20 @@ const confirmCheckout = () => {
 describe("ClientCheckout V3 no-payment responses", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+
+    api.post.mockResolvedValue({
+      data: {
+        shippingOptions: [{
+          carrier: "Mock Carrier",
+          service: "Ground",
+          serviceToken: "synthetic-service-token",
+          currency: "USD",
+          amount: "10.00",
+          signedQuote: "synthetic-signed-v3-quote"
+        }]
+      }
+    })
+
     sessionStorage.clear()
     localStorage.clear()
     prepareCheckout()
@@ -97,7 +117,7 @@ describe("ClientCheckout V3 no-payment responses", () => {
       }
     })
 
-    confirmCheckout()
+    await confirmCheckout()
 
     const alert = await screen.findByRole("alert")
 
@@ -119,7 +139,7 @@ describe("ClientCheckout V3 no-payment responses", () => {
       }
     })
 
-    confirmCheckout()
+    await confirmCheckout()
 
     const alert = await screen.findByRole("alert")
 
@@ -139,7 +159,7 @@ describe("ClientCheckout V3 no-payment responses", () => {
       }
     })
 
-    confirmCheckout()
+    await confirmCheckout()
 
     const alert = await screen.findByRole("alert")
 
@@ -156,7 +176,7 @@ describe("ClientCheckout V3 no-payment responses", () => {
       }
     })
 
-    confirmCheckout()
+    await confirmCheckout()
 
     const alert = await screen.findByRole("alert")
 
@@ -176,7 +196,7 @@ describe("ClientCheckout V3 no-payment responses", () => {
       }
     })
 
-    confirmCheckout()
+    await confirmCheckout()
 
     await screen.findByRole("alert")
 
@@ -184,7 +204,7 @@ describe("ClientCheckout V3 no-payment responses", () => {
       `/orders/${orderId}/checkout`,
       expect.objectContaining({
         shippingQuote: "synthetic-test-quote",
-        v3ShippingQuote: "synthetic-test-quote"
+        v3ShippingQuote: "synthetic-signed-v3-quote"
       }),
       expect.objectContaining({
         headers: {
@@ -201,9 +221,9 @@ describe("ClientCheckout V3 no-payment responses", () => {
       `signaviCheckoutToken:${orderId}`
     )
 
-    confirmCheckout()
+    await confirmCheckout({ skipShipping: true })
 
-    const alert = await screen.findByRole("alert")
+    const alert = await screen.findByText(/Checkout session missing or expired/)
 
     expect(alert.textContent).toContain(
       "Checkout session missing or expired"
@@ -238,7 +258,7 @@ describe("ClientCheckout V3 no-payment responses", () => {
       }
     })
 
-    confirmCheckout()
+    await confirmCheckout()
 
     const alert = await screen.findByRole("alert")
 
@@ -259,7 +279,7 @@ describe("ClientCheckout V3 no-payment responses", () => {
       }
     })
 
-    confirmCheckout()
+    await confirmCheckout()
 
     const alert = await screen.findByRole("alert")
 
@@ -277,7 +297,7 @@ describe("ClientCheckout V3 no-payment responses", () => {
       }
     })
 
-    confirmCheckout()
+    await confirmCheckout()
 
     await vi.waitFor(() => {
       expect(redirectToCheckoutPayment).toHaveBeenCalledWith(
@@ -297,7 +317,7 @@ describe("ClientCheckout V3 no-payment responses", () => {
       }
     })
 
-    confirmCheckout()
+    await confirmCheckout()
 
     const alert = await screen.findByRole("alert")
 

@@ -18,20 +18,10 @@ export default function OrderModal({ order, onClose, onUpdated }) {
   }
 
   /* 💳 SQUARE PAYMENT */
-  const handlePayment = async () => {
-    try {
-      const res = await api.post(`/square/create-payment/${order._id}`)
-
-      if (!res?.data?.url) {
-        throw new Error("No payment URL")
-      }
-
-      window.location.href = res.data.url
-
-    } catch (err) {
-      console.error(err)
-      toast.error("Payment failed")
-    }
+  const handlePayment = () => {
+    toast.error(
+      "Secure payment creation is temporarily unavailable."
+    )
   }
 
   if (!order) return null

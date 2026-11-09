@@ -1,3 +1,4 @@
+import CarrierFlatRateReferenceSelector from "../../components/admin/CarrierFlatRateReferenceSelector"
 import { SIGNAVI_V2_API_ORIGIN } from "../../config/v2Api.js";
 import { useEffect, useMemo, useState } from "react"
 import api from "../../services/api"
@@ -45,6 +46,16 @@ const API_IMAGE_BASE =
   "https://signavi-backend-v2.onrender.com"
 
 const defaultForm = {
+  shipping: {
+    mode: "product_measurements",
+    packageId: "",
+    weightOz: "",
+    lengthIn: "",
+    widthIn: "",
+    heightIn: "",
+    packagingType: "unassigned",
+    shipSeparately: false,
+  },
   name: "",
   description: "",
   basePrice: "",
@@ -93,10 +104,42 @@ const normalizeVariantSize = (size) => {
 
 export default function AdminProducts() {
   const [form, setForm] = useState(defaultForm)
+  const [shippingEdited, setShippingEdited] = useState(false)
   const [creating, setCreating] = useState(false)
   const [products, setProducts] = useState([])
   const [loadingProducts, setLoadingProducts] = useState(true)
   const [editingProduct, setEditingProduct] = useState(null)
+  const [shippingPackages, setShippingPackages] = useState([])
+  const [shippingPackagesLoading, setShippingPackagesLoading] = useState(true)
+  const [shippingPackagesError, setShippingPackagesError] = useState("")
+
+  // STUDIO_058H2_SHIPPING_MODES
+  useEffect(() => {
+    let active = true
+
+    const loadShippingPackages = async () => {
+      try {
+        const response = await api.get("/shipping-packages")
+        if (!active) return
+
+        const records = Array.isArray(response.data?.data)
+          ? response.data.data
+          : []
+
+        setShippingPackages(records.filter((item) => item?.active === true))
+        setShippingPackagesError("")
+      } catch {
+        if (!active) return
+        setShippingPackages([])
+        setShippingPackagesError("Saved packages could not be loaded.")
+      } finally {
+        if (active) setShippingPackagesLoading(false)
+      }
+    }
+
+    loadShippingPackages()
+    return () => { active = false }
+  }, [])
 
   const selectedCategory = String(form.category || "").trim().toLowerCase()
   const selectedProductType = String(form.productType || "physical")
@@ -189,7 +232,19 @@ export default function AdminProducts() {
 
   const resetForm = () => {
     setForm(defaultForm)
+    setShippingEdited(false)
     setEditingProduct(null)
+  }
+
+  const updateShippingField = (field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      shipping: {
+        ...prev.shipping,
+        [field]: value,
+      },
+    }))
+    setShippingEdited(true)
   }
 
   const handleChange = (event) => {
@@ -420,6 +475,78 @@ export default function AdminProducts() {
   }
 
   const validateForm = () => {
+    const needsShipping = isPhysical && (
+      !editingProduct ||
+      shippingEdited ||
+      editingProduct.productType !== "physical"
+    )
+
+    if (needsShipping) {
+      const mode = form.shipping.mode || "product_measurements"
+      const allowedModes = [
+        "saved_package",
+        "product_measurements",
+        "per_order"
+      ]
+
+      if (!allowedModes.includes(mode)) {
+        toast.error("Choose a valid shipping method.")
+        return false
+      }
+
+      // STUDIO_058H12_CUSTOM_MEASUREMENTS
+      // Only custom sizing requires manual measurements.
+      if (mode === "product_measurements") {
+        const fields = [
+          "weightOz",
+          "lengthIn",
+          "widthIn",
+          "heightIn"
+        ]
+
+        const valid = fields.every((field) => {
+          const raw = String(form.shipping[field] ?? "").trim()
+          const number = Number(raw)
+
+          return raw !== "" &&
+            Number.isFinite(number) &&
+            number > 0
+        })
+
+        const allowed = [
+          "mailer",
+          "box",
+          "custom",
+          "fragile",
+          "oversized"
+        ]
+
+        if (!valid || !allowed.includes(form.shipping.packagingType)) {
+          toast.error(
+            "Enter the custom shipping measurements and packaging type."
+          )
+          return false
+        }
+      }
+
+      if (mode === "saved_package") {
+        const selected = shippingPackages.find(
+          (item) =>
+            String(item._id) === String(form.shipping.packageId)
+        )
+
+        if (
+          !selected ||
+          selected.active !== true ||
+          selected.type !== form.shipping.packagingType
+        ) {
+          toast.error(
+            "Select an active matching Shipping Fulfillment package."
+          )
+          return false
+        }
+      }
+    }
     const colors = getColorList()
     const cleanSizes = getCleanSizes()
 
@@ -537,6 +664,33 @@ export default function AdminProducts() {
       })
     }
 
+    const needsShipping = isPhysical && (
+      !editingProduct ||
+      shippingEdited ||
+      editingProduct.productType !== "physical"
+    )
+
+    if (needsShipping) {
+      const perOrder = form.shipping.mode === "per_order"
+      const customMeasurements =
+        form.shipping.mode === "product_measurements"
+
+      formData.append("shipping", JSON.stringify({
+        mode: form.shipping.mode || "product_measurements",
+        packageId: form.shipping.mode === "saved_package"
+          ? form.shipping.packageId
+          : null,
+        weightOz: customMeasurements ? Number(form.shipping.weightOz) : null,
+        lengthIn: customMeasurements ? Number(form.shipping.lengthIn) : null,
+        widthIn: customMeasurements ? Number(form.shipping.widthIn) : null,
+        heightIn: customMeasurements ? Number(form.shipping.heightIn) : null,
+        packagingType: perOrder ? "custom" : form.shipping.packagingType,
+        shipSeparately: perOrder
+          ? false
+          : Boolean(form.shipping.shipSeparately),
+      }))
+    }
+
     return formData
   }
 
@@ -626,6 +780,7 @@ export default function AdminProducts() {
     const digitalProduct = product.digitalProduct || {}
 
     setEditingProduct(product)
+    setShippingEdited(false)
 
     setForm({
       name: product.name || "",
@@ -642,6 +797,18 @@ export default function AdminProducts() {
       sizePrices,
       colorImages: {},
       existingVariantImages,
+      shipping: {
+        mode: product.shipping?.mode || "product_measurements",
+        packageId: product.shipping?.packageId
+          ? String(product.shipping.packageId)
+          : "",
+        weightOz: product.shipping?.weightOz == null ? "" : String(product.shipping.weightOz),
+        lengthIn: product.shipping?.lengthIn == null ? "" : String(product.shipping.lengthIn),
+        widthIn: product.shipping?.widthIn == null ? "" : String(product.shipping.widthIn),
+        heightIn: product.shipping?.heightIn == null ? "" : String(product.shipping.heightIn),
+        packagingType: product.shipping?.packagingType || "unassigned",
+        shipSeparately: product.shipping?.shipSeparately === true,
+      },
       digitalProduct: {
         previewImage: digitalProduct.previewImage || product.image || "",
         previewFiles: [],
@@ -832,6 +999,195 @@ export default function AdminProducts() {
                 style={input}
               />
             </>
+          )}
+
+          {isPhysical && (
+            <div style={{
+              border: "1px solid #334155",
+              borderRadius: 12,
+              padding: 16,
+              marginTop: 16,
+              marginBottom: 16,
+            }}>
+              <h3 style={sectionTitle}>Shipping &amp; Packaging</h3>
+              <CarrierFlatRateReferenceSelector />
+
+              <fieldset style={{
+                border: "1px solid #475569",
+                borderRadius: 10,
+                padding: 12,
+                marginBottom: 16,
+              }}>
+                <legend style={{ padding: "0 6px" }}>
+                  Packaging method
+                </legend>
+
+                {[
+                  ["product_measurements", "Custom sizing ? live carrier pricing"],
+                  ["saved_package", "Prefer a saved Shipping Fulfillment package"],
+                  ["per_order", "Determine actual packaging per order"],
+                ].map(([value, title]) => (
+                  <label key={value} style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    marginBottom: 10,
+                    cursor: "pointer",
+                  }}>
+                    <input
+                      type="radio"
+                      name="productShippingMode"
+                      value={value}
+                      checked={
+                        (form.shipping.mode || "product_measurements") === value
+                      }
+                      onChange={() => {
+                        setForm((prev) => ({
+                          ...prev,
+                          shipping: {
+                            ...prev.shipping,
+                            mode: value,
+                            packageId: value === "saved_package"
+                              ? prev.shipping.packageId
+                              : "",
+                          },
+                        }))
+                        setShippingEdited(true)
+                      }}
+                    />
+                    {title}
+                  </label>
+                ))}
+              </fieldset>
+
+              {form.shipping.mode === "saved_package" && (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={label}>Preferred saved package</label>
+                  <select
+                    style={input}
+                    value={form.shipping.packageId || ""}
+                    disabled={shippingPackagesLoading}
+                    onChange={(event) => {
+                      const packageId = event.target.value
+                      const selected = shippingPackages.find(
+                        (item) => String(item._id) === packageId
+                      )
+
+                      setForm((prev) => ({
+                        ...prev,
+                        shipping: {
+                          ...prev.shipping,
+                          packageId,
+                          packagingType: selected?.type || "unassigned",
+                        },
+                      }))
+                      setShippingEdited(true)
+                    }}
+                  >
+                    <option value="">Select a saved package</option>
+                    {shippingPackages.map((item) => (
+                      <option key={item._id} value={String(item._id)}>
+                        {item.name} ? {item.lengthIn} ? {item.widthIn} ? {item.heightIn} in
+                      </option>
+                    ))}
+                  </select>
+                  {shippingPackagesLoading && (
+                    <p style={helperText}>Loading saved packages...</p>
+                  )}
+                  {shippingPackagesError && (
+                    <p role="alert" style={helperText}>
+                      {shippingPackagesError}
+                    </p>
+                  )}
+                  <p style={helperText}>
+                    Your product measurements are still required.
+                    A larger compatible package may be selected
+                    automatically for bigger quantities.
+                  </p>
+                </div>
+              )}
+
+              {form.shipping.mode === "per_order" && (
+                <p style={helperText}>
+                  Fulfillment must enter actual packed parcel
+                  measurements before quoting this custom order.
+                  No automatic shipping price will be calculated.
+                </p>
+              )}
+
+              {form.shipping.mode === "product_measurements" && (
+                <>
+              <p style={helperText}>
+                Enter actual measurements for one unpackaged product.
+              </p>
+
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                gap: 12,
+              }}>
+                {[
+                  ["weightOz", "Weight (oz)"],
+                  ["lengthIn", "Length (in)"],
+                  ["widthIn", "Width (in)"],
+                  ["heightIn", "Height (in)"],
+                ].map(([field, title]) => (
+                  <label key={field} style={label}>
+                    {title}
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="any"
+                      value={form.shipping[field]}
+                      disabled={form.shipping.mode === "per_order"}
+                      onChange={(event) =>
+                        updateShippingField(field, event.target.value)
+                      }
+                      style={input}
+                    />
+                  </label>
+                ))}
+              </div>
+
+              <label style={label}>Packaging Type</label>
+              <select
+                value={form.shipping.packagingType}
+                disabled={
+                  form.shipping.mode === "saved_package" ||
+                  form.shipping.mode === "per_order"
+                }
+                onChange={(event) =>
+                  updateShippingField("packagingType", event.target.value)
+                }
+                style={input}
+              >
+                <option value="unassigned">Select packaging</option>
+                <option value="mailer">Mailer</option>
+                <option value="box">Box</option>
+                <option value="custom">Custom</option>
+                <option value="fragile">Fragile</option>
+                <option value="oversized">Oversized</option>
+              </select>
+
+              <label style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginTop: 12,
+              }}>
+                <input
+                  type="checkbox"
+                  checked={form.shipping.shipSeparately}
+                  onChange={(event) =>
+                    updateShippingField("shipSeparately", event.target.checked)
+                  }
+                />
+                Ship separately
+              </label>
+
+                </>
+              )}
+            </div>
           )}
 
           <textarea

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom"
 import toast from "react-hot-toast"
 
 import api from "../services/api"
+import { useCartContext } from "../context/useCartContext"
 
 import UploadArtwork from "../components/UploadArtwork"
 import ProductMockup from "../components/ProductMockup"
@@ -56,9 +57,10 @@ const getCustomerUser = () => {
   }
 }
 
-export default function ProductCustomizer() {
+export default function ProductCustomizer({ onOpenCart }) {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { addToCart } = useCartContext()
 
   const [product, setProduct] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -201,52 +203,118 @@ export default function ProductCustomizer() {
     try {
       setSubmitting(true)
 
-      const payload = {
+      // The backend's storefront order route uses this catalog.
+      if (product.storefront !== "signavi_studio") {
+        throw new Error(
+          "This product is not eligible for the current checkout catalog."
+        )
+      }
+
+      const productType = String(
+        product.productType || product.type || "physical"
+      ).toLowerCase()
+
+      if (productType !== "physical") {
+        throw new Error("Only physical custom products are supported here.")
+      }
+
+      if (Array.isArray(product.variants) && product.variants.length) {
+        throw new Error(
+          "This product requires color and size selection, which is not yet supported in this customizer."
+        )
+      }
+
+      const stock = Number(product.stock ?? product.availableStock)
+
+      if (
+        !Number.isInteger(stock) ||
+        stock < 1 ||
+        !Number.isInteger(totals.quantity) ||
+        totals.quantity < 1 ||
+        totals.quantity > stock
+      ) {
+        throw new Error("Verified inventory is unavailable or insufficient.")
+      }
+
+      if (
+        !Number.isFinite(totals.unitPrice) ||
+        totals.unitPrice <= 0
+      ) {
+        throw new Error("Product price is unavailable.")
+      }
+
+      const artwork = String(form.artwork || "").trim()
+
+      if (artwork) {
+        let artworkUrl
+        try {
+          artworkUrl = new URL(artwork)
+        } catch {
+          throw new Error("Artwork must have a valid HTTPS URL.")
+        }
+        if (
+          artworkUrl.protocol !== "https:" ||
+          artworkUrl.username ||
+          artworkUrl.password
+        ) {
+          throw new Error("Artwork must have a valid HTTPS URL.")
+        }
+      }
+
+      const coordinates = {
+        x: Number(design.x),
+        y: Number(design.y),
+        size: Number(design.size)
+      }
+
+      if (
+        Object.values(coordinates).some(
+          (value) => !Number.isFinite(value) ||
+            value < -10000 || value > 10000
+        ) ||
+        coordinates.size <= 0
+      ) {
+        throw new Error("Invalid custom design coordinates.")
+      }
+
+      const customization = {
+        artwork,
+        productionType: String(form.productionType || "").trim(),
+        printLocation: String(printLocation || "").trim(),
+        design: coordinates
+      }
+
+      if (
+        !customization.productionType ||
+        !customization.printLocation
+      ) {
+        throw new Error("Choose valid production and print options.")
+      }
+
+      const added = addToCart({
         productId: product._id,
-        customerName: form.customerName.trim(),
-        email: form.email.trim().toLowerCase(),
+        name: product.name || "Custom Product",
+        image: getProductImage(product),
+        productType,
+        storefront: product.storefront,
+        stock,
         quantity: totals.quantity,
-        productionType: form.productionType,
-        artwork: form.artwork,
-        design,
-        printLocation,
-        source: "customizer",
-        status: "payment_required",
-        items: [
-          {
-            productId: product._id,
-            name: product.name || "Custom Product",
-            quantity: totals.quantity,
-            price: totals.unitPrice,
-            image: getProductImage(product),
-            variant: {
-              printLocation,
-              productionType: form.productionType,
-              design
-            }
-          }
-        ],
-        subtotal: totals.subtotal,
-        tax: totals.tax,
-        finalPrice: totals.finalPrice
+        price: totals.unitPrice,
+        unitPrice: totals.unitPrice,
+        customization
+      })
+
+      if (!added) {
+        throw new Error("Unable to add custom product to cart.")
       }
 
-      console.log("🚀 ORDER PAYLOAD:", payload)
+      localStorage.setItem(
+        "customerEmail",
+        form.email.trim().toLowerCase()
+      )
 
-      const res = await api.post("/orders", payload)
-
-      const order =
-        res.data?.data ||
-        res.data?.order ||
-        res.data
-
-      if (!order?._id) {
-        throw new Error("Order was created but no ID returned")
-      }
-
-      toast.success("Order created successfully")
-
-      navigate(`/client-checkout/${order._id}`)
+      onOpenCart?.()
+      toast.success("Custom design added. Review shipping in your cart.")
     } catch (err) {
       console.error(
         "❌ SUBMIT ERROR:",
