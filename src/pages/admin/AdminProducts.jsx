@@ -181,13 +181,13 @@ export default function AdminProducts() {
     }
 
     try {
-      const res = await api.get("/products")
+      const res = await api.get("/products", { params: { storefront: "signavi_studio" } })
 
       const productData = Array.isArray(res.data)
         ? res.data
         : res.data?.data || []
 
-      setProducts(productData)
+      setProducts(productData.filter((product) => product?.storefront === "signavi_studio"))
     } catch (err) {
       console.error("❌ LOAD PRODUCTS ERROR:", err.response?.data || err)
       toast.error("Failed to load products")
@@ -202,7 +202,7 @@ export default function AdminProducts() {
 
     const timer = setTimeout(async () => {
       try {
-        const res = await api.get("/products")
+        const res = await api.get("/products", { params: { storefront: "signavi_studio" } })
 
         if (!active) return
 
@@ -210,7 +210,7 @@ export default function AdminProducts() {
           ? res.data
           : res.data?.data || []
 
-        setProducts(productData)
+        setProducts(productData.filter((product) => product?.storefront === "signavi_studio"))
       } catch (err) {
         if (!active) return
 
@@ -625,6 +625,8 @@ export default function AdminProducts() {
 
     const formData = new FormData()
 
+    formData.append("storefront", "signavi_studio")
+    formData.append("salesChannel", "signavi_studio")
     formData.append("name", form.name.trim())
     formData.append("description", form.description)
     formData.append("category", selectedCategory)

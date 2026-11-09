@@ -90,6 +90,7 @@ import AdminInstagram from "./pages/admin/AdminInstagram"
 
 import AdminMaterials from "./pages/admin/AdminMaterials/AdminMaterials"
 
+import AdminProducts from "./pages/admin/AdminProducts"
 import StoreProducts from "./pages/admin/signavi-store/StoreProducts"
 import CreateStoreProduct from "./pages/admin/signavi-store/CreateStoreProduct"
 import EditStoreProduct from "./pages/admin/signavi-store/EditStoreProduct"
@@ -402,37 +403,13 @@ function AppContent() {
               element={<AdminMaterials />}
             />
 
-            <Route
-              path="products"
-              element={
-                <Navigate
-                  to="/admin/signavi-store/products"
-                  replace
-                />
-              }
-            />
+            <Route path="products" element={<AdminProducts />} />
 
 
 
-            <Route
-              path="products/new"
-              element={
-                <Navigate
-                  to="/admin/signavi-store/create"
-                  replace
-                />
-              }
-            />
+            <Route path="products/new" element={<AdminProducts />} />
 
-            <Route
-              path="products/edit/:id"
-              element={
-                <Navigate
-                  to="/admin/signavi-store/products"
-                  replace
-                />
-              }
-            />
+            <Route path="products/edit/:id" element={<AdminProducts />} />
 
             <Route
               path="signavi-store/products"
