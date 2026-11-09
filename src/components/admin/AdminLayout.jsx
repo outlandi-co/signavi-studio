@@ -532,8 +532,16 @@ useEffect(() => {
             Store
           </div>
 
+          <SideLink to="/admin/products">
+            Studio Products
+          </SideLink>
+
           <SideLink to="/admin/products/new">
-            ➕ Create Product
+            Create Studio Product
+          </SideLink>
+
+          <SideLink to="/admin/signavi-store/create">
+            Create Store Product
           </SideLink>
 
           <SideLink to="/admin/signavi-store/products">
