@@ -195,7 +195,7 @@ export default function StoreProducts() {
 
     try {
       setBusyProductId(product._id)
-      const response = await api.patch(`/products/${product._id}`, {
+      const response = await api.patch(`/products/${product._id}?storefront=signavi_store`, {
         storefrontVisible: nextVisible
       })
 
@@ -229,7 +229,7 @@ export default function StoreProducts() {
 
     try {
       setBusyProductId(product._id)
-      const response = await api.delete(`/products/${product._id}`)
+      const response = await api.delete(`/products/${product._id}`, { params: { storefront: "signavi_store" } })
 
       if (response.data?.success === false) {
         throw new Error(response.data.message || "Delete failed")

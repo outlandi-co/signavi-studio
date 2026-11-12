@@ -191,7 +191,7 @@ export default function ProductManager() {
     try {
       setDeletingId(product._id)
 
-      await api.delete(`/products/${product._id}`)
+      await api.delete(`/products/${product._id}?storefront=signavi_studio`)
 
       toast.success("Product deleted")
 
@@ -214,7 +214,7 @@ export default function ProductManager() {
     try {
       const nextValue = !product.storefrontVisible
 
-      await api.patch(`/products/${product._id}`, {
+      await api.patch(`/products/${product._id}?storefront=signavi_studio`, {
         storefrontVisible: nextValue
       })
 

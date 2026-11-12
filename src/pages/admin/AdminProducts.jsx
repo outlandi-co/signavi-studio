@@ -1,3 +1,4 @@
+import ProductPricingPanel from "../../components/admin/ProductPricingPanel.jsx";
 import CarrierFlatRateReferenceSelector from "../../components/admin/CarrierFlatRateReferenceSelector"
 import { SIGNAVI_V2_API_ORIGIN } from "../../config/v2Api.js";
 import { useEffect, useMemo, useState } from "react"
@@ -104,6 +105,8 @@ const normalizeVariantSize = (size) => {
 
 export default function AdminProducts() {
   const [form, setForm] = useState(defaultForm)
+  const [unitCost, setUnitCost] = useState("")
+  const [markupPercent, setMarkupPercent] = useState("60")
   const [shippingEdited, setShippingEdited] = useState(false)
   const [creating, setCreating] = useState(false)
   const [products, setProducts] = useState([])
@@ -705,7 +708,7 @@ export default function AdminProducts() {
       const formData = buildFormData()
 
       if (editingProduct?._id) {
-        await api.patch(`/products/${editingProduct._id}`, formData, {
+        await api.patch(`/products/${editingProduct._id}?storefront=signavi_studio`, formData, {
           headers: {
             "Content-Type": "multipart/form-data",
           },
@@ -840,7 +843,7 @@ export default function AdminProducts() {
     if (!confirmed) return
 
     try {
-      await api.delete(`/products/${product._id}`)
+      await api.delete(`/products/${product._id}`, { params: { storefront: "signavi_studio" } })
 
       toast.success("Product deleted")
 
@@ -981,6 +984,26 @@ export default function AdminProducts() {
             style={input}
           />
 
+          {isPhysical && (
+            <>
+              <ProductPricingPanel
+                unitCost={unitCost}
+                markupPercent={markupPercent}
+                onCostChange={setUnitCost}
+                onMarkupChange={setMarkupPercent}
+                onApplyPrice={(sellingPrice) => {
+                  setForm((previous) => ({
+                    ...previous,
+                    basePrice: String(sellingPrice),
+                  }))
+                }}
+              />
+              <p style={{ fontSize: 12, opacity: 0.75 }}>
+                Pricing preview only. Unit cost and markup are not
+                yet saved with the product.
+              </p>
+            </>
+          )}
           {isPhysical && (
             <>
               <input

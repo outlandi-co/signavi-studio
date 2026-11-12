@@ -111,7 +111,7 @@ export default function Inventory() {
     if (!window.confirm("Delete this product?")) return
 
     try {
-      await api.delete(`/products/${id}`)
+      await api.delete(`/products/${id}?storefront=signavi_studio`)
 
       setProducts((prev) =>
         prev.filter((product) => product._id !== id)
@@ -167,7 +167,7 @@ export default function Inventory() {
         category: editData.category.trim()
       }
 
-      const res = await api.patch(`/products/${id}`, payload)
+      const res = await api.patch(`/products/${id}?storefront=signavi_studio`, payload)
 
       const updatedProduct =
         res.data?.data ||
@@ -190,7 +190,7 @@ export default function Inventory() {
       console.error("❌ UPDATE PRODUCT ERROR:", err)
 
       try {
-        const res = await api.put(`/products/${id}`, {
+        const res = await api.patch(`/products/${id}?storefront=signavi_studio`, {
           name: editData.name.trim(),
           price: Number(editData.price) || 0,
           stock: Number(editData.stock) || 0,

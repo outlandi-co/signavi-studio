@@ -174,7 +174,7 @@ export default function AdminInventory() {
       if (v) formData.append(k, v)
     })
 
-    const res = await api.put(`/products/${selected._id}`, formData)
+    const res = await api.patch(`/products/${selected._id}?storefront=signavi_studio`, formData)
 
     setProducts(prev =>
       prev.map(p => p._id === selected._id ? res.data : p)
@@ -187,7 +187,7 @@ export default function AdminInventory() {
   const deleteProduct = async (id) => {
     if (!window.confirm("Delete product?")) return
 
-    await api.delete(`/products/${id}`)
+    await api.delete(`/products/${id}?storefront=signavi_studio`)
     setProducts(prev => prev.filter(p => p._id !== id))
   }
 

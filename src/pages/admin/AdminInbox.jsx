@@ -125,9 +125,6 @@ return (
       ➕ Create Product
     </SideLink>
 
-    <SideLink to="/admin/signavi-store/products">
-      🛍️ Store Products
-    </SideLink>
 
     <SideLink to="/admin/signavi-store/discounts">
       💸 Store Discounts

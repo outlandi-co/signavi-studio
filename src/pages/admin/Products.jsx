@@ -58,7 +58,7 @@ export default function Products() {
     if (!confirmDelete) return
 
     try {
-      await api.delete(`/products/${id}`)
+      await api.delete(`/products/${id}?storefront=signavi_studio`)
 
       setProducts((prev) =>
         prev.filter((product) => product._id !== id)

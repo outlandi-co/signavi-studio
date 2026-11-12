@@ -156,7 +156,7 @@ export default function Discounts() {
             discountValue
           )
 
-          return api.patch(`/products/${product._id}`, {
+          return api.patch(`/products/${product._id}?storefront=signavi_store`, {
             discountActive: true,
             discountType,
             discountValue: Number(discountValue),
@@ -202,7 +202,7 @@ export default function Discounts() {
 
       await Promise.all(
         selectedProducts.map((product) =>
-          api.patch(`/products/${product._id}`, {
+          api.patch(`/products/${product._id}?storefront=signavi_store`, {
             discountActive: false,
             discountType: "",
             discountValue: 0,

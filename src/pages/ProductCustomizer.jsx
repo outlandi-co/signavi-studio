@@ -116,7 +116,7 @@ export default function ProductCustomizer({ onOpenCart }) {
           throw new Error("Invalid product ID")
         }
 
-        const res = await api.get(`/products/${id}`)
+        const res = await api.get(`/products/${id}`, { params: { storefront: "signavi_studio" } })
 
         if (!mounted) return
 
