@@ -51,7 +51,7 @@ export default function ProductDetail() {
 
     const timer = setTimeout(async () => {
       try {
-        const res = await api.get(`/products/${id}`)
+        const res = await api.get(`/products/${id}`, { params: { storefront: "signavi_studio" } })
         const loadedProduct =
           res.data?.data ||
           res.data?.product ||
